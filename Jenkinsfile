@@ -1,17 +1,13 @@
 pipeline {
-    agent {
-        docker {
-            image: 'rtype-builder:latest'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    
+    agent an
 
     parameters {
         string(name: "BRANCH", defaultValue: 'main', description: 'Branche à builder')
     }
 
     triggers {
-        pollSCM("H/15 * * * *")
+        pollSCM("H/3 * * * *")
     }
 
     options {
@@ -27,9 +23,46 @@ pipeline {
             }
         }
 
+        stage('Build Docker Image') {
+            steps {
+                echo '🐳 Construction de l\'image Docker...'
+                dir('ci_cd/docker') {
+                    sh 'docker-compose -f docker-compose.build.yml build'
+                }
+            }
+        }
+
+        stage('Install Dependencies') {
+            agent {
+                docker {
+                    image 'rtype-builder:latest'
+                    reuseNode true
+                }
+            }
+            steps {
+                echo '📦 Installation des dépendances...'
+                sh './scripts/install_vcpkg.sh'
+                sh './scripts/vcpkg.sh install'
+            }
+        }
+
         stage('Build') {
             steps {
-                echo 'Je builde!'
+                sh './scripts/vcpkg.sh install'
+                sh './scripts/build.sh'
+            }
+        }
+
+        stage('Build') {
+            agent {
+                docker {
+                    image 'rtype-builder:latest'
+                    reuseNode true
+                }
+            }
+            steps {
+                echo '🏗️ Compilation...'
+                sh './scripts/build.sh'
             }
         }
     }
