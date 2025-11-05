@@ -37,10 +37,11 @@ pipeline {
                 sh 'ls -la scripts/'
                 sh 'ls -la scripts/vcpkg/'
                 sh 'find scripts/ -type f'
+                sh 'pwd'  // Voir le vrai chemin
                 // Vérification dans le conteneur
                 sh '''
                     docker run --rm \
-                        -v "${WORKSPACE}":/workspace \
+                        -v "$(pwd)":/workspace \
                         -w /workspace \
                         rtype-builder:latest \
                         bash -c "echo '=== Dans le conteneur ===' && pwd && ls -la && ls -la scripts/"
@@ -53,7 +54,7 @@ pipeline {
                 echo '📦 Installation des dépendances...'
                 sh '''
                     docker run --rm \
-                        -v "${WORKSPACE}":/workspace \
+                        -v "$(pwd)":/workspace \
                         -w /workspace \
                         rtype-builder:latest \
                         bash -c "ls -la && ./scripts/vcpkg/install_vcpkg.sh"
