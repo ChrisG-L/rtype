@@ -11,6 +11,12 @@ services:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    command: >
+      bash -c "
+        apt-get update &&
+        apt-get install -y docker.io docker-compose &&
+        /usr/local/bin/jenkins.sh
+      "
 
 volumes:
   jenkins_home:

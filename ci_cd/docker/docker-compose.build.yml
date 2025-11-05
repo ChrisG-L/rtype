@@ -3,6 +3,7 @@ services:
     build:
       context: ../..
       dockerfile: ci_cd/docker/Dockerfile.build
+    image: rtype-builder:latest
     container_name: rtype_builder
     volumes:
       - ../../:/workspace
