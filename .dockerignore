@@ -1,0 +1,18 @@
+**/jenkins_data/
+
+**/vcpkg_installed/
+**/third_party/vcpkg/downloads/
+**/third_party/vcpkg/buildtrees/
+**/third_party/vcpkg/packages/
+
+# Ignorer .git
+**/.git/
+**/.gitignore
+
+# Ignorer les fichiers temporaires
+**/*.swp
+**/*.tmp
+**/.DS_Store
+
+# Ignorer les artefacts
+**/artifacts/

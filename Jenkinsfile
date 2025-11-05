@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image: 'rtype-builder:latest'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     parameters {
         string(name: "BRANCH", defaultValue: 'main', description: 'Branche à builder')
