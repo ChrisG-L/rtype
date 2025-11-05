@@ -31,6 +31,15 @@ pipeline {
             }
         }
 
+        stage('Debug') {
+            steps {
+                echo '🔍 Vérification structure...'
+                sh 'ls -la scripts/'
+                sh 'ls -la scripts/vcpkg/ || echo "vcpkg/ manquant"'
+                sh 'find scripts/ -type f'
+            }
+        }
+
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installation des dépendances...'
