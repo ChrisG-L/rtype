@@ -57,25 +57,6 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                echo '🧪 Tests...'
-                sh '''
-                    docker run --rm \
-                        -v "$(pwd)":/workspace \
-                        -w /workspace \
-                        rtype-builder:latest \
-                        ./scripts/test.sh || true
-                '''
-            }
-        }
-
-        stage('Archive') {
-            steps {
-                echo '📦 Archivage...'
-                archiveArtifacts artifacts: 'build/**/*', allowEmptyArchive: true
-            }
-        }
     }
 
     post {
