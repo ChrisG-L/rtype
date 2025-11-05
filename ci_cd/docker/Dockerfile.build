@@ -18,9 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Définir le répertoire de travail
-WORKDIR /app
-
-COPY . .
+WORKDIR /workspace
 
 # Commande par défaut pour construire le projet
 CMD ["./scripts/build.sh"]
