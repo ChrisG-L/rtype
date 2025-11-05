@@ -35,6 +35,7 @@ pipeline {
             steps {
                 echo '📦 Installation des dépendances...'
                 sh 'pwd'
+                sh 'ls -la'
                 sh '''
                 docker run --rm \
                     -v "$(pwd)":/workspace \
