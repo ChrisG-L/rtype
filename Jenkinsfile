@@ -39,23 +39,23 @@ pipeline {
                     -v "$(pwd)":/workspace \
                     -w /workspace \
                     rtype-builder:latest \
-                    ./scripts/vcpkg/vcpkg.sh install
+                    ./scripts/vcpkg/install_vcpkg.sh
                 '''
             }
         }
 
-        stage('Build') {
-            steps {
-                echo '🏗️ Compilation...'
-                sh '''
-                    docker run --rm \
-                        -v "$(pwd)":/workspace \
-                        -w /workspace \
-                        rtype-builder:latest \
-                        ./scripts/build.sh
-                '''
-            }
-        }
+        // stage('Build') {
+        //     steps {
+        //         echo '🏗️ Compilation...'
+        //         sh '''
+        //             docker run --rm \
+        //                 -v "$(pwd)":/workspace \
+        //                 -w /workspace \
+        //                 rtype-builder:latest \
+        //                 ./scripts/build.sh
+        //         '''
+        //     }
+        // }
     }
 
     post {
