@@ -53,11 +53,11 @@ pipeline {
             steps {
                 echo '📦 Installation des dépendances...'
                 sh '''
-                    docker run --rm \
-                        -v "$(pwd)":/workspace \
-                        -w /workspace \
-                        rtype-builder:latest \
-                        bash -c "ls -la && ./scripts/vcpkg/install_vcpkg.sh"
+                docker run --rm \
+                    -v /tmp/jenkins-workspace/rtype:/workspace \
+                    -w /workspace \
+                    rtype-builder:latest \
+                    bash -c "ls -la && ./scripts/vcpkg/install_vcpkg.sh"
                 '''
             }
         }
