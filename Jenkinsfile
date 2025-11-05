@@ -35,8 +35,16 @@ pipeline {
             steps {
                 echo '🔍 Vérification structure...'
                 sh 'ls -la scripts/'
-                sh 'ls -la scripts/vcpkg/ || echo "vcpkg/ manquant"'
+                sh 'ls -la scripts/vcpkg/'
                 sh 'find scripts/ -type f'
+                // Vérification dans le conteneur
+                sh '''
+                    docker run --rm \
+                        -v "${WORKSPACE}":/workspace \
+                        -w /workspace \
+                        rtype-builder:latest \
+                        bash -c "echo '=== Dans le conteneur ===' && pwd && ls -la && ls -la scripts/"
+                '''
             }
         }
 
@@ -52,19 +60,6 @@ pipeline {
                 '''
             }
         }
-
-        // stage('Build') {
-        //     steps {
-        //         echo '🏗️ Compilation...'
-        //         sh '''
-        //             docker run --rm \
-        //                 -v "$(pwd)":/workspace \
-        //                 -w /workspace \
-        //                 rtype-builder:latest \
-        //                 ./scripts/build.sh
-        //         '''
-        //     }
-        // }
     }
 
     post {
