@@ -39,7 +39,7 @@ pipeline {
                         -v "$(pwd)":/workspace \
                         -w /workspace \
                         rtype-builder:latest \
-                        ./scripts/vcpkg.sh install
+                        ./scripts/vcpkg/vcpkg.sh install
                 '''
             }
         }
