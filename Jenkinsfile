@@ -26,7 +26,7 @@ pipeline {
             steps {
                 echo '🐳 Construction de l\'image Docker...'
                 dir('ci_cd/docker') {
-                    sh 'docker-compose -f docker-compose.build.yml build'
+                    sh 'docker compose -f docker-compose.build.yml build'
                 }
             }
         }
@@ -56,7 +56,6 @@ pipeline {
                 '''
             }
         }
-
     }
 
     post {
