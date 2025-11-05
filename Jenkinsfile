@@ -43,14 +43,12 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installation des dépendances...'
-                sh 'pwd'
-                sh 'ls -la'
                 sh '''
-                docker run --rm \
-                    -v "$(pwd)":/workspace \
-                    -w /workspace \
-                    rtype-builder:latest \
-                    ./scripts/vcpkg/install_vcpkg.sh
+                    docker run --rm \
+                        -v "${WORKSPACE}":/workspace \
+                        -w /workspace \
+                        rtype-builder:latest \
+                        bash -c "ls -la && ./scripts/vcpkg/install_vcpkg.sh"
                 '''
             }
         }
