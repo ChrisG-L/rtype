@@ -1,0 +1,9 @@
+services:
+  builder:
+    build:
+      context: ../..
+      dockerfile: ci_cd/docker/Dockerfile.build
+    container_name: rtype_builder
+    volumes:
+      - ../../:/workspace
+    working_dir: /workspace

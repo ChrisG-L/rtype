@@ -1,0 +1,29 @@
+FROM ubuntu:22.04
+
+# Métadonnées sur l'image
+LABEL maintainer="Killian Pluenet"
+LABEL project="R-Type"
+LABEL description="Dockerfile to build R-Type project"
+
+# Installer les dépendances nécessaires pour la construction
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    libssl-dev \
+    unzip \
+    wget \
+    zip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+COPY . .
+
+# Commande par défaut pour construire le projet
+CMD ["./scripts/build.sh"]
+
+

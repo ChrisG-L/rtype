@@ -1,21 +1,16 @@
-version: "3.8"
-
 services:
   jenkins:
-    image: jenkins/jenkins:lts # Mettre l'image jenkins
-    container_name: jenkins # Nom du conteneur
-    privileged: true # Nécessaire pour exécuter Docker dans Docker
-    user: root # Exécuter en tant que root pour les permissions Docker
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    privileged: true
+    user: root
     ports:
       - "8080:8080"
       - "50000:50000"
     volumes:
-      - jenkins_home:/var/jenkins_home # Volume pour persister les données Jenkins
-      - /var/run/docker.sock:/var/run/docker.sock # Permet à Jenkins d'utiliser Docker de l'hôte
-      - ./jenkins_data:/var/jenkins_home # Volume local pour les données Jenkins
-    environment:
-      - JENKINS_OPTS=--prefix=/jenkins # Préfixe pour Jenkins
-    restart: unless-stopped # Redémarrer le conteneur sauf s'il est arrêté manuellement
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
 
 volumes:
-  jenkins_home: # Déclaration du volume Jenkins
+  jenkins_home:
