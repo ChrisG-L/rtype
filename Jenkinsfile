@@ -1,6 +1,6 @@
 pipeline {
     
-    agent an
+    agent any
 
     parameters {
         string(name: "BRANCH", defaultValue: 'main', description: 'Branche à builder')
