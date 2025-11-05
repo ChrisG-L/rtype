@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        string(name: "BRANCH", defaultValue: 'main', 'Branche à builder')
+        string(name: "BRANCH", defaultValue: 'main', description: 'Branche à builder')
     }
 
     triggers {
@@ -17,7 +17,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '📥 Récupération du code source...'x
+                echo '📥 Récupération du code source...'
                 checkout scm
             }
         }
