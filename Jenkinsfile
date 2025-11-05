@@ -1,8 +1,6 @@
 pipeline {
     agent any
 
-    environment {}
-
     parameters {
         string(name: "BRANCH", defaultValue: 'main', 'Branche à builder')
     }
