@@ -35,11 +35,11 @@ pipeline {
             steps {
                 echo '📦 Installation des dépendances...'
                 sh '''
-                    docker run --rm \
-                        -v "$(pwd)":/workspace \
-                        -w /workspace \
-                        rtype-builder:latest \
-                        ./scripts/vcpkg/vcpkg.sh install
+                docker run --rm \
+                    -v "$(pwd)":/workspace \
+                    -w /workspace \
+                    rtype-builder:latest \
+                    ./scripts/vcpkg/vcpkg.sh install
                 '''
             }
         }
