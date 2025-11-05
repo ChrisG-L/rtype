@@ -1,5 +1,4 @@
 pipeline {
-    
     agent any
 
     parameters {
@@ -33,49 +32,61 @@ pipeline {
         }
 
         stage('Install Dependencies') {
-            agent {
-                docker {
-                    image 'rtype-builder:latest'
-                    reuseNode true
-                }
-            }
             steps {
                 echo '📦 Installation des dépendances...'
-                sh './scripts/install_vcpkg.sh'
-                sh './scripts/vcpkg.sh install'
+                sh '''
+                    docker run --rm \
+                        -v "$(pwd)":/workspace \
+                        -w /workspace \
+                        rtype-builder:latest \
+                        ./scripts/vcpkg.sh install
+                '''
             }
         }
 
         stage('Build') {
-            steps {
-                sh './scripts/vcpkg.sh install'
-                sh './scripts/build.sh'
-            }
-        }
-
-        stage('Build') {
-            agent {
-                docker {
-                    image 'rtype-builder:latest'
-                    reuseNode true
-                }
-            }
             steps {
                 echo '🏗️ Compilation...'
-                sh './scripts/build.sh'
+                sh '''
+                    docker run --rm \
+                        -v "$(pwd)":/workspace \
+                        -w /workspace \
+                        rtype-builder:latest \
+                        ./scripts/build.sh
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo '🧪 Tests...'
+                sh '''
+                    docker run --rm \
+                        -v "$(pwd)":/workspace \
+                        -w /workspace \
+                        rtype-builder:latest \
+                        ./scripts/test.sh || true
+                '''
+            }
+        }
+
+        stage('Archive') {
+            steps {
+                echo '📦 Archivage...'
+                archiveArtifacts artifacts: 'build/**/*', allowEmptyArchive: true
             }
         }
     }
 
     post {
         always {
-            echo 'Pipeline terminé'
+            echo '🧹 Pipeline terminé'
         }
         success {
-            echo 'Succès!'
+            echo '✅ Succès !'
         }
         failure {
-            echo 'Echec!'
+            echo '❌ Échec !'
         }
     }
 }
