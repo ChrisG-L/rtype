@@ -1,33 +1,38 @@
 #!/bin/bash
-set -e
+set -e  # Arrêter en cas d'erreur
 
-# Retourner au répertoire racine du dépôt
-cd "$(git rev-parse --show-toplevel)"
-
-PROJECT_ROOT="$(pwd)"
+PROJECT_ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd)"
 VCPKG_DIR="$PROJECT_ROOT/third_party/vcpkg"
-BUILD_DIR="$PROJECT_ROOT/build"
 
-echo "📁 Racine du projet: $PROJECT_ROOT"
+echo "📁 Installation de vcpkg dans: $VCPKG_DIR"
 
-# Vérifier que vcpkg est installé
-if [ ! -f "$VCPKG_DIR/vcpkg" ]; then
-    echo "❌ vcpkg n'est pas installé. Exécutez d'abord install_vcpkg.sh"
-    exit 1
+# Créer le dossier third_party s'il n'existe pas
+mkdir -p "$PROJECT_ROOT/third_party"
+
+# Cloner vcpkg s'il n'existe pas
+if [ ! -d "$VCPKG_DIR" ]; then
+    echo "📥 Clonage de vcpkg..."
+    git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
+else
+    echo "✓ vcpkg déjà cloné"
 fi
 
-# Créer le dossier de build
-mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
+# Aller dans le dossier vcpkg
+cd "$VCPKG_DIR"
 
-# Configurer le projet avec CMake
-echo "⚙️  Configuration du projet avec CMake..."
-cmake .. \
-    -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake" \
-    -DCMAKE_BUILD_TYPE=Release
+# Compiler vcpkg (bootstrap) s'il n'est pas déjà compilé
+if [ ! -f "$VCPKG_DIR/vcpkg" ]; then
+    echo "🔨 Compilation de vcpkg (bootstrap)..."
+    ./bootstrap-vcpkg.sh
+else
+    echo "✓ vcpkg déjà compilé"
+fi
 
-# Compiler
-echo "🔨 Compilation..."
-cmake --build . --config Release
-
-echo "✅ Compilation terminée avec succès!"
+# Vérifier que l'exécutable existe
+if [ -f "$VCPKG_DIR/vcpkg" ]; then
+    echo "✅ vcpkg installé avec succès!"
+    "$VCPKG_DIR/vcpkg" version
+else
+    echo "❌ Erreur: vcpkg n'a pas été compilé correctement"
+    exit 1
+fi
