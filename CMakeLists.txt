@@ -18,8 +18,15 @@ endif()
 # Définir l'emplacement des binaires
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/artificats/server)
 
+# Autoriser les tests
+enable_testing()
+
 # Trouver les paquets nécessaires
 find_package(Boost REQUIRED COMPONENTS system)
+find_package(GTest CONFIG REQUIRED)
 
 # Inclure les sous-répertoires
 add_subdirectory("src/server")
+
+# Ajouter des tests pour le serveur
+add_subdirectory("tests/server")
