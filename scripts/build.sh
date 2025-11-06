@@ -1,4 +1,7 @@
 #!/bin/bash
 
+# Retourner au répertoire racine du dépôt
+cd $(git rev-parse --show-toplevel)
+
 # Installer vcpkg
-./vcpkg/vcpkg.sh install
+./scripts/vcpkg/vcpkg.sh install
