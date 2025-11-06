@@ -7,3 +7,5 @@ artificats/
 vcpkg_installed/
 
 vcpkg
+
+bin/

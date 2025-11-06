@@ -1,14 +1,17 @@
 pipeline {
     agent any
     
+    // Définir les paramètres du pipeline
     parameters {
         string(name: "BRANCH", defaultValue: 'main', description: 'Branche à builder')
     }
     
+    // Déclencheur pour surveiller les changements dans le SCM toutes les 3 minutes
     triggers {
         pollSCM("H/3 * * * *")
     }
     
+    // Options globales pour le pipeline
     options {
         timeout(time: 1, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))

@@ -36,3 +36,18 @@ else
     echo "❌ Erreur: vcpkg n'a pas été compilé correctement"
     exit 1
 fi
+
+echo "pwd: $(pwd)"
+cd "../../"
+echo "pwd: $(pwd)"
+
+echo "Configuration du projet CMake"
+mkdir -p build
+cmake -S . -B build \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
+    -G "Ninja" \
+    -DCMAKE_CXX_COMPILER=g++ \
+    -DCMAKE_C_COMPILER=gcc \
+    -DVCPKG_TARGET_TRIPLET=x64-linux \
+    -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
