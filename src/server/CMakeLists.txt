@@ -34,10 +34,7 @@ endif()
 
 target_include_directories(rtype_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(rtype_server PRIVATE
-    # Boost::system
-    # Boost::thread
-    # Boost::serialization
-    # Boost::filesystem
+    Boost::system
     # $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     # $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
 )
