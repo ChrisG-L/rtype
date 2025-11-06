@@ -5,3 +5,5 @@ build/
 artificats/
 
 vcpkg_installed/
+
+vcpkg

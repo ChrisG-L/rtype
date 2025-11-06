@@ -1,29 +1,38 @@
 #!/bin/bash
+set -e  # Arrêter en cas d'erreur
 
-# Revenir à la racine du projet
-cd $(git rev-parse --show-toplevel)
+PROJECT_ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd)"
+VCPKG_DIR="$PROJECT_ROOT/third_party/vcpkg"
 
-# Aller dans le dossier third_party
-mkdir -p third_party
-cd third_party
+echo "📁 Installation de vcpkg dans: $VCPKG_DIR"
 
-# Script d'installation de vcpkg
-git clone https://github.com/microsoft/vcpkg.git
+# Créer le dossier third_party s'il n'existe pas
+mkdir -p "$PROJECT_ROOT/third_party"
+
+# Cloner vcpkg s'il n'existe pas
+if [ ! -d "$VCPKG_DIR" ]; then
+    echo "📥 Clonage de vcpkg..."
+    git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
+else
+    echo "✓ vcpkg déjà cloné"
+fi
 
 # Aller dans le dossier vcpkg
-cd vcpkg
+cd "$VCPKG_DIR"
 
-# Exécuter le script d'installation
-./bootstrap-vcpkg.sh
+# Compiler vcpkg (bootstrap) s'il n'est pas déjà compilé
+if [ ! -f "$VCPKG_DIR/vcpkg" ]; then
+    echo "🔨 Compilation de vcpkg (bootstrap)..."
+    ./bootstrap-vcpkg.sh
+else
+    echo "✓ vcpkg déjà compilé"
+fi
 
-echo "vcpkg installé avec succès."
-
-# Faire un submodule de vcpkg
-cd ../..
-git submodule add https://github.com/microsoft/vcpkg.git third_party/vcpkg
-
-# Retourner à la racine du projet
-cd $(git rev-parse --show-toplevel)
-
-# Initialiser et mettre à jour les submodules
-echo "vcpkg installé et ajouté en tant que submodule."
+# Vérifier que l'exécutable existe
+if [ -f "$VCPKG_DIR/vcpkg" ]; then
+    echo "✅ vcpkg installé avec succès!"
+    "$VCPKG_DIR/vcpkg" version
+else
+    echo "❌ Erreur: vcpkg n'a pas été compilé correctement"
+    exit 1
+fi
