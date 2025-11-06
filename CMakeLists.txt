@@ -19,7 +19,7 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/artificats/server)
 
 # Trouver les paquets nécessaires
-find_package(Boost REQUIRED COMPONENTS system filesystem)
+find_package(Boost REQUIRED COMPONENTS system)
 
 # Inclure les sous-répertoires
 add_subdirectory("src/server")
