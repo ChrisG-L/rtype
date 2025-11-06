@@ -1,9 +1,13 @@
 #!/bin/bash
 set -e
 
-PROJECT_ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd)"
+# Obtenir la racine du projet
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VCPKG_DIR="$PROJECT_ROOT/third_party/vcpkg"
 VCPKG_EXEC="$VCPKG_DIR/vcpkg"
+
+echo "📁 Racine du projet: $PROJECT_ROOT"
+echo "📦 Dossier vcpkg: $VCPKG_DIR"
 
 # Vérifications
 if [ ! -d "$VCPKG_DIR" ]; then
@@ -18,27 +22,17 @@ if [ ! -f "$VCPKG_EXEC" ]; then
     exit 1
 fi
 
-# Définir VCPKG_ROOT
+# Définir VCPKG_ROOT (important pour vcpkg)
 export VCPKG_ROOT="$VCPKG_DIR"
 
-# Retourner à la racine du projet
+# Se placer dans le répertoire du projet (pour que vcpkg trouve vcpkg.json)
 cd "$PROJECT_ROOT"
 
-# Exécuter vcpkg
+# Afficher ce qu'on va faire
 echo "🚀 Exécution: vcpkg $*"
-"$VCPKG_EXEC" "$@"
-```
+echo "📂 Working directory: $(pwd)"
 
-## 🎯 Structure finale recommandée
-```
-rtype/
-├── scripts/
-│   ├── vcpkg/
-│   │   ├── install_vcpkg.sh    # Clone + bootstrap vcpkg
-│   │   └── vcpkg.sh            # Wrapper pour exécuter vcpkg
-│   └── build.sh                # Configure + compile le projet
-├── third_party/
-│   └── vcpkg/                  # Installé par install_vcpkg.sh
-│       └── vcpkg               # Exécutable compilé
-├── vcpkg.json                  # Manifeste des dépendances
-└── CMakeLists.txt
+# Exécuter vcpkg avec tous les arguments passés
+"$VCPKG_EXEC" "$@"
+
+echo "✅ Commande vcpkg terminée avec succès"
