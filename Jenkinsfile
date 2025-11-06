@@ -89,6 +89,17 @@ pipeline {
                 '''
             }
         }
+
+        stage('Compile et Run Tests') {
+            steps {
+                echo '🧪 Compilation et exécution des tests...'
+                sh '''
+                    chmod +x scripts/compile.sh
+                    ./scripts/compile.sh
+                    ./artifacts/server/linux/server_tests
+                '''
+            }
+        }
     }
     
     post {

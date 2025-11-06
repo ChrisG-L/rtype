@@ -1,0 +1,49 @@
+# Image de base avec Python
+FROM python:3.11-slim
+
+# Métadonnées
+LABEL maintainer="Killian Pluenet"
+LABEL project="R-Type Documentation"
+LABEL description="Dockerfile to generate R-Type project documentation"
+LABEL version="1.0"
+
+# Éviter les prompts interactifs
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    # Outils de base
+    curl \
+    git \
+    # Pour les graphiques (optionnel, si tu utilises des diagrammes)
+    graphviz \
+    # Nettoyage
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installer MkDocs et ses plugins via pip
+RUN pip install --no-cache-dir \
+    # MkDocs de base
+    mkdocs>=1.5.0 \
+    # Thème Material (moderne et responsive)
+    mkdocs-material>=9.0.0 \
+    # Plugins utiles
+    mkdocs-material-extensions \
+    pymdown-extensions \
+    # Plugin pour la recherche améliorée
+    mkdocs-minify-plugin \
+    # Plugin pour les diagrammes
+    mkdocs-mermaid2-plugin \
+    # Plugin pour l'inclusion de code
+    mkdocs-include-markdown-plugin \
+    # Plugin pour générer du PDF (optionnel)
+    mkdocs-with-pdf
+
+# Créer le répertoire de travail
+WORKDIR /workspace
+
+# Exposer le port par défaut de MkDocs
+EXPOSE 8000
+
+# Commande par défaut
+CMD ["mkdocs", "serve", "--dev-addr=0.0.0.0:8000"]

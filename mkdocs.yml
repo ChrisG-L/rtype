@@ -1,0 +1,169 @@
+site_name: R-Type Documentation
+site_url: https://rtype.example
+site_description: Documentation technique et utilisateur pour le projet R-Type
+site_author: AREA Team
+
+repo_name: rtype
+repo_url: https://github.com/Pluenet-Killian/rtype
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: fr
+  font:
+    text: Merriweather Sans
+    code: Red Hat Mono
+
+  palette:
+    # Mode sombre
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Passer en mode clair
+      primary: indigo
+      accent: deep purple
+
+    # Mode clair
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Passer en mode sombre
+      primary: indigo
+      accent: deep orange
+
+  features:
+    # Navigation
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+
+    # Table des matières
+    - toc.follow
+    - toc.integrate
+
+    # Recherche
+    - search.suggest
+    - search.highlight
+    - search.share
+
+    # Contenu
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+# Extensions Markdown
+markdown_extensions:
+  # Highlight de code
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+      use_pygments: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      check_paths: true
+
+  # Superfences (code blocks et diagrammes)
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+  - pymdownx.tabbed:
+      alternate_style: true
+
+  # Admonitions (boîtes d'information)
+  - admonition
+  - pymdownx.details
+
+  # Formatage avancé
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.keys
+
+  # Emojis et icônes
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator:
+        !!python/name:material.extensions.emoji.to_svg # Listes et tableaux
+
+
+  - def_list
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+
+  # Attributs et HTML
+  - attr_list
+  - md_in_html
+
+  # Autres
+  - footnotes
+  - abbr
+  - pymdownx.smartsymbols
+
+# Navigation
+nav:
+  - Accueil: index.md
+
+  - Pour Commencer:
+      - Installation: getting-started/installation.md
+      - Démarrage Rapide: getting-started/quickstart.md
+      - Compilation: getting-started/building.md
+
+  - Guides Utilisateurs:
+      - Vue d'ensemble: guides/architecture.md
+      - Tutoriels:
+          - Premier Pas: guides/tutorials/first-steps.md
+      - Bonnes Pratiques: guides/best-practices.md
+
+  - Référence API:
+      - Vue d'ensemble: api/overview.md
+      - API Domaine: api/domain.md
+      - API Adapters: api/adapters.md
+      - Guide de Migration: api/migration.md
+
+  - Développement:
+      - Contribuer: development/contributing.md
+      - Changelog: development/changelog.md
+      - Architecture Technique: development/architecture.md
+      - Implémentation Hexagonale: development/hexagonal-implementation.md
+      - Tests: development/testing.md
+      - Politiques de Commit: development/COMMIT_POLICES.md
+
+  - Référence:
+      - Glossaire: reference/glossary.md
+      - FAQ: reference/faq.md
+
+# Configuration extra
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Pluenet-Killian/rtype
+
+  # Pied de page personnalisé
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
+
+strict: false

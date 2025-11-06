@@ -1,0 +1,44 @@
+services:
+  docs:
+    build:
+      context: ../..
+      dockerfile: ci_cd/docker/Dockerfile.docs
+    image: rtype-docs:latest
+    container_name: rtype_docs
+    volumes:
+      - ../../:/workspace:cached
+      # Exclure les dossiers inutiles
+      - /workspace/build
+      - /workspace/third_party
+    working_dir: /workspace
+    ports:
+      - "8000:8000"
+
+    command: mkdocs serve --dev-addr=0.0.0.0:8000
+
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LIVE_RELOAD=true
+
+    # Garder le container interactif
+    stdin_open: true
+    tty: true
+
+    # Réseau
+    networks:
+      - rtype-network
+
+    # Redémarrage
+    restart: unless-stopped
+
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  rtype-network:
+    driver: bridge
