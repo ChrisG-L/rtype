@@ -1,0 +1,547 @@
+# Architecture du Projet
+
+> ⚠️ **État d'Implémentation:** Cette documentation décrit l'architecture **CIBLE** du projet R-Type.
+> De nombreuses fonctionnalités décrites sont encore en phase de **planification** ou de **développement actif**.
+> Consultez la [page d'état du projet](../project-status.md) pour connaître l'avancement réel.
+>
+> **Légende:**
+> - ✅ **Implémenté** - Code fonctionnel et testé
+> - 🚧 **En cours** - Développement actif
+> - 📋 **Planifié** - Conception faite, code à venir
+
+Ce document présente l'architecture technique du projet R-Type et son organisation.
+
+## Vue d'ensemble
+
+R-Type est un projet C++ moderne structuré en architecture client-serveur avec une séparation claire des responsabilités.
+
+```mermaid
+graph TB
+    subgraph "Client (À venir)"
+        CL[Client Application]
+        CR[Renderer]
+        CI[Input Handler]
+    end
+
+    subgraph "Serveur"
+        SRV[Server Core]
+        NET[Network Layer]
+        GAME[Game Logic]
+        DB[(MongoDB)]
+    end
+
+    CL -->|Boost.ASIO| NET
+    NET --> SRV
+    SRV --> GAME
+    GAME --> DB
+
+    style CL fill:#e1f5ff
+    style SRV fill:#fff4e1
+    style DB fill:#f0f0f0
+```
+
+## Structure des Répertoires
+
+```
+rtype/
+├── ci_cd/                      # Infrastructure CI/CD
+│   └── docker/                 # Dockerfiles et compose
+│       ├── Dockerfile.build    # Image de build
+│       ├── Dockerfile.docs     # Image documentation
+│       ├── docker-compose.yml  # Jenkins CI/CD
+│       ├── docker-compose.build.yml
+│       └── docker-compose.docs.yml
+│
+├── docs/                       # Documentation MkDocs
+│   ├── index.md               # Page d'accueil
+│   ├── getting-started/       # Guides de démarrage
+│   ├── guides/                # Guides utilisateur
+│   ├── api/                   # Référence API
+│   ├── development/           # Guides développeur
+│   └── reference/             # Glossaire, FAQ
+│
+├── scripts/                    # Scripts de build
+│   ├── build.sh               # Configuration CMake
+│   ├── compile.sh             # Compilation
+│   └── vcpkg/                 # Scripts vcpkg
+│       ├── install_vcpkg.sh
+│       └── vcpkg.sh
+│
+├── src/                        # Code source
+│   ├── server/                # Serveur de jeu
+│   │   ├── main.cpp
+│   │   ├── CMakeLists.txt
+│   │   └── include/           # Headers serveur
+│   └── client/                # Client (à venir)
+│
+├── tests/                      # Tests unitaires
+│   ├── server/                # Tests serveur
+│   │   ├── main.cpp
+│   │   └── CMakeLists.txt
+│   └── client/                # Tests client (à venir)
+│
+├── third_party/                # Dépendances externes
+│   └── vcpkg/                 # Gestionnaire vcpkg
+│
+├── artifacts/                  # Binaires compilés
+│   ├── client/                # Binaires client
+│   └── server/                # Binaires serveur
+│       └── linux/
+│           ├── rtype_server
+│           └── server_tests
+│
+├── build/                      # Build CMake
+├── vcpkg_installed/           # Packages vcpkg
+│
+├── CMakeLists.txt             # Configuration CMake racine
+├── vcpkg.json                 # Manifest des dépendances
+├── vcpkg-configuration.json   # Configuration vcpkg
+├── mkdocs.yml                 # Configuration documentation
+├── Jenkinsfile                # Pipeline CI/CD
+├── .dockerignore              # Exclusions Docker
+└── .gitignore                 # Exclusions Git
+```
+
+## Architecture Logicielle
+
+### Couches Applicatives
+
+```mermaid
+graph TB
+    subgraph "Presentation Layer"
+        CLI[Client Interface]
+    end
+
+    subgraph "Application Layer"
+        CTRL[Game Controllers]
+        LOGIC[Game Logic]
+    end
+
+    subgraph "Domain Layer"
+        ENT[Entities]
+        COMP[Components]
+        SYS[Systems]
+    end
+
+    subgraph "Infrastructure Layer"
+        NET[Network - Boost.ASIO]
+        DB[Database - MongoDB]
+        CONF[Configuration]
+    end
+
+    CLI --> CTRL
+    CTRL --> LOGIC
+    LOGIC --> ENT
+    LOGIC --> COMP
+    COMP --> SYS
+    NET --> LOGIC
+    DB --> ENT
+    CONF --> LOGIC
+```
+
+### Serveur
+
+**Responsabilités :**
+
+- Gérer les connexions client via Boost.ASIO
+- Traiter la logique de jeu
+- Synchroniser l'état entre les clients
+- Persister les données dans MongoDB
+- Valider les actions des joueurs
+
+**Technologies :**
+
+- **Boost.ASIO** : Communication réseau asynchrone
+- **MongoDB C++ Driver** : Persistance des données
+- **C++23** : Fonctionnalités modernes (coroutines, ranges)
+
+**Fichiers principaux :**
+
+- `src/server/main.cpp` - Point d'entrée
+- `src/server/CMakeLists.txt` - Configuration build
+
+### Client (En développement)
+
+**Responsabilités futures :**
+
+- Interface utilisateur
+- Rendu graphique
+- Gestion des entrées
+- Communication avec le serveur
+
+## Stack Technique
+
+### Langage et Standard
+
+- **C++23** : Dernières fonctionnalités du standard
+  - Coroutines pour l'asynchrone
+  - Ranges et views
+  - Modules (planifié)
+
+### Système de Build
+
+```mermaid
+graph LR
+    A[vcpkg.json] --> B[vcpkg]
+    B --> C[Dependencies]
+    C --> D[CMake 3.30+]
+    D --> E[Ninja]
+    E --> F[GCC 11+]
+    F --> G[Binaries]
+```
+
+**Composants :**
+
+1. **vcpkg** - Gestionnaire de dépendances
+
+   - Installation automatique
+   - Gestion des versions
+   - Compilation depuis les sources
+
+2. **CMake** - Générateur de build
+
+   - Configuration cross-platform
+   - Intégration vcpkg
+   - Gestion des tests
+
+3. **Ninja** - Outil de build
+
+   - Compilation rapide
+   - Build incrémental
+   - Parallélisation automatique
+
+4. **GCC** - Compilateur
+   - Support C++23
+   - Optimisations avancées
+   - Sanitizers (Debug)
+
+### Dépendances
+
+| Dépendance             | Version   | Utilisation            |
+| ---------------------- | --------- | ---------------------- |
+| **Boost.ASIO**         | Via vcpkg | Réseau asynchrone, I/O |
+| **Google Test**        | Via vcpkg | Tests unitaires        |
+| **MongoDB C++ Driver** | Via vcpkg | Base de données NoSQL  |
+
+## Pipeline CI/CD
+
+### Architecture Jenkins
+
+```mermaid
+graph TB
+    A[Git Push] --> B[Jenkins Webhook]
+    B --> C[Checkout Code]
+    C --> D[Install Dependencies]
+    D --> E[Configure CMake]
+    E --> F[Compile]
+    F --> G[Run Tests]
+    G --> H{Tests Pass?}
+    H -->|Yes| I[Archive Artifacts]
+    H -->|No| J[Send Notification]
+    I --> K[Deploy]
+```
+
+### Stages du Pipeline
+
+**Jenkinsfile :** Pipeline déclaratif en 6 étapes
+
+1. **Checkout** - Clone le repository
+2. **Install System Dependencies** - apt-get des outils
+3. **Install vCPKG** - Setup vcpkg
+4. **Install Dependencies** - vcpkg install
+5. **Build** - Configuration CMake
+6. **Compile and Run Tests** - Compilation + tests
+
+### Infrastructure Docker
+
+#### Image de Build (Dockerfile.build)
+
+- **Base :** Ubuntu 22.04
+- **Outils :** build-essential, cmake, git, ninja-build
+- **Usage :** Compilation isolée
+
+```bash
+docker-compose -f ci_cd/docker/docker-compose.build.yml up
+```
+
+#### Image de Documentation (Dockerfile.docs)
+
+- **Base :** Python 3.11-slim
+- **Outils :** MkDocs, Material theme
+- **Usage :** Documentation live-reload
+
+```bash
+docker-compose -f ci_cd/docker/docker-compose.docs.yml up
+# http://localhost:8000
+```
+
+#### Jenkins (docker-compose.yml)
+
+- **Image :** Jenkins LTS
+- **Ports :** 8080 (UI), 50000 (agents)
+- **Volumes :** jenkins_data
+- **Features :** Docker-in-Docker
+
+## Gestion des Dépendances
+
+### Manifest vcpkg (vcpkg.json)
+
+```json
+{
+  "dependencies": ["boost-asio", "gtest", "mongo-cxx-driver"]
+}
+```
+
+### Configuration vcpkg
+
+- **Registry :** Microsoft vcpkg (GitHub)
+- **Baseline :** Version fixe pour reproductibilité
+- **Triplet :** x64-linux (architecture cible)
+
+### Installation
+
+```bash
+# Automatique via script
+./scripts/build.sh
+
+# Manuel
+cd third_party/vcpkg
+./vcpkg install
+```
+
+## Système de Tests
+
+### Framework : Google Test
+
+**Structure :**
+
+```
+tests/
+└── server/
+    ├── main.cpp          # Tests serveur
+    └── CMakeLists.txt    # Configuration
+```
+
+**Exécution :**
+
+```bash
+./artifacts/server/linux/server_tests
+```
+
+**Intégration :**
+
+- Exécution automatique dans Jenkins
+- Support dans CMake via `enable_testing()`
+- Lié avec GTest::gtest et GTest::gtest_main
+
+### Types de Tests
+
+| Type                  | Status     | Localisation            |
+| --------------------- | ---------- | ----------------------- |
+| **Unit Tests**        | Implémenté | `tests/server/main.cpp` |
+| **Integration Tests** | Planifié   | À venir                 |
+| **End-to-End Tests**  | Planifié   | À venir                 |
+
+## Configuration CMake
+
+### CMakeLists.txt Principal
+
+**Caractéristiques clés :**
+
+```cmake
+cmake_minimum_required(VERSION 3.30)
+project(rtype VERSION 0.0.1)
+
+# C++23
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# vcpkg toolchain
+set(CMAKE_TOOLCHAIN_FILE
+    "${CMAKE_SOURCE_DIR}/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake")
+
+# Output directory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY
+    ${CMAKE_SOURCE_DIR}/artifacts/server/linux)
+
+# Tests
+enable_testing()
+
+# Subdirectories
+add_subdirectory(src/server)
+add_subdirectory(tests/server)
+```
+
+### Flags de Compilation
+
+#### Mode Debug (défaut)
+
+```cmake
+-Wall -Wextra -Wpedantic     # Warnings
+-g3                          # Debug symbols
+-O0                          # No optimization
+-fsanitize=address           # Memory errors
+-fsanitize=undefined         # UB detection
+-fsanitize=leak              # Memory leaks
+-fno-omit-frame-pointer      # Better stack traces
+```
+
+#### Mode Release
+
+```cmake
+-O3                          # Max optimization
+-Wall -Wextra -Wpedantic     # Warnings
+```
+
+## Documentation
+
+### MkDocs avec Material Theme
+
+**Configuration :** `mkdocs.yml`
+
+**Fonctionnalités :**
+
+- Thème Material moderne
+- Mode clair/sombre
+- Recherche avec suggestions
+- Diagrammes Mermaid
+- Syntax highlighting
+- Navigation par onglets
+- Live-reload pour développement
+
+**Structure :**
+
+```
+docs/
+├── index.md                    # Accueil
+├── getting-started/            # Installation, quickstart, build
+├── guides/                     # Architecture, tutoriels
+├── api/                        # Référence API
+├── development/                # Contribution, tests
+└── reference/                  # Glossaire, FAQ
+```
+
+**Génération :**
+
+```bash
+# Local
+mkdocs serve
+
+# Docker
+docker-compose -f ci_cd/docker/docker-compose.docs.yml up
+```
+
+## Patterns et Bonnes Pratiques
+
+### Organisation du Code
+
+1. **Séparation des préoccupations**
+
+   - Source dans `src/`
+   - Tests dans `tests/`
+   - Config dans fichiers dédiés
+
+2. **Build reproductible**
+
+   - Versions fixées (vcpkg baseline)
+   - Toolchain vcpkg
+   - Configuration versionnée
+
+3. **Tests automatisés**
+   - Intégration CI/CD
+   - Exécution à chaque commit
+   - Feedback rapide
+
+### Conventions
+
+- **Langage :** C++23 strict
+- **Build :** Ninja pour rapidité
+- **Tests :** Google Test
+- **Documentation :** Markdown avec MkDocs
+
+## Évolutions Futures
+
+### Court terme
+
+- [ ] Implémentation complète du serveur
+- [ ] Architecture ECS (Entity Component System)
+- [ ] Système de networking robuste
+- [ ] Tests d'intégration
+
+### Moyen terme
+
+- [ ] Client graphique (SFML/SDL)
+- [ ] Protocole réseau custom
+- [ ] Matchmaking
+- [ ] Persistence des scores
+
+### Long terme
+
+- [ ] Support multi-plateforme complet
+- [ ] Mode spectateur
+- [ ] Replays
+- [ ] Modding support
+
+## Diagrammes Techniques
+
+### Flux de Compilation
+
+```mermaid
+sequenceDiagram
+    participant Dev as Développeur
+    participant Git as Git
+    participant Jen as Jenkins
+    participant Docker as Docker
+    participant VCP as vcpkg
+    participant CMake as CMake
+    participant GCC as Compilateur
+
+    Dev->>Git: git push
+    Git->>Jen: Webhook trigger
+    Jen->>Docker: Démarre container build
+    Docker->>VCP: Install dependencies
+    VCP->>CMake: Configure project
+    CMake->>GCC: Generate build files
+    GCC->>Jen: Compile & test
+    Jen->>Dev: Notification résultat
+```
+
+### Architecture Réseau (Planifiée)
+
+```mermaid
+graph TB
+    subgraph "Clients"
+        C1[Client 1]
+        C2[Client 2]
+        C3[Client 3]
+    end
+
+    subgraph "Server"
+        LB[Load Balancer]
+        S1[Server Instance 1]
+        S2[Server Instance 2]
+        DB[(MongoDB)]
+    end
+
+    C1 -->|TCP/UDP| LB
+    C2 -->|TCP/UDP| LB
+    C3 -->|TCP/UDP| LB
+    LB --> S1
+    LB --> S2
+    S1 --> DB
+    S2 --> DB
+```
+
+## Ressources
+
+- [CMake Documentation](https://cmake.org/documentation/)
+- [vcpkg Documentation](https://vcpkg.io/)
+- [Boost.ASIO](https://www.boost.org/doc/libs/release/doc/html/boost_asio.html)
+- [Google Test](https://google.github.io/googletest/)
+- [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
+
+## Prochaines étapes
+
+- Consultez le [Guide de compilation](../getting-started/building.md)
+- Lisez le [Guide de contribution](../development/contributing.md)
+- Explorez les [Bonnes pratiques](best-practices.md)
