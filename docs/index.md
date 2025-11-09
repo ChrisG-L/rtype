@@ -1,12 +1,12 @@
 # Documentation R-Type
 
-Bienvenu!e dans la documentation du projet R-Type, un jeu multijoueur inspiré du classique R-Type développé en C++.
+Bienvenue dans la documentation du projet R-Type, un jeu multijoueur inspiré du classique R-Type développé en C++.
 
 ## 🚧 État du Projet
 
 !!! info "Phase Actuelle: Infrastructure et Fondations"
-    Le projet est en **phase de construction des fondations**. L'infrastructure est complète,
-    le développement du code métier (ECS, Networking, Gameplay) est en cours.
+Le projet est en **phase de construction des fondations**. L'infrastructure est complète,
+le développement du code métier (ECS, Networking, Gameplay) est en cours.
 
     **✅ Infrastructure:** 100% complété
     **🚧 Code métier:** 5% complété
