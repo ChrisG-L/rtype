@@ -15,7 +15,7 @@ namespace application::ports::in {
         public:
             virtual ~IGameCommands() = default;
 
-            virtual void movePlayer(const std::string& playerId, float dx, float dy, float dz = 0.0);
+            virtual void movePlayer(const std::string& playerId, float dx, float dy, float dz = 0.0) = 0;
     };
 }
 
