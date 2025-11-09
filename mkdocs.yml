@@ -130,6 +130,7 @@ nav:
 
   - Guides Utilisateurs:
       - Vue d'ensemble: guides/architecture.md
+      - Architecture Hexagonale: guides/hexagonal-architecture.md
       - Tutoriels:
           - Premier Pas: guides/tutorials/first-steps.md
       - Bonnes Pratiques: guides/best-practices.md
@@ -147,6 +148,9 @@ nav:
       - Implémentation Hexagonale: development/hexagonal-implementation.md
       - Tests: development/testing.md
       - Politiques de Commit: development/COMMIT_POLICES.md
+
+  - Ruche d'Agents IA:
+      - Introduction: hive/introduction.md
 
   - Référence:
       - Glossaire: reference/glossary.md
