@@ -9,3 +9,20 @@ vcpkg_installed/
 vcpkg
 
 bin/
+
+todo.txt
+
+# Ruche d'Agents - Rapports et état
+hive/reports/*
+!hive/reports/.gitkeep
+hive/state/hive_health.json
+hive/events/*
+!hive/events/.gitkeep
+
+# MkDocs build
+site/
+
+# Configuration locale
+.claude/
+.vscode/
+settings.local.json
