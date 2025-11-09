@@ -10,12 +10,8 @@ echo "📁 Installation de vcpkg dans: $VCPKG_DIR"
 mkdir -p "$PROJECT_ROOT/third_party"
 
 # Cloner vcpkg s'il n'existe pas
-if [ ! -d "$VCPKG_DIR" ]; then
-    echo "📥 Clonage de vcpkg..."
-    git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
-else
-    echo "✓ vcpkg déjà cloné"
-fi
+echo "📥 Clonage de vcpkg..."
+git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
 
 # Aller dans le dossier vcpkg
 cd "$VCPKG_DIR"

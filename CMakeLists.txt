@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.30)
 
 project("R-Type" VERSION 0.0.1 LANGUAGES CXX)
 
@@ -22,7 +22,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/artifacts/server/
 enable_testing()
 
 # Trouver les paquets nécessaires
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost CONFIG REQUIRED COMPONENTS system)
 find_package(GTest CONFIG REQUIRED)
 
 # Inclure les sous-répertoires

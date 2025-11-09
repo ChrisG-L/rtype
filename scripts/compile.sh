@@ -8,3 +8,6 @@ cd "$(git rev-parse --show-toplevel)"
 cmake --build build --config Debug
 
 echo "✅ Compilation terminée avec succès"
+echo "Lancement du serveur..."
+# Lancer le serveur compilé
+./artifacts/server/linux/rtype_server
