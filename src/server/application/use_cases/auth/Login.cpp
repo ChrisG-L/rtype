@@ -8,7 +8,7 @@
 #include "application/use_cases/auth/Login.hpp"
 
 namespace application::use_cases::auth {
-    Login::Login(IPlayerRepository* repo) : repository(repo) {}
+    Login::Login(IUserRespository* repo) : repository(repo) {}
 
     void Login::execute(const std::string& name, const std::string& password) {
         auto playerOpt = repository->findByName(name);
@@ -17,7 +17,7 @@ namespace application::use_cases::auth {
             return;
         }
 
-        auto player = playerOpt.value();
+        auto user = playerOpt.value();
         // player.
         // player.move(dx, dy, dz);
         // repository->update(player);
