@@ -8,6 +8,11 @@
 #ifndef MONGODBPLAYERREPOSITORY_HPP_
 #define MONGODBPLAYERREPOSITORY_HPP_
 
+#include <bsoncxx/json.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+#include <mongocxx/uri.hpp>
+
 namespace infrastructure::adapters::out::persistence {
     class MongoDBPlayerRepository {
         public:

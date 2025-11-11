@@ -16,14 +16,13 @@
 namespace infrastructure::adapters::in::cli {
     using application::ports::in::IGameCommands;
     using domain::value_objects::player::PlayerId;
+
     class CLIGameController: public IGameCommands {
-        public:
-            void movePlayer(const std::string& playerId, float dx, float dy, float dz = 0.0) {
-                movePlayerUseCase.execute(PlayerId(playerId), dx, dy, dz);
-            }
-        protected:
         private:
             application::use_cases::MovePlayerUseCase movePlayerUseCase;
+
+        public:
+            void movePlayer(const std::string& playerId, float dx, float dy, float dz = 0.0) override;
     };
 }
 
