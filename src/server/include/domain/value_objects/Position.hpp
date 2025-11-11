@@ -8,7 +8,7 @@
 #ifndef POSITION_HPP_
 #define POSITION_HPP_
 
-#include "exceptions/PositionException.hpp"
+#include "domain/exceptions/PositionException.hpp"
 
 namespace domain::value_objects {
     class Position {
@@ -16,36 +16,16 @@ namespace domain::value_objects {
             float _x;
             float _y;
             float _z;
-
-            void validate(float x, float y, float z) {
-                if (x < -1000.0f || x > 1000.0f ||
-                    y < -1000.0f || y > 1000.0f ||
-                    z < -1000.0f || z > 1000.0f) {
-                    throw exceptions::PositionException(x, y, z);
-                }
-            }
+            void validate(float x, float y, float z);
 
         public:
-            explicit Position(float x = 0.0f, float y = 0.0f, float z = 0.0f)
-                : _x(x), _y(y), _z(z) {
-                validate(x, y, z);
-            }
-
-            float getX() const { return _x; }
-            float getY() const { return _y; }
-            float getZ() const { return _z; }
-
-            Position move(float dx, float dy, float dz) const {
-                return Position(_x + dx, _y + dy, _z + dz);
-            }
-
-            bool operator==(const Position& other) const {
-                return _x == other._x && _y == other._y && _z == other._z;
-            }
-
-            bool operator!=(const Position& other) const {
-                return !(*this == other);
-            }
+            explicit Position(float x = 0.0f, float y = 0.0f, float z = 0.0f);
+            float getX() const;
+            float getY() const;
+            float getZ() const;
+            Position move(float dx, float dy, float dz) const;
+            bool operator==(const Position& other) const;
+            bool operator!=(const Position& other) const;
     };
 }
 

@@ -8,44 +8,21 @@
 #ifndef HEALTH_HPP_
 #define HEALTH_HPP_
 
-#include "exceptions/HealthException.hpp"
+#include "domain/exceptions/HealthException.hpp"
 
 namespace domain::value_objects {
     class Health {
         private:
             float _healthPoint;
-
-            void validate(float value) {
-                if (value < 0.0 || value > 5.0)
-                    throw exceptions::HealthException(value);
-            }
+            void validate(float value);
 
         public:
-            explicit Health(float value): _healthPoint(value) {
-                validate(value);
-            };
-
-            float value() const {
-                _healthPoint;
-            }
-
-            Health heal(float value) const {
-                Health newHealth(_healthPoint + value);
-                return newHealth;
-            }
-
-            Health damage(float value) const {
-                Health newHealth(_healthPoint - value);
-                return newHealth;
-            }
-    
-            bool operator==(const Health& other) {
-                return _healthPoint == other._healthPoint;
-            }
-
-            bool operator<(const Health& other) {
-                return _healthPoint < other._healthPoint;
-            }
+            explicit Health(float value);
+            float value() const;
+            Health heal(float value) const;
+            Health damage(float value) const;
+            bool operator==(const Health& other);
+            bool operator<(const Health& other);
     };
 }
 
