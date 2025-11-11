@@ -24,6 +24,8 @@ enable_testing()
 # Trouver les paquets nécessaires
 find_package(Boost CONFIG REQUIRED COMPONENTS system)
 find_package(GTest CONFIG REQUIRED)
+find_package(mongocxx REQUIRED)
+find_package(bsoncxx REQUIRED)
 
 # Inclure les sous-répertoires
 add_subdirectory("src/server")

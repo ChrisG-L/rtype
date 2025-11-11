@@ -1,5 +1,29 @@
 add_executable(rtype_server
     main.cpp
+
+    # Domain - Exceptions
+    domain/exceptions/DomainException.cpp
+    domain/exceptions/HealthException.cpp
+    domain/exceptions/PositionException.cpp
+    domain/exceptions/player/PlayerIdException.cpp
+    domain/exceptions/persistence/MongoDBException.cpp
+
+    # Domain - Value Objects
+    domain/value_objects/Health.cpp
+    domain/value_objects/Position.cpp
+    domain/value_objects/player/PlayerId.cpp
+
+    # Domain - Entities
+    domain/entities/Player.cpp
+
+    # Application - Use Cases
+    application/use_cases/MovePlayerUseCase.cpp
+
+    # Infrastructure - Adapters
+    infrastructure/adapters/in/cli/CLIGameController.cpp
+    infrastructure/adapters/in/network/UDPServer.cpp
+    infrastructure/adapters/in/network/TCPServer.cpp
+    infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -24,7 +48,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(
+    target_compile_options(rtype_server PRIVATE
         -O3                         # Optimisation maximale en release
         -Wall                       # Activer tous les warnings
         -Wextra                     # Activer les warnings supplémentaires
@@ -32,9 +56,12 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
     )
 endif()
 
-target_include_directories(rtype_server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(rtype_server PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 target_link_libraries(rtype_server PRIVATE
     Boost::system
-    # $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
-    # $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
 )
