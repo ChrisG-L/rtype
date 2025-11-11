@@ -38,14 +38,15 @@ Nous avons construit une architecture solide avec:
 | ├─ Entité User | ✅ Terminé | 100% | - | Auth (Username, Password) |
 | ├─ Value Objects | ✅ Terminé | 100% | - | 8 Value Objects |
 | └─ Exceptions | ✅ Terminé | 100% | - | 10 Exceptions métier |
-| **Application Layer** | 🚧 En cours | 40% | - | Use Cases |
+| **Application Layer** | 🚧 En cours | 50% | - | Use Cases |
 | ├─ MovePlayerUseCase | ✅ Terminé | 100% | - | Déplacement joueur |
-| └─ Auth Use Cases | 📋 Planifié | 0% | - | Login/Register |
+| ├─ LoginUseCase | 🚧 En cours | 60% | - | Authentification utilisateur |
+| └─ RegisterUseCase | 📋 Planifié | 0% | - | Inscription utilisateur |
 | **Infrastructure Layer** | 🚧 En cours | 50% | - | Adapters |
 | ├─ UDPServer | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | Port 4123 |
 | ├─ TCPServer | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | Port 4123 |
 | ├─ MongoDBConfiguration | ✅ Terminé | 100% | - | Connexion DB |
-| └─ Repositories | 🚧 En cours | 30% | - | PlayerRepository |
+| └─ Repositories | 🚧 En cours | 40% | - | IPlayerRepository, IUserRepository |
 | **Architecture ECS** | 📋 Planifié | 0% | [EPI-17](https://linear.app/epitech-study/issue/EPI-17) | À démarrer |
 | **Client graphique** | 📋 Planifié | 0% | [EPI-11](https://linear.app/epitech-study/issue/EPI-11) | À démarrer |
 
@@ -176,10 +177,15 @@ src/server/
 
 **Objectif:** Développer le moteur de jeu de base
 **Date estimée:** Janvier - Février 2025
-**Statut:** 🚧 **30% complété**
+**Statut:** 🚧 **35% complété**
 
 **Tâches principales:**
-- 🚧 Système d'authentification User (70%)
+- 🚧 Système d'authentification User (75%)
+  - ✅ Entité User complète
+  - ✅ IUserRepository (interface)
+  - 🚧 LoginUseCase (en cours)
+  - 📋 RegisterUseCase (à faire)
+  - 📋 MongoDBUserRepository (à faire)
 - 📋 Architecture ECS (Entity Component System) (0%)
 - 📋 Protocole réseau R-Type (0%)
 - 📋 Game loop serveur (0%)
@@ -187,7 +193,7 @@ src/server/
 
 **Tickets Linear:**
 - [EPI-17: Architecture ECS](https://linear.app/epitech-study/issue/EPI-17) - Priorité Haute
-- À créer: Système d'authentification
+- À créer: Ticket pour finaliser LoginUseCase
 - À créer: Protocole réseau R-Type
 
 ### 📋 Jalon 4: Gameplay Basique (Planifié - Mars 2025)

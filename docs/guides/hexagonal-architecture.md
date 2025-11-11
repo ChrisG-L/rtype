@@ -35,17 +35,19 @@ Le serveur R-Type utilise une **Architecture Hexagonale** (aussi appelée **Port
 
 **Documentation:** [Domain API Reference](../api/domain.md)
 
-### Application Layer - 40% Implémenté 🚧
+### Application Layer - 50% Implémenté 🚧
 
 **Use Cases:**
 - ✅ `MovePlayerUseCase` - Déplacement joueur (implémenté)
-- 📋 `LoginUserUseCase`, `RegisterUserUseCase` - Authentification (planifié)
+- 🚧 `LoginUseCase` - Authentification utilisateur (en cours)
+- 📋 `RegisterUseCase` - Inscription utilisateur (planifié)
 
 **Ports IN (interfaces entrantes):**
 - ✅ `IGameCommands` - Commandes de jeu
 
 **Ports OUT (interfaces sortantes):**
 - ✅ `IPlayerRepository` - Persistance Player (interface définie, implémentation en cours)
+- ✅ `IUserRepository` - Persistance User (interface définie)
 
 ### Infrastructure Layer - 60% Implémenté 🚧
 
