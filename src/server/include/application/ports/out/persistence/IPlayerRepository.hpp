@@ -21,6 +21,7 @@ namespace application::ports::out::persistence {
             virtual void save(const Player& player) const = 0;
             virtual void update(const Player& player) = 0;
             virtual std::optional<Player> findById(const std::string& id) const = 0;
+            virtual std::optional<Player> findByName(const std::string& name) const = 0;
             virtual std::vector<Player> findAll() = 0;
 
         protected:

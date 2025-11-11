@@ -5,9 +5,20 @@
 ** main
 */
 
-#include <iostream>
+
+#include "infrastructure/boostrap/GameBootstrap.hpp"
 
 int main(void) {
-    std::cout << "Hello world!" << std::endl;
+    using infrastructure::boostrap::GameBootstrap;
+    try
+    {
+        GameBootstrap gameBoostrap;
+        gameBoostrap.launch();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    
     return 0;
 }
