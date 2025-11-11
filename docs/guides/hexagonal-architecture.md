@@ -15,6 +15,61 @@ Le serveur R-Type utilise une **Architecture Hexagonale** (aussi appelée **Port
 | **Flexibilité** | Changement facile d'infrastructure (MongoDB → PostgreSQL, REST → gRPC) |
 | **Indépendance** | Le domaine ne dépend d'aucune technologie externe |
 
+## ✅ État Actuel Détaillé (v0.2.0)
+
+### Domain Layer - 100% Implémenté ✅
+
+**Entités:**
+- `Player` (Health, PlayerId, Position) - Joueur en partie (gameplay)
+- `User` (UserId, Username, Password, timestamps) - Utilisateur authentifié
+
+**Value Objects:**
+- `Health` (float >= 0) - Points de vie
+- `Position` (x, y, z dans [-1000, 1000]) - Coordonnées 3D
+- `PlayerId` (UUID MongoDB 24 hex) - Identifiant joueur
+- `UserId`, `Username` (6-21 chars), `Password` (min 6 chars) - Authentification
+
+**Exceptions:**
+- `DomainException`, `HealthException`, `PositionException`
+- `PlayerIdException`, `UserIdException`, `UsernameException`, `PasswordException`
+
+**Documentation:** [Domain API Reference](../api/domain.md)
+
+### Application Layer - 40% Implémenté 🚧
+
+**Use Cases:**
+- ✅ `MovePlayerUseCase` - Déplacement joueur (implémenté)
+- 📋 `LoginUserUseCase`, `RegisterUserUseCase` - Authentification (planifié)
+
+**Ports IN (interfaces entrantes):**
+- ✅ `IGameCommands` - Commandes de jeu
+
+**Ports OUT (interfaces sortantes):**
+- ✅ `IPlayerRepository` - Persistance Player (interface définie, implémentation en cours)
+
+### Infrastructure Layer - 60% Implémenté 🚧
+
+**Adapters IN (Driving):**
+- ✅ `UDPServer` - Serveur UDP asynchrone port 4123 (gameplay temps réel)
+- ✅ `TCPServer` + `Session` - Serveur TCP asynchrone port 4123 (authentification)
+- ✅ `CLIGameController` - Interface CLI pour tests
+
+**Adapters OUT (Driven):**
+- ✅ `MongoDBConfiguration` - Connexion MongoDB avec bsoncxx/mongocxx
+- 🚧 `MongoDBPlayerRepository` - Repository Player (30% - en développement)
+
+**Documentation:** [Adapters API Reference](../api/adapters.md), [Network Architecture](network-architecture.md)
+
+### Séparation .hpp/.cpp - 100% Appliquée ✅
+
+- **46 fichiers sources:** 23 headers (.hpp) + 23 implementations (.cpp)
+- **Build incrémental:** ~15s (vs ~45s avant refactoring)
+- **Tous les namespaces:** `domain::`, `application::`, `infrastructure::`
+
+**Documentation:** [C++ Header/Implementation Guide](cpp-header-implementation.md)
+
+---
+
 ## Les 3 Couches
 
 ```mermaid
