@@ -9,6 +9,36 @@
 > - 🚧 **En cours** - Développement actif
 > - 📋 **Planifié** - Conception faite, code à venir
 
+## ✅ État Actuel (v0.2.0 - Janvier 2025)
+
+**Ce qui est réellement implémenté aujourd'hui:**
+
+### Infrastructure Réseau ✅
+- **UDPServer** - Serveur UDP asynchrone sur port 4123 (gameplay temps réel)
+- **TCPServer + Session** - Serveur TCP asynchrone sur port 4123 (authentification)
+- **Boost.Asio** - Event loop avec io_context
+- **Documentation complète:** [Network Architecture](network-architecture.md)
+
+### Architecture Hexagonale ✅
+- **Domain Layer** - Entités (Player, User), Value Objects (Health, Position, PlayerId, UserId, Username, Password), Exceptions
+- **Application Layer** - Use Cases (MovePlayerUseCase), Ports (IGameCommands, IPlayerRepository)
+- **Infrastructure Layer** - Adapters IN (UDPServer, TCPServer, CLI), Adapters OUT (MongoDBConfiguration)
+- **Documentation complète:** [Hexagonal Architecture](hexagonal-architecture.md), [Domain API](../api/domain.md), [Adapters API](../api/adapters.md)
+
+### Séparation .hpp/.cpp ✅
+- **46 fichiers sources** - 23 headers (.hpp) + 23 implementations (.cpp)
+- **Compilation incrémentale** - Build incrémental ~15s (vs ~45s avant)
+- **Documentation complète:** [C++ Header/Implementation Guide](cpp-header-implementation.md)
+
+### Base de Données ✅
+- **MongoDBConfiguration** - Connexion MongoDB avec bsoncxx/mongocxx
+- **DBConfig** - Configuration centralisée
+- Repositories en cours de développement
+
+**Prochaines étapes:** Architecture ECS, protocole réseau R-Type, gameplay serveur
+
+---
+
 Ce document présente l'architecture technique du projet R-Type et son organisation.
 
 ## Vue d'ensemble
