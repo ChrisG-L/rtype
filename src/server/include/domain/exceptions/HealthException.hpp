@@ -13,14 +13,10 @@
 namespace domain::exceptions {
     class HealthException: public DomainException {
         public:
-            explicit HealthException(float health): DomainException(buildMessage(health)) {};
-        
+            explicit HealthException(float health);
+
         private:
-            std::string buildMessage(float health) {
-                std::ostringstream oss;
-                oss << "Health must be over 0 point and minus 5 points: " << health << ".";
-                return oss.str();
-            }
+            static std::string buildMessage(float health);
     };
 }
 #endif /* !HEALTHEXCEPTION_HPP_ */

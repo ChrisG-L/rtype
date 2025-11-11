@@ -8,20 +8,15 @@
 #ifndef PLAYERIDEXCEPTION_HPP_
 #define PLAYERIDEXCEPTION_HPP_
 
-#include "DomainException.hpp"
+#include "../DomainException.hpp"
 
 namespace domain::exceptions::player {
     class PlayerIdException: public DomainException {
         public:
             explicit PlayerIdException(std::string id);
 
-        protected:
         private:
-            std::string buildMessage(std::string id) {
-                std::ostringstream oss;
-                oss << "Player id must be conform to UUID v7 standards: " << id << ".";
-                return oss.str();
-            }
+            static std::string buildMessage(std::string id);
     };
 }
 #endif /* !PLAYERIDEXCEPTION_HPP_ */
