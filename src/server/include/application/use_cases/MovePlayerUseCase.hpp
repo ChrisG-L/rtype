@@ -8,7 +8,7 @@
 #ifndef MOVEPLAYERUSECASE_HPP_
 #define MOVEPLAYERUSECASE_HPP_
 
-#include "domain/entities/Player.hpp"
+#include "domain/value_objects/player/PlayerId.hpp"
 #include "application/ports/out/persistence/IPlayerRepository.hpp"
 
 
@@ -19,21 +19,10 @@ namespace application::use_cases {
     class MovePlayerUseCase {
         private:
             IPlayerRepository* repository;
+
         public:
-            explicit MovePlayerUseCase(IPlayerRepository* repo) : repository(repo) {}
-
-            void execute(const PlayerId& id, float dx, float dy, float dz) {
-                auto playerOpt = repository->findById(id.value());
-                if (!playerOpt.has_value()) {
-                    return; // Player not found, do nothing
-                }
-
-                auto player = playerOpt.value();
-                player.move(dx, dy, dz);
-                repository->update(player);
-            };
-
-        protected:
+            explicit MovePlayerUseCase(IPlayerRepository* repo);
+            void execute(const PlayerId& id, float dx, float dy, float dz);
     };
 }
 
