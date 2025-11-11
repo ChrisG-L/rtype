@@ -11,7 +11,6 @@
 #include "domain/entities/Player.hpp"
 #include <optional>
 
-
 namespace application::ports::out::persistence {
     using domain::entities::Player;
     class IPlayerRepository {
@@ -28,4 +27,5 @@ namespace application::ports::out::persistence {
         private:
     };
 }
+
 #endif /* !IPLAYERREPOSITORY_HPP_ */
