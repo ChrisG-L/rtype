@@ -6,15 +6,22 @@ add_executable(rtype_server
     domain/exceptions/HealthException.cpp
     domain/exceptions/PositionException.cpp
     domain/exceptions/player/PlayerIdException.cpp
+    domain/exceptions/user/UserIdException.cpp
+    domain/exceptions/user/UsernameException.cpp
+    domain/exceptions/user/PasswordException.cpp
     domain/exceptions/persistence/MongoDBException.cpp
 
     # Domain - Value Objects
     domain/value_objects/Health.cpp
     domain/value_objects/Position.cpp
     domain/value_objects/player/PlayerId.cpp
+    domain/value_objects/user/UserId.cpp
+    domain/value_objects/user/Username.cpp
+    domain/value_objects/user/Password.cpp
 
     # Domain - Entities
     domain/entities/Player.cpp
+    domain/entities/User.cpp
 
     # Application - Use Cases
     application/use_cases/MovePlayerUseCase.cpp
