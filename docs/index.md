@@ -31,6 +31,24 @@ Pour commencer rapidement avec R-Type :
 2. [**Démarrage Rapide**](getting-started/quickstart.md) - Lancez le projet en quelques commandes
 3. [**Compilation**](getting-started/building.md) - Compilez le projet depuis les sources
 
+### Procédure ultra-rapide
+
+```bash
+# 1. Cloner
+git clone https://github.com/Pluenet-Killian/rtype.git
+cd rtype
+
+# 2. Infrastructure (Jenkins + Documentation sur http://localhost:8000)
+./scripts/launch_ci_cd.sh
+
+# 3. Build et compilation
+./scripts/build.sh
+./scripts/compile.sh
+
+# 4. Tests
+./artifacts/server/linux/server_tests
+```
+
 ## Architecture du projet
 
 ```
@@ -64,27 +82,38 @@ rtype/
 
 Le projet peut être lancé de plusieurs façons selon vos besoins :
 
-### 1. Compilation locale native
+### 1. Méthode recommandée (Native + Docker)
 
 ```bash
-# Configuration et compilation
+# Infrastructure CI/CD (Jenkins + Documentation)
+./scripts/launch_ci_cd.sh
+
+# Build et compilation native
 ./scripts/build.sh
 ./scripts/compile.sh
 
-# Lancement
+# Lancement du serveur
 ./artifacts/server/linux/rtype_server
 ```
 
-### 2. Docker pour le build
+!!! tip "Meilleure approche"
+    Cette méthode combine les avantages de Docker pour l'infrastructure (Jenkins, docs) et la compilation native pour un développement rapide.
+
+### 2. Build complet avec Docker
 
 ```bash
+# Infrastructure d'abord
+./scripts/launch_ci_cd.sh
+
+# Build via Docker
 cd ci_cd/docker
 docker-compose -f docker-compose.build.yml up
 ```
 
-### 3. Docker pour la documentation
+### 3. Accès à la documentation uniquement
 
 ```bash
+# Lancer uniquement la documentation
 cd ci_cd/docker
 docker-compose -f docker-compose.docs.yml up
 # Accédez à http://localhost:8000
@@ -99,21 +128,20 @@ Le pipeline Jenkins s'exécute automatiquement à chaque push et effectue :
 - Exécution des tests
 - Archivage des artifacts
 
+**Accès :** http://localhost:8080 (après `./scripts/launch_ci_cd.sh`)
+
 ## Prérequis système
 
 ### Linux (Ubuntu 22.04 recommandé)
 
-- GCC 11+ ou Clang 15+ (support C++23)
-- CMake 3.30+
-- Git
-- Ninja build system
-- Au moins 4 GB de RAM
-- 5 GB d'espace disque libre
+- **Compilateur :** GCC 11+ ou Clang 15+ (support C++23)
+- **Build :** CMake 3.30+, Ninja
+- **Outils :** Git, curl, zip/unzip
+- **Docker :** Docker Engine 20.10+, Docker Compose 2.0+ (requis pour Jenkins et docs)
+- **Matériel :** 4 GB de RAM minimum, 5 GB d'espace disque libre
 
-### Docker (optionnel)
-
-- Docker Engine 20.10+
-- Docker Compose 2.0+
+!!! warning "Docker requis"
+    Docker n'est plus optionnel. Il est **nécessaire** pour lancer l'infrastructure CI/CD et la documentation locale via `./scripts/launch_ci_cd.sh`.
 
 ## Structure de la documentation
 

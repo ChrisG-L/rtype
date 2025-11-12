@@ -6,39 +6,54 @@ Ce guide vous permet de lancer rapidement le projet R-Type en quelques commandes
 
 Avant de commencer, assurez-vous d'avoir :
 
-- Un système Linux (Ubuntu 22.04 recommandé) ou WSL2
-- Git installé
-- Au moins 5 GB d'espace disque libre
+- **Système :** Linux (Ubuntu 22.04 recommandé) ou WSL2
+- **Outils :** Git, Docker, Docker Compose
+- **Espace disque :** Au moins 5 GB libre
 
-## Lancement en 3 commandes
+!!! tip "Installation des prérequis"
+    Si vous n'avez pas Docker, consultez le [Guide d'installation complet](installation.md)
 
-### Méthode 1 : Compilation native (recommandée)
+## Lancement en 4 commandes
+
+### Méthode recommandée : Native + Docker
 
 ```bash
 # 1. Cloner le projet
 git clone https://github.com/Pluenet-Killian/rtype.git
 cd rtype
 
-# 2. Configuration et installation des dépendances (prend 10-30 min la première fois)
+# 2. Lancer l'infrastructure CI/CD (Jenkins + Documentation)
+./scripts/launch_ci_cd.sh
+
+# 3. Configuration et installation des dépendances (prend 10-30 min la première fois)
 ./scripts/build.sh
 
-# 3. Compilation
+# 4. Compilation
 ./scripts/compile.sh
 ```
 
 !!! success "C'est prêt!"
-Les binaires sont maintenant disponibles dans `artifacts/server/linux/`
+    - **Binaires** disponibles dans `artifacts/server/linux/`
+    - **Documentation** accessible à http://localhost:8000
+    - **Jenkins** accessible à http://localhost:8080
 
-### Méthode 2 : Avec Docker
+### Méthode alternative : Build complet avec Docker
 
 ```bash
 # 1. Cloner le projet
 git clone https://github.com/Pluenet-Killian/rtype.git
-cd rtype/ci_cd/docker
+cd rtype
 
-# 2. Build et compilation avec Docker
+# 2. Lancer l'infrastructure
+./scripts/launch_ci_cd.sh
+
+# 3. Build et compilation avec Docker
+cd ci_cd/docker
 docker-compose -f docker-compose.build.yml up
 ```
+
+!!! note "Build Docker vs Native"
+    Le build Docker garantit un environnement identique à la CI/CD, mais le build natif est plus rapide pour le développement.
 
 ## Lancer le serveur
 
@@ -80,21 +95,29 @@ Sortie attendue :
 [  PASSED  ] 1 test.
 ```
 
-## Lancer la documentation
+## Accéder à la documentation
 
-Pour consulter cette documentation localement avec live-reload :
+La documentation est automatiquement lancée avec `./scripts/launch_ci_cd.sh` !
 
 ```bash
-# Méthode 1 : Avec Docker (recommandé)
-cd ci_cd/docker
-docker-compose -f docker-compose.docs.yml up
+# Si ce n'est pas déjà fait
+./scripts/launch_ci_cd.sh
 
-# Méthode 2 : Installation locale de MkDocs
-pip install mkdocs-material
-mkdocs serve
+# Ouvrez votre navigateur
+# http://localhost:8000
 ```
 
-Puis ouvrez votre navigateur à l'adresse : [http://localhost:8000](http://localhost:8000)
+!!! tip "Documentation en direct"
+    La documentation est lancée avec MkDocs en mode live-reload. Toute modification des fichiers `.md` sera visible instantanément !
+
+### Alternative : Documentation seule
+
+Si vous voulez uniquement la documentation sans Jenkins :
+
+```bash
+cd ci_cd/docker
+docker-compose -f docker-compose.docs.yml up
+```
 
 ## Structure des artifacts
 
@@ -149,14 +172,16 @@ rm -rf build/
 
 ## Commandes utiles
 
-| Commande                                | Description                                 |
-| --------------------------------------- | ------------------------------------------- |
-| `./scripts/build.sh`                    | Configure CMake et installe les dépendances |
-| `./scripts/compile.sh`                  | Compile le projet                           |
-| `./artifacts/server/linux/rtype_server` | Lance le serveur                            |
-| `./artifacts/server/linux/server_tests` | Lance les tests                             |
-| `./third_party/vcpkg/vcpkg list`        | Liste les dépendances installées            |
-| `cmake --build build --target clean`    | Nettoie les objets compilés                 |
+| Commande                                | Description                                        |
+| --------------------------------------- | -------------------------------------------------- |
+| `./scripts/launch_ci_cd.sh`             | Lance Jenkins + Documentation (http://localhost)   |
+| `./scripts/build.sh`                    | Configure CMake et installe les dépendances        |
+| `./scripts/compile.sh`                  | Compile le projet                                  |
+| `./artifacts/server/linux/rtype_server` | Lance le serveur                                   |
+| `./artifacts/server/linux/server_tests` | Lance les tests                                    |
+| `./third_party/vcpkg/vcpkg list`        | Liste les dépendances installées                   |
+| `cmake --build build --target clean`    | Nettoie les objets compilés                        |
+| `docker-compose -f ci_cd/docker/docker-compose.yml down` | Arrête Jenkins + Docs |
 
 ## Modes de compilation
 
@@ -235,25 +260,28 @@ rm -rf build/
 ./artifacts/server/linux/server_tests --gtest_verbose
 ```
 
-## Lancement avec Jenkins (CI/CD)
+## Utiliser Jenkins (CI/CD)
 
-Le projet inclut un pipeline Jenkins automatisé :
+Jenkins est automatiquement lancé avec `./scripts/launch_ci_cd.sh` !
 
 ```bash
-# Lancer Jenkins
-cd ci_cd/docker
-docker-compose up -d
+# Si ce n'est pas déjà fait
+./scripts/launch_ci_cd.sh
 
 # Accéder à Jenkins
 # http://localhost:8080
 ```
 
-Le pipeline exécute automatiquement :
+Le pipeline Jenkins exécute automatiquement à chaque push :
 
-1. Checkout du code
-2. Installation des dépendances
-3. Compilation
-4. Tests
+1. **Checkout** du code
+2. **Installation** des dépendances (vcpkg)
+3. **Compilation** du projet
+4. **Tests** unitaires
+5. **Archivage** des artifacts
+
+!!! info "Configuration Jenkins"
+    Le pipeline est défini dans `ci_cd/Jenkinsfile`. Vous pouvez le personnaliser selon vos besoins.
 
 ## Prochaines étapes
 

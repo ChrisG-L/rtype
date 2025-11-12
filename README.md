@@ -39,34 +39,77 @@
 - **OS:** Linux (Ubuntu 22.04+ recommandé) ou WSL2
 - **Compilateur:** GCC 11+ ou Clang 15+ (support C++23)
 - **Build:** CMake 3.26+, Ninja
-- **Outils:** Git, curl, zip/unzip
+- **Outils:** Git, curl, zip/unzip, Docker & Docker Compose
 
 ### Installation et Build
 
 ```bash
-# Cloner le projet
+# 1. Cloner le projet
 git clone <repository-url>
 cd rtype
 
-# Build automatique (installe vcpkg et dépendances)
+# 2. Lancer l'infrastructure CI/CD (Jenkins + Documentation)
+./scripts/launch_ci_cd.sh
+
+# 3. Build automatique (installe vcpkg et dépendances)
 ./scripts/build.sh
 
-# Compilation
+# 4. Compilation
 ./scripts/compile.sh
 
-# Lancer les tests
+# 5. Lancer les tests
 ./artifacts/server/linux/server_tests
+
+# 6. Accéder à la documentation locale
+# Ouvrez votre navigateur à http://localhost:8000
 ```
 
-### Alternative Docker
+### Que fait chaque étape ?
+
+| Étape | Commande | Durée | Description détaillée |
+|-------|----------|-------|----------------------|
+| **1** | `git clone` | ~1 min | Récupère le code source du projet depuis GitHub |
+| **2** | `./scripts/launch_ci_cd.sh` | ~30 sec | Lance les conteneurs Docker pour Jenkins (http://localhost:8080) et la documentation MkDocs (http://localhost:8000) |
+| **3** | `./scripts/build.sh` | 10-30 min | Clone et compile vcpkg, installe toutes les dépendances (Boost.ASIO, Google Test, MongoDB Driver), configure CMake |
+| **4** | `./scripts/compile.sh` | ~2 min | Compile le serveur et les tests avec Ninja |
+| **5** | `server_tests` | ~1 sec | Exécute la suite de tests unitaires avec Google Test |
+| **6** | Documentation | - | Ouvrez http://localhost:8000 dans votre navigateur |
+
+!!! note "Première installation"
+    L'étape 3 (build) est longue uniquement la première fois car vcpkg compile les dépendances depuis les sources. Les builds suivants seront beaucoup plus rapides (~2 minutes).
+
+### Services disponibles après installation
+
+Une fois l'installation terminée, vous aurez accès à :
+
+- **Documentation locale** : http://localhost:8000 (guides complets, API, architecture)
+- **Jenkins CI/CD** : http://localhost:8080 (pipelines automatisés)
+- **Serveur R-Type** : `./artifacts/server/linux/rtype_server`
+- **Tests unitaires** : `./artifacts/server/linux/server_tests`
+
+### Alternative Docker (build complet)
+
+Pour un build complètement isolé via Docker :
 
 ```bash
-# Build via Docker
-docker-compose -f ci_cd/docker/docker-compose.build.yml up
+# 1. Infrastructure d'abord
+./scripts/launch_ci_cd.sh
 
-# Documentation locale (http://localhost:8000)
-docker-compose -f ci_cd/docker/docker-compose.docs.yml up
+# 2. Build via Docker
+cd ci_cd/docker
+docker-compose -f docker-compose.build.yml up
 ```
+
+### Dépannage rapide
+
+| Problème | Solution |
+|----------|----------|
+| Port 8000 ou 8080 déjà utilisé | `docker-compose -f ci_cd/docker/docker-compose.yml down` puis relancez |
+| Erreur vcpkg | `rm -rf third_party/vcpkg && ./scripts/build.sh` |
+| Erreur compilation | `rm -rf build && ./scripts/build.sh && ./scripts/compile.sh` |
+| Docker non trouvé (WSL2) | Installez Docker Desktop et activez l'intégration WSL2 |
+
+📖 Pour plus de détails, consultez la [documentation complète](docs/getting-started/installation.md)
 
 ## 📁 Structure du Projet
 

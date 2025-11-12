@@ -37,6 +37,10 @@ echo "pwd: $(pwd)"
 cd "../../"
 echo "pwd: $(pwd)"
 
+echo "🧹 Nettoyage du dossier build..."
+rm -rf build
+mkdir -p build
+
 echo "Configuration du projet CMake"
 mkdir -p build
 cmake -S . -B build \

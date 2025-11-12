@@ -2,6 +2,17 @@
 
 Ce guide vous explique comment installer et configurer l'environnement de développement pour R-Type.
 
+!!! success "Processus d'installation en 7 étapes"
+    1. **Installer les dépendances système** (GCC, CMake, Git, etc.)
+    2. **Vérifier GCC** (version 11+)
+    3. **Installer Docker et Docker Compose**
+    4. **Cloner le repository**
+    5. **Lancer l'infrastructure CI/CD** (Jenkins + Documentation) → `./scripts/launch_ci_cd.sh`
+    6. **Installer vcpkg et compiler** → `./scripts/build.sh`
+    7. **Vérifier l'installation** → `./scripts/compile.sh` et tests
+
+    **Temps estimé :** 15-40 minutes (selon votre machine et connexion)
+
 ## Prérequis
 
 ### Configuration minimale requise
@@ -53,7 +64,24 @@ sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
 sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
 ```
 
-### Étape 3 : Cloner le repository
+### Étape 3 : Installer Docker et Docker Compose
+
+```bash
+# Installer Docker
+sudo apt-get install -y docker.io docker-compose
+
+# Ajouter votre utilisateur au groupe docker (pour éviter sudo)
+sudo usermod -aG docker $USER
+
+# Déconnectez-vous et reconnectez-vous pour que les changements prennent effet
+# Ou exécutez: newgrp docker
+
+# Vérifier l'installation
+docker --version
+docker-compose --version
+```
+
+### Étape 4 : Cloner le repository
 
 ```bash
 # Cloner le projet
@@ -65,7 +93,27 @@ git checkout main
 git pull origin main
 ```
 
-### Étape 4 : Installer vcpkg et les dépendances
+### Étape 5 : Lancer l'infrastructure CI/CD
+
+Avant de compiler, lancez l'infrastructure Docker pour avoir accès à Jenkins (CI/CD) et à la documentation locale :
+
+```bash
+# Lancer Jenkins et la documentation
+./scripts/launch_ci_cd.sh
+```
+
+Ce script va :
+
+1. Lancer la documentation MkDocs sur **http://localhost:8000**
+2. Lancer Jenkins sur **http://localhost:8080**
+
+!!! tip "Documentation locale"
+    Une fois lancée, vous pouvez accéder à la documentation complète du projet à http://localhost:8000. C'est très utile pour suivre les guides pendant le développement !
+
+!!! info "Jenkins CI/CD"
+    Jenkins est disponible à http://localhost:8080 et vous permet de lancer les pipelines de build et de tests automatiquement.
+
+### Étape 6 : Installer vcpkg et les dépendances
 
 Le projet utilise vcpkg pour gérer les dépendances. Le script d'installation s'en charge automatiquement :
 
@@ -85,9 +133,9 @@ Ce script va :
 4. Configurer CMake avec vcpkg
 
 !!! info "Durée d'installation"
-La première installation peut prendre 10-30 minutes selon votre connexion et votre machine, car vcpkg compile les dépendances depuis les sources.
+    La première installation peut prendre 10-30 minutes selon votre connexion et votre machine, car vcpkg compile les dépendances depuis les sources.
 
-### Étape 5 : Vérifier l'installation
+### Étape 7 : Vérifier l'installation
 
 ```bash
 # Vérifier que vcpkg est installé
@@ -99,29 +147,28 @@ ls build/
 # Devrait afficher des fichiers comme CMakeCache.txt, build.ninja, etc.
 ```
 
-## Installation avec Docker
+## Alternative : Build complet avec Docker
 
-Si vous préférez utiliser Docker pour isoler l'environnement :
+Si vous préférez utiliser Docker pour isoler complètement l'environnement de build :
 
 ### Prérequis Docker
 
-```bash
-# Installer Docker
-sudo apt-get install -y docker.io docker-compose
-```
+Docker doit déjà être installé (voir Étape 3 ci-dessus).
 
 ### Build avec Docker
 
 ```bash
-# Se placer dans le dossier Docker
+# 1. Lancer d'abord l'infrastructure CI/CD
+./scripts/launch_ci_cd.sh
+
+# 2. Build via Docker (méthode alternative au build natif)
 cd ci_cd/docker
-
-# Construire l'image de build
 docker-compose -f docker-compose.build.yml build
-
-# Lancer la compilation
 docker-compose -f docker-compose.build.yml up
 ```
+
+!!! note "Build natif vs Docker"
+    Le build natif (via `./scripts/build.sh`) est recommandé pour le développement car il est plus rapide. Le build Docker est utile pour garantir un environnement de build identique à la CI/CD.
 
 L'image Docker contient tous les outils nécessaires :
 
@@ -155,19 +202,22 @@ Une fois WSL2 configuré, suivez les instructions d'installation pour Linux ci-d
 cd ~
 git clone https://github.com/Pluenet-Killian/rtype.git
 cd rtype
+
+# Installer Docker dans WSL2
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose
+sudo service docker start
+
+# Lancer l'infrastructure CI/CD
+./scripts/launch_ci_cd.sh
+
+# Build et compilation
 ./scripts/build.sh
+./scripts/compile.sh
 ```
 
-### Cloner et configurer
-
-```bash
-# Cloner le projet
-git clone https://github.com/Pluenet-Killian/rtype.git
-cd rtype
-
-# Configurer et installer
-./scripts/build.sh
-```
+!!! warning "Docker dans WSL2"
+    Assurez-vous que Docker Desktop pour Windows est installé ET que l'intégration WSL2 est activée dans les paramètres Docker Desktop.
 
 ## Dépendances du projet
 
