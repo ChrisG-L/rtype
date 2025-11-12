@@ -84,8 +84,12 @@ Une fois l'installation terminée, vous aurez accès à :
 
 - **Documentation locale** : http://localhost:8000 (guides complets, API, architecture)
 - **Jenkins CI/CD** : http://localhost:8080 (pipelines automatisés)
+- **SonarQube** : http://localhost:9000 (analyse de qualité de code) - *optionnel*
 - **Serveur R-Type** : `./artifacts/server/linux/rtype_server`
 - **Tests unitaires** : `./artifacts/server/linux/server_tests`
+
+!!! tip "SonarQube"
+    SonarQube est optionnel lors du lancement. Il analyse la qualité du code et détecte bugs, vulnérabilités et code smells. Consultez le [guide SonarQube](docs/guides/sonarqube.md) pour plus d'informations.
 
 ### Alternative Docker (build complet)
 

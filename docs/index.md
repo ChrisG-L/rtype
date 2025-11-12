@@ -22,6 +22,7 @@ R-Type est un projet de jeu multijoueur client-serveur développé avec des tech
 - **Base de données** : MongoDB pour la persistance des données
 - **Tests** : Suite de tests unitaires avec Google Test
 - **CI/CD** : Pipeline automatisé avec Jenkins et Docker
+- **Qualité de code** : Analyse continue avec SonarQube
 
 ## Démarrage rapide
 
@@ -76,6 +77,7 @@ rtype/
 | **MongoDB**     | Base de données                 | Via vcpkg |
 | **Docker**      | Conteneurisation                | Latest    |
 | **Jenkins**     | CI/CD                           | LTS       |
+| **SonarQube**   | Analyse de qualité de code      | 10+       |
 | **MkDocs**      | Documentation                   | 1.5+      |
 
 ## Méthodes de lancement
@@ -130,6 +132,26 @@ Le pipeline Jenkins s'exécute automatiquement à chaque push et effectue :
 
 **Accès :** http://localhost:8080 (après `./scripts/launch_ci_cd.sh`)
 
+### 5. SonarQube - Analyse de qualité
+
+Pour analyser la qualité du code :
+
+```bash
+# Lancer SonarQube (si pas déjà fait)
+cd ci_cd/docker
+docker-compose -f docker-compose.sonarqube.yml up -d
+
+# Analyser le code
+cd ../..
+./scripts/sonar-analyze.sh
+
+# Accédez aux résultats
+# http://localhost:9000
+```
+
+!!! tip "SonarQube"
+    Consultez le [guide complet SonarQube](guides/sonarqube.md) pour configurer et utiliser l'analyse de qualité de code.
+
 ## Prérequis système
 
 ### Linux (Ubuntu 22.04 recommandé)
@@ -148,7 +170,7 @@ Le pipeline Jenkins s'exécute automatiquement à chaque push et effectue :
 Cette documentation est organisée en plusieurs sections :
 
 - **Pour Commencer** : Installation, démarrage rapide, compilation
-- **Guides Utilisateurs** : Architecture, tutoriels, bonnes pratiques
+- **Guides Utilisateurs** : Architecture, tutoriels, bonnes pratiques, SonarQube
 - **Référence API** : Documentation des APIs du domaine et des adapters
 - **Développement** : Guide de contribution, architecture technique, tests
 - **Référence** : Glossaire, FAQ
@@ -157,6 +179,7 @@ Cette documentation est organisée en plusieurs sections :
 
 - [Repository GitHub](https://github.com/Pluenet-Killian/rtype)
 - [Démarrage Rapide](getting-started/quickstart.md)
+- [Guide SonarQube](guides/sonarqube.md)
 - [Guide de Contribution](development/contributing.md)
 - [FAQ](reference/faq.md)
 

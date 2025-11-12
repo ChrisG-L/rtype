@@ -1,237 +1,509 @@
-# Introduction à la Ruche d'Agents R-Type
+# Introduction à la Ruche d'Agents IA - R-Type
 
 ## Vue d'Ensemble
 
-La **Ruche d'Agents** est un système d'intelligence artificielle collaborative conçu pour automatiser les tâches techniques et organisationnelles autour du développement du projet R-Type. Elle est composée d'agents spécialisés coordonnés par une **Reine** orchestratrice.
+La **Ruche d'Agents IA** est un système d'assistance au développement basé sur **Claude Code** qui utilise des agents spécialisés pour améliorer la qualité et la productivité du projet R-Type. Chaque agent est un **prompt spécialisé** que vous pouvez invoquer pour obtenir une expertise ciblée.
+
+!!! info "Qu'est-ce qu'un Agent ?"
+    Un agent est un fichier markdown (`.md`) dans `.claude/agents/` qui définit un rôle, des responsabilités et des standards spécifiques. Lorsque vous invoquez un agent, Claude adopte cette personnalité et cette expertise pour vous assister.
 
 ## 🎯 Philosophie
 
-**Objectif** : Les développeurs se concentrent sur le code métier, l'IA gère le reste.
+**Objectif** : Améliorer la qualité et la cohérence du code grâce à des assistants IA spécialisés.
 
-- ✅ **Automatisation** : Commits, documentation, tickets, tests, sécurité
-- ✅ **Qualité** : Standards professionnels constants
-- ✅ **Cohérence** : Synchronisation parfaite entre code, docs et tickets
-- ✅ **Rapidité** : Workflows optimisés et parallélisés
+- ✅ **Expertise ciblée** : Chaque agent maîtrise un domaine spécifique
+- ✅ **Standards cohérents** : Tous les agents respectent les mêmes conventions
+- ✅ **Qualité professionnelle** : Guidance experte pour chaque tâche
+- ✅ **Flexibilité** : Invoquez les agents selon vos besoins
 
 ## 👑 Architecture de la Ruche
 
 ```
-          👑 Reine des Abeilles (Orchestratrice)
+          👑 Queen Bee (Orchestratrice)
                       |
-       ┌──────────────┼──────────────┐
-       |              |              |
-   🐝 Tests       🐝 Sécurité    🐝 Git Commit
-       |              |              |
-   🐝 Docs        🐝 Linear      (+ autres)
+       ┌──────────────┼──────────────┬─────────────┐
+       |              |              |             |
+   🐝 Tests       🐝 Security    🐝 Git       🐝 Docs
+                      |
+                  🐝 Linear
 ```
 
-### Les Agents
+### Hiérarchie des Agents
 
-| Agent                    | Rôle                                  | Sortie                          |
-| ------------------------ | ------------------------------------- | ------------------------------- |
-| **👑 Queen Bee**         | Orchestre tous les agents             | Rapport final (MD + JSON)       |
-| **🐝 Tests & Qualité**   | Exécute tests, mesure couverture      | `tests_report.json`             |
-| **🐝 Sécurité & CI**     | Scan vulnérabilités, analyse statique | `security_report.json`          |
-| **🐝 Git Commit**        | Crée commits atomiques propres        | `commit_plan.json`              |
-| **🐝 Documentation**     | Maintient documentation MkDocs        | `docs_report.json`              |
-| **🐝 Linear Manager**    | Gère tickets et organisation          | `linear_report.json`            |
+- **Queen Bee** : Agent orchestrateur qui coordonne les autres agents
+- **Agents Spécialisés** : Experts dans leur domaine respectif
 
-## 📁 Structure du Projet
+## 📂 Structure du Projet
 
 ```
 rtype/
-├── .claude/                  # Agents IA (prompts)
-│   └── agents/
-│       ├── queen_bee_agent.md
-│       ├── tests_quality_agent.md
-│       ├── security_ci_agent.md
-│       ├── git_commit_agent.md
-│       ├── docs_agent.md
-│       └── linear_manager_agent.md
+├── .claude/                  # Configuration Claude Code
+│   ├── agents/               # Agents IA (prompts spécialisés)
+│   │   ├── queen_bee_agent.md          # 👑 Orchestratrice
+│   │   ├── docs_agent.md               # 📚 Documentation
+│   │   ├── git_commit_agent.md         # 📝 Commits Git
+│   │   ├── tests_quality_agent.md      # 🧪 Tests & Qualité
+│   │   ├── security_ci_agent.md        # 🔒 Sécurité & CI
+│   │   └── linear_manager_agent.md     # 📋 Gestion Linear
+│   └── settings.local.json   # Configuration locale
 │
-├── hive/                     # Infrastructure de la ruche
-│   ├── events/               # Contextes à traiter
-│   ├── reports/              # Rapports JSON des agents
-│   ├── policies/             # Règles et seuils de qualité
-│   │   ├── quality_gates.json
-│   │   ├── commit_conventions.json
-│   │   └── security_thresholds.json
-│   ├── state/                # État persistant de la ruche
-│   │   └── hive_health.json
-│   └── schemas/              # Documentation des formats
-│       ├── agent_report_schema.md
-│       └── commit_plan_schema.md
-│
-├── scripts/                  # Scripts d'orchestration
-│   ├── hive_run.sh           # Orchestrateur principal
-│   ├── run_tests.sh          # Lance les tests
-│   ├── install_git_hooks.sh  # Installe les hooks Git
-│   └── git-hooks/            # Hooks Git sources
-│       ├── commit-msg
-│       └── pre-push
-│
-├── settings.local.json       # Configuration globale
-└── docs/                     # Documentation MkDocs
-    └── hive/                 # Documentation de la ruche
+└── docs/                     # Documentation du projet
+    └── hive/                 # Documentation de la Ruche
+        └── introduction.md   # Ce fichier
 ```
 
-## 🔄 Workflows (Flows)
+## 🐝 Les Agents Disponibles
 
-### Flow "Feature" (Complet)
+### 👑 Queen Bee Agent - L'Orchestratrice
 
-Quand tu termines une fonctionnalité :
+**Fichier** : `.claude/agents/queen_bee_agent.md`
 
-```bash
-./scripts/hive_run.sh --flow=feature
+**Rôle** : Agent suprême qui coordonne tous les autres agents et assure la cohérence globale du projet.
+
+**Responsabilités** :
+- Orchestrer le travail des agents spécialisés
+- Superviser la qualité globale du projet
+- Garantir la cohérence entre code, documentation et tickets
+- Valider que les standards sont respectés
+
+**Quand l'invoquer** :
+```
+@queen_bee_agent "J'ai terminé une feature majeure, vérifie que tout est en ordre"
 ```
 
-**Agents exécutés** :
+---
 
-1. 🔒 Sécurité (scan rapide)
-2. 🧪 Tests (tous + couverture)
-3. 📝 Git Commit (plan atomique)
-4. 📚 Documentation (vérification)
-5. 📋 Linear (tickets)
+### 📚 Documentation Agent
 
-**Résultat** : Rapport complet OK/WARN/FAIL
+**Fichier** : `.claude/agents/docs_agent.md`
 
-### Flow "Bugfix" (Urgent)
+**Rôle** : Expert en documentation technique avec MkDocs Material.
 
-Pour un bugfix rapide :
+**Responsabilités** :
+- Créer une documentation technique de qualité professionnelle
+- Maintenir la cohérence et la clarté de la documentation
+- Éviter la documentation superficielle ou inutile
+- Utiliser des diagrammes et exemples concrets
 
-```bash
-./scripts/hive_run.sh --flow=bugfix
+**Standards** :
+- Documentation en français
+- Markdown bien formaté
+- Exemples fonctionnels
+- Diagrammes Mermaid quand pertinent
+- Pas de pages "TODO" ou placeholder
+
+**Quand l'invoquer** :
+```
+@docs_agent "Crée la documentation pour le système ECS"
+@docs_agent "Vérifie que la documentation réseau est complète"
 ```
 
-**Agents exécutés** :
+---
 
-1. 🧪 Tests (prioritaires)
-2. 📝 Git Commit
-3. 🔒 Sécurité (si code sensible)
+### 📝 Git Commit Agent
 
-### Flow "Audit" (Hebdomadaire)
+**Fichier** : `.claude/agents/git_commit_agent.md`
 
-Rapport de santé global :
+**Rôle** : Expert en gestion de versions Git et création de commits atomiques.
 
-```bash
-./scripts/hive_run.sh --flow=audit
+**Responsabilités** :
+- Analyser les changements staged et unstaged
+- Proposer des commits atomiques et cohérents
+- Respecter la convention Conventional Commits
+- Créer des messages de commit clairs en français
+
+**Convention de Commit** :
+```
+<type>(<scope>): <description courte> [ID-TICKET]
+
+<description détaillée>
+
+<footer>
 ```
 
-**Sortie** : Métriques, tendances, recommandations
+**Types de commits** :
+- `FEAT` : Nouvelle fonctionnalité
+- `FIX` : Correction de bug
+- `REFACTOR` : Refactorisation
+- `DOCS` : Documentation
+- `BUILD` : Build et dépendances
+- `TEST` : Tests
+- `CI` : CI/CD
+- `PERF` : Performance
 
-### Flow "Pre-Push" (Hook)
-
-Automatique avant chaque `git push` :
-
-```bash
-# Appelé automatiquement par le hook
-./scripts/hive_run.sh --flow=pre-push
+**Quand l'invoquer** :
+```
+@git_commit_agent "Analyse mes changements et propose des commits atomiques"
+@git_commit_agent "Crée un commit pour le système ECS"
 ```
 
-**Mode** : Rapide, warnings seulement
+---
 
-## 🚦 Quality Gates
+### 🧪 Tests & Quality Agent
 
-Chaque agent vérifie des **seuils de qualité** (gates) :
+**Fichier** : `.claude/agents/tests_quality_agent.md`
 
-| Gate                  | Seuil | Mode     | Description                |
-| --------------------- | ----- | -------- | -------------------------- |
-| `min_coverage`        | 70%   | blocking | Couverture minimale        |
-| `max_failed_tests`    | 0     | blocking | Aucun test échoué          |
-| `max_critical_vulns`  | 0     | blocking | Aucune vulnérabilité crit. |
-| `max_high_vulns`      | 0     | blocking | Aucune vulnérabilité haute |
-| `max_medium_vulns`    | 3     | warning  | Max 3 vulnérabilités moy.  |
+**Rôle** : Expert en tests unitaires et qualité de code C++23.
 
-**Mode blocking** : Échec → merge bloqué
-**Mode warning** : Échec → avertissement seulement
+**Responsabilités** :
+- Créer des tests unitaires avec Google Test
+- Vérifier la couverture de tests
+- Analyser la qualité du code
+- Proposer des améliorations
 
-## 💻 Utilisation avec Claude Code
+**Standards** :
+- Couverture de tests >= 80%
+- Tests atomiques et indépendants
+- Nommage clair des tests
+- Assertions appropriées
 
-### Avec la Reine
+**Quand l'invoquer** :
+```
+@tests_quality_agent "Crée des tests pour la classe Entity"
+@tests_quality_agent "Analyse la couverture de tests du module ECS"
+```
+
+---
+
+### 🔒 Security & CI Agent
+
+**Fichier** : `.claude/agents/security_ci_agent.md`
+
+**Rôle** : Expert en sécurité et intégration continue.
+
+**Responsabilités** :
+- Détecter les vulnérabilités de sécurité
+- Configurer et optimiser les pipelines CI/CD
+- Analyser les dépendances
+- Recommander les meilleures pratiques
+
+**Domaines** :
+- Sécurité du code C++
+- Configuration Jenkins
+- Analyse SonarQube
+- Docker et conteneurisation
+
+**Quand l'invoquer** :
+```
+@security_ci_agent "Vérifie les vulnérabilités dans le code réseau"
+@security_ci_agent "Optimise le pipeline Jenkins"
+```
+
+---
+
+### 📋 Linear Manager Agent
+
+**Fichier** : `.claude/agents/linear_manager_agent.md`
+
+**Rôle** : Chef de projet technique spécialisé dans Linear.
+
+**Responsabilités** :
+- Créer et organiser les tickets Linear
+- Maintenir une structure claire et cohérente
+- Documenter le travail accompli
+- Lier le code aux tickets
+
+**Structure Linear** :
+```
+Epic (FR) → Features (FR) → Tasks (FR) → Bugs (FR)
+```
+
+**Nomenclature** :
+- Épics : `[EPIC] Système ECS`
+- Features : `[FEAT] Component Manager`
+- Tasks : `[TASK] Implémentation de la classe Entity`
+- Bugs : `[BUG] Fuite mémoire dans EntityManager`
+
+**Quand l'invoquer** :
+```
+@linear_manager_agent "Crée les tickets pour le système ECS"
+@linear_manager_agent "Organise les tickets de la feature réseau"
+```
+
+---
+
+## 💻 Comment Utiliser les Agents
+
+### Méthode 1 : Invocation Directe
+
+Dans Claude Code, utilisez la syntaxe `@nom_agent` :
 
 ```
-"Reine, j'ai terminé la feature système de particules, assure-toi que tout est en ordre"
+@docs_agent "Crée la documentation du système de particules"
+```
+
+### Méthode 2 : Demande à la Reine
+
+Demandez à Queen Bee de coordonner plusieurs agents :
+
+```
+@queen_bee_agent "J'ai terminé le système ECS, assure-toi que tout est parfait (code, tests, docs, tickets)"
 ```
 
 La Reine va :
+1. Analyser le code avec l'agent Tests
+2. Vérifier la sécurité avec l'agent Security
+3. Proposer des commits avec l'agent Git
+4. Valider la documentation avec l'agent Docs
+5. Créer les tickets avec l'agent Linear
 
-1. Orchestrer tous les agents
-2. Lire leurs rapports JSON
-3. Vérifier les quality gates
-4. Te donner un rapport final
+### Méthode 3 : Conversation Naturelle
 
-### Avec un Agent Spécifique
+Vous pouvez aussi simplement décrire votre besoin :
 
 ```
-"Agent Tests, lance tous les tests et donne-moi un rapport"
-
-"Agent Git, analyse mes changements et propose un plan de commits"
-
-"Agent Docs, vérifie que toute la doc est à jour"
+"Aide-moi à créer des tests unitaires pour la classe NetworkManager"
 ```
 
-## 📊 Rapports
+Claude comprendra automatiquement qu'il doit adopter le rôle de l'agent Tests & Quality.
 
-Tous les rapports sont dans `hive/reports/` :
+## 🔄 Workflows Typiques
 
-- `tests_report.json` - Résultats des tests
-- `security_report.json` - Scan de sécurité
-- `commit_plan.json` - Plan de commits proposé
-- `docs_report.json` - État de la documentation
-- `linear_report.json` - Tickets créés/mis à jour
-- **`queen_final_report.md`** - Rapport final humain
-- **`queen_final_report.json`** - Rapport final machine
+### Workflow 1 : Développement d'une Feature
 
-## 🔧 Installation
-
-### 1. Installer les Hooks Git
-
-```bash
-./scripts/install_git_hooks.sh
+```
+1. Vous codez la feature
+2. @tests_quality_agent "Crée les tests unitaires"
+3. @docs_agent "Documente cette feature"
+4. @git_commit_agent "Propose des commits atomiques"
+5. @linear_manager_agent "Crée les tickets correspondants"
 ```
 
-Cela installe :
+### Workflow 2 : Review de Code
 
-- `commit-msg` : Valide le format des commits
-- `pre-push` : Lance vérifications rapides
+```
+1. @security_ci_agent "Analyse les vulnérabilités du code réseau"
+2. @tests_quality_agent "Vérifie la couverture de tests"
+3. @queen_bee_agent "Valide que tout respecte les standards"
+```
 
-### 2. Configurer les Policies
+### Workflow 3 : Bugfix
 
-Éditer `hive/policies/*.json` selon tes besoins :
+```
+1. @tests_quality_agent "Crée un test de régression pour le bug"
+2. Vous corrigez le bug
+3. @git_commit_agent "Crée un commit de fix"
+4. @linear_manager_agent "Marque le ticket comme résolu"
+```
 
-- `quality_gates.json` : Seuils de qualité
-- `commit_conventions.json` : Format des commits
-- `security_thresholds.json` : Seuils de sécurité
+### Workflow 4 : Documentation
 
-### 3. Configuration Globale
+```
+1. @docs_agent "Crée un guide complet sur l'architecture ECS"
+2. @docs_agent "Ajoute des diagrammes Mermaid"
+3. @git_commit_agent "Commit la documentation"
+```
 
-Éditer `settings.local.json` :
+## 📊 Standards et Conventions
+
+### Standards de Qualité
+
+Tous les agents respectent ces standards :
+
+| Critère | Standard |
+|---------|----------|
+| **Couverture de tests** | >= 80% |
+| **Commits** | Atomiques, Conventional Commits |
+| **Documentation** | Complète, avec exemples |
+| **Code** | C++23, RAII, Modern C++ |
+| **Sécurité** | 0 vulnérabilité critique |
+
+### Conventions de Nommage
+
+- **Commits** : Français, Conventional Commits
+- **Tickets Linear** : Français, [TYPE] Description
+- **Documentation** : Français, Markdown bien formaté
+- **Code** : Anglais, camelCase/PascalCase selon contexte
+
+## 🎓 Exemples Concrets
+
+### Exemple 1 : Créer une Feature Complète
+
+```
+Vous: @queen_bee_agent "Je viens de terminer le système de particules.
+     Assure-toi que le code, les tests, la documentation et les tickets
+     sont parfaits avant que je commit."
+
+Queen Bee: 🔍 Analyse en cours...
+
+          ✅ Tests & Qualité
+             - Couverture: 87%
+             - Tous les tests passent
+             - Suggestion: Ajouter test de charge
+
+          ✅ Sécurité
+             - Aucune vulnérabilité détectée
+             - Bonnes pratiques RAII respectées
+
+          📝 Commits Proposés
+             1. FEAT(rendering): ajout système de particules [RT-45]
+             2. TEST(rendering): ajout tests unitaires particules
+             3. DOCS(rendering): documentation système particules
+
+          📚 Documentation
+             - Guide créé: docs/guides/particle-system.md
+             - Diagrammes ajoutés
+             - Exemples fonctionnels inclus
+
+          📋 Linear
+             - Ticket [FEAT] Système de Particules créé
+             - Lié à Epic "Rendering Engine"
+             - Statut: Completed
+
+          ✅ VALIDATION GLOBALE: Prêt pour commit et merge !
+```
+
+### Exemple 2 : Review de Sécurité
+
+```
+Vous: @security_ci_agent "Analyse le code du NetworkManager pour détecter
+     les vulnérabilités potentielles"
+
+Security Agent: 🔒 Analyse de sécurité du NetworkManager
+
+                Fichiers analysés:
+                - src/network/NetworkManager.cpp
+                - src/network/Socket.cpp
+                - src/network/Protocol.cpp
+
+                ✅ Points positifs:
+                - Utilisation de smart pointers (pas de fuites)
+                - Validation des entrées réseau
+                - Timeouts configurés
+
+                ⚠️  Points à améliorer:
+                1. Buffer overflow potentiel ligne 234
+                   Recommandation: Utiliser std::span<> ou vérifier size
+
+                2. Pas de rate limiting sur les connexions
+                   Recommandation: Implémenter TokenBucket
+
+                📊 Score de sécurité: 8.5/10
+```
+
+### Exemple 3 : Documentation Technique
+
+```
+Vous: @docs_agent "Crée une documentation complète pour l'architecture ECS
+     avec des diagrammes et des exemples"
+
+Docs Agent: 📚 Documentation de l'Architecture ECS
+
+            Fichier créé: docs/guides/ecs-architecture.md
+
+            Contenu:
+            ✅ Introduction au pattern ECS
+            ✅ Diagramme d'architecture (Mermaid)
+            ✅ Explication des Components
+            ✅ Explication des Systems
+            ✅ Explication des Entities
+            ✅ Exemple complet d'utilisation
+            ✅ Bonnes pratiques
+            ✅ Anti-patterns à éviter
+            ✅ Performance et optimisations
+
+            Sections créées: 8
+            Diagrammes: 3
+            Exemples de code: 5
+            Temps de lecture estimé: 15 minutes
+
+            La documentation est prête à être consultée !
+```
+
+## 🛠️ Configuration
+
+### Fichier de Configuration
+
+**Emplacement** : `.claude/settings.local.json`
 
 ```json
 {
-  "hive": {
-    "default_flow": "feature"
-  },
-  "quality_gates": {
-    "mode": "strict"
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)"
+    ],
+    "deny": [],
+    "ask": []
   }
 }
 ```
 
-## 🎓 Pour Aller Plus Loin
+### Ajouter un Nouvel Agent
 
-- [Agents](agents.md) - Description détaillée de chaque agent
-- [Workflows](workflows.md) - Guide des différents flows
-- [Configuration](configuration.md) - Options de configuration
-- [Rapports](rapports.md) - Format des rapports JSON
-- [Guide Contributing](../guides/contributing_ruche.md) - Workflow de développement
+Pour créer un nouvel agent :
 
-## 🆘 Aide et Support
+1. Créez un fichier `.md` dans `.claude/agents/`
+2. Définissez le rôle, les responsabilités et les standards
+3. Documentez les exemples d'utilisation
+4. Testez l'agent avec `@nom_agent`
 
-- Lire la doc complète : `mkdocs serve` puis http://localhost:8000
-- Issues GitHub : (lien vers le repo)
-- Slack/Discord : (si applicable)
+**Structure recommandée d'un agent** :
+
+```markdown
+# Nom de l'Agent
+
+## Identité et Mission
+
+Description du rôle et de la mission
+
+## Principes Fondamentaux
+
+Liste des principes clés
+
+## Responsabilités
+
+- Responsabilité 1
+- Responsabilité 2
+
+## Standards
+
+Liste des standards à respecter
+
+## Exemples d'Utilisation
+
+Exemples concrets
+```
+
+## 🆘 FAQ
+
+### Comment savoir quel agent utiliser ?
+
+- **Code & Tests** → Tests & Quality Agent
+- **Documentation** → Documentation Agent
+- **Commits Git** → Git Commit Agent
+- **Sécurité & CI/CD** → Security & CI Agent
+- **Tickets Linear** → Linear Manager Agent
+- **Coordination globale** → Queen Bee Agent
+
+### Puis-je utiliser plusieurs agents en même temps ?
+
+Oui ! Utilisez Queen Bee qui va orchestrer automatiquement les agents nécessaires.
+
+### Les agents peuvent-ils modifier mon code ?
+
+Les agents proposent des modifications, mais c'est **vous qui décidez** d'accepter ou non. Vous gardez toujours le contrôle.
+
+### Comment personnaliser un agent ?
+
+Éditez le fichier `.md` de l'agent dans `.claude/agents/` pour modifier son comportement.
+
+### Où sont stockés les résultats des agents ?
+
+Les résultats sont affichés directement dans la conversation Claude Code. Il n'y a pas de fichiers de rapports automatiques.
+
+## 📚 Ressources
+
+- [Documentation Claude Code](https://docs.claude.com/claude-code)
+- [Agents du projet](./.claude/agents/)
+- [Guide de contribution](../development/contributing.md)
+
+## 🎯 Prochaines Étapes
+
+1. **Explorez les agents** : Lisez les fichiers dans `.claude/agents/`
+2. **Testez un agent** : Essayez `@docs_agent "Aide-moi à documenter ce code"`
+3. **Utilisez Queen Bee** : `@queen_bee_agent "Analyse mon feature complète"`
+4. **Personnalisez** : Adaptez les agents à vos besoins
 
 ---
 
-**🐝 Bienvenue dans la Ruche R-Type ! L'IA travaille pour toi, tu te concentres sur le code.**
+**🐝 Bienvenue dans la Ruche R-Type ! Les agents IA sont là pour vous assister, vous restez aux commandes.**
