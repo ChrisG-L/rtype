@@ -69,7 +69,6 @@ target_include_directories(rtype_server PRIVATE
 
 target_link_libraries(rtype_server PRIVATE
     Boost::system
-    argon2::argon2
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
 )
