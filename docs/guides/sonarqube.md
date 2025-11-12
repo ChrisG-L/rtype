@@ -28,72 +28,55 @@ Dans ce projet, SonarQube vous permet de :
 5. **Visualiser la dette technique** et planifier les refactorings
 6. **Générer des rapports** pour l'équipe et les reviews de code
 
-## Installation et Lancement
+## Installation et Configuration
 
-### Méthode 1 : Lancement avec Docker (Recommandé)
+### Utiliser SonarCloud (Recommandé)
 
-SonarQube est disponible via Docker Compose :
+Ce projet utilise **SonarCloud**, la version cloud de SonarQube hébergée en ligne. Aucune installation locale n'est nécessaire.
 
-```bash
-# Depuis la racine du projet
-cd ci_cd/docker
-
-# Lancer SonarQube
-docker-compose -f docker-compose.sonarqube.yml up -d
-
-# Vérifier que SonarQube est démarré
-docker-compose -f docker-compose.sonarqube.yml ps
-```
-
-!!! warning "Temps de démarrage"
-    SonarQube peut prendre 1-2 minutes pour démarrer complètement. Attendez que les logs indiquent "SonarQube is up".
+**Avantages de SonarCloud** :
+- ✅ Pas d'infrastructure à maintenir
+- ✅ Toujours à jour avec la dernière version
+- ✅ Gratuit pour les projets open-source
+- ✅ Intégration facile avec GitHub/GitLab
+- ✅ Analyses illimitées
 
 ### Accès à l'interface web
 
-Une fois lancé, SonarQube est accessible à :
+**URL** : https://sonarcloud.io
 
-**URL** : http://localhost:9000
-
-**Identifiants par défaut** :
-- **Username** : `admin`
-- **Password** : `admin`
-
-!!! danger "Première connexion"
-    Lors de votre première connexion, SonarQube vous demandera de changer le mot de passe par défaut. **Faites-le immédiatement** pour sécuriser l'instance.
-
-### Arrêter SonarQube
-
-```bash
-cd ci_cd/docker
-docker-compose -f docker-compose.sonarqube.yml down
-```
+!!! info "Authentification"
+    Connectez-vous avec votre compte GitHub, GitLab ou Bitbucket. Aucun identifiant spécifique n'est requis.
 
 ## Configuration du Projet
 
-### Étape 1 : Créer un projet dans SonarQube
+### Étape 1 : Créer un projet dans SonarCloud
 
-1. Connectez-vous à http://localhost:9000
-2. Cliquez sur **"Create new project"**
-3. Remplissez les informations :
-   - **Project key** : `rtype`
+1. Connectez-vous à https://sonarcloud.io
+2. Cliquez sur **"+"** puis **"Analyze new project"**
+3. Sélectionnez votre organisation GitHub/GitLab
+4. Choisissez le repository **rtype**
+5. Configurez les informations :
+   - **Project key** : `votre-org_rtype`
    - **Display name** : `R-Type Game`
-4. Cliquez sur **"Set Up"**
+6. Cliquez sur **"Set Up"**
 
 ### Étape 2 : Générer un token d'authentification
 
-1. Dans le projet, cliquez sur **"Locally"**
+1. Dans le projet, cliquez sur **"With other CI tools"** ou **"Locally"**
 2. Générez un token :
-   - **Name** : `rtype-local-analysis`
+   - **Name** : `rtype-ci-analysis`
    - Copiez le token généré (vous ne pourrez plus le voir après)
-3. Conservez ce token de manière sécurisée
+3. Conservez ce token de manière sécurisée (ex: GitHub Secrets pour CI/CD)
 
 ### Étape 3 : Configuration du scanner
 
 Créez un fichier `sonar-project.properties` à la racine du projet :
 
 ```properties
-# Informations du projet
-sonar.projectKey=rtype
+# Informations du projet (utilisez votre organization key de SonarCloud)
+sonar.projectKey=votre-org_rtype
+sonar.organization=votre-org
 sonar.projectName=R-Type Game
 sonar.projectVersion=1.0
 
@@ -118,6 +101,9 @@ sonar.coverageReportPaths=build/coverage/coverage.xml
 # Standards C++
 sonar.cfamily.standard=c++23
 sonar.cfamily.threads=4
+
+# URL de SonarCloud
+sonar.host.url=https://sonarcloud.io
 ```
 
 ## Analyse du Code
@@ -143,10 +129,11 @@ source ~/.bashrc
 ```bash
 # Depuis la racine du projet
 sonar-scanner \
-  -Dsonar.projectKey=rtype \
+  -Dsonar.projectKey=votre-org_rtype \
+  -Dsonar.organization=votre-org \
   -Dsonar.sources=src \
   -Dsonar.tests=tests \
-  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.host.url=https://sonarcloud.io \
   -Dsonar.login=VOTRE_TOKEN_ICI
 ```
 
@@ -172,35 +159,38 @@ rm -rf build
 # 4. Compiler avec le build wrapper
 build-wrapper-linux-x86-64 --out-dir build/bw-output ./scripts/compile.sh
 
-# 5. Lancer l'analyse SonarQube
+# 5. Lancer l'analyse SonarCloud
 sonar-scanner \
-  -Dsonar.projectKey=rtype \
+  -Dsonar.projectKey=votre-org_rtype \
+  -Dsonar.organization=votre-org \
   -Dsonar.sources=src \
   -Dsonar.tests=tests \
   -Dsonar.cfamily.build-wrapper-output=build/bw-output \
-  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.host.url=https://sonarcloud.io \
   -Dsonar.login=VOTRE_TOKEN_ICI
 ```
 
 ### Méthode 3 : Script d'analyse automatique
 
-Créez un script `scripts/sonar-analyze.sh` :
+Le projet inclut déjà un script `scripts/sonar-analyze.sh` qui automatise l'analyse :
 
 ```bash
 #!/bin/bash
 set -e
 
-# Variables
-SONAR_HOST="http://localhost:9000"
+# Variables (configurez votre organisation et token)
+SONAR_HOST="${SONAR_HOST:-https://sonarcloud.io}"
 SONAR_TOKEN="${SONAR_TOKEN:-your-token-here}"
+SONAR_ORG="${SONAR_ORG:-votre-org}"
+SONAR_PROJECT="${SONAR_PROJECT:-votre-org_rtype}"
 PROJECT_ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd)"
 
-echo "🔍 Lancement de l'analyse SonarQube..."
+echo "🔍 Lancement de l'analyse SonarCloud..."
 
-# Vérifier que SonarQube est accessible
+# Vérifier que SonarCloud est accessible
 if ! curl -s "$SONAR_HOST/api/system/status" > /dev/null; then
-    echo "❌ Erreur: SonarQube n'est pas accessible à $SONAR_HOST"
-    echo "💡 Lancez-le avec: cd ci_cd/docker && docker-compose -f docker-compose.sonarqube.yml up -d"
+    echo "❌ Erreur: SonarCloud n'est pas accessible à $SONAR_HOST"
+    echo "💡 Vérifiez votre connexion internet"
     exit 1
 fi
 
@@ -214,9 +204,10 @@ echo "🔨 Compilation avec build-wrapper..."
 build-wrapper-linux-x86-64 --out-dir build/bw-output ./scripts/compile.sh
 
 # Lancer l'analyse
-echo "📊 Analyse SonarQube en cours..."
+echo "📊 Analyse SonarCloud en cours..."
 sonar-scanner \
-  -Dsonar.projectKey=rtype \
+  -Dsonar.projectKey="$SONAR_PROJECT" \
+  -Dsonar.organization="$SONAR_ORG" \
   -Dsonar.sources=src \
   -Dsonar.tests=tests \
   -Dsonar.cfamily.build-wrapper-output=build/bw-output \
@@ -224,13 +215,18 @@ sonar-scanner \
   -Dsonar.login="$SONAR_TOKEN"
 
 echo "✅ Analyse terminée!"
-echo "📈 Consultez les résultats sur: $SONAR_HOST/dashboard?id=rtype"
+echo "📈 Consultez les résultats sur: $SONAR_HOST/project/overview?id=$SONAR_PROJECT"
 ```
 
-Puis lancez-le :
+Puis lancez-le avec vos variables d'environnement :
 
 ```bash
-chmod +x scripts/sonar-analyze.sh
+# Configurer les variables d'environnement
+export SONAR_TOKEN="votre-token"
+export SONAR_ORG="votre-org"
+export SONAR_PROJECT="votre-org_rtype"
+
+# Lancer l'analyse
 ./scripts/sonar-analyze.sh
 ```
 
@@ -370,18 +366,23 @@ Conditions:
 ### Avant de créer une Pull Request
 
 ```bash
-# 1. Lancer l'analyse locale
+# 1. Configurer les variables d'environnement
+export SONAR_TOKEN="votre-token"
+export SONAR_ORG="votre-org"
+export SONAR_PROJECT="votre-org_rtype"
+
+# 2. Lancer l'analyse locale
 ./scripts/sonar-analyze.sh
 
-# 2. Consulter les résultats
-# http://localhost:9000/dashboard?id=rtype
+# 3. Consulter les résultats
+# https://sonarcloud.io/project/overview?id=votre-org_rtype
 
-# 3. Corriger les problèmes détectés
+# 4. Corriger les problèmes détectés
 
-# 4. Re-analyser pour vérifier
+# 5. Re-analyser pour vérifier
 ./scripts/sonar-analyze.sh
 
-# 5. Si tout est vert, créer la PR
+# 6. Si tout est vert, créer la PR
 ```
 
 ### Règles à suivre
@@ -398,37 +399,32 @@ Conditions:
 
 | Commande | Description |
 |----------|-------------|
-| `docker-compose -f ci_cd/docker/docker-compose.sonarqube.yml up -d` | Lancer SonarQube |
-| `docker-compose -f ci_cd/docker/docker-compose.sonarqube.yml down` | Arrêter SonarQube |
-| `docker-compose -f ci_cd/docker/docker-compose.sonarqube.yml logs -f` | Voir les logs SonarQube |
+| `export SONAR_TOKEN="token"` | Configurer le token d'authentification |
+| `export SONAR_ORG="org"` | Configurer l'organisation SonarCloud |
+| `export SONAR_PROJECT="org_rtype"` | Configurer le projet key |
 | `./scripts/sonar-analyze.sh` | Lancer une analyse complète |
 | `sonar-scanner` | Lancer une analyse manuelle |
 | `build-wrapper-linux-x86-64 --out-dir build/bw-output ./scripts/compile.sh` | Compiler avec build-wrapper |
 
 ## Résolution des Problèmes
 
-### SonarQube ne démarre pas
+### Erreur "Unauthorized" lors de l'analyse
 
 ```bash
-# Vérifier les logs
-docker-compose -f ci_cd/docker/docker-compose.sonarqube.yml logs
-
-# Vérifier l'espace disque (SonarQube nécessite au moins 2GB)
-df -h
-
-# Redémarrer complètement
-docker-compose -f ci_cd/docker/docker-compose.sonarqube.yml down -v
-docker-compose -f ci_cd/docker/docker-compose.sonarqube.yml up -d
+# Vérifier que votre token est valide
+# 1. Allez sur https://sonarcloud.io
+# 2. Mon compte > Security > Tokens
+# 3. Générez un nouveau token si nécessaire
+# 4. Configurez-le: export SONAR_TOKEN="nouveau-token"
 ```
 
-### Erreur "Elasticsearch: max virtual memory areas too low"
+### Erreur "Organization not found"
 
 ```bash
-# Sur Linux
-sudo sysctl -w vm.max_map_count=262144
-
-# Pour rendre permanent
-echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+# Vérifier le nom de votre organisation sur SonarCloud
+# 1. Allez sur https://sonarcloud.io
+# 2. Vérifiez le nom dans l'URL : sonarcloud.io/organizations/VOTRE-ORG
+# 3. Configurez: export SONAR_ORG="VOTRE-ORG"
 ```
 
 ### Analyse échoue avec "build-wrapper not found"
@@ -440,27 +436,36 @@ unzip build-wrapper-linux-x86.zip -d /opt/
 export PATH=$PATH:/opt/build-wrapper-linux-x86
 ```
 
-### Token d'authentification invalide
+### Erreur "Project key already exists"
 
 ```bash
-# Générer un nouveau token :
-# 1. Allez sur http://localhost:9000
-# 2. My Account > Security > Generate Tokens
-# 3. Utilisez le nouveau token dans vos commandes
+# Le projet existe déjà sur SonarCloud
+# 1. Utilisez le project key existant dans sonar-project.properties
+# 2. Ou supprimez le projet sur SonarCloud et recréez-le
+```
+
+### Problème de connexion à SonarCloud
+
+```bash
+# Vérifier la connectivité
+curl -I https://sonarcloud.io
+
+# Si le problème persiste, vérifier votre pare-feu/proxy
 ```
 
 ## Ressources Additionnelles
 
-- [Documentation officielle SonarQube](https://docs.sonarqube.org/)
+- [Documentation officielle SonarCloud](https://docs.sonarcloud.io/)
+- [Documentation SonarQube](https://docs.sonarqube.org/)
 - [Règles C++ SonarQube](https://rules.sonarsource.com/cpp/)
 - [Build Wrapper pour C++](https://docs.sonarqube.org/latest/analyzing-source-code/languages/c-family/)
-- [Quality Gates](https://docs.sonarqube.org/latest/user-guide/quality-gates/)
-- [Intégration Jenkins](https://docs.sonarqube.org/latest/analyzing-source-code/ci-integration/jenkins-integration/)
+- [Quality Gates](https://docs.sonarcloud.io/improving/quality-gates/)
+- [Intégration CI/CD](https://docs.sonarcloud.io/advanced-setup/ci-based-analysis/)
 
 ## Prochaines Étapes
 
-1. [Installer et configurer SonarQube](#installation-et-lancement)
-2. [Créer votre premier projet](#configuration-du-projet)
+1. [Créer un compte SonarCloud](#installation-et-configuration)
+2. [Configurer votre projet](#configuration-du-projet)
 3. [Lancer votre première analyse](#analyse-du-code)
 4. [Configurer les Quality Gates](#quality-gates)
 5. [Intégrer à Jenkins](#integration-avec-jenkins)
@@ -468,4 +473,4 @@ export PATH=$PATH:/opt/build-wrapper-linux-x86
 
 ---
 
-**Note** : SonarQube est un outil puissant pour maintenir la qualité du code. Utilisez-le régulièrement pour détecter les problèmes tôt et maintenir un code propre et maintenable !
+**Note** : SonarCloud est un outil puissant pour maintenir la qualité du code. Utilisez-le régulièrement pour détecter les problèmes tôt et maintenir un code propre et maintenable !

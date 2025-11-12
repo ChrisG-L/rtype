@@ -2,46 +2,62 @@
 set -e
 
 # Variables
-SONAR_HOST="${SONAR_HOST:-http://localhost:9000}"
+SONAR_HOST="${SONAR_HOST:-https://sonarcloud.io}"
 SONAR_TOKEN="${SONAR_TOKEN:-}"
+SONAR_ORG="${SONAR_ORG:-}"
+SONAR_PROJECT="${SONAR_PROJECT:-}"
 PROJECT_ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd)"
 SONAR_SCANNER_VERSION="5.0.1.3006"
 
-echo "🔍 SonarQube Analysis Script for R-Type"
-echo "========================================"
+echo "🔍 SonarCloud Analysis Script for R-Type"
+echo "========================================="
 
-# Vérifier que SonarQube est accessible
-echo "📡 Vérification de la connexion à SonarQube ($SONAR_HOST)..."
+# Vérifier que SonarCloud est accessible
+echo "📡 Vérification de la connexion à SonarCloud ($SONAR_HOST)..."
 if ! curl -s "$SONAR_HOST/api/system/status" > /dev/null 2>&1; then
-    echo "❌ Erreur: SonarQube n'est pas accessible à $SONAR_HOST"
+    echo "❌ Erreur: SonarCloud n'est pas accessible à $SONAR_HOST"
     echo ""
     echo "💡 Solutions possibles:"
-    echo "   1. Lancez SonarQube avec:"
-    echo "      cd ci_cd/docker && docker-compose -f docker-compose.sonarqube.yml up -d"
-    echo ""
-    echo "   2. Attendez 1-2 minutes que SonarQube démarre complètement"
-    echo ""
-    echo "   3. Vérifiez les logs avec:"
-    echo "      docker-compose -f ci_cd/docker/docker-compose.sonarqube.yml logs -f sonarqube"
+    echo "   1. Vérifiez votre connexion internet"
+    echo "   2. Vérifiez votre pare-feu/proxy"
+    echo "   3. Essayez d'accéder à https://sonarcloud.io dans votre navigateur"
     exit 1
 fi
-echo "✅ SonarQube est accessible"
+echo "✅ SonarCloud est accessible"
 
 # Vérifier le token
 if [ -z "$SONAR_TOKEN" ]; then
-    echo "⚠️  Avertissement: SONAR_TOKEN n'est pas défini"
+    echo "❌ Erreur: SONAR_TOKEN n'est pas défini"
     echo ""
     echo "💡 Pour générer un token:"
-    echo "   1. Allez sur $SONAR_HOST"
-    echo "   2. Connectez-vous (admin/admin par défaut)"
-    echo "   3. My Account > Security > Generate Tokens"
+    echo "   1. Allez sur https://sonarcloud.io"
+    echo "   2. Connectez-vous avec GitHub/GitLab/Bitbucket"
+    echo "   3. Mon compte > Security > Generate Tokens"
     echo "   4. Exportez le token: export SONAR_TOKEN=votre_token"
     echo ""
-    read -p "Voulez-vous continuer sans token ? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    exit 1
+fi
+
+# Vérifier l'organisation
+if [ -z "$SONAR_ORG" ]; then
+    echo "❌ Erreur: SONAR_ORG n'est pas défini"
+    echo ""
+    echo "💡 Pour trouver votre organisation:"
+    echo "   1. Allez sur https://sonarcloud.io"
+    echo "   2. Vérifiez l'URL: sonarcloud.io/organizations/VOTRE-ORG"
+    echo "   3. Exportez: export SONAR_ORG=VOTRE-ORG"
+    echo ""
+    exit 1
+fi
+
+# Vérifier le project key
+if [ -z "$SONAR_PROJECT" ]; then
+    echo "❌ Erreur: SONAR_PROJECT n'est pas défini"
+    echo ""
+    echo "💡 Format: organization_repository"
+    echo "   Exemple: export SONAR_PROJECT=mon-org_rtype"
+    echo ""
+    exit 1
 fi
 
 cd "$PROJECT_ROOT"
@@ -100,20 +116,18 @@ rm -rf build/bw-output
 echo "🔨 Compilation avec build-wrapper..."
 build-wrapper-linux-x86-64 --out-dir build/bw-output ./scripts/compile.sh
 
-# Lancer l'analyse SonarQube
-echo "📊 Lancement de l'analyse SonarQube..."
+# Lancer l'analyse SonarCloud
+echo "📊 Lancement de l'analyse SonarCloud..."
 
 SONAR_ARGS=(
-    "-Dsonar.projectKey=rtype"
+    "-Dsonar.projectKey=$SONAR_PROJECT"
+    "-Dsonar.organization=$SONAR_ORG"
     "-Dsonar.sources=src"
     "-Dsonar.tests=tests"
     "-Dsonar.cfamily.build-wrapper-output=build/bw-output"
     "-Dsonar.host.url=$SONAR_HOST"
+    "-Dsonar.login=$SONAR_TOKEN"
 )
-
-if [ -n "$SONAR_TOKEN" ]; then
-    SONAR_ARGS+=("-Dsonar.login=$SONAR_TOKEN")
-fi
 
 sonar-scanner "${SONAR_ARGS[@]}"
 
@@ -121,10 +135,10 @@ echo ""
 echo "✅ Analyse terminée avec succès!"
 echo ""
 echo "📈 Consultez les résultats sur:"
-echo "   $SONAR_HOST/dashboard?id=rtype"
+echo "   $SONAR_HOST/project/overview?id=$SONAR_PROJECT"
 echo ""
 echo "💡 Prochaines étapes:"
-echo "   1. Ouvrez le dashboard SonarQube"
+echo "   1. Ouvrez le dashboard SonarCloud"
 echo "   2. Vérifiez les bugs et vulnérabilités"
 echo "   3. Corrigez les problèmes détectés"
 echo "   4. Re-lancez l'analyse pour vérifier"

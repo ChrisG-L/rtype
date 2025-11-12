@@ -22,7 +22,7 @@ R-Type est un projet de jeu multijoueur client-serveur développé avec des tech
 - **Base de données** : MongoDB pour la persistance des données
 - **Tests** : Suite de tests unitaires avec Google Test
 - **CI/CD** : Pipeline automatisé avec Jenkins et Docker
-- **Qualité de code** : Analyse continue avec SonarQube
+- **Qualité de code** : Analyse continue avec SonarCloud
 
 ## Démarrage rapide
 
@@ -77,7 +77,7 @@ rtype/
 | **MongoDB**     | Base de données                 | Via vcpkg |
 | **Docker**      | Conteneurisation                | Latest    |
 | **Jenkins**     | CI/CD                           | LTS       |
-| **SonarQube**   | Analyse de qualité de code      | 10+       |
+| **SonarCloud**  | Analyse de qualité de code      | Cloud     |
 | **MkDocs**      | Documentation                   | 1.5+      |
 
 ## Méthodes de lancement
@@ -132,25 +132,25 @@ Le pipeline Jenkins s'exécute automatiquement à chaque push et effectue :
 
 **Accès :** http://localhost:8080 (après `./scripts/launch_ci_cd.sh`)
 
-### 5. SonarQube - Analyse de qualité
+### 5. SonarCloud - Analyse de qualité
 
-Pour analyser la qualité du code :
+Pour analyser la qualité du code avec SonarCloud :
 
 ```bash
-# Lancer SonarQube (si pas déjà fait)
-cd ci_cd/docker
-docker-compose -f docker-compose.sonarqube.yml up -d
+# Configurer les variables d'environnement
+export SONAR_TOKEN="votre-token"
+export SONAR_ORG="votre-org"
+export SONAR_PROJECT="votre-org_rtype"
 
 # Analyser le code
-cd ../..
 ./scripts/sonar-analyze.sh
 
 # Accédez aux résultats
-# http://localhost:9000
+# https://sonarcloud.io/project/overview?id=votre-org_rtype
 ```
 
-!!! tip "SonarQube"
-    Consultez le [guide complet SonarQube](guides/sonarqube.md) pour configurer et utiliser l'analyse de qualité de code.
+!!! tip "SonarCloud"
+    Consultez le [guide complet SonarCloud](guides/sonarqube.md) pour créer un compte, configurer votre projet et utiliser l'analyse de qualité de code.
 
 ## Prérequis système
 
@@ -170,7 +170,7 @@ cd ../..
 Cette documentation est organisée en plusieurs sections :
 
 - **Pour Commencer** : Installation, démarrage rapide, compilation
-- **Guides Utilisateurs** : Architecture, tutoriels, bonnes pratiques, SonarQube
+- **Guides Utilisateurs** : Architecture, tutoriels, bonnes pratiques, SonarCloud
 - **Référence API** : Documentation des APIs du domaine et des adapters
 - **Développement** : Guide de contribution, architecture technique, tests
 - **Référence** : Glossaire, FAQ
@@ -179,7 +179,7 @@ Cette documentation est organisée en plusieurs sections :
 
 - [Repository GitHub](https://github.com/Pluenet-Killian/rtype)
 - [Démarrage Rapide](getting-started/quickstart.md)
-- [Guide SonarQube](guides/sonarqube.md)
+- [Guide SonarCloud](guides/sonarqube.md)
 - [Guide de Contribution](development/contributing.md)
 - [FAQ](reference/faq.md)
 

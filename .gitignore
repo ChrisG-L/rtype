@@ -17,3 +17,5 @@ site/
 
 .vscode/
 settings.local.json
+
+third_party/vcpkg/vcpkg
