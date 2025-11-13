@@ -44,7 +44,8 @@ namespace infrastructure::adapters::in::network {
     }
 
     void Session::handle_command(std::size_t length) {
-        std::cout << "commande: " << std::string(_data, length) << std::endl;
+        infrastructure::adapters::in::network::protocol::CommandParser cmdParser;
+        Command cmd = cmdParser.parse(std::string(_data, length));
     }
 
     // TCPServer implementation

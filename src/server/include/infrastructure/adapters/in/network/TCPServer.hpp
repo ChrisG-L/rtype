@@ -11,8 +11,9 @@
 #include <array>
 #include <iostream>
 #include <boost/asio.hpp>
-
 #include <memory>
+
+#include "protocol/CommandParser.hpp"
 
 
 namespace infrastructure::adapters::in::network {
