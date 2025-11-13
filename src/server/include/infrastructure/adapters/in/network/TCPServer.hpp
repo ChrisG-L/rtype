@@ -26,6 +26,7 @@ namespace infrastructure::adapters::in::network {
 
             void do_read();
             void do_write(std::size_t length);
+            void handle_command(std::size_t length);
 
         public:
             Session(tcp::socket socket);
@@ -34,13 +35,13 @@ namespace infrastructure::adapters::in::network {
 
     class TCPServer {
         private:
-            tcp::acceptor _acceptor;
             boost::asio::io_context& _io_ctx;
+            tcp::acceptor _acceptor;
             void start_accept();
 
         public:
             TCPServer(boost::asio::io_context& io_ctx);
-            void start(boost::asio::io_context& io_ctx);
+            void start();
             void run();
     };
 }

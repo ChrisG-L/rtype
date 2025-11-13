@@ -37,7 +37,7 @@ namespace domain::entities {
             const std::chrono::system_clock::time_point& getCreatedAt() const;
             const std::chrono::system_clock::time_point& getLastLogin() const;
 
-            bool verifyPassword(const std::string& password) const;
+            bool verifyPassword(const std::string& password);
             void updateLastLogin();
     };
 }

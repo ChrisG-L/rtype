@@ -1,3 +1,8 @@
 {
-  "dependencies": ["boost-asio", "gtest", "mongo-cxx-driver"]
+  "dependencies": [
+    "boost-asio",
+    "gtest",
+    "mongo-cxx-driver",
+    "openssl"
+  ]
 }

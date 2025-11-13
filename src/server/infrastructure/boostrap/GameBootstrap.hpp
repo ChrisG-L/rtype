@@ -39,7 +39,7 @@ namespace infrastructure::boostrap {
 
                 TCPServer tcpServer(io_ctx);
 
-                tcpServer.start(io_ctx);
+                tcpServer.start();
 
                 std::cout << "Serveur prêt. En attente de connexions..." << std::endl;
 

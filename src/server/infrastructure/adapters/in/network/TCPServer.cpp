@@ -23,7 +23,9 @@ namespace infrastructure::adapters::in::network {
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
                     std::cout << "Reçu: " << std::string(_data, length) << std::endl;
-                    do_write(length);
+                    // do_write(length);
+                    handle_command(length);
+                    do_read();
                 }
             }
         );
@@ -41,13 +43,17 @@ namespace infrastructure::adapters::in::network {
             });
     }
 
+    void Session::handle_command(std::size_t length) {
+        std::cout << "commande: " << std::string(_data, length) << std::endl;
+    }
+
     // TCPServer implementation
     TCPServer::TCPServer(boost::asio::io_context& io_ctx)
         : _io_ctx(io_ctx), _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4123)) {
         std::cout << "Serveur TCP démarré sur le port 4123\n";
     }
 
-    void TCPServer::start(boost::asio::io_context& io_ctx) {
+    void TCPServer::start() {
         start_accept();
     }
 

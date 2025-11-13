@@ -18,9 +18,12 @@ namespace application::use_cases::auth {
         }
 
         auto user = playerOpt.value();
-        // player.
-        // player.move(dx, dy, dz);
-        // repository->update(player);
+        std::cout << "password: " << password << std::endl;
+        if (!user.verifyPassword(password))
+            std::cout << "Wrong password" << std::endl;
+            return;
+        user.updateLastLogin();
+        repository->update(user);
     }
 }
 

@@ -10,16 +10,21 @@
 
 #include "domain/exceptions/user/PasswordException.hpp"
 #include <string>
+#include <openssl/sha.h>
+#include <sstream>
+#include <iomanip>
 
 namespace domain::value_objects::user {
     class Password {
         private:
             std::string _passwordHash;
             void validate(const std::string &password);
+            std::string hashPassword(std::string password);
 
         public:
             explicit Password(const std::string& password);
             std::string value() const;
+            bool verify(std::string password);
             bool operator==(const Password& other) const;
             bool operator!=(const Password& other) const;
     };

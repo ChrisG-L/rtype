@@ -25,7 +25,7 @@ enable_testing()
 find_package(Boost CONFIG REQUIRED COMPONENTS system)
 find_package(GTest CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
-
+find_package(OpenSSL REQUIRED)
 # Inclure les sous-répertoires
 add_subdirectory("src/server")
 

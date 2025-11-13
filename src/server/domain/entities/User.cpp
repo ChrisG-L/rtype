@@ -37,10 +37,8 @@ namespace domain::entities {
         return _lastLogin;
     }
 
-    bool User::verifyPassword(const std::string& password) const {
-        // Pour l'instant, comparaison simple
-        // TODO: Implémenter vérification avec bcrypt ou argon2
-        return _passwordHash.value() == password;
+    bool User::verifyPassword(const std::string& password) {
+        return _passwordHash.verify(password);
     }
 
     void User::updateLastLogin() {
