@@ -9,6 +9,7 @@
 #define GAMEBOOTSTRAP_HPP_
 
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
 #include "infrastructure/adapters/in/network/TCPServer.hpp"
 
@@ -17,22 +18,26 @@
 
 namespace infrastructure::boostrap {
     using adapters::out::persistence::MongoDBConfiguration;
+    using adapters::out::persistence::MongoDBUserRepository;
 
     class GameBootstrap {
         private:
-            std::unique_ptr<MongoDBConfiguration> _mongoDB;
+            std::shared_ptr<MongoDBConfiguration> _mongoDB;
 
             void mongodb() {
                 std::cout << "=== Démarrage de la base de donnée mongoDB ===" << std::endl;
                 std::string mongoURI = "mongodb+srv://dbUser:root@rtypehome.qxzb27g.mongodb.net/";
                 DBConfig dbConfig = {.connexionString = mongoURI, .dbName = "rtype"};
-                _mongoDB = std::make_unique<MongoDBConfiguration>(dbConfig);
+                _mongoDB = std::make_shared<MongoDBConfiguration>(dbConfig);
             };
 
             void server() {
                 using adapters::in::network::UDPServer;
                 using adapters::in::network::TCPServer;
                 std::cout << "=== Démarrage du serveur R-Type ===" << std::endl;
+
+                auto userRepository = std::make_shared<MongoDBUserRepository>(_mongoDB);
+                
 
                 // 1. Créer le contexte IO (boucle événementielle Boost.Asio)
                 boost::asio::io_context io_ctx;
