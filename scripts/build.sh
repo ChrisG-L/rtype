@@ -9,20 +9,27 @@ echo "📁 Installation de vcpkg dans: $VCPKG_DIR"
 # Créer le dossier third_party s'il n'existe pas
 mkdir -p "$PROJECT_ROOT/third_party"
 
-# Cloner vcpkg s'il n'existe pas
-echo "📥 Clonage de vcpkg..."
-git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
+# Cloner vcpkg s'il n'existe pas, sinon mettre à jour / continuer
+if [ -d "$VCPKG_DIR" ]; then
+    echo "📁 Le dossier vcpkg existe: $VCPKG_DIR"
+    if [ -d "$VCPKG_DIR/.git" ]; then
+        echo "🔄 Mise à jour du dépôt vcpkg (pull --ff-only)..."
+        # Essayer de récupérer les dernières modifications sans forcer l'échec du script
+        git -C "$VCPKG_DIR" pull --ff-only || echo "⚠️ Impossible de faire 'git pull --ff-only' sur vcpkg, on continue"
+    else
+        echo "⚠️ Le dossier existe mais n'est pas un dépôt git. On continue sans cloner ni mettre à jour."
+    fi
+else
+    echo "📥 Clonage de vcpkg..."
+    git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
+fi
 
 # Aller dans le dossier vcpkg
 cd "$VCPKG_DIR"
 
-# Compiler vcpkg (bootstrap) s'il n'est pas déjà compilé
-if [ ! -f "$VCPKG_DIR/vcpkg" ]; then
-    echo "🔨 Compilation de vcpkg (bootstrap)..."
-    ./bootstrap-vcpkg.sh
-else
-    echo "✓ vcpkg déjà compilé"
-fi
+# Compiler vcpkg (bootstrap)
+echo "🔨 Compilation de vcpkg (bootstrap)..."
+./bootstrap-vcpkg.sh
 
 # Vérifier que l'exécutable existe
 if [ -f "$VCPKG_DIR/vcpkg" ]; then
