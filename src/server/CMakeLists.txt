@@ -31,6 +31,7 @@ add_executable(rtype_server
     infrastructure/adapters/in/network/UDPServer.cpp
     infrastructure/adapters/in/network/TCPServer.cpp
     infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
+    infrastructure/adapters/in/network/protocol/CommandParser.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")

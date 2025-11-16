@@ -36,7 +36,7 @@ namespace infrastructure::boostrap {
                 using adapters::in::network::TCPServer;
                 std::cout << "=== Démarrage du serveur R-Type ===" << std::endl;
 
-                auto userRepository = std::make_shared<MongoDBUserRepository>(_mongoDB);
+                // auto userRepository = std::make_shared<MongoDBUserRepository>(_mongoDB);
                 
 
                 // 1. Créer le contexte IO (boucle événementielle Boost.Asio)

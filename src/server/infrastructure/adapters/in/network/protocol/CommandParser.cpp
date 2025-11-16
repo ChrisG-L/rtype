@@ -5,7 +5,7 @@
 ** CommandParser
 */
 
-#include "CommandParser.hpp"
+#include "infrastructure/adapters/in/network/protocol/CommandParser.hpp"
 
 namespace infrastructure::adapters::in::network::protocol {
     Command CommandParser::parse(const std::string &rawData) {
