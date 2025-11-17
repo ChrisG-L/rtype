@@ -53,6 +53,7 @@ pipeline {
                         echo '📦 Construction de l\'image rtype-builder:latest demandée'
                         sh """
                             cd ci_cd/docker
+                            chmod +x build_image.sh
                             ./build_image.sh
                         """
                     }
@@ -60,6 +61,7 @@ pipeline {
                     // Lancer le builder avec le script
                     sh """
                         cd ci_cd/docker
+                        chmod +x launch_builder.sh
                         ./launch_builder.sh ${env.BUILD_PREFIX} ${env.BUILDER_PORT}
                     """
 
@@ -112,6 +114,7 @@ pipeline {
                 // Stop and remove the builder container with the correct prefix
                 sh """
                     cd ci_cd/docker
+                    chmod +x stop_builder.sh
                     ./stop_builder.sh ${env.BUILD_PREFIX} true
                 """
             }
