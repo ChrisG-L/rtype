@@ -35,6 +35,10 @@ SCRIPTS = {
 jobs = {}
 jobs_lock = threading.Lock()
 
+# workspaces: workspace_id -> dict(path, created_at)
+workspaces = {}
+workspaces_lock = threading.Lock()
+
 
 def monitor_job(job_id, proc, log_path):
 	with jobs_lock:
@@ -47,6 +51,43 @@ def monitor_job(job_id, proc, log_path):
 		jobs[job_id]["status"] = "finished"
 		jobs[job_id]["returncode"] = returncode
 		jobs[job_id]["finished_at"] = time.time()
+
+
+def create_workspace(build_number):
+	"""Crée un workspace isolé pour un build."""
+	workspace_id = f"build_{build_number}"
+	workspace_path = os.path.join(WORKSPACE, "builds", workspace_id)
+
+	# Créer les répertoires
+	os.makedirs(workspace_path, exist_ok=True)
+	os.makedirs(os.path.join(workspace_path, "artifacts"), exist_ok=True)
+
+	with workspaces_lock:
+		if workspace_id not in workspaces:
+			workspaces[workspace_id] = {
+				"path": workspace_path,
+				"created_at": time.time()
+			}
+
+	return workspace_id, workspace_path
+
+
+def delete_workspace(workspace_id):
+	"""Supprime un workspace et ses fichiers."""
+	import shutil
+	with workspaces_lock:
+		if workspace_id in workspaces:
+			workspace_path = workspaces[workspace_id]["path"]
+			del workspaces[workspace_id]
+
+			if os.path.exists(workspace_path):
+				try:
+					shutil.rmtree(workspace_path)
+					return True
+				except Exception as e:
+					print(f"Error deleting workspace {workspace_id}: {e}")
+					return False
+	return False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -108,76 +149,211 @@ class Handler(BaseHTTPRequestHandler):
 		self.end_headers()
 
 	def do_POST(self):
-		if self.path != "/run":
-			self.send_response(404)
-			self.end_headers()
-			return
+		parsed = urlparse(self.path)
+		path = parsed.path
 
-		length = int(self.headers.get("Content-Length", 0))
-		body = self.rfile.read(length).decode("utf-8") if length else ""
-		try:
-			data = json.loads(body) if body else {}
-		except json.JSONDecodeError:
-			self._set_json(400)
-			self.wfile.write(json.dumps({"error": "invalid json"}).encode())
-			return
-
-		cmd = data.get("command")
-		if cmd not in SCRIPTS:
-			self._set_json(400)
-			self.wfile.write(json.dumps({"error": "unknown command"}).encode())
-			return
-
-		script = SCRIPTS[cmd]
-		if not os.path.isfile(script):
-			self._set_json(500)
-			self.wfile.write(json.dumps({"error": "script not found", "script": script}).encode())
-			return
-
-		# create job id and log path
-		job_id = str(uuid.uuid4())
-		log_path = os.path.join(JOB_DIR, f"{job_id}.log")
-
-		with jobs_lock:
-			jobs[job_id] = {
-				"status": "queued",
-				"command": cmd,
-				"pid": None,
-				"started_at": None,
-				"finished_at": None,
-				"returncode": None,
-				"log_path": log_path,
-			}
-
-		# start process without timeout, redirect output to file
-		logfile = open(log_path, "wb")
-		try:
-			# run with bash to ensure script runs even if not executable
-			proc = subprocess.Popen(["/bin/bash", script], cwd=WORKSPACE, stdout=logfile, stderr=subprocess.STDOUT)
-		except Exception as e:
-			logfile.close()
-			with jobs_lock:
-				jobs[job_id]["status"] = "failed"
-				jobs[job_id]["failed_error"] = str(e)
-			self._set_json(500)
-			self.wfile.write(json.dumps({"error": "failed to start", "detail": str(e)}).encode())
-			return
-
-		# monitor in background thread; thread will close logfile when done
-		def _monitor_and_close():
+		# Route: POST /workspace/create
+		if path == "/workspace/create":
+			length = int(self.headers.get("Content-Length", 0))
+			body = self.rfile.read(length).decode("utf-8") if length else ""
 			try:
-				monitor_job(job_id, proc, log_path)
-			finally:
+				data = json.loads(body) if body else {}
+			except json.JSONDecodeError:
+				self._set_json(400)
+				self.wfile.write(json.dumps({"error": "invalid json"}).encode())
+				return
+
+			build_number = data.get("build_number")
+			if not build_number:
+				self._set_json(400)
+				self.wfile.write(json.dumps({"error": "build_number required"}).encode())
+				return
+
+			workspace_id, workspace_path = create_workspace(build_number)
+			self._set_json(200)
+			self.wfile.write(json.dumps({
+				"workspace_id": workspace_id,
+				"workspace_path": workspace_path
+			}).encode())
+			return
+
+		# Route: POST /workspace/{workspace_id}/run
+		if path.startswith("/workspace/") and path.endswith("/run"):
+			parts = path.split("/")
+			if len(parts) >= 4:
+				workspace_id = parts[2]
+
+				with workspaces_lock:
+					if workspace_id not in workspaces:
+						self._set_json(404)
+						self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
+						return
+					workspace_path = workspaces[workspace_id]["path"]
+
+				# Lire le body pour obtenir la commande
+				length = int(self.headers.get("Content-Length", 0))
+				body = self.rfile.read(length).decode("utf-8") if length else ""
 				try:
+					data = json.loads(body) if body else {}
+				except json.JSONDecodeError:
+					self._set_json(400)
+					self.wfile.write(json.dumps({"error": "invalid json"}).encode())
+					return
+
+				cmd = data.get("command")
+				if cmd not in SCRIPTS:
+					self._set_json(400)
+					self.wfile.write(json.dumps({"error": "unknown command"}).encode())
+					return
+
+				script = SCRIPTS[cmd]
+				if not os.path.isfile(script):
+					self._set_json(500)
+					self.wfile.write(json.dumps({"error": "script not found"}).encode())
+					return
+
+				# Créer job avec workspace spécifique
+				job_id = str(uuid.uuid4())
+				log_path = os.path.join(workspace_path, "artifacts", f"{job_id}.log")
+
+				with jobs_lock:
+					jobs[job_id] = {
+						"workspace_id": workspace_id,
+						"status": "queued",
+						"command": cmd,
+						"pid": None,
+						"started_at": None,
+						"finished_at": None,
+						"returncode": None,
+						"log_path": log_path,
+					}
+
+				# Lancer le process dans le workspace
+				logfile = open(log_path, "wb")
+				try:
+					proc = subprocess.Popen(
+						["/bin/bash", script],
+						cwd=workspace_path,  # Important: working dir = workspace
+						stdout=logfile,
+						stderr=subprocess.STDOUT
+					)
+				except Exception as e:
 					logfile.close()
-				except Exception:
-					pass
+					with jobs_lock:
+						jobs[job_id]["status"] = "failed"
+						jobs[job_id]["failed_error"] = str(e)
+					self._set_json(500)
+					self.wfile.write(json.dumps({"error": "failed to start"}).encode())
+					return
 
-		t = threading.Thread(target=_monitor_and_close, daemon=True)
-		t.start()
+				def _monitor_and_close():
+					try:
+						monitor_job(job_id, proc, log_path)
+					finally:
+						try:
+							logfile.close()
+						except Exception:
+							pass
 
-		self._set_json(200)
-		self.wfile.write(json.dumps({"job_id": job_id}).encode())
+				t = threading.Thread(target=_monitor_and_close, daemon=True)
+				t.start()
+
+				self._set_json(200)
+				self.wfile.write(json.dumps({"job_id": job_id}).encode())
+				return
+
+		# Route existante: POST /run (pour compatibilité)
+		if path == "/run":
+			length = int(self.headers.get("Content-Length", 0))
+			body = self.rfile.read(length).decode("utf-8") if length else ""
+			try:
+				data = json.loads(body) if body else {}
+			except json.JSONDecodeError:
+				self._set_json(400)
+				self.wfile.write(json.dumps({"error": "invalid json"}).encode())
+				return
+
+			cmd = data.get("command")
+			if cmd not in SCRIPTS:
+				self._set_json(400)
+				self.wfile.write(json.dumps({"error": "unknown command"}).encode())
+				return
+
+			script = SCRIPTS[cmd]
+			if not os.path.isfile(script):
+				self._set_json(500)
+				self.wfile.write(json.dumps({"error": "script not found", "script": script}).encode())
+				return
+
+			# create job id and log path
+			job_id = str(uuid.uuid4())
+			log_path = os.path.join(JOB_DIR, f"{job_id}.log")
+
+			with jobs_lock:
+				jobs[job_id] = {
+					"status": "queued",
+					"command": cmd,
+					"pid": None,
+					"started_at": None,
+					"finished_at": None,
+					"returncode": None,
+					"log_path": log_path,
+				}
+
+			# start process without timeout, redirect output to file
+			logfile = open(log_path, "wb")
+			try:
+				# run with bash to ensure script runs even if not executable
+				proc = subprocess.Popen(["/bin/bash", script], cwd=WORKSPACE, stdout=logfile, stderr=subprocess.STDOUT)
+			except Exception as e:
+				logfile.close()
+				with jobs_lock:
+					jobs[job_id]["status"] = "failed"
+					jobs[job_id]["failed_error"] = str(e)
+				self._set_json(500)
+				self.wfile.write(json.dumps({"error": "failed to start", "detail": str(e)}).encode())
+				return
+
+			# monitor in background thread; thread will close logfile when done
+			def _monitor_and_close():
+				try:
+					monitor_job(job_id, proc, log_path)
+				finally:
+					try:
+						logfile.close()
+					except Exception:
+						pass
+
+			t = threading.Thread(target=_monitor_and_close, daemon=True)
+			t.start()
+
+			self._set_json(200)
+			self.wfile.write(json.dumps({"job_id": job_id}).encode())
+			return
+
+		self.send_response(404)
+		self.end_headers()
+
+	def do_DELETE(self):
+		parsed = urlparse(self.path)
+		path = parsed.path
+
+		# Route: DELETE /workspace/{workspace_id}
+		if path.startswith("/workspace/"):
+			parts = path.split("/")
+			if len(parts) >= 3:
+				workspace_id = parts[2]
+
+				if delete_workspace(workspace_id):
+					self._set_json(200)
+					self.wfile.write(json.dumps({"message": "workspace deleted"}).encode())
+				else:
+					self._set_json(404)
+					self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
+				return
+
+		self.send_response(404)
+		self.end_headers()
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
