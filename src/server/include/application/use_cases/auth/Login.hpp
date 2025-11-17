@@ -19,11 +19,11 @@ namespace application::use_cases::auth {
 
     class Login {
         private:
-            IUserRespository* repository;
+            std::shared_ptr<IUserRespository> _userRespository;
 
         public:
-            explicit Login(IUserRespository* repo);
-            void execute(const std::string& name, const std::string& password);
+            explicit Login(std::shared_ptr<IUserRespository> userRepository);
+            void execute(const std::string& email, const std::string& password);
     };
 }
 #endif /* !LOGIN_HPP_ */

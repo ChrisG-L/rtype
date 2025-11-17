@@ -8,10 +8,10 @@
 #include "application/use_cases/auth/Login.hpp"
 
 namespace application::use_cases::auth {
-    Login::Login(IUserRespository* repo) : repository(repo) {}
+    Login::Login(std::shared_ptr<IUserRespository> userRepository) : _userRespository(userRepository) {}
 
-    void Login::execute(const std::string& name, const std::string& password) {
-        auto playerOpt = repository->findByName(name);
+    void Login::execute(const std::string& email, const std::string& password) {
+        auto playerOpt = _userRespository->findByEmail(email);
         if (!playerOpt.has_value()) {
             std::cout << "User name not found" << std::endl; 
             return;
@@ -19,11 +19,12 @@ namespace application::use_cases::auth {
 
         auto user = playerOpt.value();
         std::cout << "password: " << password << std::endl;
-        if (!user.verifyPassword(password))
+        if (!user.verifyPassword(password)) {
             std::cout << "Wrong password" << std::endl;
             return;
+        }
         user.updateLastLogin();
-        repository->update(user);
+        _userRespository->update(user);
     }
 }
 
