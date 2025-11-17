@@ -123,6 +123,83 @@ class BuilderAPI implements Serializable {
     }
     
     /**
+     * Submit a job in a specific workspace
+     * @param workspaceId workspace identifier (e.g., "build_123")
+     * @param command 'build' or 'compile'
+     * @return job UUID
+     */
+    String runInWorkspace(String workspaceId, String command) {
+        script.echo "📤 Soumission du job '${command}' dans workspace '${workspaceId}'..."
+
+        def response = script.sh(
+            script: """
+                curl -s -f -X POST \
+                    -H 'Content-Type: application/json' \
+                    -d '{"command":"${command}"}' \
+                    ${baseUrl}/workspace/${workspaceId}/run
+            """,
+            returnStdout: true
+        ).trim()
+
+        def json = script.readJSON(text: response)
+
+        if (!json.job_id) {
+            script.error("Failed to submit job in workspace: ${response}")
+        }
+
+        script.echo "✅ Job soumis avec UUID: ${json.job_id}"
+        return json.job_id
+    }
+
+    /**
+     * Wait for job completion (alias for waitForCompletion with better name)
+     * @param jobId UUID of the job
+     * @param pollInterval seconds between status checks (default: 10)
+     * @param maxWaitTime maximum wait time in seconds (default: 7200 = 2h)
+     * @return final job status Map
+     */
+    Map waitForJob(String jobId, int pollInterval = 10, int maxWaitTime = 7200) {
+        script.echo "⏳ Attente de la completion du job ${jobId}..."
+
+        def startTime = System.currentTimeMillis()
+        def status = null
+
+        while (true) {
+            status = getStatus(jobId, 20)  // Get last 20 lines of log
+
+            script.echo "📊 Status: ${status.status} | Command: ${status.command}"
+
+            // Afficher les dernières lignes du log si disponibles
+            if (status.log_tail) {
+                script.echo "📋 Dernières lignes du log:"
+                script.echo status.log_tail
+            }
+
+            if (status.status == 'finished') {
+                if (status.returncode == 0) {
+                    script.echo "✅ Job terminé avec succès"
+                    return status
+                } else {
+                    script.echo "❌ Job échoué avec returncode: ${status.returncode}"
+                    script.error("Job failed with returncode ${status.returncode}")
+                }
+            }
+
+            if (status.status == 'failed') {
+                script.echo "❌ Job failed: ${status}"
+                script.error("Job failed with status: ${status.status}")
+            }
+
+            def elapsed = (System.currentTimeMillis() - startTime) / 1000
+            if (elapsed > maxWaitTime) {
+                script.error("Timeout waiting for job ${jobId} (waited ${elapsed}s)")
+            }
+
+            script.sleep(pollInterval)
+        }
+    }
+
+    /**
      * Check if builder is healthy
      * @return true if healthy
      */
@@ -132,7 +209,7 @@ class BuilderAPI implements Serializable {
                 script: "curl -s ${baseUrl}/health",
                 returnStdout: true
             ).trim()
-            
+
             def json = script.readJSON(text: response)
             return json.status == 'ok'
         } catch (Exception e) {
