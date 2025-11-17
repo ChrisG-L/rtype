@@ -12,10 +12,13 @@ class BuilderAPI implements Serializable {
     }
     
     /**
-     * Parse JSON string using Groovy's native JsonSlurper (no plugin needed)
+     * Parse JSON string using Groovy's native JsonSlurperClassic (no plugin needed)
+     * Note: Using JsonSlurperClassic instead of JsonSlurper because it returns
+     * serializable objects (HashMap) instead of LazyMap, which is required for
+     * Jenkins Pipeline serialization.
      */
     def parseJson(String jsonString) {
-        def jsonSlurper = new groovy.json.JsonSlurper()
+        def jsonSlurper = new groovy.json.JsonSlurperClassic()
         return jsonSlurper.parseText(jsonString)
     }
 
