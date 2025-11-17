@@ -8,6 +8,7 @@ add_executable(rtype_server
     domain/exceptions/player/PlayerIdException.cpp
     domain/exceptions/user/UserIdException.cpp
     domain/exceptions/user/UsernameException.cpp
+    domain/exceptions/user/EmailException.cpp
     domain/exceptions/user/PasswordException.cpp
     domain/exceptions/persistence/MongoDBException.cpp
 
@@ -17,7 +18,9 @@ add_executable(rtype_server
     domain/value_objects/player/PlayerId.cpp
     domain/value_objects/user/UserId.cpp
     domain/value_objects/user/Username.cpp
+    domain/value_objects/user/Email.cpp
     domain/value_objects/user/Password.cpp
+    domain/value_objects/user/utils/PasswordUtils.cpp
 
     # Domain - Entities
     domain/entities/Player.cpp
@@ -25,13 +28,18 @@ add_executable(rtype_server
 
     # Application - Use Cases
     application/use_cases/MovePlayerUseCase.cpp
+    application/use_cases/auth/Login.cpp
+    application/use_cases/auth/Register.cpp
 
     # Infrastructure - Adapters
     infrastructure/adapters/in/cli/CLIGameController.cpp
     infrastructure/adapters/in/network/UDPServer.cpp
     infrastructure/adapters/in/network/TCPServer.cpp
-    infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
     infrastructure/adapters/in/network/protocol/CommandParser.cpp
+    infrastructure/adapters/in/network/execute/Execute.cpp
+    infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
+    infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
+    infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
