@@ -3,16 +3,16 @@ services:
     build:
       context: ../..
       dockerfile: ci_cd/docker/Dockerfile.build
-    image: rtype-builder:latest
+    image: rtype-builder:${PREFIX:-latest}
     container_name: "${PREFIX}rtype_builder"
     ports:
-      - "8080:8080"
+      - "${BUILDER_PORT:-8082}:${BUILDER_PORT:-8082}"
     volumes:
-      - "${PREFIX}builder_home:/workspace"
+      - builder_home:/workspace
     working_dir: /workspace
     environment:
       - WORKSPACE=/workspace
-      - BUILDER_PORT=8080
+      - BUILDER_PORT=8082
 
 volumes:
   builder_home:

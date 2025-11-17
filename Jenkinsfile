@@ -14,6 +14,13 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
     
+    environment {
+        // Préfixe unique pour ce build (permet builds parallèles)
+        BUILD_PREFIX = "build_${env.BUILD_NUMBER}_"
+        // Port dynamique basé sur le numéro de build (commence à 8082)
+        BUILDER_PORT = "${8082 + (env.BUILD_NUMBER as Integer) % 1000}"
+    }
+    
     stages {
         stage('Checkout') {
             steps {
@@ -22,11 +29,27 @@ pipeline {
             }
         }
         
+        stage('Setup Build Environment') {
+            steps {
+                script {
+                    echo "🔧 Configuration de l'environnement de build"
+                    echo "   PREFIX: ${env.BUILD_PREFIX}"
+                    echo "   PORT: ${env.BUILDER_PORT}"
+                    echo "   Container: ${env.BUILD_PREFIX}rtype_builder"
+                }
+            }
+        }
+        
         stage('Launch Build Container') {
             steps {
                 script {
                     echo '🐳 Lancement du conteneur builder...'
-                    sh 'docker-compose -f ci_cd/docker/docker-compose.build.yml up -d --build'
+                    
+                    // Lancer le builder avec le script
+                    sh """
+                        cd ci_cd/docker
+                        ./launch_builder.sh ${env.BUILD_PREFIX} ${env.BUILDER_PORT}
+                    """
                     
                     // Wait for container to be ready
                     echo '⏳ Attente du démarrage du serveur builder...'
@@ -40,7 +63,7 @@ pipeline {
                 script {
                     echo '🏥 Vérification de la santé du builder...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
-                    def api = new builderAPI.BuilderAPI(this, 'localhost', 8080)
+                    def api = new builderAPI.BuilderAPI(this, 'localhost', env.BUILDER_PORT as Integer)
                     
                     retry(5) {
                         if (!api.healthCheck()) {
@@ -58,7 +81,7 @@ pipeline {
                 script {
                     echo '🔨 Lancement de la compilation via API...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
-                    def api = new builderAPI.BuilderAPI(this, 'localhost', 8080)
+                    def api = new builderAPI.BuilderAPI(this, 'localhost', env.BUILDER_PORT as Integer)
                     
                     // Submit build job and wait for completion
                     // Poll every 10 seconds, max 2 hours
@@ -74,8 +97,11 @@ pipeline {
         always {
             script {
                 echo '🧹 Nettoyage...'
-                // Stop and remove the builder container
-                sh 'docker-compose -f ci_cd/docker/docker-compose.build.yml down || true'
+                // Stop and remove the builder container with the correct prefix
+                sh """
+                    cd ci_cd/docker
+                    ./stop_builder.sh ${env.BUILD_PREFIX} true
+                """
             }
             echo '🏁 Pipeline terminé'
         }
