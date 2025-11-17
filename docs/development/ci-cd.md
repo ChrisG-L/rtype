@@ -606,9 +606,16 @@ flowchart LR
 
 **1. Build de l'image** :
 ```bash
+# Depuis la racine du projet (contexte = racine)
+docker build -f ci_cd/docker/Dockerfile.build -t rtype-builder:latest .
+
+# Ou utiliser le script fourni
 cd ci_cd/docker
-docker build -f Dockerfile.build -t rtype-builder:latest .
+./build_image.sh
 ```
+
+!!! note "Contexte de build"
+    Le contexte Docker doit être la **racine du projet** (pas `ci_cd/docker/`) car le Dockerfile copie des fichiers depuis `ci_cd/docker/` avec des chemins relatifs (ex: `COPY ci_cd/docker/entrypoint.sh`).
 
 **2. Lancement du builder** :
 ```bash
@@ -642,20 +649,19 @@ retry(5) {
 }
 ```
 
-### Paramètres du job
+### Comportement du job
 
-Le job `Jenkinsfile.init` accepte deux paramètres :
+Le job `Jenkinsfile.init` suit un comportement **simple et prévisible** sans paramètres conditionnels :
 
-| Paramètre | Type | Défaut | Description |
-|-----------|------|--------|-------------|
-| `REBUILD_IMAGE` | Boolean | `true` | Reconstruire l'image Docker ? |
-| `RESTART_CONTAINER` | Boolean | `false` | Forcer le redémarrage du conteneur ? |
+**À chaque exécution, le job :**
 
-**Cas d'usage** :
+1. **Build systématiquement l'image** Docker `rtype-builder:latest`
+2. **Stoppe le builder existant** (si présent) pour éviter les conflits
+3. **Lance un nouveau builder** permanent avec la nouvelle image
+4. **Vérifie la santé** du builder avec retry automatique
 
-- **Premier lancement** : `REBUILD_IMAGE=true`, `RESTART_CONTAINER=false`
-- **Redémarrage après modification code** : `REBUILD_IMAGE=true`, `RESTART_CONTAINER=true`
-- **Redémarrage simple** : `REBUILD_IMAGE=false`, `RESTART_CONTAINER=true`
+!!! tip "Simplicité par conception"
+    Ce comportement uniforme élimine les choix conditionnels et garantit que chaque initialisation démarre avec une image fraîche et un builder propre. Cela simplifie le débogage et rend le comportement prévisible.
 
 ### Vérification post-initialisation
 
