@@ -20,8 +20,9 @@ namespace application::ports::out::persistence {
 
             virtual void save(const User& user) const = 0;
             virtual void update(const User& user) = 0;
-            virtual std::optional<User> findById(const std::string& id) const = 0;
-            virtual std::optional<User> findByName(const std::string& name) const = 0;
+            virtual std::optional<User> findById(const std::string& id) = 0;
+            virtual std::optional<User> findByName(const std::string& name) = 0;
+            virtual std::optional<User> findByEmail(const std::string& email) = 0;
             virtual std::vector<User> findAll() = 0;
 
         protected:
