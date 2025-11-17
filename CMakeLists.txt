@@ -25,7 +25,34 @@ enable_testing()
 find_package(Boost CONFIG REQUIRED COMPONENTS system)
 find_package(GTest CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL CONFIG REQUIRED)
+find_package(Protobuf CONFIG REQUIRED)
+
+add_library(rtype_proto STATIC)
+
+set(PROTO_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/proto/user.proto
+)
+
+PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+
+message(STATUS "Protobuf sources générées : ${PROTO_SRCS}")
+message(STATUS "Protobuf headers générés : ${PROTO_HDRS}")
+
+target_sources(rtype_proto PRIVATE
+    ${PROTO_SRCS}
+    ${PROTO_HDRS}
+)
+
+target_include_directories(rtype_proto PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${Protobuf_INCLUDE_DIRS}
+)
+
+target_link_libraries(rtype_proto PRIVATE
+    ${PROTOBUF_LIBRARIES}
+)
+
 # Inclure les sous-répertoires
 add_subdirectory("src/server")
 
