@@ -12,6 +12,7 @@
 #include "domain/exceptions/persistence/MongoDBException.hpp"
 
 #include <bsoncxx/json.hpp>
+#include <bsoncxx/types.hpp>
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 #include <mongocxx/uri.hpp>

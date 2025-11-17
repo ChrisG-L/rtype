@@ -9,7 +9,8 @@
 
 namespace infrastructure::adapters::in::network {
     // Session implementation
-    Session::Session(tcp::socket socket) : _socket(std::move(socket)) {}
+    Session::Session(tcp::socket socket, std::shared_ptr<MongoDBUserRepository> userRepository)
+    : _socket(std::move(socket)), _userRepository(userRepository) {}
 
     void Session::start() {
         do_read();
@@ -44,13 +45,17 @@ namespace infrastructure::adapters::in::network {
     }
 
     void Session::handle_command(std::size_t length) {
+        using infrastructure::adapters::in::network::execute::Execute;
+    
         infrastructure::adapters::in::network::protocol::CommandParser cmdParser;
         Command cmd = cmdParser.parse(std::string(_data, length));
+        std::vector<std::string> args = {"LOGIN", "killian", "PLUENET"}; 
+        Execute execute(cmd, _userRepository);
     }
 
     // TCPServer implementation
-    TCPServer::TCPServer(boost::asio::io_context& io_ctx)
-        : _io_ctx(io_ctx), _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4123)) {
+    TCPServer::TCPServer(boost::asio::io_context& io_ctx, std::shared_ptr<MongoDBUserRepository> userRepository)
+        : _io_ctx(io_ctx), _userRepository(userRepository) , _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4123)) {
         std::cout << "Serveur TCP démarré sur le port 4123\n";
     }
 
@@ -67,7 +72,7 @@ namespace infrastructure::adapters::in::network {
             [this](boost::system::error_code ec, tcp::socket socket) {
                 if (!ec) {
                     std::cout << "Nouvelle connexion acceptée!" << std::endl;
-                    std::make_shared<Session>(std::move(socket))->start();
+                    std::make_shared<Session>(std::move(socket), _userRepository)->start();
                 }
                 start_accept();
             }

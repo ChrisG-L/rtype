@@ -15,9 +15,12 @@
 
 #include "protocol/CommandParser.hpp"
 
+#include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
+#include "infrastructure/adapters/in/network/execute/Execute.hpp"
 
 namespace infrastructure::adapters::in::network {
     using boost::asio::ip::tcp;
+    using infrastructure::adapters::out::persistence::MongoDBUserRepository;
 
     class Session: public std::enable_shared_from_this<Session> {
         private:
@@ -30,18 +33,20 @@ namespace infrastructure::adapters::in::network {
             void handle_command(std::size_t length);
 
         public:
-            Session(tcp::socket socket);
+            Session(tcp::socket socket, std::shared_ptr<MongoDBUserRepository> userRepository);
+            std::shared_ptr<MongoDBUserRepository> _userRepository;
             void start();
     };
 
     class TCPServer {
         private:
             boost::asio::io_context& _io_ctx;
+            std::shared_ptr<MongoDBUserRepository> _userRepository;
             tcp::acceptor _acceptor;
             void start_accept();
 
         public:
-            TCPServer(boost::asio::io_context& io_ctx);
+            TCPServer(boost::asio::io_context& io_ctx, std::shared_ptr<MongoDBUserRepository> userRepository);
             void start();
             void run();
     };

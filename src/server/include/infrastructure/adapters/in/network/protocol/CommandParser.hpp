@@ -10,6 +10,10 @@
 
 #include <sstream>
 #include <iostream>
+#include <bsoncxx/json.hpp>
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/document/view.hpp>
+
 #include "Command.hpp"
 
 namespace infrastructure::adapters::in::network::protocol {

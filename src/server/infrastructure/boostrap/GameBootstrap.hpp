@@ -8,7 +8,8 @@
 #ifndef GAMEBOOTSTRAP_HPP_
 #define GAMEBOOTSTRAP_HPP_
 
-#include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
+#include "domain/value_objects/user/Password.hpp"
+
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
 #include "infrastructure/adapters/in/network/TCPServer.hpp"
@@ -36,13 +37,12 @@ namespace infrastructure::boostrap {
                 using adapters::in::network::TCPServer;
                 std::cout << "=== Démarrage du serveur R-Type ===" << std::endl;
 
-                // auto userRepository = std::make_shared<MongoDBUserRepository>(_mongoDB);
-                
+                auto userRepository = std::make_shared<MongoDBUserRepository>(_mongoDB);
 
                 // 1. Créer le contexte IO (boucle événementielle Boost.Asio)
                 boost::asio::io_context io_ctx;
 
-                TCPServer tcpServer(io_ctx);
+                TCPServer tcpServer(io_ctx, userRepository);
 
                 tcpServer.start();
 
