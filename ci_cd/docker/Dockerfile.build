@@ -37,7 +37,9 @@ RUN test -f /usr/share/doc/kitware-archive-keyring/copyright || wget -O - https:
 # Définir le répertoire de travail
 WORKDIR /workspace
 
-COPY . .
+# Le workspace est monté depuis l'hôte (en lecture seule). On n'a plus besoin
+# de copier le code dans l'image — cela évite les rebuilds inutiles et garde
+# l'image légère. Les scripts et sources seront disponibles via le volume.
 
 # Configurer Git pour éviter les problèmes de permissions
 RUN git config --global --add safe.directory "*"

@@ -13,6 +13,11 @@ pipeline {
         timeout(time: 2, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
+
+    // Paramètres du pipeline
+    parameters {
+        booleanParam(name: 'BUILD_IMAGE', defaultValue: false, description: 'Construire l\'image `rtype-builder:latest` avant de lancer le conteneur')
+    }
     
     environment {
         // Préfixe unique pour ce build (permet builds parallèles)
@@ -45,6 +50,15 @@ pipeline {
                 script {
                     echo '🐳 Lancement du conteneur builder...'
                     
+                    // Optionnel: reconstruire l'image si demandé
+                    if (params.BUILD_IMAGE) {
+                        echo '📦 Construction de l\'image rtype-builder:latest demandée'
+                        sh """
+                            cd ci_cd/docker
+                            ./build_image.sh
+                        """
+                    }
+
                     // Lancer le builder avec le script
                     sh """
                         cd ci_cd/docker
