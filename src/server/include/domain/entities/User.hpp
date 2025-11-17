@@ -8,34 +8,45 @@
 #ifndef USER_HPP_
 #define USER_HPP_
 
+#include <bsoncxx/oid.hpp>
+
 #include "domain/value_objects/user/UserId.hpp"
 #include "domain/value_objects/user/Username.hpp"
+#include "domain/value_objects/user/Email.hpp"
 #include "domain/value_objects/user/Password.hpp"
 #include <chrono>
 
 namespace domain::entities {
+    using value_objects::user::UserId;
+    using value_objects::user::Username;
+    using value_objects::user::Email;
+    using value_objects::user::Password;
+
     class User {
         private:
-            value_objects::user::UserId _id;
-            value_objects::user::Username _username;
-            value_objects::user::Password _passwordHash;
-            std::chrono::system_clock::time_point _createdAt;
+            UserId _id;
+            Username _username;
+            Email _email;
+            Password _passwordHash;
             std::chrono::system_clock::time_point _lastLogin;
+            std::chrono::system_clock::time_point _createdAt;
 
         public:
             explicit User(
-                value_objects::user::UserId id,
-                value_objects::user::Username username,
-                value_objects::user::Password passwordHash,
-                std::chrono::system_clock::time_point createdAt = std::chrono::system_clock::now(),
-                std::chrono::system_clock::time_point lastLogin = std::chrono::system_clock::now()
+                UserId id,
+                Username username,
+                Email email,
+                Password passwordHash,
+                std::chrono::system_clock::time_point lastLogin = std::chrono::system_clock::now(),
+                std::chrono::system_clock::time_point createdAt = std::chrono::system_clock::now()
             );
 
-            const value_objects::user::UserId& getId() const;
-            const value_objects::user::Username& getUsername() const;
-            const value_objects::user::Password& getPasswordHash() const;
-            const std::chrono::system_clock::time_point& getCreatedAt() const;
+            const UserId& getId() const;
+            const Username& getUsername() const;
+            const Email& getEmail() const;
+            const Password& getPasswordHash() const;
             const std::chrono::system_clock::time_point& getLastLogin() const;
+            const std::chrono::system_clock::time_point& getCreatedAt() const;
 
             bool verifyPassword(const std::string& password);
             void updateLastLogin();

@@ -9,23 +9,28 @@
 
 namespace domain::entities {
     User::User(
-        value_objects::user::UserId id,
-        value_objects::user::Username username,
-        value_objects::user::Password passwordHash,
-        std::chrono::system_clock::time_point createdAt,
-        std::chrono::system_clock::time_point lastLogin
-    ) : _id(id), _username(username), _passwordHash(passwordHash),
-        _createdAt(createdAt), _lastLogin(lastLogin) {}
+        UserId id,
+        Username username,
+        Email email,
+        Password passwordHash,
+        std::chrono::system_clock::time_point lastLogin,
+        std::chrono::system_clock::time_point createdAt
+    ) : _id(id), _username(username), _email(email), _passwordHash(passwordHash),
+        _lastLogin(lastLogin), _createdAt(createdAt) {}
 
-    const value_objects::user::UserId& User::getId() const {
+    const UserId& User::getId() const {
         return _id;
     }
 
-    const value_objects::user::Username& User::getUsername() const {
+    const Username& User::getUsername() const {
         return _username;
     }
 
-    const value_objects::user::Password& User::getPasswordHash() const {
+    const Email& User::getEmail() const {
+        return _email;
+    }
+
+    const Password& User::getPasswordHash() const {
         return _passwordHash;
     }
 
