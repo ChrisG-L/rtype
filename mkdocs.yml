@@ -149,6 +149,8 @@ nav:
       - Implémentation Hexagonale: development/hexagonal-implementation.md
       - Tests: development/testing.md
       - Politiques de Commit: development/COMMIT_POLICES.md
+      - CI/CD Jenkins: development/ci-cd.md
+      - API Builder Jenkins: development/jenkins-builder-api.md
 
   - Ruche d'Agents IA:
       - Introduction: hive/introduction.md
