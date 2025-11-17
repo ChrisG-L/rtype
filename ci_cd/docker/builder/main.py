@@ -261,7 +261,12 @@ class Handler(BaseHTTPRequestHandler):
 
 				# Créer job avec workspace spécifique
 				job_id = str(uuid.uuid4())
-				log_path = os.path.join(workspace_path, "artifacts", f"{job_id}.log")
+
+				# S'assurer que le dossier artifacts existe (rsync --delete peut l'avoir supprimé)
+				artifacts_dir = os.path.join(workspace_path, "artifacts")
+				os.makedirs(artifacts_dir, exist_ok=True)
+
+				log_path = os.path.join(artifacts_dir, f"{job_id}.log")
 
 				with jobs_lock:
 					jobs[job_id] = {

@@ -81,6 +81,7 @@ pipeline {
                             --exclude='*.a' \
                             --exclude='.gitignore' \
                             --exclude='third_party/vcpkg/.git' \
+                            --exclude='artifacts' \
                             ${WORKSPACE}/ \
                             rsync://${env.BUILDER_HOST}:873/workspace/${env.WORKSPACE_ID}/
                     """
