@@ -1,11 +1,6 @@
 pipeline {
     agent any
-    
-    // Définir les paramètres du pipeline
-    parameters {
-        string(name: "BRANCH", defaultValue: 'main', description: 'Branche à builder')
-    }
-    
+
     // Déclencheur pour surveiller les changements dans le SCM toutes les 3 minutes
     triggers {
         pollSCM("H/3 * * * *")
@@ -52,37 +47,9 @@ pipeline {
                 '''
             }
         }
-        
-        stage('Install vcpkg') {
-            steps {
-                echo '📦 Installation de vcpkg...'
-                sh '''
-                    chmod +x scripts/vcpkg/install_vcpkg.sh
-                    ./scripts/vcpkg/install_vcpkg.sh
-                '''
-            }
-        }
-        
-        stage('Install Project Dependencies') {
-            steps {
-                echo '📚 Installation des dépendances du projet via vcpkg...'
-                sh '''
-                    chmod +x scripts/vcpkg/vcpkg.sh
-                    
-                    # Installer les dépendances depuis vcpkg.json
-                    if [ -f "vcpkg.json" ]; then
-                        echo "📄 Installation depuis vcpkg.json..."
-                        ./scripts/vcpkg/vcpkg.sh install
-                    else
-                        echo "⚠️  Pas de vcpkg.json trouvé"
-                    fi
-                '''
-            }
-        }
-        
         stage('Build') {
             steps {
-                echo '🔨 Compilation du projet...'
+                echo '🔨 Configuration du projet...'
                 sh '''
                     chmod +x scripts/build.sh
                     ./scripts/build.sh
