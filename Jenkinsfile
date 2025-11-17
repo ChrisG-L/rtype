@@ -75,7 +75,7 @@ pipeline {
                     sh """
                         rsync -avz --delete \
                             --exclude='.git' \
-                            --exclude='build*' \
+                            --exclude='build/*' \
                             --exclude='cmake-build-*' \
                             --exclude='*.o' \
                             --exclude='*.a' \
