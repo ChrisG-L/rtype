@@ -4,7 +4,11 @@ services:
       context: ../..
       dockerfile: ci_cd/docker/Dockerfile.build
     image: rtype-builder:latest
-    container_name: rtype_builder
+    container_name: "${PREFIX}rtype_builder"
     volumes:
-      - ../../:/workspace
+      - "${PREFIX}builder_home:/workspace"
     working_dir: /workspace
+
+volumes:
+  builder_home:
+    name: "${PREFIX}builder_home"

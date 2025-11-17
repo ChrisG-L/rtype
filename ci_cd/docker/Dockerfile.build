@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Métadonnées sur l'image
 LABEL maintainer="Killian Pluenet"
@@ -7,21 +7,39 @@ LABEL description="Dockerfile to build R-Type project"
 
 # Installer les dépendances nécessaires pour la construction
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    gpg \
+    wget \
     build-essential \
-    cmake \
     git \
     libssl-dev \
+    curl \
+    zip \
     unzip \
     wget \
-    zip \
     ninja-build \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    argon2 \
+    tar \
+    sudo \
+    linux-libc-dev \
+    pkg-config
+
+# Installer CMake (dernière version stable)
+RUN test -f /usr/share/doc/kitware-archive-keyring/copyright || wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null && \
+    echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null && \
+    apt-get update && \
+    test -f /usr/share/doc/kitware-archive-keyring/copyright || rm /usr/share/keyrings/kitware-archive-keyring.gpg && \
+    apt-get install kitware-archive-keyring -y && \
+    apt-get update && apt-get install -y cmake && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Définir le répertoire de travail
 WORKDIR /workspace
 
+COPY . .
+
+# Configurer Git pour éviter les problèmes de permissions
+RUN git config --global --add safe.directory "*"
+
 # Commande par défaut pour construire le projet
 CMD ["./scripts/build.sh"]
-
-

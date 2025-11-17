@@ -16,6 +16,7 @@ if [ -d "$VCPKG_DIR" ]; then
         echo "🔄 Mise à jour du dépôt vcpkg (pull --ff-only)..."
         # Essayer de récupérer les dernières modifications sans forcer l'échec du script
         git -C "$VCPKG_DIR" pull --ff-only || echo "⚠️ Impossible de faire 'git pull --ff-only' sur vcpkg, on continue"
+        "$VCPKG_DIR/vcpkg" update || echo "⚠️ Impossible de faire 'vcpkg update', on continue"
     else
         echo "⚠️ Le dossier vcpkg existe mais n'est pas un dépôt git. On le supprime et on reclone."
         rm -rf "$VCPKG_DIR"

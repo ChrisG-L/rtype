@@ -19,28 +19,22 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Build') {
+        
+    stages {
+        stage('Launch Build Container') {
             steps {
-                echo '🔨 Configuration du projet...'
-                sh '''
-                    chmod +x scripts/build.sh
-                    ./scripts/build.sh
-                '''
+                echo '🐳 Lancement du conteneur de build...'
+                sh 'docker-compose -f ci_cd/docker/docker-compose.build.yml up -d --build'
             }
         }
-
-        stage('Compile et Run Tests') {
+        stage('Build Project') {
             steps {
-                echo '🧪 Compilation et exécution des tests...'
-                sh '''
-                    chmod +x scripts/compile.sh
-                    ./scripts/compile.sh
-                    ./artifacts/server/linux/server_tests
-                '''
+                echo ('🔨 Compilation du projet...')
+                sh 'docker exec rtype_builder ./scripts/compile.sh'
             }
         }
     }
-    
+
     post {
         always {
             echo '🧹 Pipeline terminé'
