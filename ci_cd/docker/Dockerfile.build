@@ -38,15 +38,15 @@ RUN test -f /usr/share/doc/kitware-archive-keyring/copyright || wget -O - https:
 # Définir le répertoire de travail
 WORKDIR /workspace
 
-# Le workspace est monté depuis l'hôte (en lecture seule). On n'a plus besoin
-# de copier le code dans l'image — cela évite les rebuilds inutiles et garde
-# l'image légère. Les scripts et sources seront disponibles via le volume.
-
 # Configurer Git pour éviter les problèmes de permissions
 RUN git config --global --add safe.directory "*"
 
 # Créer les répertoires nécessaires
-RUN mkdir -p /workspace/artifacts /workspace/builds
+RUN mkdir -p /workspace/artifacts /workspace/builds /workspace/ci_cd/docker/builder
+
+# Copier les fichiers de l'infrastructure builder (serveur API uniquement)
+# Les scripts de build seront uploadés avec le code source via rsync
+COPY ci_cd/docker/builder/main.py /workspace/ci_cd/docker/builder/main.py
 
 # Copier la configuration rsync (depuis le contexte de build = racine du projet)
 COPY ci_cd/docker/rsyncd.conf /etc/rsyncd.conf

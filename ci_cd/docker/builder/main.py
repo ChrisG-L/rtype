@@ -26,10 +26,15 @@ PORT = int(os.environ.get("BUILDER_PORT", "8080"))
 JOB_DIR = os.path.join(WORKSPACE, "artifacts", "builder_jobs")
 os.makedirs(JOB_DIR, exist_ok=True)
 
+# Ancienne définition SCRIPTS, conservée pour compatibilité avec la route /run (legacy)
+# Les nouveaux workspaces utilisent les scripts uploadés dans chaque workspace
 SCRIPTS = {
 	"build": os.path.join(WORKSPACE, "scripts", "build.sh"),
 	"compile": os.path.join(WORKSPACE, "scripts", "compile.sh"),
 }
+
+# Mapping moderne : commandes disponibles pour les workspaces
+AVAILABLE_COMMANDS = ["build", "compile"]
 
 # jobs: uuid -> dict(status, command, pid, started_at, finished_at, returncode, log_path)
 jobs = {}
@@ -101,7 +106,7 @@ class Handler(BaseHTTPRequestHandler):
 		path = parsed.path
 		if path in ("/", "/health"):
 			self._set_json(200)
-			payload = {"status": "ok", "allowed_commands": list(SCRIPTS.keys())}
+			payload = {"status": "ok", "allowed_commands": AVAILABLE_COMMANDS}
 			self.wfile.write(json.dumps(payload).encode())
 			return
 
@@ -201,15 +206,29 @@ class Handler(BaseHTTPRequestHandler):
 					return
 
 				cmd = data.get("command")
-				if cmd not in SCRIPTS:
+				# Mapping des commandes vers les scripts (dans le workspace uploadé)
+				script_mapping = {
+					"build": "scripts/build.sh",
+					"compile": "scripts/compile.sh",
+				}
+
+				if cmd not in script_mapping:
 					self._set_json(400)
-					self.wfile.write(json.dumps({"error": "unknown command"}).encode())
+					self.wfile.write(json.dumps({"error": "unknown command", "allowed": list(script_mapping.keys())}).encode())
 					return
 
-				script = SCRIPTS[cmd]
+				# Le script doit être dans le workspace uploadé
+				script_relative = script_mapping[cmd]
+				script = os.path.join(workspace_path, script_relative)
+
 				if not os.path.isfile(script):
 					self._set_json(500)
-					self.wfile.write(json.dumps({"error": "script not found"}).encode())
+					self.wfile.write(json.dumps({
+						"error": "script not found in workspace",
+						"script": script_relative,
+						"workspace_path": workspace_path,
+						"hint": "Make sure the scripts are uploaded via rsync"
+					}).encode())
 					return
 
 				# Créer job avec workspace spécifique
