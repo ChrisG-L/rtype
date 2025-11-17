@@ -139,9 +139,10 @@ class BuilderAPI implements Serializable {
     String runInWorkspace(String workspaceId, String command) {
         script.echo "📤 Soumission du job '${command}' dans workspace '${workspaceId}'..."
 
+        // Retirer -f pour voir le contenu même en cas d'erreur HTTP
         def response = script.sh(
             script: """
-                curl -s -f -X POST \
+                curl -s -w '\\nHTTP_CODE:%{http_code}' -X POST \
                     -H 'Content-Type: application/json' \
                     -d '{"command":"${command}"}' \
                     ${baseUrl}/workspace/${workspaceId}/run
@@ -149,10 +150,21 @@ class BuilderAPI implements Serializable {
             returnStdout: true
         ).trim()
 
-        def json = parseJson(response)
+        // Séparer le body et le code HTTP
+        def parts = response.split('\nHTTP_CODE:')
+        def body = parts[0]
+        def httpCode = parts.length > 1 ? parts[1] : '000'
+
+        script.echo "Response HTTP ${httpCode}: ${body}"
+
+        if (httpCode != '200') {
+            script.error("HTTP ${httpCode} error when submitting job: ${body}")
+        }
+
+        def json = parseJson(body)
 
         if (!json.job_id) {
-            script.error("Failed to submit job in workspace: ${response}")
+            script.error("Failed to submit job in workspace: ${body}")
         }
 
         script.echo "✅ Job soumis avec UUID: ${json.job_id}"

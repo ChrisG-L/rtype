@@ -187,25 +187,34 @@ class Handler(BaseHTTPRequestHandler):
 			parts = path.split("/")
 			if len(parts) >= 4:
 				workspace_id = parts[2]
+				print(f"DEBUG: POST /workspace/{workspace_id}/run - Starting")
 
 				with workspaces_lock:
 					if workspace_id not in workspaces:
+						print(f"ERROR: Workspace '{workspace_id}' not found")
+						print(f"  Available workspaces: {list(workspaces.keys())}")
 						self._set_json(404)
 						self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
 						return
 					workspace_path = workspaces[workspace_id]["path"]
 
+				print(f"DEBUG: Workspace path: {workspace_path}")
+
 				# Lire le body pour obtenir la commande
 				length = int(self.headers.get("Content-Length", 0))
 				body = self.rfile.read(length).decode("utf-8") if length else ""
+				print(f"DEBUG: Request body: {body}")
+
 				try:
 					data = json.loads(body) if body else {}
-				except json.JSONDecodeError:
+				except json.JSONDecodeError as e:
+					print(f"ERROR: Invalid JSON: {e}")
 					self._set_json(400)
 					self.wfile.write(json.dumps({"error": "invalid json"}).encode())
 					return
 
 				cmd = data.get("command")
+				print(f"DEBUG: Command: {cmd}")
 				# Mapping des commandes vers les scripts (dans le workspace uploadé)
 				script_mapping = {
 					"build": "scripts/build.sh",
@@ -221,14 +230,33 @@ class Handler(BaseHTTPRequestHandler):
 				script_relative = script_mapping[cmd]
 				script = os.path.join(workspace_path, script_relative)
 
+				print(f"DEBUG: Looking for script: {script}")
+				print(f"  Script exists: {os.path.isfile(script)}")
+				print(f"  Workspace exists: {os.path.isdir(workspace_path)}")
+
+				# Lister le contenu du workspace pour debug
+				if os.path.isdir(workspace_path):
+					try:
+						contents = os.listdir(workspace_path)
+						print(f"  Workspace contents: {contents}")
+						scripts_dir = os.path.join(workspace_path, "scripts")
+						if os.path.isdir(scripts_dir):
+							scripts_contents = os.listdir(scripts_dir)
+							print(f"  Scripts directory contents: {scripts_contents}")
+					except Exception as e:
+						print(f"  Error listing workspace: {e}")
+
 				if not os.path.isfile(script):
-					self._set_json(500)
-					self.wfile.write(json.dumps({
+					error_response = {
 						"error": "script not found in workspace",
 						"script": script_relative,
+						"script_full_path": script,
 						"workspace_path": workspace_path,
 						"hint": "Make sure the scripts are uploaded via rsync"
-					}).encode())
+					}
+					print(f"ERROR: Script not found: {error_response}")
+					self._set_json(500)
+					self.wfile.write(json.dumps(error_response).encode())
 					return
 
 				# Créer job avec workspace spécifique
@@ -261,8 +289,18 @@ class Handler(BaseHTTPRequestHandler):
 					with jobs_lock:
 						jobs[job_id]["status"] = "failed"
 						jobs[job_id]["failed_error"] = str(e)
+					error_msg = f"Failed to start process: {str(e)}"
+					print(f"ERROR: {error_msg}")  # Log to container stdout
+					print(f"  Script: {script}")
+					print(f"  Workspace: {workspace_path}")
+					print(f"  Command: {cmd}")
 					self._set_json(500)
-					self.wfile.write(json.dumps({"error": "failed to start"}).encode())
+					self.wfile.write(json.dumps({
+						"error": "failed to start",
+						"detail": str(e),
+						"script": script_relative,
+						"workspace_path": workspace_path
+					}).encode())
 					return
 
 				def _monitor_and_close():
