@@ -22,7 +22,8 @@ RUN apt-get update && apt-get install -y \
     tar \
     sudo \
     linux-libc-dev \
-    pkg-config
+    pkg-config \
+    python3
 
 # Installer CMake (dernière version stable)
 RUN test -f /usr/share/doc/kitware-archive-keyring/copyright || wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null && \
@@ -41,5 +42,5 @@ COPY . .
 # Configurer Git pour éviter les problèmes de permissions
 RUN git config --global --add safe.directory "*"
 
-# Commande par défaut pour construire le projet
-CMD ["./scripts/build.sh"]
+# Commande par défaut : lancer le serveur Python qui exécutera les scripts sur requête
+CMD ["python3", "/workspace/ci_cd/docker/builder/main.py"]
