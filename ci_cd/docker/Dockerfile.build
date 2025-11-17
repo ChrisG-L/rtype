@@ -48,11 +48,11 @@ RUN git config --global --add safe.directory "*"
 # Créer les répertoires nécessaires
 RUN mkdir -p /workspace/artifacts /workspace/builds
 
-# Copier la configuration rsync
-COPY rsyncd.conf /etc/rsyncd.conf
+# Copier la configuration rsync (depuis le contexte de build = racine du projet)
+COPY ci_cd/docker/rsyncd.conf /etc/rsyncd.conf
 
 # Copier et rendre exécutable le script d'entrée
-COPY entrypoint.sh /entrypoint.sh
+COPY ci_cd/docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Exposer les ports : 8080 (API HTTP) et 873 (rsync daemon)
