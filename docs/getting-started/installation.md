@@ -105,13 +105,13 @@ Avant de compiler, lancez l'infrastructure Docker pour avoir accès à Jenkins (
 Ce script va :
 
 1. Lancer la documentation MkDocs sur **http://localhost:8000**
-2. Lancer Jenkins sur **http://localhost:8080**
+2. Lancer Jenkins sur **http://localhost:8081**
 
 !!! tip "Documentation locale"
     Une fois lancée, vous pouvez accéder à la documentation complète du projet à http://localhost:8000. C'est très utile pour suivre les guides pendant le développement !
 
 !!! info "Jenkins CI/CD"
-    Jenkins est disponible à http://localhost:8080 et vous permet de lancer les pipelines de build et de tests automatiquement.
+    Jenkins est disponible à http://localhost:8081 et vous permet de lancer les pipelines de build et de tests automatiquement.
 
 ### Étape 6 : Installer vcpkg et les dépendances
 

@@ -263,7 +263,7 @@ cd ci_cd/docker
 docker-compose up -d
 ```
 
-Accédez à http://localhost:8080
+Accédez à http://localhost:8081
 
 ### Où trouver le mot de passe Jenkins initial ?
 
@@ -273,7 +273,7 @@ docker-compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 
 ### Comment relancer le pipeline Jenkins ?
 
-1. Ouvrez http://localhost:8080
+1. Ouvrez http://localhost:8081
 2. Cliquez sur le job "rtype"
 3. Cliquez sur "Build Now"
 

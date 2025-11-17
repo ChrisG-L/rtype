@@ -35,7 +35,7 @@ cd rtype
 !!! success "C'est prêt!"
     - **Binaires** disponibles dans `artifacts/server/linux/`
     - **Documentation** accessible à http://localhost:8000
-    - **Jenkins** accessible à http://localhost:8080
+    - **Jenkins** accessible à http://localhost:8081
 
 ### Méthode alternative : Build complet avec Docker
 
@@ -269,7 +269,7 @@ Jenkins est automatiquement lancé avec `./scripts/launch_ci_cd.sh` !
 ./scripts/launch_ci_cd.sh
 
 # Accéder à Jenkins
-# http://localhost:8080
+# http://localhost:8081
 ```
 
 Le pipeline Jenkins exécute automatiquement à chaque push :

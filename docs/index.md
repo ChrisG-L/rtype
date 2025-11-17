@@ -130,7 +130,7 @@ Le pipeline Jenkins s'exécute automatiquement à chaque push et effectue :
 - Exécution des tests
 - Archivage des artifacts
 
-**Accès :** http://localhost:8080 (après `./scripts/launch_ci_cd.sh`)
+**Accès :** http://localhost:8081 (après `./scripts/launch_ci_cd.sh`)
 
 ### 5. SonarCloud - Analyse de qualité
 

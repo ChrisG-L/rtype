@@ -308,7 +308,7 @@ docker-compose -f ci_cd/docker/docker-compose.docs.yml up
 #### Jenkins (docker-compose.yml)
 
 - **Image :** Jenkins LTS
-- **Ports :** 8080 (UI), 50000 (agents)
+- **Ports :** 8081 (UI), 50000 (agents)
 - **Volumes :** jenkins_data
 - **Features :** Docker-in-Docker
 

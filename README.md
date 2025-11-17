@@ -69,7 +69,7 @@ cd rtype
 | Étape | Commande | Durée | Description détaillée |
 |-------|----------|-------|----------------------|
 | **1** | `git clone` | ~1 min | Récupère le code source du projet depuis GitHub |
-| **2** | `./scripts/launch_ci_cd.sh` | ~30 sec | Lance les conteneurs Docker pour Jenkins (http://localhost:8080) et la documentation MkDocs (http://localhost:8000) |
+| **2** | `./scripts/launch_ci_cd.sh` | ~30 sec | Lance les conteneurs Docker pour Jenkins (http://localhost:8081) et la documentation MkDocs (http://localhost:8000) |
 | **3** | `./scripts/build.sh` | 10-30 min | Clone et compile vcpkg, installe toutes les dépendances (Boost.ASIO, Google Test, MongoDB Driver), configure CMake |
 | **4** | `./scripts/compile.sh` | ~2 min | Compile le serveur et les tests avec Ninja |
 | **5** | `server_tests` | ~1 sec | Exécute la suite de tests unitaires avec Google Test |
@@ -83,7 +83,7 @@ cd rtype
 Une fois l'installation terminée, vous aurez accès à :
 
 - **Documentation locale** : http://localhost:8000 (guides complets, API, architecture)
-- **Jenkins CI/CD** : http://localhost:8080 (pipelines automatisés)
+- **Jenkins CI/CD** : http://localhost:8081 (pipelines automatisés)
 - **Serveur R-Type** : `./artifacts/server/linux/rtype_server`
 - **Tests unitaires** : `./artifacts/server/linux/server_tests`
 
@@ -107,7 +107,7 @@ docker-compose -f docker-compose.build.yml up
 
 | Problème | Solution |
 |----------|----------|
-| Port 8000 ou 8080 déjà utilisé | `docker-compose -f ci_cd/docker/docker-compose.yml down` puis relancez |
+| Port 8000 ou 8081 déjà utilisé | `docker-compose -f ci_cd/docker/docker-compose.yml down` puis relancez |
 | Erreur vcpkg | `rm -rf third_party/vcpkg && ./scripts/build.sh` |
 | Erreur compilation | `rm -rf build && ./scripts/build.sh && ./scripts/compile.sh` |
 | Docker non trouvé (WSL2) | Installez Docker Desktop et activez l'intégration WSL2 |
