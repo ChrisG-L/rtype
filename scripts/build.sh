@@ -24,8 +24,12 @@ else
     git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
 fi
 
-# Installer argon2
-sudo apt install -y argon2
+# Installer argon2 : sans sudo si on est root, sinon avec sudo
+if [ "$(id -u)" -eq 0 ]; then
+    apt install -y argon2
+else
+    sudo apt install -y argon2
+fi
 
 # Aller dans le dossier vcpkg
 cd "$VCPKG_DIR"
