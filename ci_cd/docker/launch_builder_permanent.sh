@@ -7,7 +7,7 @@ set -e
 CONTAINER_NAME="rtype_builder"
 IMAGE="rtype-builder:latest"
 NETWORK="rtype_ci_network"
-API_PORT="8080"
+API_PORT="8082"      # Port hôte pour l'API HTTP
 RSYNC_PORT="8873"  # Port hôte pour rsync (éviter 873 qui peut être réservé)
 
 echo "🐳 Lancement du Builder Permanent"
@@ -52,10 +52,10 @@ echo "🚀 Lancement du conteneur..."
 docker run -d \
     --name "${CONTAINER_NAME}" \
     --network "${NETWORK}" \
-    -p "${API_PORT}:8080" \
+    -p "${API_PORT}:8082" \
     -p "${RSYNC_PORT}:873" \
     -e WORKSPACE=/workspace \
-    -e BUILDER_PORT=8080 \
+    -e BUILDER_PORT=8082 \
     --restart unless-stopped \
     "${IMAGE}"
 

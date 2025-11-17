@@ -19,7 +19,7 @@ echo "✅ Rsync daemon lancé sur port 873"
 # Afficher les infos de configuration
 echo ""
 echo "Configuration:"
-echo "  - API HTTP:    port 8080"
+echo "  - API HTTP:    port 8082"
 echo "  - Rsync:       port 873"
 echo "  - Workspace:   /workspace/builds"
 echo ""

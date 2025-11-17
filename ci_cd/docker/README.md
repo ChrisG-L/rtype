@@ -22,12 +22,12 @@ Lance un conteneur builder avec des paramètres personnalisés.
 
 **Paramètres:**
 - `PREFIX` : Préfixe pour le nom du conteneur et volume (défaut: `local_`)
-- `PORT` : Port externe pour l'API (défaut: `8080`)
+- `PORT` : Port externe pour l'API (défaut: `8082`)
 - `WORKSPACE` : Chemin du workspace (défaut: auto-détecté)
 
 **Exemples:**
 ```bash
-# Lancement simple (local_rtype_builder sur port 8080)
+# Lancement simple (local_rtype_builder sur port 8082)
 ./launch_builder.sh
 
 # Build #1 sur port 8083
@@ -75,7 +75,7 @@ Stoppe et supprime un conteneur builder.
 ./launch_builder.sh
 
 # 3. Utiliser l'API
-curl http://localhost:8080/health
+curl http://localhost:8082/health
 
 # 4. Stopper quand terminé
 ./stop_builder.sh local_ true
@@ -126,7 +126,7 @@ Le Jenkinsfile utilise automatiquement ces scripts :
 Pour chaque build (exemple avec `PREFIX=build_1_`):
 - **Conteneur** : `build_1_rtype_builder`
 - **Volume** : `build_1_builder_home`
-- **Port** : Mappé selon le paramètre (ex: `8083:8080`)
+- **Port** : Mappé selon le paramètre (ex: `8083:8082`)
 - **Image** : `rtype-builder:latest` (partagée entre tous)
 
 ## Commandes utiles

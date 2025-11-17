@@ -35,7 +35,7 @@ graph TB
 
     subgraph DockerNetwork["Docker Network: rtype_ci_network"]
         subgraph Builder["Builder Permanent (rtype_builder)"]
-            API[API Python :8080]
+            API[API Python :8082]
             RSYNC[Rsync Daemon :873]
 
             subgraph Workspaces["Workspaces Isolés"]
@@ -136,7 +136,7 @@ sequenceDiagram
 - Volumes : code source monté dans `/workspace`
 
 **Services intégrés** :
-1. **API Python** (port 8080) : orchestration des jobs de build
+1. **API Python** (port 8082) : orchestration des jobs de build
 2. **Rsync Daemon** (port 873) : réception du code source
 
 **Pourquoi permanent ?**
@@ -250,7 +250,7 @@ networks:
 ```
 
 **Résolution DNS** :
-- Jenkins peut accéder au builder via `http://rtype_builder:8080`
+- Jenkins peut accéder au builder via `http://rtype_builder:8082`
 - Pas besoin de connaître l'IP du conteneur
 
 ## Workflow de Build Complet
@@ -333,7 +333,7 @@ if (!api.healthCheck()) {
 
 **Requête HTTP** :
 ```bash
-curl http://rtype_builder:8080/health
+curl http://rtype_builder:8082/health
 # Réponse attendue: {"status": "ok", "allowed_commands": ["build", "compile"]}
 ```
 
@@ -413,12 +413,12 @@ def result = api.waitForJob(jobId, 10, 7200)
 **Requêtes HTTP** :
 ```bash
 # 1. Soumettre le job
-curl -X POST http://rtype_builder:8080/workspace/build_123/run \
+curl -X POST http://rtype_builder:8082/workspace/build_123/run \
     -d '{"command": "build"}'
 # Réponse: {"job_id": "550e8400-e29b-41d4-a716-446655440000"}
 
 # 2. Polling du statut (toutes les 10 secondes)
-curl http://rtype_builder:8080/status/550e8400-...?tail=20
+curl http://rtype_builder:8082/status/550e8400-...?tail=20
 # Réponse: {"status": "running", "log_tail": "[ 45%] Building CXX..."}
 ```
 
@@ -645,7 +645,7 @@ echo "Builder lancé avec succès"
 ```groovy
 retry(5) {
     sleep 2
-    sh 'curl -f http://rtype_builder:8080/health'
+    sh 'curl -f http://rtype_builder:8082/health'
 }
 ```
 
@@ -669,9 +669,9 @@ Après initialisation réussie, vous devriez voir :
 
 ```bash
 $ docker ps | grep rtype_builder
-rtype_builder   Up 2 minutes   8080/tcp, 873/tcp
+rtype_builder   Up 2 minutes   8082/tcp, 873/tcp
 
-$ curl http://localhost:8080/health
+$ curl http://localhost:8082/health
 {"status": "ok", "allowed_commands": ["build", "compile"]}
 
 $ docker network inspect rtype_ci_network
@@ -719,7 +719,7 @@ docker network inspect rtype_ci_network
 4. Tester la connectivité :
 ```bash
 # Depuis Jenkins container
-docker exec -it jenkins curl http://rtype_builder:8080/health
+docker exec -it jenkins curl http://rtype_builder:8082/health
 ```
 
 ### Problème : Rsync connection failed
@@ -777,7 +777,7 @@ def result = api.waitForJob(jobId, 10, 10800)
 2. Vérifier que le build n'est pas bloqué :
 ```bash
 # Récupérer les logs du job
-curl "http://rtype_builder:8080/status/uuid-1234?tail=100"
+curl "http://rtype_builder:8082/status/uuid-1234?tail=100"
 ```
 
 3. Identifier l'étape bloquante (souvent vcpkg) :
@@ -828,7 +828,7 @@ CMake Error: vcpkg not found
 1. Récupérer les logs complets du job :
 ```bash
 # Via l'API
-curl "http://rtype_builder:8080/status/uuid-1234?tail=200"
+curl "http://rtype_builder:8082/status/uuid-1234?tail=200"
 
 # Ou directement dans le workspace
 docker exec rtype_builder cat /workspace/builds/build_123/artifacts/uuid-1234.log
@@ -912,9 +912,9 @@ options {
 ./ci_cd/jenkins/test_builder_api.sh
 
 # Ou commande par commande
-curl http://rtype_builder:8080/health
-curl -X POST http://rtype_builder:8080/workspace/create -d '{"build_number": 999}'
-curl -X POST http://rtype_builder:8080/workspace/build_999/run -d '{"command":"build"}'
+curl http://rtype_builder:8082/health
+curl -X POST http://rtype_builder:8082/workspace/create -d '{"build_number": 999}'
+curl -X POST http://rtype_builder:8082/workspace/build_999/run -d '{"command":"build"}'
 ```
 
 **Tester les builds parallèles** :

@@ -26,7 +26,7 @@ pipeline {
     environment {
         BUILD_TYPE = "${params.BUILD_TYPE}"
         BUILDER_HOST = "rtype_builder"
-        BUILDER_PORT = "8080"
+        BUILDER_PORT = "8082"
         WORKSPACE_ID = "build_${BUILD_NUMBER}"
     }
 

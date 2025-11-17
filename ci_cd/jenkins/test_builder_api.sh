@@ -15,7 +15,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-BUILDER_URL="http://localhost:8080"
+BUILDER_URL="http://localhost:8082"
 MAX_WAIT=120  # 2 minutes pour ce test
 
 echo -e "${YELLOW}📋 Étape 1: Vérification de la santé du builder${NC}"

@@ -52,7 +52,7 @@ pipeline {
 
                     retry(5) {
                         sleep 2
-                        sh 'curl -f http://rtype_builder:8080/health'
+                        sh 'curl -f http://rtype_builder:8082/health'
                     }
 
                     echo '✅ Builder opérationnel !'
@@ -66,7 +66,7 @@ pipeline {
                     echo '📊 Informations sur le builder :'
 
                     def healthResponse = sh(
-                        script: 'curl -s http://rtype_builder:8080/health',
+                        script: 'curl -s http://rtype_builder:8082/health',
                         returnStdout: true
                     ).trim()
 
@@ -87,7 +87,7 @@ pipeline {
         success {
             echo '✅ Builder permanent initialisé avec succès !'
             echo ''
-            echo '🔗 API HTTP:   http://localhost:8080'
+            echo '🔗 API HTTP:   http://localhost:8082'
             echo '🔗 Rsync:      rsync://localhost:8873/workspace'
             echo ''
             echo 'Vous pouvez maintenant lancer des builds avec le Jenkinsfile principal.'

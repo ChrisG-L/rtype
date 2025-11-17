@@ -70,7 +70,7 @@ graph TB
 
 Vérification de la disponibilité de l'API.
 
-**URL** : `http://rtype_builder:8080/health`
+**URL** : `http://rtype_builder:8082/health`
 
 **Méthode** : `GET`
 
@@ -91,12 +91,12 @@ Vérification de la disponibilité de l'API.
 **Exemple d'utilisation** :
 
 ```bash
-curl http://rtype_builder:8080/health
+curl http://rtype_builder:8082/health
 ```
 
 ```groovy
 // Depuis Jenkins (BuilderAPI.groovy)
-def api = new BuilderAPI(this, 'rtype_builder', 8080)
+def api = new BuilderAPI(this, 'rtype_builder', 8082)
 if (api.healthCheck()) {
     echo "Builder opérationnel"
 }
@@ -113,7 +113,7 @@ if (api.healthCheck()) {
 
 Création d'un nouveau workspace isolé pour un build.
 
-**URL** : `http://rtype_builder:8080/workspace/create`
+**URL** : `http://rtype_builder:8082/workspace/create`
 
 **Méthode** : `POST`
 
@@ -147,7 +147,7 @@ Création d'un nouveau workspace isolé pour un build.
 **Exemple d'utilisation** :
 
 ```bash
-curl -X POST http://rtype_builder:8080/workspace/create \
+curl -X POST http://rtype_builder:8082/workspace/create \
     -H 'Content-Type: application/json' \
     -d '{"build_number": 123}'
 ```
@@ -156,7 +156,7 @@ curl -X POST http://rtype_builder:8080/workspace/create \
 // Depuis Jenkins
 def createResponse = sh(
     script: """
-        curl -s -f -X POST http://rtype_builder:8080/workspace/create \
+        curl -s -f -X POST http://rtype_builder:8082/workspace/create \
             -H 'Content-Type: application/json' \
             -d '{"build_number": ${env.BUILD_NUMBER}}'
     """,
@@ -181,7 +181,7 @@ echo "Workspace créé: ${workspace.workspace_id}"
 
 Lancement d'un job (build ou compile) dans un workspace spécifique.
 
-**URL** : `http://rtype_builder:8080/workspace/{workspace_id}/run`
+**URL** : `http://rtype_builder:8082/workspace/{workspace_id}/run`
 
 **Méthode** : `POST`
 
@@ -219,7 +219,7 @@ Lancement d'un job (build ou compile) dans un workspace spécifique.
 
 ```bash
 # Lancer le build
-curl -X POST http://rtype_builder:8080/workspace/build_123/run \
+curl -X POST http://rtype_builder:8082/workspace/build_123/run \
     -H 'Content-Type: application/json' \
     -d '{"command": "build"}'
 
@@ -229,7 +229,7 @@ curl -X POST http://rtype_builder:8080/workspace/build_123/run \
 
 ```groovy
 // Depuis Jenkins (via BuilderAPI.groovy)
-def api = new BuilderAPI(this, 'rtype_builder', 8080)
+def api = new BuilderAPI(this, 'rtype_builder', 8082)
 def jobId = api.runInWorkspace('build_123', 'build')
 echo "Job lancé: ${jobId}"
 ```
@@ -250,7 +250,7 @@ echo "Job lancé: ${jobId}"
 
 Récupération du statut et des logs d'un job.
 
-**URL** : `http://rtype_builder:8080/status/{job_id}`
+**URL** : `http://rtype_builder:8082/status/{job_id}`
 
 **Méthode** : `GET`
 
@@ -296,15 +296,15 @@ Récupération du statut et des logs d'un job.
 
 ```bash
 # Statut simple
-curl http://rtype_builder:8080/status/550e8400-e29b-41d4-a716-446655440000
+curl http://rtype_builder:8082/status/550e8400-e29b-41d4-a716-446655440000
 
 # Avec les 50 dernières lignes de log
-curl "http://rtype_builder:8080/status/550e8400-e29b-41d4-a716-446655440000?tail=50"
+curl "http://rtype_builder:8082/status/550e8400-e29b-41d4-a716-446655440000?tail=50"
 ```
 
 ```groovy
 // Depuis Jenkins (via BuilderAPI.groovy)
-def api = new BuilderAPI(this, 'rtype_builder', 8080)
+def api = new BuilderAPI(this, 'rtype_builder', 8082)
 def status = api.getStatus(jobId, 20)  // 20 dernières lignes
 
 echo "Status: ${status.status}"
@@ -324,7 +324,7 @@ if (status.log_tail) {
 
 Suppression d'un workspace et de tous ses fichiers.
 
-**URL** : `http://rtype_builder:8080/workspace/{workspace_id}`
+**URL** : `http://rtype_builder:8082/workspace/{workspace_id}`
 
 **Méthode** : `DELETE`
 
@@ -346,7 +346,7 @@ Suppression d'un workspace et de tous ses fichiers.
 **Exemple d'utilisation** :
 
 ```bash
-curl -X DELETE http://rtype_builder:8080/workspace/build_123
+curl -X DELETE http://rtype_builder:8082/workspace/build_123
 ```
 
 ```groovy
@@ -355,7 +355,7 @@ post {
     always {
         sh """
             curl -s -X DELETE \
-                http://rtype_builder:8080/workspace/${env.WORKSPACE_ID} || true
+                http://rtype_builder:8082/workspace/${env.WORKSPACE_ID} || true
         """
     }
 }
@@ -374,7 +374,7 @@ post {
 
 Soumission d'un job dans le workspace racine (méthode héritée, déconseillée).
 
-**URL** : `http://rtype_builder:8080/run`
+**URL** : `http://rtype_builder:8082/run`
 
 **Méthode** : `POST`
 
@@ -415,14 +415,14 @@ Soumission d'un job dans le workspace racine (méthode héritée, déconseillée
 def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
 
 // Créer une instance
-def api = builderAPI.create(this, 'rtype_builder', 8080)
+def api = builderAPI.create(this, 'rtype_builder', 8082)
 // Paramètres: (script context, host, port)
 ```
 
 **Paramètres** :
 - `script` (object) : Contexte Jenkins (`this` dans un pipeline)
 - `host` (string) : Nom d'hôte du builder (défaut: `localhost`)
-- `port` (integer) : Port de l'API (défaut: `8080`)
+- `port` (integer) : Port de l'API (défaut: `8082`)
 
 ### Méthodes disponibles
 
@@ -588,7 +588,7 @@ pipeline {
 
     environment {
         BUILDER_HOST = "rtype_builder"
-        BUILDER_PORT = "8080"
+        BUILDER_PORT = "8082"
         WORKSPACE_ID = "build_${BUILD_NUMBER}"
     }
 
@@ -652,7 +652,7 @@ pipeline {
 |----------|--------|-------------|
 | `BUILD_TYPE` | `${params.BUILD_TYPE}` | Type de build CMake (Debug/Release) |
 | `BUILDER_HOST` | `rtype_builder` | Nom d'hôte du builder sur le réseau Docker |
-| `BUILDER_PORT` | `8080` | Port de l'API HTTP |
+| `BUILDER_PORT` | `8082` | Port de l'API HTTP |
 | `WORKSPACE_ID` | `build_${BUILD_NUMBER}` | Identifiant unique du workspace |
 | `BUILD_NUMBER` | Auto-incrémenté | Numéro du build Jenkins |
 
@@ -660,7 +660,7 @@ pipeline {
 ```
 BUILD_TYPE=Debug
 BUILDER_HOST=rtype_builder
-BUILDER_PORT=8080
+BUILDER_PORT=8082
 WORKSPACE_ID=build_123
 BUILD_NUMBER=123
 ```
@@ -670,7 +670,7 @@ BUILD_NUMBER=123
 | Variable | Valeur | Description |
 |----------|--------|-------------|
 | `WORKSPACE` | `/workspace` | Répertoire racine monté depuis l'hôte |
-| `BUILDER_PORT` | `8080` | Port d'écoute de l'API Python |
+| `BUILDER_PORT` | `8082` | Port d'écoute de l'API Python |
 | `BUILD_TYPE` | Hérité de Jenkins | Transmis aux scripts build.sh/compile.sh |
 
 **Transmission aux scripts** :

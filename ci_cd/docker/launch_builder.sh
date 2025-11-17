@@ -7,7 +7,7 @@ set -e
 
 # Paramètres par défaut
 PREFIX="${1:-local_}"
-BUILDER_PORT="${2:-8080}"
+BUILDER_PORT="${2:-8082}"
 WORKSPACE="${3:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
 # Nom du conteneur et nom du volume pour les artefacts (logs)
@@ -22,7 +22,7 @@ echo "================================"
 echo "  Image:       ${IMAGE}"
 echo "  Container:   ${CONTAINER_NAME}"
 echo "  Volume:      ${ARTIFACTS_VOLUME}"
-echo "  Port:        ${BUILDER_PORT}:8080"
+echo "  Port:        ${BUILDER_PORT}:8082"
 echo "  Workspace:   ${WORKSPACE}"
 echo ""
 
@@ -65,12 +65,12 @@ fi
 echo "🚀 Lancement du conteneur (workspace monté en lecture seule)..."
 docker run -d \
     --name "${CONTAINER_NAME}" \
-    -p "${BUILDER_PORT}:8080" \
+    -p "${BUILDER_PORT}:8082" \
     -v "${WORKSPACE}:/workspace" \
     -v "${ARTIFACTS_VOLUME}:/workspace/artifacts" \
     -w /workspace \
     -e WORKSPACE=/workspace \
-    -e BUILDER_PORT=8080 \
+    -e BUILDER_PORT=8082 \
     "${IMAGE}"
 
 echo ""

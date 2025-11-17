@@ -318,7 +318,7 @@ cd scripts
 ./launch_ci_cd.sh
 
 # Initialiser le builder permanent (via Jenkins)
-# Ouvrir http://localhost:8080 et lancer le job "Jenkinsfile.init"
+# Ouvrir http://localhost:8082 et lancer le job "Jenkinsfile.init"
 ```
 
 **Avantages du builder permanent :**

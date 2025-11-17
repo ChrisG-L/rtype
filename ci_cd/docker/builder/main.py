@@ -21,7 +21,7 @@ from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, unquote, parse_qs
 
 WORKSPACE = os.environ.get("WORKSPACE", "/workspace")
-PORT = int(os.environ.get("BUILDER_PORT", "8080"))
+PORT = int(os.environ.get("BUILDER_PORT", "8082"))
 
 JOB_DIR = os.path.join(WORKSPACE, "artifacts", "builder_jobs")
 os.makedirs(JOB_DIR, exist_ok=True)

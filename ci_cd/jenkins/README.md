@@ -27,7 +27,7 @@ Classe helper Groovy qui facilite l'interaction avec l'API du builder. Fournit :
 script {
     // Charger la librairie
     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
-    def api = new builderAPI.BuilderAPI(this, 'localhost', 8080)
+    def api = new builderAPI.BuilderAPI(this, 'localhost', 8082)
     
     // Vérifier la santé
     if (api.healthCheck()) {
@@ -115,9 +115,9 @@ Ces fichiers persistent même après l'arrêt du conteneur (si le volume est mon
 
 ### Dans docker-compose.build.yml
 - `PREFIX` : Préfixe pour les noms de conteneurs et volumes (fourni par Jenkins)
-- `BUILDER_PORT` : Port externe mappé (fourni par Jenkins, défaut: 8080)
+- `BUILDER_PORT` : Port externe mappé (fourni par Jenkins, défaut: 8082)
 - `WORKSPACE=/workspace` : Répertoire de travail pour les scripts
-- `BUILDER_PORT=8080` (interne) : Port d'écoute du serveur builder dans le conteneur
+- `BUILDER_PORT=8082` (interne) : Port d'écoute du serveur builder dans le conteneur
 
 ## Builds parallèles
 
@@ -166,14 +166,14 @@ curl http://localhost:8084/health  # Build #2
 docker-compose -f ci_cd/docker/docker-compose.build.yml up -d --build
 
 # Vérifier la santé
-curl http://localhost:8080/health
+curl http://localhost:8082/health
 
 # Soumettre un job
 JOB_ID=$(curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"command":"build"}' http://localhost:8080/run | jq -r '.job_id')
+  -d '{"command":"build"}' http://localhost:8082/run | jq -r '.job_id')
 
 # Vérifier le statut
-curl "http://localhost:8080/status/${JOB_ID}?tail=20"
+curl "http://localhost:8082/status/${JOB_ID}?tail=20"
 
 # Arrêter le builder
 docker-compose -f ci_cd/docker/docker-compose.build.yml down

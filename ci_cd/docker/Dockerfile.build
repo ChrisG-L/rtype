@@ -55,8 +55,8 @@ COPY ci_cd/docker/rsyncd.conf /etc/rsyncd.conf
 COPY ci_cd/docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Exposer les ports : 8080 (API HTTP) et 873 (rsync daemon)
-EXPOSE 8080 873
+# Exposer les ports : 8082 (API HTTP) et 873 (rsync daemon)
+EXPOSE 8082 873
 
 # Utiliser le script d'entrée qui lance rsync daemon + API Python
 CMD ["/entrypoint.sh"]

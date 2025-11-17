@@ -6,7 +6,7 @@ class BuilderAPI implements Serializable {
     def script
     String baseUrl
     
-    BuilderAPI(script, String host = 'localhost', int port = 8080) {
+    BuilderAPI(script, String host = 'localhost', int port = 8082) {
         this.script = script
         this.baseUrl = "http://${host}:${port}"
     }
@@ -240,7 +240,7 @@ class BuilderAPI implements Serializable {
 }
 
 // Factory method to create a BuilderAPI instance from the loaded script
-def create(scriptArg, host = 'localhost', port = 8080) {
+def create(scriptArg, host = 'localhost', port = 8082) {
     return new BuilderAPI(scriptArg, host, port)
 }
 
