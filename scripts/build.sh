@@ -17,7 +17,10 @@ if [ -d "$VCPKG_DIR" ]; then
         # Essayer de récupérer les dernières modifications sans forcer l'échec du script
         git -C "$VCPKG_DIR" pull --ff-only || echo "⚠️ Impossible de faire 'git pull --ff-only' sur vcpkg, on continue"
     else
-        echo "⚠️ Le dossier existe mais n'est pas un dépôt git. On continue sans cloner ni mettre à jour."
+        echo "⚠️ Le dossier vcpkg existe mais n'est pas un dépôt git. On le supprime et on reclone."
+        rm -rf "$VCPKG_DIR"
+        echo "📥 Clonage de vcpkg..."
+        git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
     fi
 else
     echo "📥 Clonage de vcpkg..."
