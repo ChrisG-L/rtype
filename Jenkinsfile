@@ -77,6 +77,13 @@ pipeline {
                 script {
                     echo '🏥 Vérification de la santé du builder...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
+                    echo "DEBUG: builderAPI object: ${builderAPI}"
+                    echo "DEBUG: builderAPI class: ${builderAPI.getClass().name}"
+                    try {
+                        echo "DEBUG: builderAPI methods: ${builderAPI.getClass().methods*.name.sort().unique()}"
+                    } catch (e) {
+                        echo "DEBUG: failed to list builderAPI methods: ${e}"
+                    }
                     def api = builderAPI.create(this, 'localhost', env.BUILDER_PORT as Integer)
 
                     retry(5) {
@@ -95,6 +102,13 @@ pipeline {
                 script {
                     echo '🔨 Lancement de la compilation via API...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
+                    echo "DEBUG: builderAPI object: ${builderAPI}"
+                    echo "DEBUG: builderAPI class: ${builderAPI.getClass().name}"
+                    try {
+                        echo "DEBUG: builderAPI methods: ${builderAPI.getClass().methods*.name.sort().unique()}"
+                    } catch (e) {
+                        echo "DEBUG: failed to list builderAPI methods: ${e}"
+                    }
                     def api = builderAPI.create(this, 'localhost', env.BUILDER_PORT as Integer)
 
                     // Submit build job and wait for completion
