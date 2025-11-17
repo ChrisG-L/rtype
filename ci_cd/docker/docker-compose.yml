@@ -14,7 +14,14 @@ services:
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - rtype_ci_network
 
 volumes:
   jenkins_home:
     name: rtype_jenkins_home
+
+networks:
+  rtype_ci_network:
+    driver: bridge
+    name: rtype_ci_network

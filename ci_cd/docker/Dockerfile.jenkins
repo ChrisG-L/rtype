@@ -2,9 +2,9 @@ FROM jenkins/jenkins:lts
 
 USER root
 
-# Install docker client, sudo and common dependencies
+# Install docker client, sudo, rsync and common dependencies
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release apt-transport-https sudo \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release apt-transport-https sudo rsync \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && echo \
