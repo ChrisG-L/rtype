@@ -12,13 +12,21 @@ class BuilderAPI implements Serializable {
     }
     
     /**
+     * Parse JSON string using Groovy's native JsonSlurper (no plugin needed)
+     */
+    def parseJson(String jsonString) {
+        def jsonSlurper = new groovy.json.JsonSlurper()
+        return jsonSlurper.parseText(jsonString)
+    }
+
+    /**
      * Submit a job to the builder
      * @param command 'build' or 'compile'
      * @return job UUID
      */
     String submitJob(String command) {
         script.echo "📤 Soumission du job: ${command}"
-        
+
         def response = script.sh(
             script: """
                 curl -s -X POST \
@@ -28,13 +36,13 @@ class BuilderAPI implements Serializable {
             """,
             returnStdout: true
         ).trim()
-        
-        def json = script.readJSON(text: response)
-        
+
+        def json = parseJson(response)
+
         if (!json.job_id) {
             script.error("Failed to submit job: ${response}")
         }
-        
+
         script.echo "✅ Job soumis avec UUID: ${json.job_id}"
         return json.job_id
     }
@@ -50,13 +58,13 @@ class BuilderAPI implements Serializable {
         if (tailLines) {
             url += "?tail=${tailLines}"
         }
-        
+
         def response = script.sh(
             script: "curl -s ${url}",
             returnStdout: true
         ).trim()
-        
-        return script.readJSON(text: response)
+
+        return parseJson(response)
     }
     
     /**
@@ -141,7 +149,7 @@ class BuilderAPI implements Serializable {
             returnStdout: true
         ).trim()
 
-        def json = script.readJSON(text: response)
+        def json = parseJson(response)
 
         if (!json.job_id) {
             script.error("Failed to submit job in workspace: ${response}")
@@ -210,7 +218,7 @@ class BuilderAPI implements Serializable {
                 returnStdout: true
             ).trim()
 
-            def json = script.readJSON(text: response)
+            def json = parseJson(response)
             return json.status == 'ok'
         } catch (Exception e) {
             script.echo "❌ Health check failed: ${e.message}"
