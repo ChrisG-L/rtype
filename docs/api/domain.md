@@ -1,8 +1,8 @@
 # API Reference - Domain Layer
 
 **État:** ✅ Implémenté et Documenté
-**Version:** 0.2.0
-**Dernière mise à jour:** 11 janvier 2025
+**Version:** 0.3.0
+**Dernière mise à jour:** 17 janvier 2025
 
 ---
 
@@ -29,7 +29,10 @@ domain/
 │   └── user/           # VOs spécifiques User
 │       ├── UserId      # Identifiant unique User
 │       ├── Username    # Nom d'utilisateur
-│       └── Password    # Hash du mot de passe
+│       ├── Email       # Adresse email validée
+│       ├── Password    # Hash du mot de passe
+│       └── utils/      # Utilitaires
+│           └── PasswordUtils  # Fonctions de hachage
 └── exceptions/         # Exceptions métier
     ├── DomainException # Exception de base
     ├── player/         # Exceptions Player
@@ -130,11 +133,12 @@ player.heal(10.0f);         // +10 HP
 
 | Attribut | Type | Description |
 |----------|------|-------------|
-| `_id` | `value_objects::user::UserId` | Identifiant unique (UUID) |
-| `_username` | `value_objects::user::Username` | Nom d'utilisateur (6-21 chars) |
-| `_passwordHash` | `value_objects::user::Password` | Hash du mot de passe |
+| `_id` | `value_objects::user::UserId` | Identifiant unique (ObjectId MongoDB) |
+| `_username` | `value_objects::user::Username` | Nom d'utilisateur unique (6-21 chars) |
+| `_email` | `value_objects::user::Email` | Adresse email unique validée RFC 5322 |
+| `_passwordHash` | `value_objects::user::Password` | Hash du mot de passe (SHA-256) |
+| `_lastLogin` | `std::chrono::system_clock::time_point` | Date de dernière connexion |
 | `_createdAt` | `std::chrono::system_clock::time_point` | Date de création du compte |
-| `_lastLogin` | `std::chrono::system_clock::time_point` | Dernière connexion |
 
 #### Constructeur
 
@@ -142,18 +146,20 @@ player.heal(10.0f);         // +10 HP
 explicit User(
     value_objects::user::UserId id,
     value_objects::user::Username username,
+    value_objects::user::Email email,
     value_objects::user::Password passwordHash,
-    std::chrono::system_clock::time_point createdAt = std::chrono::system_clock::now(),
-    std::chrono::system_clock::time_point lastLogin = std::chrono::system_clock::now()
+    std::chrono::system_clock::time_point lastLogin = std::chrono::system_clock::now(),
+    std::chrono::system_clock::time_point createdAt = std::chrono::system_clock::now()
 );
 ```
 
 **Paramètres:**
-- `id` - Identifiant unique (ne peut pas être vide)
-- `username` - Nom d'utilisateur (6-21 caractères)
-- `passwordHash` - Hash du mot de passe (min 6 chars)
-- `createdAt` - Date de création (défaut: maintenant)
+- `id` - Identifiant unique ObjectId MongoDB (ne peut pas être vide)
+- `username` - Nom d'utilisateur unique (6-21 caractères)
+- `email` - Adresse email unique validée (format RFC 5322, max 254 chars)
+- `passwordHash` - Hash du mot de passe (SHA-256, min 6 chars)
 - `lastLogin` - Dernière connexion (défaut: maintenant)
+- `createdAt` - Date de création (défaut: maintenant)
 
 #### Méthodes
 
@@ -161,9 +167,10 @@ explicit User(
 ```cpp
 const value_objects::user::UserId& getId() const;
 const value_objects::user::Username& getUsername() const;
+const value_objects::user::Email& getEmail() const;
 const value_objects::user::Password& getPasswordHash() const;
-const std::chrono::system_clock::time_point& getCreatedAt() const;
 const std::chrono::system_clock::time_point& getLastLogin() const;
+const std::chrono::system_clock::time_point& getCreatedAt() const;
 ```
 
 **Authentification:**
@@ -177,7 +184,7 @@ void updateLastLogin();
 | `verifyPassword()` | `password` | Vérifie si le mot de passe correspond au hash | `true` si valide |
 | `updateLastLogin()` | - | Met à jour `_lastLogin` à maintenant | `void` |
 
-**Note:** `verifyPassword()` utilise actuellement une comparaison simple. TODO: Implémenter bcrypt/argon2.
+**Note:** `verifyPassword()` utilise SHA-256 pour comparer les hashs. ⚠️ Préférez Argon2/bcrypt en production.
 
 #### Exemple d'Utilisation
 
@@ -185,26 +192,30 @@ void updateLastLogin();
 #include "domain/entities/User.hpp"
 #include "domain/value_objects/user/UserId.hpp"
 #include "domain/value_objects/user/Username.hpp"
+#include "domain/value_objects/user/Email.hpp"
 #include "domain/value_objects/user/Password.hpp"
+#include "domain/value_objects/user/utils/PasswordUtils.hpp"
 
 using namespace domain::entities;
 using namespace domain::value_objects::user;
 
 // Créer un utilisateur
 User user(
-    UserId("507f1f77bcf86cd799439012"),  // UUID
-    Username("player123"),               // 6-21 chars
-    Password("hashed_password_here")     // Hash bcrypt
+    UserId(bsoncxx::oid().to_string()),       // ObjectId MongoDB
+    Username("player123"),                     // 6-21 chars
+    Email("player@example.com"),               // Email validé RFC 5322
+    Password(utils::hashPassword("secret123")) // Hash SHA-256
 );
 
 // Vérifier authentification
-if (user.verifyPassword("plaintext_password")) {
+if (user.verifyPassword("secret123")) {
     user.updateLastLogin();  // Met à jour timestamp
     std::cout << "Login successful!" << std::endl;
 }
 
 // Récupérer informations
 std::cout << "User: " << user.getUsername().value() << std::endl;
+std::cout << "Email: " << user.getEmail().value() << std::endl;
 std::cout << "ID: " << user.getId().value() << std::endl;
 ```
 
@@ -444,6 +455,76 @@ try {
 
 ---
 
+### Email
+
+**Fichier:** `domain/value_objects/user/Email.hpp`
+**Namespace:** `domain::value_objects::user`
+
+**Description:** Adresse email validée selon RFC 5322. Immuable avec validation stricte.
+
+#### Validation
+
+- ✅ Format email valide selon regex RFC 5322 complète
+- ✅ Longueur maximum 254 caractères (standard email)
+- ❌ Format invalide → `EmailException`
+- ❌ Longueur > 254 → `EmailException`
+
+**Pattern Regex:**
+```
+^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
+```
+
+#### Constructeur
+
+```cpp
+explicit Email(const std::string& email);
+```
+
+#### Méthodes
+
+```cpp
+std::string value() const;
+bool operator==(const Email& other) const;
+bool operator!=(const Email& other) const;
+```
+
+#### Exemple
+
+```cpp
+using namespace domain::value_objects::user;
+
+// Email valide
+Email valid("user@example.com");
+std::cout << valid.value() << std::endl;  // "user@example.com"
+
+// Email avec caractères spéciaux (valide)
+Email complex("user.name+tag@sub.example.co.uk");
+
+// Formats invalides
+try {
+    Email invalid1("not-an-email");  // Pas de @
+} catch (const exceptions::user::EmailException& e) {
+    std::cerr << e.what() << std::endl;
+    // "Invalid email format: not-an-email."
+}
+
+try {
+    Email invalid2("user@");  // Domaine manquant
+} catch (const exceptions::user::EmailException& e) {
+    std::cerr << e.what() << std::endl;
+}
+
+try {
+    std::string tooLong(250, 'a');
+    tooLong += "@example.com";  // > 254 chars
+    Email invalid3(tooLong);
+} catch (const exceptions::user::EmailException& e) {
+    std::cerr << e.what() << std::endl;
+}
+```
+
+---
+
 ### Password
 
 **Fichier:** `domain/value_objects/user/Password.hpp`
@@ -467,19 +548,46 @@ explicit Password(const std::string& password);
 #### Méthodes
 
 ```cpp
-std::string value() const;  // Retourne le hash
+std::string value() const;                      // Retourne le hash stocké
+bool verify(std::string password);              // Vérifie un mot de passe en clair
 ```
+
+**Note:** `verify()` hache le `password` en clair avec SHA-256 et compare au hash stocké.
+
+#### Utilitaires: PasswordUtils
+
+**Fichier:** `domain/value_objects/user/utils/PasswordUtils.hpp`
+**Namespace:** `domain::value_objects::user::utils`
+
+Fonctions pour hacher les mots de passe :
+
+```cpp
+namespace domain::value_objects::user::utils {
+    std::string hashPassword(std::string password);  // Hache avec SHA-256
+}
+```
+
+**Algorithme:** SHA-256 (OpenSSL)
+⚠️ **Avertissement Sécurité:** SHA-256 n'est pas recommandé pour les mots de passe en production. Utilisez Argon2id, bcrypt ou scrypt.
 
 #### Exemple
 
 ```cpp
 using namespace domain::value_objects::user;
 
-// Stocke le hash (généré par bcrypt/argon2)
-Password passwordHash("$2a$12$hashed_password_here_very_long_string");
+// Hacher un mot de passe
+std::string hash = utils::hashPassword("my_secure_password");
+Password passwordHash(hash);
 
-// Récupérer le hash pour vérification
-std::string hash = passwordHash.value();
+// Vérifier un mot de passe
+if (passwordHash.verify("my_secure_password")) {
+    std::cout << "Password correct!" << std::endl;
+} else {
+    std::cout << "Wrong password!" << std::endl;
+}
+
+// Récupérer le hash pour stockage
+std::string storedHash = passwordHash.value();
 
 // Mot de passe trop court
 try {
@@ -488,6 +596,15 @@ try {
     std::cerr << e.what() << std::endl;
     // "Password must be at least 6 characters long."
 }
+
+// Exemple complet
+std::string plaintextPassword = "user_password_123";
+std::string hashedPassword = utils::hashPassword(plaintextPassword);
+Password pwd(hashedPassword);
+
+// Vérification
+bool isValid = pwd.verify("user_password_123");  // true
+bool isWrong = pwd.verify("wrong_password");     // false
 ```
 
 ---
@@ -504,6 +621,7 @@ std::exception
         ├── PlayerIdException
         ├── UserIdException
         ├── UsernameException
+        ├── EmailException
         └── PasswordException
 ```
 

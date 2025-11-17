@@ -131,6 +131,7 @@ nav:
   - Guides Utilisateurs:
       - Vue d'ensemble: guides/architecture.md
       - Architecture Hexagonale: guides/hexagonal-architecture.md
+      - Système d'Authentification: guides/authentication.md
       - Tutoriels:
           - Premier Pas: guides/tutorials/first-steps.md
       - Bonnes Pratiques: guides/best-practices.md
