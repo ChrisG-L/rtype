@@ -142,4 +142,9 @@ class BuilderAPI implements Serializable {
     }
 }
 
+// Factory closure to create a BuilderAPI instance from the loaded script
+def create = { scriptArg, host = 'localhost', port = 8080 ->
+    return new BuilderAPI(scriptArg, host, port)
+}
+
 return this

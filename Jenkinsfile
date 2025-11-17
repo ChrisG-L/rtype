@@ -1,5 +1,3 @@
-/* @Library('shared-library') _ */
-
 pipeline {
     agent any
 
@@ -77,7 +75,7 @@ pipeline {
                 script {
                     echo '🏥 Vérification de la santé du builder...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
-                    def api = new builderAPI.BuilderAPI(this, 'localhost', env.BUILDER_PORT as Integer)
+                    def api = builderAPI.create(this, 'localhost', env.BUILDER_PORT as Integer)
 
                     retry(5) {
                         if (!api.healthCheck()) {
@@ -95,7 +93,7 @@ pipeline {
                 script {
                     echo '🔨 Lancement de la compilation via API...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
-                    def api = new builderAPI.BuilderAPI(this, 'localhost', env.BUILDER_PORT as Integer)
+                    def api = builderAPI.create(this, 'localhost', env.BUILDER_PORT as Integer)
 
                     // Submit build job and wait for completion
                     // Poll every 10 seconds, max 2 hours
