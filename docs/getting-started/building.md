@@ -263,29 +263,11 @@ cmake --build build
 
 ## Compilation avec Docker
 
-### Dockerfile.build
+Le projet R-Type utilise un **système de builder permanent** pour les compilations CI/CD. Deux approches sont disponibles :
 
-**Chemin :** `ci_cd/docker/Dockerfile.build`
+### 1. Compilation locale simple (docker-compose)
 
-Image de build basée sur Ubuntu 22.04 avec tous les outils :
-
-```dockerfile
-FROM ubuntu:22.04
-
-# Installer les dépendances
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    git \
-    libssl-dev \
-    ninja-build \
-    && apt-get clean
-
-WORKDIR /workspace
-CMD ["./scripts/build.sh"]
-```
-
-### Utilisation Docker
+Pour une compilation rapide en local avec Docker :
 
 ```bash
 # Se placer dans le dossier Docker
@@ -301,9 +283,7 @@ docker-compose -f docker-compose.build.yml up
 ls -lh ../../artifacts/server/linux/
 ```
 
-### docker-compose.build.yml
-
-**Chemin :** `ci_cd/docker/docker-compose.build.yml`
+**Fichier `docker-compose.build.yml` :**
 
 ```yaml
 services:
@@ -315,6 +295,75 @@ services:
       - ../../:/workspace:cached
     working_dir: /workspace
 ```
+
+Cette méthode est idéale pour **tester rapidement** la compilation en environnement isolé.
+
+---
+
+### 2. Builder permanent avec Jenkins (CI/CD avancé)
+
+Pour les **builds automatisés et parallèles**, le projet utilise un builder permanent avec workspaces isolés.
+
+**Architecture :**
+- **Builder permanent** : Conteneur Docker toujours actif
+- **Workspaces isolés** : Chaque build a son propre répertoire
+- **Transfert rsync** : Upload incrémental du code source
+- **API REST** : Orchestration asynchrone des builds
+
+**Initialisation du builder permanent :**
+
+```bash
+# Lancer Jenkins et le builder
+cd scripts
+./launch_ci_cd.sh
+
+# Initialiser le builder permanent (via Jenkins)
+# Ouvrir http://localhost:8080 et lancer le job "Jenkinsfile.init"
+```
+
+**Avantages du builder permanent :**
+- ✅ Réutilisation du cache vcpkg entre builds (gain 90% temps)
+- ✅ Builds parallèles illimités sans conflit
+- ✅ Isolation complète entre builds simultanés
+- ✅ Transfert de code rapide (rsync incrémental)
+
+!!! tip "Documentation complète CI/CD"
+    Pour tout savoir sur le système de builder permanent, consultez :
+
+    - **[Guide CI/CD complet](../development/ci-cd.md)** : Architecture, workflow, troubleshooting
+    - **[Référence API Builder](../development/jenkins-builder-api.md)** : Endpoints, BuilderAPI.groovy, exemples
+
+---
+
+### Dockerfile.build
+
+**Chemin :** `ci_cd/docker/Dockerfile.build`
+
+L'image de build intègre :
+- **Ubuntu 22.04** avec tous les outils (GCC, CMake, Ninja, vcpkg)
+- **API Python** (main.py) pour l'orchestration des builds
+- **Rsync daemon** pour le transfert de code
+- **Scripts de build** uploadés par workspace (isolation)
+
+```dockerfile
+FROM ubuntu:22.04
+
+# Installer dépendances + rsync
+RUN apt-get update && apt-get install -y \
+    build-essential cmake git ninja-build \
+    libssl-dev rsync python3 && apt-get clean
+
+# Copier l'API builder
+COPY ci_cd/docker/builder/main.py /workspace/ci_cd/docker/builder/main.py
+COPY ci_cd/docker/rsyncd.conf /etc/rsyncd.conf
+COPY ci_cd/docker/entrypoint.sh /entrypoint.sh
+
+# Lancer rsync + API
+ENTRYPOINT ["/entrypoint.sh"]
+```
+
+!!! note "Scripts dans les workspaces"
+    Les scripts `build.sh` et `compile.sh` ne sont **plus copiés dans l'image Docker**. Ils sont uploadés dans chaque workspace via rsync, permettant des versions différentes par build.
 
 ## Compilation incrémentale
 

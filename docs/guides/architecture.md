@@ -75,12 +75,25 @@ graph TB
 ```
 rtype/
 ├── ci_cd/                      # Infrastructure CI/CD
-│   └── docker/                 # Dockerfiles et compose
-│       ├── Dockerfile.build    # Image de build
-│       ├── Dockerfile.docs     # Image documentation
-│       ├── docker-compose.yml  # Jenkins CI/CD
-│       ├── docker-compose.build.yml
-│       └── docker-compose.docs.yml
+│   ├── docker/                 # Dockerfiles et compose
+│   │   ├── Dockerfile.build    # Image builder permanent
+│   │   ├── Dockerfile.jenkins  # Image Jenkins CI/CD
+│   │   ├── Dockerfile.docs     # Image documentation
+│   │   ├── docker-compose.yml  # Jenkins + Builder
+│   │   ├── docker-compose.build.yml # Build local simple
+│   │   ├── docker-compose.docs.yml  # Documentation locale
+│   │   ├── builder/            # API Python du builder
+│   │   │   └── main.py         # Serveur HTTP REST
+│   │   ├── entrypoint.sh       # Entrypoint builder (rsync + API)
+│   │   ├── rsyncd.conf         # Config rsync daemon
+│   │   ├── build_image.sh      # Script build image
+│   │   ├── launch_builder_permanent.sh
+│   │   └── stop_builder_permanent.sh
+│   └── jenkins/                # Configuration Jenkins
+│       ├── Jenkinsfile.init    # Initialisation builder
+│       ├── BuilderAPI.groovy   # Helper API Groovy
+│       ├── README.md           # Doc technique API
+│       └── test_*.sh           # Scripts de test
 │
 ├── docs/                       # Documentation MkDocs
 │   ├── index.md               # Page d'accueil
