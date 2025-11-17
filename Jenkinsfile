@@ -19,10 +19,9 @@ pipeline {
 
     environment {
         // Préfixe unique pour ce build (permet builds parallèles)
-        // Valeurs calculées plus bas dans le pipeline (évite des casts dans la section `environment`)
-        BUILD_PREFIX = ""
-        // Port dynamique calculé dans le stage `Setup Build Environment`
-        BUILDER_PORT = ""
+        BUILD_PREFIX = "build_${BUILD_NUMBER}_"
+        // Port dynamique calculé (8082 + BUILD_NUMBER % 1000)
+        BUILDER_PORT = "${8082 + (BUILD_NUMBER as Integer) % 1000}"
     }
 
     stages {
@@ -36,12 +35,6 @@ pipeline {
         stage('Setup Build Environment') {
             steps {
                 script {
-                    // Calculer BUILD_PREFIX et BUILDER_PORT ici (dans un `script` on peut caster en Integer)
-                    def buildPrefix = "build_${env.BUILD_NUMBER}_"
-                    env.BUILD_PREFIX = buildPrefix
-                    def port = 8082 + (Integer.parseInt(env.BUILD_NUMBER ?: '0') % 1000)
-                    env.BUILDER_PORT = port.toString()
-
                     echo "🔧 Configuration de l'environnement de build"
                     echo "   PREFIX: ${env.BUILD_PREFIX}"
                     echo "   PORT: ${env.BUILDER_PORT}"
