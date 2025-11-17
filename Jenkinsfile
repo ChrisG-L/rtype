@@ -132,15 +132,13 @@ pipeline {
         always {
             script {
                 echo '🧹 Nettoyage...'
-            }
-            node {
                 sh """
                     cd ci_cd/docker
                     chmod +x stop_builder.sh
                     ./stop_builder.sh ${env.BUILD_PREFIX} true
                 """
+                echo '🏁 Pipeline terminé'
             }
-            echo '🏁 Pipeline terminé'
         }
         success {
             echo '✅ Build réussi !'
