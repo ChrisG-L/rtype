@@ -1,4 +1,4 @@
-@Library('shared-library') _
+/* @Library('shared-library') _ */
 
 pipeline {
     agent any
@@ -7,7 +7,7 @@ pipeline {
     triggers {
         pollSCM("H/3 * * * *")
     }
-    
+
     // Options globales pour le pipeline
     options {
         timeout(time: 2, unit: 'HOURS')
@@ -18,14 +18,14 @@ pipeline {
     parameters {
         booleanParam(name: 'BUILD_IMAGE', defaultValue: false, description: 'Construire l\'image `rtype-builder:latest` avant de lancer le conteneur')
     }
-    
+
     environment {
         // Préfixe unique pour ce build (permet builds parallèles)
         BUILD_PREFIX = "build_${env.BUILD_NUMBER}_"
         // Port dynamique basé sur le numéro de build (commence à 8082)
         BUILDER_PORT = "${8082 + (env.BUILD_NUMBER as Integer) % 1000}"
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
@@ -33,7 +33,7 @@ pipeline {
                 checkout scm
             }
         }
-        
+
         stage('Setup Build Environment') {
             steps {
                 script {
@@ -44,12 +44,12 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Launch Build Container') {
             steps {
                 script {
                     echo '🐳 Lancement du conteneur builder...'
-                    
+
                     // Optionnel: reconstruire l'image si demandé
                     if (params.BUILD_IMAGE) {
                         echo '📦 Construction de l\'image rtype-builder:latest demandée'
@@ -64,21 +64,21 @@ pipeline {
                         cd ci_cd/docker
                         ./launch_builder.sh ${env.BUILD_PREFIX} ${env.BUILDER_PORT}
                     """
-                    
+
                     // Wait for container to be ready
                     echo '⏳ Attente du démarrage du serveur builder...'
                     sleep(time: 10, unit: 'SECONDS')
                 }
             }
         }
-        
+
         stage('Health Check') {
             steps {
                 script {
                     echo '🏥 Vérification de la santé du builder...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
                     def api = new builderAPI.BuilderAPI(this, 'localhost', env.BUILDER_PORT as Integer)
-                    
+
                     retry(5) {
                         if (!api.healthCheck()) {
                             sleep(time: 5, unit: 'SECONDS')
@@ -89,18 +89,18 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Project') {
             steps {
                 script {
                     echo '🔨 Lancement de la compilation via API...'
                     def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
                     def api = new builderAPI.BuilderAPI(this, 'localhost', env.BUILDER_PORT as Integer)
-                    
+
                     // Submit build job and wait for completion
                     // Poll every 10 seconds, max 2 hours
                     def result = api.runAndWait('build', 10, 7200)
-                    
+
                     echo "✅ Build terminé avec succès (returncode: ${result.returncode})"
                 }
             }
