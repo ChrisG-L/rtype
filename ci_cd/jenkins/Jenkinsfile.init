@@ -1,24 +1,8 @@
 pipeline {
     agent any
 
-    parameters {
-        booleanParam(
-            name: 'REBUILD_IMAGE',
-            defaultValue: true,
-            description: 'Reconstruire l\'image builder ?'
-        )
-        booleanParam(
-            name: 'RESTART_CONTAINER',
-            defaultValue: false,
-            description: 'Forcer le redémarrage du conteneur existant ?'
-        )
-    }
-
     stages {
         stage('🔧 Build Builder Image') {
-            when {
-                expression { params.REBUILD_IMAGE }
-            }
             steps {
                 script {
                     echo '🏗️  Construction de l\'image builder...'
@@ -33,12 +17,9 @@ pipeline {
         }
 
         stage('🛑 Stop Existing Builder') {
-            when {
-                expression { params.RESTART_CONTAINER }
-            }
             steps {
                 script {
-                    echo '🛑 Arrêt du builder existant...'
+                    echo '🛑 Arrêt du builder existant (si présent)...'
                     sh """
                         cd ci_cd/docker
                         chmod +x stop_builder_permanent.sh
