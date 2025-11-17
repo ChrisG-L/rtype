@@ -19,34 +19,6 @@ pipeline {
                 checkout scm
             }
         }
-        
-        stage('Install System Dependencies') {
-            steps {
-                echo '🔧 Installation des dépendances système...'
-                sh '''
-                    # Vérifier si on a les droits root
-                    if [ "$(id -u)" = "0" ]; then
-                        apt-get update
-                        apt-get install -y \
-                            build-essential \
-                            cmake \
-                            git \
-                            curl \
-                            zip \
-                            unzip \
-                            tar \
-                            pkg-config \
-                            ninja-build
-                    else
-                        echo "⚠️  Pas de droits root, vérification des outils..."
-                        command -v cmake || echo "❌ cmake manquant"
-                        command -v g++ || echo "❌ g++ manquant"
-                        command -v zip || echo "❌ zip manquant"
-                        command -v unzip || echo "❌ unzip manquant"
-                    fi
-                '''
-            }
-        }
         stage('Build') {
             steps {
                 echo '🔨 Configuration du projet...'

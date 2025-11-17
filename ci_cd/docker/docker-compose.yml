@@ -1,25 +1,20 @@
 services:
   jenkins:
-    image: jenkins/jenkins:lts
-    container_name: rtype-jenkins
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
+    image: docker/rtype_jenkins:latest
+    container_name: rtype_jenkins
     privileged: true
     user: root
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8080"
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp/jenkins-workspace:/var/jenkins_home/workspace
-    environment:
-      - DOCKER_HOST=unix:///var/run/docker.sock
-    restart: unless-stopped
-    command: >
-      bash -c "
-        apt-get update &&
-        apt-get install -y docker.io docker-compose &&
-        /usr/local/bin/jenkins.sh
-      "
 
 volumes:
   jenkins_home:
+    name: rtype_jenkins_home

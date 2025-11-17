@@ -1,0 +1,26 @@
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Install docker client, sudo and common dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg lsb-release apt-transport-https sudo \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+    $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli
+
+# Create docker group and add jenkins user to it
+RUN groupadd -g 999 docker || true
+RUN usermod -aG docker jenkins || true
+RUN chown -R root:docker /var/run/docker.sock || true
+RUN chmod 660 /var/run/docker.sock || true
+
+# make sure jenkins has sudo without password for docker commands (optional)
+RUN echo "jenkins ALL=(ALL) NOPASSWD: /usr/bin/docker" > /etc/sudoers.d/jenkins-docker
+RUN chmod 0440 /etc/sudoers.d/jenkins-docker
+
+USER jenkins
