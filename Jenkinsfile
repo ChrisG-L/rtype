@@ -1,3 +1,6 @@
+def builderPort = ""
+def buildPrefix = ""
+
 pipeline {
     agent any
 
@@ -17,13 +20,6 @@ pipeline {
         booleanParam(name: 'BUILD_IMAGE', defaultValue: false, description: 'Construire l\'image `rtype-builder:latest` avant de lancer le conteneur')
     }
 
-    environment {
-        // Préfixe unique pour ce build (permet builds parallèles)
-        BUILD_PREFIX = "build_${BUILD_NUMBER}_"
-        // Port dynamique calculé (8082 + BUILD_NUMBER % 1000)
-        BUILDER_PORT = "${8082 + (BUILD_NUMBER as Integer) % 1000}"
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -35,10 +31,15 @@ pipeline {
         stage('Setup Build Environment') {
             steps {
                 script {
+                    // Calculer les variables de build
+                    buildPrefix = "build_${env.BUILD_NUMBER}_"
+                    def buildNumber = env.BUILD_NUMBER ? env.BUILD_NUMBER.toInteger() : 0
+                    builderPort = (8082 + (buildNumber % 1000)).toString()
+                    
                     echo "🔧 Configuration de l'environnement de build"
-                    echo "   PREFIX: ${env.BUILD_PREFIX}"
-                    echo "   PORT: ${env.BUILDER_PORT}"
-                    echo "   Container: ${env.BUILD_PREFIX}rtype_builder"
+                    echo "   PREFIX: ${buildPrefix}"
+                    echo "   PORT: ${builderPort}"
+                    echo "   Container: ${buildPrefix}rtype_builder"
                 }
             }
         }
@@ -62,7 +63,7 @@ pipeline {
                     sh """
                         cd ci_cd/docker
                         chmod +x launch_builder.sh
-                        ./launch_builder.sh ${env.BUILD_PREFIX} ${env.BUILDER_PORT}
+                        ./launch_builder.sh ${buildPrefix} ${builderPort}
                     """
 
                     // Wait for container to be ready
@@ -84,7 +85,7 @@ pipeline {
                     } catch (e) {
                         echo "DEBUG: failed to list builderAPI methods: ${e}"
                     }
-                    def api = builderAPI.create(this, 'localhost', env.BUILDER_PORT as Integer)
+                    def api = builderAPI.create(this, 'localhost', builderPort.toInteger())
 
                     retry(5) {
                         if (!api.healthCheck()) {
@@ -109,7 +110,7 @@ pipeline {
                     } catch (e) {
                         echo "DEBUG: failed to list builderAPI methods: ${e}"
                     }
-                    def api = builderAPI.create(this, 'localhost', env.BUILDER_PORT as Integer)
+                    def api = builderAPI.create(this, 'localhost', builderPort.toInteger())
 
                     // Submit build job and wait for completion
                     // Poll every 10 seconds, max 2 hours
@@ -123,15 +124,14 @@ pipeline {
 
     post {
         always {
-            script {
-                echo '🧹 Nettoyage...'
-                sh """
-                    cd ci_cd/docker
-                    chmod +x stop_builder.sh
-                    ./stop_builder.sh ${env.BUILD_PREFIX} true
-                """
-                echo '🏁 Pipeline terminé'
-            }
+                script {
+                    echo '🧹 Nettoyage...'
+                    sh """
+                        cd ci_cd/docker
+                        chmod +x stop_builder.sh
+                    """
+                    echo '🏁 Pipeline terminé'
+                }
         }
         success {
             echo '✅ Build réussi !'
