@@ -5,9 +5,14 @@ services:
       dockerfile: ci_cd/docker/Dockerfile.build
     image: rtype-builder:latest
     container_name: "${PREFIX}rtype_builder"
+    ports:
+      - "8080:8080"
     volumes:
       - "${PREFIX}builder_home:/workspace"
     working_dir: /workspace
+    environment:
+      - WORKSPACE=/workspace
+      - BUILDER_PORT=8080
 
 volumes:
   builder_home:

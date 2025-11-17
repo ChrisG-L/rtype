@@ -1,3 +1,5 @@
+@Library('shared-library') _
+
 pipeline {
     agent any
 
@@ -8,7 +10,7 @@ pipeline {
     
     // Options globales pour le pipeline
     options {
-        timeout(time: 1, unit: 'HOURS')
+        timeout(time: 2, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
     
@@ -20,24 +22,62 @@ pipeline {
             }
         }
         
-    stages {
         stage('Launch Build Container') {
             steps {
-                echo '🐳 Lancement du conteneur de build...'
-                sh 'docker-compose -f ci_cd/docker/docker-compose.build.yml up -d --build'
+                script {
+                    echo '🐳 Lancement du conteneur builder...'
+                    sh 'docker-compose -f ci_cd/docker/docker-compose.build.yml up -d --build'
+                    
+                    // Wait for container to be ready
+                    echo '⏳ Attente du démarrage du serveur builder...'
+                    sleep(time: 10, unit: 'SECONDS')
+                }
             }
         }
+        
+        stage('Health Check') {
+            steps {
+                script {
+                    echo '🏥 Vérification de la santé du builder...'
+                    def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
+                    def api = new builderAPI.BuilderAPI(this, 'localhost', 8080)
+                    
+                    retry(5) {
+                        if (!api.healthCheck()) {
+                            sleep(time: 5, unit: 'SECONDS')
+                            error('Builder not healthy')
+                        }
+                    }
+                    echo '✅ Builder opérationnel'
+                }
+            }
+        }
+        
         stage('Build Project') {
             steps {
-                echo ('🔨 Compilation du projet...')
-                sh 'docker exec rtype_builder ./scripts/compile.sh'
+                script {
+                    echo '🔨 Lancement de la compilation via API...'
+                    def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
+                    def api = new builderAPI.BuilderAPI(this, 'localhost', 8080)
+                    
+                    // Submit build job and wait for completion
+                    // Poll every 10 seconds, max 2 hours
+                    def result = api.runAndWait('build', 10, 7200)
+                    
+                    echo "✅ Build terminé avec succès (returncode: ${result.returncode})"
+                }
             }
         }
     }
 
     post {
         always {
-            echo '🧹 Pipeline terminé'
+            script {
+                echo '🧹 Nettoyage...'
+                // Stop and remove the builder container
+                sh 'docker-compose -f ci_cd/docker/docker-compose.build.yml down || true'
+            }
+            echo '🏁 Pipeline terminé'
         }
         success {
             echo '✅ Build réussi !'
