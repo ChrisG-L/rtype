@@ -1,21 +1,19 @@
 /*
 ** EPITECH PROJECT, 2025
-** rtype [WSL: Ubuntu]
+** rtype [WSL: Ubuntu-24.04]
 ** File description:
 ** Execute
 */
 
-#include "Execute.hpp"
+#include "infrastructure/adapters/in/network/execute/Execute.hpp"
 
 namespace infrastructure::adapters::in::network::execute {
-    Execute::Execute(const Command& cmd): _cmd(cmd)
+
+    Execute::Execute(const Command& cmd, std::shared_ptr<MongoDBUserRepository> UserRepository)
     {
-        if (_cmd.type == "LOGIN") {
-            // Login
-        } else {
-            std::cout << "COMMAND NOT FOUND!" << std::endl;
-        }
+        std::shared_ptr<Login> login = std::make_shared<Login>(UserRepository);
+        std::shared_ptr<Register> registerUser = std::make_shared<Register>(UserRepository);
+    
+        auth::ExecuteAuth executeAuth(cmd, login, registerUser);
     }
 }
-
-
