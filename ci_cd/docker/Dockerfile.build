@@ -23,7 +23,8 @@ RUN apt-get update && apt-get install -y \
     sudo \
     linux-libc-dev \
     pkg-config \
-    python3
+    python3 \
+    rsync
 
 # Installer CMake (dernière version stable)
 RUN test -f /usr/share/doc/kitware-archive-keyring/copyright || wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null && \
@@ -44,8 +45,18 @@ WORKDIR /workspace
 # Configurer Git pour éviter les problèmes de permissions
 RUN git config --global --add safe.directory "*"
 
-# Créer un répertoire pour les artefacts de build
-RUN mkdir -p /workspace/artifacts
+# Créer les répertoires nécessaires
+RUN mkdir -p /workspace/artifacts /workspace/builds
 
-# Commande par défaut : lancer le serveur Python qui exécutera les scripts sur requête
-CMD ["python3", "/workspace/ci_cd/docker/builder/main.py"]
+# Copier la configuration rsync
+COPY rsyncd.conf /etc/rsyncd.conf
+
+# Copier et rendre exécutable le script d'entrée
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Exposer les ports : 8080 (API HTTP) et 873 (rsync daemon)
+EXPOSE 8080 873
+
+# Utiliser le script d'entrée qui lance rsync daemon + API Python
+CMD ["/entrypoint.sh"]
