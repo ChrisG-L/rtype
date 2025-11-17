@@ -1,5 +1,4 @@
-def builderPort = ""
-def buildPrefix = ""
+def builderAPI
 
 pipeline {
     agent any
@@ -17,7 +16,18 @@ pipeline {
 
     // Paramètres du pipeline
     parameters {
-        booleanParam(name: 'BUILD_IMAGE', defaultValue: false, description: 'Construire l\'image `rtype-builder:latest` avant de lancer le conteneur')
+        choice(
+            name: 'BUILD_TYPE',
+            choices: ['Debug', 'Release'],
+            description: 'Type de build CMake'
+        )
+    }
+
+    environment {
+        BUILD_TYPE = "${params.BUILD_TYPE}"
+        BUILDER_HOST = "rtype_builder"
+        BUILDER_PORT = "8080"
+        WORKSPACE_ID = "build_${BUILD_NUMBER}"
     }
 
     stages {
@@ -28,95 +38,94 @@ pipeline {
             }
         }
 
-        stage('Setup Build Environment') {
+        stage('📋 Create Workspace') {
             steps {
                 script {
-                    // Calculer les variables de build
-                    buildPrefix = "build_${env.BUILD_NUMBER}_"
-                    def buildNumber = env.BUILD_NUMBER ? env.BUILD_NUMBER.toInteger() : 0
-                    builderPort = (8082 + (buildNumber % 1000)).toString()
-                    
-                    echo "🔧 Configuration de l'environnement de build"
-                    echo "   PREFIX: ${buildPrefix}"
-                    echo "   PORT: ${builderPort}"
-                    echo "   Container: ${buildPrefix}rtype_builder"
+                    echo "📋 Création du workspace ${env.WORKSPACE_ID} sur le builder..."
+
+                    builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
+                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                    // Vérifier que le builder est accessible
+                    if (!api.healthCheck()) {
+                        error("❌ Le builder permanent n'est pas accessible. Lancez d'abord le job d'initialisation (Jenkinsfile.init).")
+                    }
+
+                    // Créer workspace via API
+                    def createResponse = sh(
+                        script: """
+                            curl -s -f -X POST http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/create \
+                                -H 'Content-Type: application/json' \
+                                -d '{"build_number": ${env.BUILD_NUMBER}}'
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    echo "✅ Workspace créé: ${createResponse}"
                 }
             }
         }
 
-        stage('Launch Build Container') {
+        stage('📤 Upload Source Code') {
             steps {
                 script {
-                    echo '🐳 Lancement du conteneur builder...'
+                    echo "📤 Upload du code source via rsync..."
 
-                    // Optionnel: reconstruire l'image si demandé
-                    if (params.BUILD_IMAGE) {
-                        echo '📦 Construction de l\'image rtype-builder:latest demandée'
-                        sh """
-                            cd ci_cd/docker
-                            chmod +x build_image.sh
-                            ./build_image.sh
-                        """
-                    }
-
-                    // Lancer le builder avec le script
+                    // Utiliser rsync pour transférer le code vers le builder
                     sh """
-                        cd ci_cd/docker
-                        chmod +x launch_builder.sh
-                        ./launch_builder.sh ${buildPrefix} ${builderPort}
+                        rsync -avz --delete \
+                            --exclude='.git' \
+                            --exclude='build*' \
+                            --exclude='cmake-build-*' \
+                            --exclude='*.o' \
+                            --exclude='*.a' \
+                            --exclude='.gitignore' \
+                            --exclude='third_party/vcpkg/.git' \
+                            ${WORKSPACE}/ \
+                            rsync://${env.BUILDER_HOST}:873/workspace/${env.WORKSPACE_ID}/
                     """
 
-                    // Wait for container to be ready
-                    echo '⏳ Attente du démarrage du serveur builder...'
-                    sleep(time: 10, unit: 'SECONDS')
+                    echo "✅ Code source uploadé (diff seulement grâce à rsync)"
                 }
             }
         }
 
-        stage('Health Check') {
+        stage('🔨 Build Project') {
             steps {
                 script {
-                    echo '🏥 Vérification de la santé du builder...'
-                    def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
-                    echo "DEBUG: builderAPI object: ${builderAPI}"
-                    echo "DEBUG: builderAPI class: ${builderAPI.getClass().name}"
-                    try {
-                        echo "DEBUG: builderAPI methods: ${builderAPI.getClass().methods*.name.sort().unique()}"
-                    } catch (e) {
-                        echo "DEBUG: failed to list builderAPI methods: ${e}"
-                    }
-                    def api = builderAPI.create(this, 'localhost', builderPort.toInteger())
+                    echo '🔨 Lancement de la configuration CMake et vcpkg...'
 
-                    retry(5) {
-                        if (!api.healthCheck()) {
-                            sleep(time: 5, unit: 'SECONDS')
-                            error('Builder not healthy')
-                        }
-                    }
-                    echo '✅ Builder opérationnel'
+                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                    // Lancer le build dans le workspace
+                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'build')
+
+                    echo "Job créé: ${jobId}"
+
+                    // Attendre la fin du build
+                    def result = api.waitForJob(jobId, 10, 7200)
+
+                    echo "✅ Build terminé avec succès"
                 }
             }
         }
 
-        stage('Build Project') {
+        stage('🔧 Compile Project') {
             steps {
                 script {
-                    echo '🔨 Lancement de la compilation via API...'
-                    def builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
-                    echo "DEBUG: builderAPI object: ${builderAPI}"
-                    echo "DEBUG: builderAPI class: ${builderAPI.getClass().name}"
-                    try {
-                        echo "DEBUG: builderAPI methods: ${builderAPI.getClass().methods*.name.sort().unique()}"
-                    } catch (e) {
-                        echo "DEBUG: failed to list builderAPI methods: ${e}"
-                    }
-                    def api = builderAPI.create(this, 'localhost', builderPort.toInteger())
+                    echo '🔧 Compilation du projet...'
 
-                    // Submit build job and wait for completion
-                    // Poll every 10 seconds, max 2 hours
-                    def result = api.runAndWait('build', 10, 7200)
+                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                    echo "✅ Build terminé avec succès (returncode: ${result.returncode})"
+                    // Lancer la compilation dans le workspace
+                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'compile')
+
+                    echo "Job créé: ${jobId}"
+
+                    // Attendre la fin de la compilation
+                    def result = api.waitForJob(jobId, 10, 7200)
+
+                    echo "✅ Compilation terminée avec succès"
                 }
             }
         }
@@ -124,14 +133,17 @@ pipeline {
 
     post {
         always {
-                script {
-                    echo '🧹 Nettoyage...'
-                    sh """
-                        cd ci_cd/docker
-                        chmod +x stop_builder.sh
-                    """
-                    echo '🏁 Pipeline terminé'
-                }
+            script {
+                echo '🧹 Nettoyage du workspace...'
+
+                // Supprimer le workspace sur le builder
+                sh """
+                    curl -s -X DELETE http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/${env.WORKSPACE_ID} || true
+                """
+
+                echo '✅ Workspace nettoyé'
+                echo '🏁 Pipeline terminé'
+            }
         }
         success {
             echo '✅ Build réussi !'
