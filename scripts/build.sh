@@ -24,6 +24,9 @@ else
     git clone https://github.com/microsoft/vcpkg.git "$VCPKG_DIR"
 fi
 
+# Installer argon2
+sudo apt install -y argon2
+
 # Aller dans le dossier vcpkg
 cd "$VCPKG_DIR"
 
