@@ -44,5 +44,8 @@ WORKDIR /workspace
 # Configurer Git pour éviter les problèmes de permissions
 RUN git config --global --add safe.directory "*"
 
+# Créer un répertoire pour les artefacts de build
+RUN mkdir -p /workspace/artifacts
+
 # Commande par défaut : lancer le serveur Python qui exécutera les scripts sur requête
 CMD ["python3", "/workspace/ci_cd/docker/builder/main.py"]

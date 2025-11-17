@@ -66,7 +66,7 @@ echo "🚀 Lancement du conteneur (workspace monté en lecture seule)..."
 docker run -d \
     --name "${CONTAINER_NAME}" \
     -p "${BUILDER_PORT}:8080" \
-    -v "${WORKSPACE}:/workspace:ro" \
+    -v "${WORKSPACE}:/workspace" \
     -v "${ARTIFACTS_VOLUME}:/workspace/artifacts" \
     -w /workspace \
     -e WORKSPACE=/workspace \
