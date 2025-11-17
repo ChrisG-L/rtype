@@ -7,7 +7,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
-## [0.3.0] - 2025-01-17
+## [0.3.0] - 2025-01-17 {#030---2025-01-17}
 
 ### ✨ Ajouté
 
@@ -144,7 +144,7 @@ f52d4b5 FEAT: ajout du use case Register pour l'inscription utilisateur
 
 ---
 
-## [0.2.0] - 2025-01-11
+## [0.2.0] - 2025-01-11 {#020---2025-01-11}
 
 ### ✨ Ajouté
 
