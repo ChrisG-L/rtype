@@ -76,9 +76,22 @@ echo "pwd: $(pwd)"
 cd "../../"
 echo "pwd: $(pwd)"
 
-echo "🧹 Nettoyage du dossier build..."
-rm -rf build
-mkdir -p build
+# Déterminer le dossier de build selon la plateforme
+case $PLATFORM in
+    linux)
+        BUILD_DIR="buildLinux"
+        ;;
+    windows)
+        BUILD_DIR="buildWin"
+        ;;
+    macos)
+        BUILD_DIR="buildMac"
+        ;;
+esac
+
+echo "🧹 Nettoyage du dossier $BUILD_DIR..."
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
 
 # Workaround pour mongo-c-driver: créer des copies de windns.h avec la casse incorrecte
 # mongo-c-driver cherche winDNS.h au lieu de windns.h
@@ -132,13 +145,14 @@ case $PLATFORM in
 esac
 
 echo "📋 Configuration CMake:"
+echo "   - Dossier de build: $BUILD_DIR"
 echo "   - Triplet vcpkg: $VCPKG_TRIPLET"
 echo "   - Compilateur C++: $CMAKE_CXX_COMPILER"
 echo "   - Compilateur C: $CMAKE_C_COMPILER"
 
 echo "⚙️  Configuration du projet CMake..."
-mkdir -p build
-cmake -S . -B build \
+mkdir -p "$BUILD_DIR"
+cmake -S . -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
     -G "Ninja" \
@@ -148,4 +162,4 @@ cmake -S . -B build \
     $CMAKE_EXTRA_FLAGS \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-echo "✅ Configuration terminée pour plateforme: $PLATFORM"
+echo "✅ Configuration terminée pour plateforme: $PLATFORM dans $BUILD_DIR"

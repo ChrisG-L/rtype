@@ -1,6 +1,9 @@
 ci_cd/docker/jenkins_data
 
 build/
+buildLinux/
+buildWin/
+buildMac/
 
 artifacts/
 
