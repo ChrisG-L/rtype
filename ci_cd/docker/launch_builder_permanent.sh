@@ -9,7 +9,6 @@ IMAGE="rtype-builder:latest"
 NETWORK="rtype_ci_network"
 API_PORT="8082"      # Port hôte pour l'API HTTP
 RSYNC_PORT="8873"  # Port hôte pour rsync (éviter 873 qui peut être réservé)
-VOLUME_NAME="rtype_builder_workspace"  # Volume nommé pour persister les données
 
 echo "🐳 Lancement du Builder Permanent"
 echo "=================================="
@@ -18,7 +17,6 @@ echo "  Container:   ${CONTAINER_NAME}"
 echo "  Network:     ${NETWORK}"
 echo "  API Port:    ${API_PORT}"
 echo "  Rsync Port:  ${RSYNC_PORT}"
-echo "  Volume:      ${VOLUME_NAME}"
 echo ""
 
 # Vérifier que le network existe
@@ -56,10 +54,8 @@ docker run -d \
     --network "${NETWORK}" \
     -p "${API_PORT}:8082" \
     -p "${RSYNC_PORT}:873" \
-    -v "${VOLUME_NAME}:/workspace" \
     -e WORKSPACE=/workspace \
     -e BUILDER_PORT=8082 \
-    -e BUILDER_HOST="${CONTAINER_NAME}" \
     --restart unless-stopped \
     "${IMAGE}"
 
@@ -78,14 +74,11 @@ while [ $RETRY -lt $MAX_RETRIES ]; do
         echo "🔗 API HTTP:   http://${CONTAINER_NAME}:${API_PORT}"
         echo "🔗 Rsync:      rsync://${CONTAINER_NAME}:${RSYNC_PORT}/workspace"
         echo "🔗 Container:  ${CONTAINER_NAME} (network: ${NETWORK})"
-        echo "💾 Volume:     ${VOLUME_NAME} (persistant)"
         echo ""
         echo "Commandes utiles:"
         echo "  - Voir les logs:      docker logs -f ${CONTAINER_NAME}"
         echo "  - Health check:       curl http://${CONTAINER_NAME}:${API_PORT}/health"
         echo "  - Stopper:            docker stop ${CONTAINER_NAME}"
-        echo "  - Inspecter volume:   docker volume inspect ${VOLUME_NAME}"
-        echo "  - Nettoyer volume:    docker volume rm ${VOLUME_NAME}"
         echo ""
         echo "API Endpoints disponibles:"
         echo "  - POST /workspace/create"

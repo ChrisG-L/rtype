@@ -4,7 +4,6 @@
 set -e
 
 CONTAINER_NAME="rtype_builder"
-VOLUME_NAME="rtype_builder_workspace"
 
 echo "🛑 Arrêt du Builder Permanent"
 echo "============================="
@@ -26,12 +25,5 @@ fi
 echo ""
 echo "✅ Nettoyage terminé"
 echo ""
-echo "ℹ️  Le volume ${VOLUME_NAME} a été conservé (données persistantes)"
-echo "   Pour supprimer le volume : docker volume rm ${VOLUME_NAME}"
-echo ""
-echo "Pour redémarrer le builder avec les données conservées :"
-echo "  ./launch_builder_permanent.sh"
-echo ""
-echo "Pour redémarrer proprement (en supprimant les données) :"
-echo "  docker volume rm ${VOLUME_NAME}"
+echo "ℹ️  Pour redémarrer le builder :"
 echo "  ./launch_builder_permanent.sh"
