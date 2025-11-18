@@ -122,6 +122,7 @@ markdown_extensions:
 # Navigation
 nav:
   - Accueil: index.md
+  - État du Projet: project-status.md
 
   - Pour Commencer:
       - Installation: getting-started/installation.md
@@ -131,6 +132,8 @@ nav:
   - Guides Utilisateurs:
       - Vue d'ensemble: guides/architecture.md
       - Architecture Hexagonale: guides/hexagonal-architecture.md
+      - Architecture Réseau: guides/network-architecture.md
+      - Séparation Header/Implementation C++: guides/cpp-header-implementation.md
       - Système d'Authentification: guides/authentication.md
       - Tutoriels:
           - Premier Pas: guides/tutorials/first-steps.md
@@ -151,6 +154,7 @@ nav:
       - Politiques de Commit: development/COMMIT_POLICES.md
       - CI/CD Jenkins: development/ci-cd.md
       - API Builder Jenkins: development/jenkins-builder-api.md
+      - SonarQube - Qualité Code: guides/sonarqube.md
 
   - Ruche d'Agents IA:
       - Introduction: hive/introduction.md
