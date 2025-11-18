@@ -120,6 +120,18 @@ if [ "$PLATFORM" = "windows" ]; then
         fi
         echo "   ✅ Copié: $windns_copy"
     done
+
+    echo "🔧 Création de symlink libDnsapi.a pour MinGW (workaround casse)..."
+    if [ -f /usr/x86_64-w64-mingw32/lib/libdnsapi.a ] && [ ! -f /usr/x86_64-w64-mingw32/lib/libDnsapi.a ]; then
+        if [ "$(id -u)" -eq 0 ]; then
+            ln -s libdnsapi.a /usr/x86_64-w64-mingw32/lib/libDnsapi.a
+        else
+            sudo ln -s libdnsapi.a /usr/x86_64-w64-mingw32/lib/libDnsapi.a
+        fi
+        echo "   ✅ Symlink créé: libDnsapi.a -> libdnsapi.a"
+    else
+        echo "   ℹ️  Symlink déjà existant"
+    fi
 fi
 
 # Configuration spécifique à la plateforme
@@ -134,7 +146,7 @@ case $PLATFORM in
         VCPKG_TRIPLET="x64-mingw-static"
         CMAKE_CXX_COMPILER="x86_64-w64-mingw32-g++"
         CMAKE_C_COMPILER="x86_64-w64-mingw32-gcc"
-        CMAKE_EXTRA_FLAGS="-DCMAKE_TOOLCHAIN_FILE=$PROJECT_ROOT/triplets/toolchains/mingw-w64-x86_64.cmake"
+        CMAKE_EXTRA_FLAGS="-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=$PROJECT_ROOT/triplets/toolchains/mingw-w64-x86_64.cmake"
         ;;
     macos)
         VCPKG_TRIPLET="x64-osx"

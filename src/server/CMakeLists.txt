@@ -68,6 +68,13 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         message(STATUS "Sanitizers activés (build natif)")
     else()
         message(STATUS "Sanitizers désactivés (cross-compilation ou MinGW)")
+        # MinGW + static linking + C++ = problèmes de définitions multiples
+        if(MINGW)
+            target_link_options(rtype_server PRIVATE
+                -Wl,--allow-multiple-definition
+            )
+            message(STATUS "Flag --allow-multiple-definition activé pour MinGW")
+        endif()
     endif()
 endif()
 
@@ -92,3 +99,10 @@ target_link_libraries(rtype_server PRIVATE
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
 )
+
+# Bibliothèques Windows supplémentaires pour Boost.Asio
+if(MINGW OR WIN32)
+    target_link_libraries(rtype_server PRIVATE
+        mswsock  # Pour AcceptEx, GetAcceptExSockaddrs, etc.
+    )
+endif()
