@@ -256,19 +256,30 @@ class Handler(BaseHTTPRequestHandler):
 			return
 
 		cmd = data.get("command")
+
+		# Parse la commande et les arguments (ex: "build --platform=windows")
+		cmd_parts = cmd.split() if cmd else []
+		if not cmd_parts:
+			self._set_json(400)
+			self.wfile.write(json.dumps({"error": "empty command"}).encode())
+			return
+
+		base_cmd = cmd_parts[0]
+		cmd_args = cmd_parts[1:] if len(cmd_parts) > 1 else []
+
 		# Mapping des commandes vers les scripts (dans le workspace uploadé)
 		script_mapping = {
 			"build": "scripts/build.sh",
 			"compile": "scripts/compile.sh",
 		}
 
-		if cmd not in script_mapping:
+		if base_cmd not in script_mapping:
 			self._set_json(400)
 			self.wfile.write(json.dumps({"error": "unknown command", "allowed": list(script_mapping.keys())}).encode())
 			return
 
 		# Le script doit être dans le workspace uploadé
-		script_relative = script_mapping[cmd]
+		script_relative = script_mapping[base_cmd]
 		script = os.path.join(workspace_path, script_relative)
 
 		if not os.path.isfile(script):
@@ -307,9 +318,14 @@ class Handler(BaseHTTPRequestHandler):
 		# Lancer le process dans le workspace
 		logfile = open(log_path, "wb")
 		try:
-			# Ajouter --no-launch pour compile car le serveur ne doit pas se lancer dans CI/CD
+			# Construire les arguments du script
 			script_args = ["/bin/bash", script]
-			if cmd == "compile":
+
+			# Ajouter les arguments passés avec la commande (ex: --platform=windows)
+			script_args.extend(cmd_args)
+
+			# Ajouter --no-launch pour compile car le serveur ne doit pas se lancer dans CI/CD
+			if base_cmd == "compile":
 				script_args.append("--no-launch")
 
 			proc = subprocess.Popen(

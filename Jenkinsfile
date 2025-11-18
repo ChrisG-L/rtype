@@ -17,7 +17,8 @@ pipeline {
     environment {
         BUILDER_HOST = "rtype_builder"
         BUILDER_PORT = "8082"
-        WORKSPACE_ID = "build_${BUILD_NUMBER}"
+        WORKSPACE_ID_LINUX = "build_${BUILD_NUMBER}_linux"
+        WORKSPACE_ID_WINDOWS = "build_${BUILD_NUMBER}_windows"
     }
 
     stages {
@@ -28,11 +29,9 @@ pipeline {
             }
         }
 
-        stage('📋 Create Workspace') {
+        stage('🔌 Initialize Builder API') {
             steps {
                 script {
-                    echo "📋 Création du workspace ${env.WORKSPACE_ID} sur le builder..."
-
                     builderAPI = load('ci_cd/jenkins/BuilderAPI.groovy')
                     def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
@@ -40,43 +39,98 @@ pipeline {
                     if (!api.healthCheck()) {
                         error("❌ Le builder permanent n'est pas accessible. Lancez d'abord le job d'initialisation (Jenkinsfile.init).")
                     }
+                }
+            }
+        }
 
-                    // Créer workspace via API
-                    def createResponse = sh(
-                        script: """
-                            curl -s -f -X POST http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/create \
-                                -H 'Content-Type: application/json' \
-                                -d '{"build_number": ${env.BUILD_NUMBER}}'
-                        """,
-                        returnStdout: true
-                    ).trim()
+        stage('📋 Create Workspaces') {
+            parallel {
+                stage('Create Linux Workspace') {
+                    steps {
+                        script {
+                            echo "📋 Création du workspace Linux ${env.WORKSPACE_ID_LINUX}..."
 
-                    echo "✅ Workspace créé: ${createResponse}"
+                            def createResponse = sh(
+                                script: """
+                                    curl -s -f -X POST http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/create \
+                                        -H 'Content-Type: application/json' \
+                                        -d '{"build_number": "${env.BUILD_NUMBER}_linux"}'
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            echo "✅ Workspace Linux créé: ${createResponse}"
+                        }
+                    }
+                }
+                stage('Create Windows Workspace') {
+                    steps {
+                        script {
+                            echo "📋 Création du workspace Windows ${env.WORKSPACE_ID_WINDOWS}..."
+
+                            def createResponse = sh(
+                                script: """
+                                    curl -s -f -X POST http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/create \
+                                        -H 'Content-Type: application/json' \
+                                        -d '{"build_number": "${env.BUILD_NUMBER}_windows"}'
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            echo "✅ Workspace Windows créé: ${createResponse}"
+                        }
+                    }
                 }
             }
         }
 
         stage('📤 Upload Source Code') {
-            steps {
-                script {
-                    echo "📤 Upload du code source via rsync..."
+            parallel {
+                stage('Upload to Linux Workspace') {
+                    steps {
+                        script {
+                            echo "📤 Upload du code source vers workspace Linux via rsync..."
 
-                    // Utiliser rsync pour transférer le code vers le builder
-                    sh """
-                        rsync -avz --delete \
-                            --exclude='.git' \
-                            --exclude='build/*' \
-                            --exclude='cmake-build-*' \
-                            --exclude='*.o' \
-                            --exclude='*.a' \
-                            --exclude='.gitignore' \
-                            --exclude='third_party/vcpkg/.git' \
-                            --exclude='artifacts' \
-                            ${WORKSPACE}/ \
-                            rsync://${env.BUILDER_HOST}:873/workspace/${env.WORKSPACE_ID}/
-                    """
+                            sh """
+                                rsync -avz --delete \
+                                    --exclude='.git' \
+                                    --exclude='build/*' \
+                                    --exclude='cmake-build-*' \
+                                    --exclude='*.o' \
+                                    --exclude='*.a' \
+                                    --exclude='.gitignore' \
+                                    --exclude='third_party/vcpkg/.git' \
+                                    --exclude='artifacts' \
+                                    ${WORKSPACE}/ \
+                                    rsync://${env.BUILDER_HOST}:873/workspace/${env.WORKSPACE_ID_LINUX}/
+                            """
 
-                    echo "✅ Code source uploadé (diff seulement grâce à rsync)"
+                            echo "✅ Code source uploadé vers workspace Linux"
+                        }
+                    }
+                }
+                stage('Upload to Windows Workspace') {
+                    steps {
+                        script {
+                            echo "📤 Upload du code source vers workspace Windows via rsync..."
+
+                            sh """
+                                rsync -avz --delete \
+                                    --exclude='.git' \
+                                    --exclude='build/*' \
+                                    --exclude='cmake-build-*' \
+                                    --exclude='*.o' \
+                                    --exclude='*.a' \
+                                    --exclude='.gitignore' \
+                                    --exclude='third_party/vcpkg/.git' \
+                                    --exclude='artifacts' \
+                                    ${WORKSPACE}/ \
+                                    rsync://${env.BUILDER_HOST}:873/workspace/${env.WORKSPACE_ID_WINDOWS}/
+                            """
+
+                            echo "✅ Code source uploadé vers workspace Windows"
+                        }
+                    }
                 }
             }
         }
@@ -92,8 +146,8 @@ pipeline {
 
                                     def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer le build dans le workspace (plateforme linux par défaut)
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'build')
+                                    // Lancer le build dans le workspace Linux (plateforme linux par défaut)
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'build')
 
                                     echo "[LINUX] Job créé: ${jobId}"
 
@@ -112,8 +166,8 @@ pipeline {
 
                                     def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer la compilation dans le workspace
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'compile')
+                                    // Lancer la compilation dans le workspace Linux
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'compile')
 
                                     echo "[LINUX] Job créé: ${jobId}"
 
@@ -136,8 +190,8 @@ pipeline {
 
                                     def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer le build Windows dans le workspace avec --platform=windows
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'build', '--platform=windows')
+                                    // Lancer le build Windows dans le workspace Windows avec --platform=windows
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'build', '--platform=windows')
 
                                     echo "[WINDOWS] Job créé: ${jobId}"
 
@@ -156,8 +210,8 @@ pipeline {
 
                                     def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer la compilation dans le workspace
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'compile')
+                                    // Lancer la compilation dans le workspace Windows
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'compile')
 
                                     echo "[WINDOWS] Job créé: ${jobId}"
 
@@ -174,31 +228,61 @@ pipeline {
         }
 
         stage('📦 Download Artifacts') {
+            parallel {
+                stage('Download Linux Artifacts') {
+                    steps {
+                        script {
+                            echo '📦 Récupération des artefacts Linux...'
+
+                            def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                            // Créer un dossier spécifique pour les artefacts Linux
+                            def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_LINUX}"
+
+                            // Télécharger les artefacts Linux via l'API
+                            def count = api.downloadArtifacts(
+                                env.WORKSPACE_ID_LINUX,
+                                artifactPath
+                            )
+
+                            echo "✅ ${count} artefact(s) Linux téléchargé(s)"
+                        }
+                    }
+                }
+                stage('Download Windows Artifacts') {
+                    steps {
+                        script {
+                            echo '📦 Récupération des artefacts Windows...'
+
+                            def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                            // Créer un dossier spécifique pour les artefacts Windows
+                            def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_WINDOWS}"
+
+                            // Télécharger les artefacts Windows via l'API
+                            def count = api.downloadArtifacts(
+                                env.WORKSPACE_ID_WINDOWS,
+                                artifactPath
+                            )
+
+                            echo "✅ ${count} artefact(s) Windows téléchargé(s)"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('📦 Archive Artifacts') {
             steps {
                 script {
-                    echo '📦 Récupération des artefacts...'
+                    echo '📦 Archivage des artefacts dans Jenkins...'
 
-                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                    // Archiver tous les artefacts (Linux + Windows)
+                    archiveArtifacts artifacts: "artifacts/**/*",
+                                    fingerprint: true,
+                                    allowEmptyArchive: false
 
-                    // Créer un dossier spécifique pour ce build
-                    def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID}"
-
-                    // Télécharger les artefacts via l'API dans le dossier dédié
-                    def count = api.downloadArtifacts(
-                        env.WORKSPACE_ID,
-                        artifactPath
-                    )
-
-                    // Archiver les artefacts dans Jenkins si des fichiers ont été téléchargés
-                    if (count > 0) {
-                        archiveArtifacts artifacts: "artifacts/${env.WORKSPACE_ID}/**/*",
-                                        fingerprint: true,
-                                        allowEmptyArchive: false
-
-                        echo "✅ ${count} artefact(s) archivé(s) dans Jenkins sous artifacts/${env.WORKSPACE_ID}/"
-                    } else {
-                        echo "⚠️  Aucun artefact à archiver"
-                    }
+                    echo "✅ Artefacts archivés dans Jenkins"
                 }
             }
         }
@@ -207,14 +291,15 @@ pipeline {
     post {
         always {
             script {
-                echo '🧹 Nettoyage du workspace...'
+                echo '🧹 Nettoyage des workspaces...'
 
-                // Supprimer le workspace sur le builder
+                // Supprimer les deux workspaces sur le builder
                 sh """
-                    curl -s -X DELETE http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/${env.WORKSPACE_ID} || true
+                    curl -s -X DELETE http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/${env.WORKSPACE_ID_LINUX} || true
+                    curl -s -X DELETE http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/${env.WORKSPACE_ID_WINDOWS} || true
                 """
 
-                echo '✅ Workspace nettoyé'
+                echo '✅ Workspaces nettoyés'
                 echo '🏁 Pipeline terminé'
             }
         }
