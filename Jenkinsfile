@@ -14,17 +14,7 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
-    // Paramètres du pipeline
-    parameters {
-        choice(
-            name: 'BUILD_TYPE',
-            choices: ['Debug', 'Release'],
-            description: 'Type de build CMake'
-        )
-    }
-
     environment {
-        BUILD_TYPE = "${params.BUILD_TYPE}"
         BUILDER_HOST = "rtype_builder"
         BUILDER_PORT = "8082"
         WORKSPACE_ID = "build_${BUILD_NUMBER}"
