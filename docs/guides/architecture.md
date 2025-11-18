@@ -132,7 +132,9 @@ rtype/
 │           ├── rtype_server
 │           └── server_tests
 │
-├── build/                      # Build CMake
+├── buildLinux/                 # Build CMake (Linux)
+├── buildWin/                   # Build CMake (Windows cross-compile)
+├── buildMac/                   # Build CMake (macOS)
 ├── vcpkg_installed/           # Packages vcpkg
 │
 ├── CMakeLists.txt             # Configuration CMake racine
