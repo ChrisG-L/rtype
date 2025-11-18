@@ -1,13 +1,18 @@
 
 #!/usr/bin/env python3
 """
-Builder server with asynchronous job execution.
+Builder server with workspace-isolated job execution.
 
-POST /run -> starts a job (command: "build" or "compile"), returns a UUID immediately.
-GET  /status/<uuid>?tail=<n_lines> -> returns job status and optionally last N lines of the log.
+Routes:
+  POST   /workspace/create                -> Create isolated workspace for a build
+  POST   /workspace/{id}/run              -> Start a job in workspace (build/compile)
+  GET    /workspace/{id}/artifacts        -> List artifacts in workspace
+  DELETE /workspace/{id}                  -> Delete workspace and cleanup
+  GET    /status/{uuid}?tail=<n_lines>    -> Get job status and optional log tail
+  GET    /health                          -> Health check
 
-Jobs are executed with `/bin/bash <script>` without timeout; stdout/stderr are written
-to `artifacts/builder_jobs/<uuid>.log` under the workspace.
+Jobs are executed with `/bin/bash <script>` in isolated workspaces.
+Logs are written to `{workspace}/artifacts/{uuid}.log`.
 """
 
 import json
@@ -23,17 +28,7 @@ from urllib.parse import urlparse, unquote, parse_qs
 WORKSPACE = os.environ.get("WORKSPACE", "/workspace")
 PORT = int(os.environ.get("BUILDER_PORT", "8082"))
 
-JOB_DIR = os.path.join(WORKSPACE, "artifacts", "builder_jobs")
-os.makedirs(JOB_DIR, exist_ok=True)
-
-# Ancienne définition SCRIPTS, conservée pour compatibilité avec la route /run (legacy)
-# Les nouveaux workspaces utilisent les scripts uploadés dans chaque workspace
-SCRIPTS = {
-	"build": os.path.join(WORKSPACE, "scripts", "build.sh"),
-	"compile": os.path.join(WORKSPACE, "scripts", "compile.sh"),
-}
-
-# Mapping moderne : commandes disponibles pour les workspaces
+# Commandes disponibles pour les workspaces
 AVAILABLE_COMMANDS = ["build", "compile"]
 
 # jobs: uuid -> dict(status, command, pid, started_at, finished_at, returncode, log_path)
@@ -104,14 +99,17 @@ class Handler(BaseHTTPRequestHandler):
 	def sendArtifacts(self, path):
 		parts = path.split("/")
 		if len(parts) != 3:
-			return False
+			self._set_json(400)
+			self.wfile.write(json.dumps({"error": "invalid path"}).encode())
+			return
+
 		workspace_id = parts[2]
 
 		with workspaces_lock:
 			if workspace_id not in workspaces:
 				self._set_json(404)
 				self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
-				return True
+				return
 
 			workspace_path = workspaces[workspace_id]["path"]
 
@@ -120,7 +118,7 @@ class Handler(BaseHTTPRequestHandler):
 		if not os.path.exists(artifacts_path):
 			self._set_json(404)
 			self.wfile.write(json.dumps({"error": "no artifacts directory"}).encode())
-			return True
+			return
 
 		# Lister récursivement tous les fichiers dans artifacts/
 		artifacts_list = []
@@ -141,7 +139,6 @@ class Handler(BaseHTTPRequestHandler):
 			"artifacts": artifacts_list,
 			"rsync_path": f"rsync://{os.environ.get('BUILDER_HOST', 'rtype_builder')}:873/workspace/{workspace_id}/artifacts/"
 		}).encode())
-		return True
 
 	def sendHealth(self):
 		self._set_json(200)
@@ -193,7 +190,8 @@ class Handler(BaseHTTPRequestHandler):
 
 		# Route: GET /workspace/{workspace_id}/artifacts
 		# Retourne la liste des fichiers artifacts disponibles
-		if path.startswith("/workspace/") and "/artifacts" in path and self.sendArtifacts(path):
+		if path.startswith("/workspace/") and path.endswith("/artifacts"):
+			self.sendArtifacts(path)
 			return
 
 		if path in ("/", "/health"):
@@ -208,221 +206,161 @@ class Handler(BaseHTTPRequestHandler):
 		self.send_response(404)
 		self.end_headers()
 
+	def createWorkspace(self):
+		length = int(self.headers.get("Content-Length", 0))
+		body = self.rfile.read(length).decode("utf-8") if length else ""
+		try:
+			data = json.loads(body) if body else {}
+		except json.JSONDecodeError:
+			self._set_json(400)
+			self.wfile.write(json.dumps({"error": "invalid json"}).encode())
+			return
+
+		build_number = data.get("build_number")
+		if not build_number:
+			self._set_json(400)
+			self.wfile.write(json.dumps({"error": "build_number required"}).encode())
+			return
+
+		workspace_id, workspace_path = create_workspace(build_number)
+		self._set_json(200)
+		self.wfile.write(json.dumps({
+			"workspace_id": workspace_id,
+			"workspace_path": workspace_path
+		}).encode())
+
+	def runCmdInWorkspace(self, path):
+		parts = path.split("/")
+		if len(parts) != 4:
+			self._set_json(400)
+			self.wfile.write(json.dumps({"error": "invalid path"}).encode())
+			return
+		workspace_id = parts[2]
+
+		with workspaces_lock:
+			if workspace_id not in workspaces:
+				self._set_json(404)
+				self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
+				return
+			workspace_path = workspaces[workspace_id]["path"]
+
+		# Lire le body pour obtenir la commande
+		length = int(self.headers.get("Content-Length", 0))
+		body = self.rfile.read(length).decode("utf-8") if length else ""
+
+		try:
+			data = json.loads(body) if body else {}
+		except json.JSONDecodeError as e:
+			self._set_json(400)
+			self.wfile.write(json.dumps({"error": "invalid json"}).encode())
+			return
+
+		cmd = data.get("command")
+		# Mapping des commandes vers les scripts (dans le workspace uploadé)
+		script_mapping = {
+			"build": "scripts/build.sh",
+			"compile": "scripts/compile.sh",
+		}
+
+		if cmd not in script_mapping:
+			self._set_json(400)
+			self.wfile.write(json.dumps({"error": "unknown command", "allowed": list(script_mapping.keys())}).encode())
+			return
+
+		# Le script doit être dans le workspace uploadé
+		script_relative = script_mapping[cmd]
+		script = os.path.join(workspace_path, script_relative)
+
+		if not os.path.isfile(script):
+			error_response = {
+				"error": "script not found in workspace",
+				"script": script_relative,
+				"script_full_path": script,
+				"workspace_path": workspace_path,
+				"hint": "Make sure the scripts are uploaded via rsync"
+			}
+			self._set_json(500)
+			self.wfile.write(json.dumps(error_response).encode())
+			return
+
+		# Créer job avec workspace spécifique
+		job_id = str(uuid.uuid4())
+
+		# S'assurer que le dossier artifacts existe (rsync --delete peut l'avoir supprimé)
+		artifacts_dir = os.path.join(workspace_path, "artifacts")
+		os.makedirs(artifacts_dir, exist_ok=True)
+
+		log_path = os.path.join(artifacts_dir, f"{job_id}.log")
+
+		with jobs_lock:
+			jobs[job_id] = {
+				"workspace_id": workspace_id,
+				"status": "queued",
+				"command": cmd,
+				"pid": None,
+				"started_at": None,
+				"finished_at": None,
+				"returncode": None,
+				"log_path": log_path,
+			}
+
+		# Lancer le process dans le workspace
+		logfile = open(log_path, "wb")
+		try:
+			# Ajouter --no-launch pour compile car le serveur ne doit pas se lancer dans CI/CD
+			script_args = ["/bin/bash", script]
+			if cmd == "compile":
+				script_args.append("--no-launch")
+
+			proc = subprocess.Popen(
+				script_args,
+				cwd=workspace_path,  # Important: working dir = workspace
+				stdout=logfile,
+				stderr=subprocess.STDOUT
+			)
+		except Exception as e:
+			logfile.close()
+			with jobs_lock:
+				jobs[job_id]["status"] = "failed"
+				jobs[job_id]["failed_error"] = str(e)
+			error_msg = f"Failed to start process: {str(e)}"
+			self._set_json(500)
+			self.wfile.write(json.dumps({
+				"error": "failed to start",
+				"detail": str(e),
+				"script": script_relative,
+				"workspace_path": workspace_path
+			}).encode())
+			return
+
+		def _monitor_and_close():
+			try:
+				monitor_job(job_id, proc, log_path)
+			finally:
+				try:
+					logfile.close()
+				except Exception:
+					pass
+
+		t = threading.Thread(target=_monitor_and_close, daemon=True)
+		t.start()
+
+		self._set_json(200)
+		self.wfile.write(json.dumps({"job_id": job_id}).encode())
+		return
+
 	def do_POST(self):
 		parsed = urlparse(self.path)
 		path = parsed.path
 
 		# Route: POST /workspace/create
 		if path == "/workspace/create":
-			length = int(self.headers.get("Content-Length", 0))
-			body = self.rfile.read(length).decode("utf-8") if length else ""
-			try:
-				data = json.loads(body) if body else {}
-			except json.JSONDecodeError:
-				self._set_json(400)
-				self.wfile.write(json.dumps({"error": "invalid json"}).encode())
-				return
-
-			build_number = data.get("build_number")
-			if not build_number:
-				self._set_json(400)
-				self.wfile.write(json.dumps({"error": "build_number required"}).encode())
-				return
-
-			workspace_id, workspace_path = create_workspace(build_number)
-			self._set_json(200)
-			self.wfile.write(json.dumps({
-				"workspace_id": workspace_id,
-				"workspace_path": workspace_path
-			}).encode())
+			self.createWorkspace()
 			return
 
 		# Route: POST /workspace/{workspace_id}/run
 		if path.startswith("/workspace/") and path.endswith("/run"):
-			parts = path.split("/")
-			if len(parts) != 4:
-				return
-			workspace_id = parts[2]
-
-			with workspaces_lock:
-				if workspace_id not in workspaces:
-					self._set_json(404)
-					self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
-					return
-				workspace_path = workspaces[workspace_id]["path"]
-
-			# Lire le body pour obtenir la commande
-			length = int(self.headers.get("Content-Length", 0))
-			body = self.rfile.read(length).decode("utf-8") if length else ""
-
-			try:
-				data = json.loads(body) if body else {}
-			except json.JSONDecodeError as e:
-				self._set_json(400)
-				self.wfile.write(json.dumps({"error": "invalid json"}).encode())
-				return
-
-			cmd = data.get("command")
-			# Mapping des commandes vers les scripts (dans le workspace uploadé)
-			script_mapping = {
-				"build": "scripts/build.sh",
-				"compile": "scripts/compile.sh",
-			}
-
-			if cmd not in script_mapping:
-				self._set_json(400)
-				self.wfile.write(json.dumps({"error": "unknown command", "allowed": list(script_mapping.keys())}).encode())
-				return
-
-			# Le script doit être dans le workspace uploadé
-			script_relative = script_mapping[cmd]
-			script = os.path.join(workspace_path, script_relative)
-
-			if not os.path.isfile(script):
-				error_response = {
-					"error": "script not found in workspace",
-					"script": script_relative,
-					"script_full_path": script,
-					"workspace_path": workspace_path,
-					"hint": "Make sure the scripts are uploaded via rsync"
-				}
-				self._set_json(500)
-				self.wfile.write(json.dumps(error_response).encode())
-				return
-
-			# Créer job avec workspace spécifique
-			job_id = str(uuid.uuid4())
-
-			# S'assurer que le dossier artifacts existe (rsync --delete peut l'avoir supprimé)
-			artifacts_dir = os.path.join(workspace_path, "artifacts")
-			os.makedirs(artifacts_dir, exist_ok=True)
-
-			log_path = os.path.join(artifacts_dir, f"{job_id}.log")
-
-			with jobs_lock:
-				jobs[job_id] = {
-					"workspace_id": workspace_id,
-					"status": "queued",
-					"command": cmd,
-					"pid": None,
-					"started_at": None,
-					"finished_at": None,
-					"returncode": None,
-					"log_path": log_path,
-				}
-
-			# Lancer le process dans le workspace
-			logfile = open(log_path, "wb")
-			try:
-				# Ajouter --no-launch pour compile car le serveur ne doit pas se lancer dans CI/CD
-				script_args = ["/bin/bash", script]
-				if cmd == "compile":
-					script_args.append("--no-launch")
-
-				proc = subprocess.Popen(
-					script_args,
-					cwd=workspace_path,  # Important: working dir = workspace
-					stdout=logfile,
-					stderr=subprocess.STDOUT
-				)
-			except Exception as e:
-				logfile.close()
-				with jobs_lock:
-					jobs[job_id]["status"] = "failed"
-					jobs[job_id]["failed_error"] = str(e)
-				error_msg = f"Failed to start process: {str(e)}"
-				self._set_json(500)
-				self.wfile.write(json.dumps({
-					"error": "failed to start",
-					"detail": str(e),
-					"script": script_relative,
-					"workspace_path": workspace_path
-				}).encode())
-				return
-
-			def _monitor_and_close():
-				try:
-					monitor_job(job_id, proc, log_path)
-				finally:
-					try:
-						logfile.close()
-					except Exception:
-						pass
-
-			t = threading.Thread(target=_monitor_and_close, daemon=True)
-			t.start()
-
-			self._set_json(200)
-			self.wfile.write(json.dumps({"job_id": job_id}).encode())
-			return
-
-		# Route existante: POST /run (pour compatibilité)
-		if path == "/run":
-			length = int(self.headers.get("Content-Length", 0))
-			body = self.rfile.read(length).decode("utf-8") if length else ""
-			try:
-				data = json.loads(body) if body else {}
-			except json.JSONDecodeError:
-				self._set_json(400)
-				self.wfile.write(json.dumps({"error": "invalid json"}).encode())
-				return
-
-			cmd = data.get("command")
-			if cmd not in SCRIPTS:
-				self._set_json(400)
-				self.wfile.write(json.dumps({"error": "unknown command"}).encode())
-				return
-
-			script = SCRIPTS[cmd]
-			if not os.path.isfile(script):
-				self._set_json(500)
-				self.wfile.write(json.dumps({"error": "script not found", "script": script}).encode())
-				return
-
-			# create job id and log path
-			job_id = str(uuid.uuid4())
-			log_path = os.path.join(JOB_DIR, f"{job_id}.log")
-
-			with jobs_lock:
-				jobs[job_id] = {
-					"status": "queued",
-					"command": cmd,
-					"pid": None,
-					"started_at": None,
-					"finished_at": None,
-					"returncode": None,
-					"log_path": log_path,
-				}
-
-			# start process without timeout, redirect output to file
-			logfile = open(log_path, "wb")
-			try:
-				# run with bash to ensure script runs even if not executable
-				proc = subprocess.Popen(["/bin/bash", script], cwd=WORKSPACE, stdout=logfile, stderr=subprocess.STDOUT)
-			except Exception as e:
-				logfile.close()
-				with jobs_lock:
-					jobs[job_id]["status"] = "failed"
-					jobs[job_id]["failed_error"] = str(e)
-				self._set_json(500)
-				self.wfile.write(json.dumps({"error": "failed to start", "detail": str(e)}).encode())
-				return
-
-			# monitor in background thread; thread will close logfile when done
-			def _monitor_and_close():
-				try:
-					monitor_job(job_id, proc, log_path)
-				finally:
-					try:
-						logfile.close()
-					except Exception:
-						pass
-
-			t = threading.Thread(target=_monitor_and_close, daemon=True)
-			t.start()
-
-			self._set_json(200)
-			self.wfile.write(json.dumps({"job_id": job_id}).encode())
+			self.runCmdInWorkspace(path)
 			return
 
 		self.send_response(404)
