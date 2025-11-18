@@ -261,6 +261,100 @@ cmake -S . -B build \
 cmake --build build
 ```
 
+## Cross-Compilation Multi-Plateforme
+
+Le projet R-Type supporte la cross-compilation pour générer des binaires Windows depuis un environnement Linux.
+
+### Plateformes Supportées
+
+| Plateforme | Triplet | Architecture | Méthode | Statut |
+|------------|---------|--------------|---------|--------|
+| **Linux** | `x64-linux` | x86_64 | Native | ✅ Production |
+| **Windows** | `x64-mingw-static` | x86_64 | Cross-compile (MinGW) | ✅ Production |
+| **macOS** | `x64-osx` | x86_64 | Native / Cross-compile | 📋 Planifié |
+
+### Compilation Linux (Native)
+
+Par défaut, `build.sh` compile pour Linux :
+
+```bash
+./scripts/build.sh
+./scripts/compile.sh
+
+# Résultat
+artifacts/server/linux/rtype_server  # Binaire ELF 64-bit
+```
+
+### Compilation Windows (Cross-compilation)
+
+Pour compiler un binaire Windows depuis Linux avec MinGW :
+
+```bash
+./scripts/build.sh --platform=windows
+./scripts/compile.sh
+
+# Résultat
+artifacts/server/windows/rtype_server.exe  # Binaire PE32+ 64-bit
+```
+
+**Prérequis:** MinGW-w64 doit être installé (déjà inclus dans le Docker builder).
+
+**Caractéristiques du binaire Windows:**
+- **Linking statique** - Aucune DLL externe nécessaire (Boost, MongoDB, etc.)
+- **Taille** - ~80MB en Debug (vs ~15MB après strip en Release)
+- **Portable** - Fonctionne sur Windows 7+ sans installation
+
+### Vérification du Binaire
+
+```bash
+# Type de fichier
+file artifacts/server/windows/rtype_server.exe
+# Output: PE32+ executable (console) x86-64, for MS Windows
+
+# Dépendances (doit être vide = statique)
+x86_64-w64-mingw32-objdump -p artifacts/server/windows/rtype_server.exe | grep "DLL Name"
+# Output: Uniquement DLLs système (kernel32.dll, ntdll.dll, ...)
+```
+
+### Test avec Wine (Optionnel)
+
+```bash
+# Installer Wine
+sudo apt install wine64
+
+# Exécuter le binaire Windows sous Linux
+wine64 artifacts/server/windows/rtype_server.exe
+```
+
+!!! note "Limitations de Wine"
+    Wine peut avoir des problèmes avec le réseau et certaines fonctionnalités. Pour un test complet, utilisez un vrai environnement Windows.
+
+### Pipeline Jenkins Multi-Plateforme
+
+Le pipeline Jenkins compile automatiquement Linux **et** Windows en parallèle :
+
+```groovy
+stage('🏗️ Build Matrix (Linux + Windows)') {
+    parallel {
+        stage('🐧 Linux Build') {
+            // ./scripts/build.sh
+        }
+        stage('🪟 Windows Build') {
+            // ./scripts/build.sh --platform=windows
+        }
+    }
+}
+```
+
+**Résultat:** Les deux binaires sont archivés dans Jenkins sous `artifacts/build_XXX/`.
+
+!!! tip "Documentation Complète Cross-Compilation"
+    Pour tous les détails techniques (MinGW, triplets vcpkg, troubleshooting), consultez :
+
+    📚 **[Guide Cross-Compilation](../development/cross-compilation.md)** - Documentation complète
+
+---
+
 ## Compilation avec Docker
 
 Le projet R-Type utilise un **système de builder permanent** pour les compilations CI/CD. Deux approches sont disponibles :
@@ -606,14 +700,41 @@ export VCPKG_ROOT="$PROJECT_ROOT/third_party/vcpkg"
 
 ## Artifacts générés
 
-Après compilation, la structure est :
+Après compilation, la structure dépend de la plateforme cible :
+
+### Build Linux (native)
 
 ```
 artifacts/
 └── server/
     └── linux/
-        ├── rtype_server      # ~2-5 MB (Debug), ~500 KB (Release)
-        └── server_tests      # ~1-3 MB
+        ├── rtype_server      # ELF 64-bit, ~52 MB (Debug), ~5 MB (Release)
+        └── server_tests      # ~10 MB
+```
+
+### Build Windows (cross-compilation)
+
+```
+artifacts/
+└── server/
+    └── windows/
+        ├── rtype_server.exe  # PE32+ 64-bit, ~80 MB (Debug), ~15 MB (Release stripped)
+        └── server_tests.exe  # ~20 MB
+```
+
+### Build Multi-Plateforme (Jenkins)
+
+Quand Jenkins compile en parallèle, les deux sont générés :
+
+```
+artifacts/
+└── server/
+    ├── linux/
+    │   ├── rtype_server
+    │   └── server_tests
+    └── windows/
+        ├── rtype_server.exe
+        └── server_tests.exe
 ```
 
 ## Prochaines étapes

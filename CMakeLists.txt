@@ -15,8 +15,19 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
         CACHE STRING "")
 endif()
 
-# Définir l'emplacement des binaires
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/artifacts/server/linux)
+# Détecter la plateforme cible pour les artefacts
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(PLATFORM_DIR "windows")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(PLATFORM_DIR "macos")
+else()
+    set(PLATFORM_DIR "linux")
+endif()
+
+message(STATUS "Building for platform: ${CMAKE_SYSTEM_NAME} -> artifacts/server/${PLATFORM_DIR}")
+
+# Définir l'emplacement des binaires (dynamique selon la plateforme)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/artifacts/server/${PLATFORM_DIR})
 
 # Autoriser les tests
 enable_testing()

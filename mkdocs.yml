@@ -154,6 +154,7 @@ nav:
       - Politiques de Commit: development/COMMIT_POLICES.md
       - CI/CD Jenkins: development/ci-cd.md
       - API Builder Jenkins: development/jenkins-builder-api.md
+      - Cross-Compilation Windows: development/cross-compilation.md
       - SonarQube - Qualité Code: guides/sonarqube.md
 
   - Ruche d'Agents IA:

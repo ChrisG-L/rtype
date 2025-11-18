@@ -81,42 +81,94 @@ pipeline {
             }
         }
 
-        stage('🔨 Build Project') {
-            steps {
-                script {
-                    echo '🔨 Lancement de la configuration CMake et vcpkg...'
+        stage('🏗️  Build Matrix (Linux + Windows)') {
+            parallel {
+                stage('🐧 Linux Build') {
+                    stages {
+                        stage('🔨 Build Linux') {
+                            steps {
+                                script {
+                                    echo '🔨 [LINUX] Configuration CMake et vcpkg...'
 
-                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                    // Lancer le build dans le workspace
-                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'build')
+                                    // Lancer le build dans le workspace (plateforme linux par défaut)
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'build')
 
-                    echo "Job créé: ${jobId}"
+                                    echo "[LINUX] Job créé: ${jobId}"
 
-                    // Attendre la fin du build
-                    def result = api.waitForJob(jobId, 10, 7200)
+                                    // Attendre la fin du build
+                                    def result = api.waitForJob(jobId, 10, 7200)
 
-                    echo "✅ Build terminé avec succès"
+                                    echo "✅ [LINUX] Build terminé avec succès"
+                                }
+                            }
+                        }
+
+                        stage('🔧 Compile Linux') {
+                            steps {
+                                script {
+                                    echo '🔧 [LINUX] Compilation du projet...'
+
+                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                                    // Lancer la compilation dans le workspace
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'compile')
+
+                                    echo "[LINUX] Job créé: ${jobId}"
+
+                                    // Attendre la fin de la compilation
+                                    def result = api.waitForJob(jobId, 10, 7200)
+
+                                    echo "✅ [LINUX] Compilation terminée avec succès"
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-        }
 
-        stage('🔧 Compile Project') {
-            steps {
-                script {
-                    echo '🔧 Compilation du projet...'
+                stage('🪟 Windows Build (cross-compilation)') {
+                    stages {
+                        stage('🔨 Build Windows') {
+                            steps {
+                                script {
+                                    echo '🔨 [WINDOWS] Configuration CMake et vcpkg avec MinGW...'
 
-                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                    // Lancer la compilation dans le workspace
-                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'compile')
+                                    // Lancer le build Windows dans le workspace avec --platform=windows
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'build', '--platform=windows')
 
-                    echo "Job créé: ${jobId}"
+                                    echo "[WINDOWS] Job créé: ${jobId}"
 
-                    // Attendre la fin de la compilation
-                    def result = api.waitForJob(jobId, 10, 7200)
+                                    // Attendre la fin du build
+                                    def result = api.waitForJob(jobId, 10, 7200)
 
-                    echo "✅ Compilation terminée avec succès"
+                                    echo "✅ [WINDOWS] Build terminé avec succès"
+                                }
+                            }
+                        }
+
+                        stage('🔧 Compile Windows') {
+                            steps {
+                                script {
+                                    echo '🔧 [WINDOWS] Compilation du projet avec MinGW...'
+
+                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                                    // Lancer la compilation dans le workspace
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID, 'compile')
+
+                                    echo "[WINDOWS] Job créé: ${jobId}"
+
+                                    // Attendre la fin de la compilation
+                                    def result = api.waitForJob(jobId, 10, 7200)
+
+                                    echo "✅ [WINDOWS] Compilation terminée avec succès"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

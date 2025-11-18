@@ -24,7 +24,13 @@ RUN apt-get update && apt-get install -y \
     linux-libc-dev \
     pkg-config \
     python3 \
-    rsync
+    rsync \
+    # Cross-compilation tools for Windows
+    mingw-w64 \
+    g++-mingw-w64-x86-64 \
+    gcc-mingw-w64-x86-64 \
+    binutils-mingw-w64-x86-64 \
+    wine64
 
 # Installer CMake (dernière version stable)
 RUN test -f /usr/share/doc/kitware-archive-keyring/copyright || wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null && \

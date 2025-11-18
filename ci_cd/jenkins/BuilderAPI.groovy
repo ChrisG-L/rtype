@@ -137,17 +137,19 @@ class BuilderAPI implements Serializable {
      * Submit a job in a specific workspace
      * @param workspaceId workspace identifier (e.g., "build_123")
      * @param command 'build' or 'compile'
+     * @param args optional command arguments (e.g., '--platform=windows')
      * @return job UUID
      */
-    String runInWorkspace(String workspaceId, String command) {
-        script.echo "📤 Soumission du job '${command}' dans workspace '${workspaceId}'..."
+    String runInWorkspace(String workspaceId, String command, String args = '') {
+        def commandWithArgs = args ? "${command} ${args}" : command
+        script.echo "📤 Soumission du job '${commandWithArgs}' dans workspace '${workspaceId}'..."
 
         // Retirer -f pour voir le contenu même en cas d'erreur HTTP
         def response = script.sh(
             script: """
                 curl -s -w '\\nHTTP_CODE:%{http_code}' -X POST \
                     -H 'Content-Type: application/json' \
-                    -d '{"command":"${command}"}' \
+                    -d '{"command":"${commandWithArgs}"}' \
                     ${baseUrl}/workspace/${workspaceId}/run
             """,
             returnStdout: true
