@@ -67,17 +67,17 @@ sleep 5
 MAX_RETRIES=10
 RETRY=0
 while [ $RETRY -lt $MAX_RETRIES ]; do
-    if curl -s "http://localhost:${API_PORT}/health" >/dev/null 2>&1; then
+    if curl -s "http://${CONTAINER_NAME}:${API_PORT}/health" >/dev/null 2>&1; then
         echo ""
         echo "✅ Builder permanent lancé avec succès !"
         echo ""
-        echo "🔗 API HTTP:   http://localhost:${API_PORT}"
-        echo "🔗 Rsync:      rsync://localhost:${RSYNC_PORT}/workspace"
+        echo "🔗 API HTTP:   http://${CONTAINER_NAME}:${API_PORT}"
+        echo "🔗 Rsync:      rsync://${CONTAINER_NAME}:${RSYNC_PORT}/workspace"
         echo "🔗 Container:  ${CONTAINER_NAME} (network: ${NETWORK})"
         echo ""
         echo "Commandes utiles:"
         echo "  - Voir les logs:   docker logs -f ${CONTAINER_NAME}"
-        echo "  - Health check:    curl http://localhost:${API_PORT}/health"
+        echo "  - Health check:    curl http://${CONTAINER_NAME}:${API_PORT}/health"
         echo "  - Stopper:         docker stop ${CONTAINER_NAME}"
         echo ""
         echo "API Endpoints disponibles:"
