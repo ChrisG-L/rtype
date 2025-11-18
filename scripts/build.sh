@@ -80,6 +80,35 @@ echo "🧹 Nettoyage du dossier build..."
 rm -rf build
 mkdir -p build
 
+# Workaround pour mongo-c-driver: créer des copies de windns.h avec la casse incorrecte
+# mongo-c-driver cherche winDNS.h au lieu de windns.h
+if [ "$PLATFORM" = "windows" ]; then
+    echo "🔧 Création de copies winDNS.h pour MinGW (workaround mongo-c-driver)..."
+    WINDNS_PATHS=$(find /usr -name 'windns.h' 2>/dev/null || true)
+    for windns_file in $WINDNS_PATHS; do
+        windns_dir=$(dirname "$windns_file")
+        windns_copy="$windns_dir/winDNS.h"
+
+        # Supprimer l'ancienne copie si elle existe pour garantir la synchronisation
+        if [ -f "$windns_copy" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+                rm "$windns_copy"
+            else
+                sudo rm "$windns_copy"
+            fi
+            echo "   🗑️  Supprimé ancienne copie: $windns_copy"
+        fi
+
+        # Créer une nouvelle copie
+        if [ "$(id -u)" -eq 0 ]; then
+            cp "$windns_file" "$windns_copy"
+        else
+            sudo cp "$windns_file" "$windns_copy"
+        fi
+        echo "   ✅ Copié: $windns_copy"
+    done
+fi
+
 # Configuration spécifique à la plateforme
 case $PLATFORM in
     linux)
