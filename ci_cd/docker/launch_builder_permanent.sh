@@ -43,7 +43,7 @@ fi
 # Vérifier si l'image existe
 if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
     echo "❌ Image ${IMAGE} introuvable."
-    echo "   Construisez d'abord l'image avec build_image.sh"
+    echo "   Construisez d'abord l'image avec build_imageBuilder.sh"
     exit 1
 fi
 

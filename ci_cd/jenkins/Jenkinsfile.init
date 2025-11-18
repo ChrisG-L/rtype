@@ -8,8 +8,8 @@ pipeline {
                     echo '🏗️  Construction de l\'image builder...'
                     sh """
                         cd ci_cd/docker
-                        chmod +x build_image.sh
-                        ./build_image.sh
+                        chmod +x build_imageBuilder.sh
+                        ./build_imageBuilder.sh
                     """
                     echo '✅ Image construite : rtype-builder:latest'
                 }
