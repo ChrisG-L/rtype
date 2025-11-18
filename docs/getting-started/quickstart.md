@@ -44,16 +44,13 @@ cd rtype
 git clone https://github.com/Pluenet-Killian/rtype.git
 cd rtype
 
-# 2. Lancer l'infrastructure
-./scripts/launch_ci_cd.sh
-
-# 3. Build et compilation avec Docker
-cd ci_cd/docker
-docker-compose -f docker-compose.build.yml up
+# 2. Build natif (recommandé pour développement)
+./scripts/build.sh
+./scripts/compile.sh
 ```
 
-!!! note "Build Docker vs Native"
-    Le build Docker garantit un environnement identique à la CI/CD, mais le build natif est plus rapide pour le développement.
+!!! note "Alternative CI/CD"
+    Pour utiliser l'infrastructure CI/CD complète (Jenkins + Builder permanent), consultez le [Guide CI/CD](../development/ci-cd.md).
 
 ## Lancer le serveur
 
@@ -293,23 +290,28 @@ Maintenant que vous avez lancé le projet :
 
 ## Commandes Docker utiles
 
-Si vous utilisez Docker :
+### Documentation locale
 
 ```bash
-# Construire l'image de build
-docker-compose -f ci_cd/docker/docker-compose.build.yml build
+# Lancer la documentation en mode développement
+cd ci_cd/docker
+docker-compose -f docker-compose.docs.yml up
 
-# Lancer la compilation
-docker-compose -f ci_cd/docker/docker-compose.build.yml up
+# Accéder à http://localhost:8000
+```
 
-# Arrêter les containers
-docker-compose -f ci_cd/docker/docker-compose.build.yml down
+### Infrastructure CI/CD
+
+```bash
+# Lancer Jenkins + Builder permanent
+cd ci_cd/docker
+docker-compose up -d
 
 # Voir les logs
-docker-compose -f ci_cd/docker/docker-compose.build.yml logs -f
+docker-compose logs -f
 
-# Nettoyer les images
-docker-compose -f ci_cd/docker/docker-compose.build.yml down --rmi all
+# Arrêter l'infrastructure
+docker-compose down
 ```
 
 ## Ressources additionnelles

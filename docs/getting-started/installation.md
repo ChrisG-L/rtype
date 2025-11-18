@@ -158,17 +158,13 @@ Docker doit déjà être installé (voir Étape 3 ci-dessus).
 ### Build avec Docker
 
 ```bash
-# 1. Lancer d'abord l'infrastructure CI/CD
-./scripts/launch_ci_cd.sh
-
-# 2. Build via Docker (méthode alternative au build natif)
+# Lancer l'infrastructure CI/CD complète (Jenkins + Builder permanent)
 cd ci_cd/docker
-docker-compose -f docker-compose.build.yml build
-docker-compose -f docker-compose.build.yml up
+docker-compose up
 ```
 
-!!! note "Build natif vs Docker"
-    Le build natif (via `./scripts/build.sh`) est recommandé pour le développement car il est plus rapide. Le build Docker est utile pour garantir un environnement de build identique à la CI/CD.
+!!! note "Build natif vs CI/CD"
+    Pour le développement local quotidien, le build natif (via `./scripts/build.sh`) est recommandé car il est plus rapide. L'infrastructure Docker CI/CD (Jenkins + Builder permanent) est principalement utilisée pour l'intégration continue et les builds automatisés.
 
 L'image Docker contient tous les outils nécessaires :
 

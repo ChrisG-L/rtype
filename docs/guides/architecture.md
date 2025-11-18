@@ -80,7 +80,6 @@ rtype/
 │   │   ├── Dockerfile.jenkins  # Image Jenkins CI/CD
 │   │   ├── Dockerfile.docs     # Image documentation
 │   │   ├── docker-compose.yml  # Jenkins + Builder
-│   │   ├── docker-compose.build.yml # Build local simple
 │   │   ├── docker-compose.docs.yml  # Documentation locale
 │   │   ├── builder/            # API Python du builder
 │   │   │   └── main.py         # Serveur HTTP REST
@@ -304,7 +303,9 @@ graph TB
 - **Usage :** Compilation isolée
 
 ```bash
-docker-compose -f ci_cd/docker/docker-compose.build.yml up
+# Lancer l'infrastructure CI/CD complète
+cd ci_cd/docker
+docker-compose up
 ```
 
 #### Image de Documentation (Dockerfile.docs)

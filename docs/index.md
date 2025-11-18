@@ -104,12 +104,9 @@ Le projet peut être lancé de plusieurs façons selon vos besoins :
 ### 2. Build complet avec Docker
 
 ```bash
-# Infrastructure d'abord
-./scripts/launch_ci_cd.sh
-
-# Build via Docker
+# Lancer l'infrastructure CI/CD complète (Jenkins + Builder permanent)
 cd ci_cd/docker
-docker-compose -f docker-compose.build.yml up
+docker-compose up
 ```
 
 ### 3. Accès à la documentation uniquement

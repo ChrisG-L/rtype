@@ -216,12 +216,21 @@ Le mode Debug inclut déjà AddressSanitizer pour détecter les erreurs mémoire
 
 ### Comment utiliser Docker pour compiler ?
 
+Pour le développement local, utilisez la compilation native :
+
 ```bash
-cd ci_cd/docker
-docker-compose -f docker-compose.build.yml up
+./scripts/build.sh
+./scripts/compile.sh
 ```
 
-Les artifacts sont dans `artifacts/server/linux/`.
+Pour l'infrastructure CI/CD (Jenkins + Builder permanent) :
+
+```bash
+cd ci_cd/docker
+docker-compose up -d
+```
+
+Consultez le [Guide CI/CD](../development/ci-cd.md) pour plus de détails.
 
 ### Comment lancer la documentation avec Docker ?
 

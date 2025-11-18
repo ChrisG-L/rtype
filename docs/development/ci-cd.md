@@ -889,7 +889,6 @@ options {
 ### Documentation technique
 
 - [API Builder - Référence complète](jenkins-builder-api.md)
-- [README technique CI/CD](/ci_cd/jenkins/README.md)
 
 ### Scripts et configurations
 
@@ -908,18 +907,17 @@ options {
 
 **Tester l'API manuellement** :
 ```bash
-# Depuis le script de test
-./ci_cd/jenkins/test_builder_api.sh
-
-# Ou commande par commande
+# Health check
 curl http://rtype_builder:8082/health
-curl -X POST http://rtype_builder:8082/workspace/create -d '{"build_number": 999}'
-curl -X POST http://rtype_builder:8082/workspace/build_999/run -d '{"command":"build"}'
-```
 
-**Tester les builds parallèles** :
-```bash
-./ci_cd/jenkins/test_parallel_builds.sh
+# Créer un workspace de test
+curl -X POST http://rtype_builder:8082/workspace/create -d '{"build_number": 999}'
+
+# Lancer un job dans le workspace
+curl -X POST http://rtype_builder:8082/workspace/build_999/run -d '{"command":"build"}'
+
+# Vérifier le statut
+curl http://rtype_builder:8082/status/<job_id>?tail=20
 ```
 
 ### Diagramme de décision rapide

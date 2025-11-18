@@ -688,110 +688,39 @@ proc = subprocess.Popen(
 )
 ```
 
-## Scripts de test
+## Tests manuels de l'API
 
-### test_builder_api.sh
+### Workflow complet de test
 
-Script pour tester l'API manuellement (workflow complet).
+**Tester l'API via curl** :
 
-**Emplacement** : `/ci_cd/jenkins/test_builder_api.sh`
-
-**Utilisation** :
 ```bash
-chmod +x ci_cd/jenkins/test_builder_api.sh
-./ci_cd/jenkins/test_builder_api.sh
+# 1. Health check
+curl http://rtype_builder:8082/health
+
+# 2. Créer un workspace de test
+curl -X POST http://rtype_builder:8082/workspace/create \
+  -H 'Content-Type: application/json' \
+  -d '{"build_number": 999}'
+
+# 3. Upload du code (via rsync depuis Jenkins)
+rsync -avz --delete \
+  --exclude='.git' \
+  --exclude='build*' \
+  ${WORKSPACE}/ \
+  rsync://rtype_builder:873/workspace/build_999/
+
+# 4. Lancer un job de build
+JOB_ID=$(curl -s -X POST http://rtype_builder:8082/workspace/build_999/run \
+  -H 'Content-Type: application/json' \
+  -d '{"command":"build"}' | jq -r '.job_id')
+
+# 5. Vérifier le statut
+curl "http://rtype_builder:8082/status/${JOB_ID}?tail=20"
+
+# 6. Nettoyer le workspace
+curl -X DELETE http://rtype_builder:8082/workspace/build_999
 ```
-
-**Ce que fait le script** :
-1. Health check de l'API
-2. Création d'un workspace de test (`build_999`)
-3. Upload de code via rsync (si disponible)
-4. Soumission d'un job de build
-5. Polling du statut toutes les 5 secondes
-6. Affichage des logs finaux
-7. Suppression du workspace
-
-**Sortie attendue** :
-```
-=== Test de l'API Builder ===
-
-1. Health Check...
-✅ Builder opérationnel
-
-2. Création du workspace test...
-✅ Workspace créé: build_999
-
-3. Lancement du job build...
-✅ Job soumis: 550e8400-e29b-41d4-a716-446655440000
-
-4. Attente de complétion...
-Status: running
-Status: running
-Status: finished
-
-5. Logs finaux:
-[BUILD] CMake configuration completed
-[BUILD] vcpkg dependencies installed
-✅ Build finished with returncode: 0
-
-6. Nettoyage...
-✅ Workspace supprimé
-
-=== Test terminé avec succès ===
-```
-
----
-
-### test_parallel_builds.sh
-
-Script pour tester les builds parallèles.
-
-**Emplacement** : `/ci_cd/jenkins/test_parallel_builds.sh`
-
-**Utilisation** :
-```bash
-chmod +x ci_cd/jenkins/test_parallel_builds.sh
-./ci_cd/jenkins/test_parallel_builds.sh
-```
-
-**Ce que fait le script** :
-1. Crée 3 workspaces simultanément (`build_100`, `build_101`, `build_102`)
-2. Lance 3 jobs de build en parallèle
-3. Surveille leur progression
-4. Affiche les statuts finaux
-5. Nettoie tous les workspaces
-
-**Sortie attendue** :
-```
-=== Test de builds parallèles ===
-
-Création de 3 workspaces...
-✅ Workspace build_100 créé
-✅ Workspace build_101 créé
-✅ Workspace build_102 créé
-
-Lancement de 3 jobs...
-✅ Job 1: uuid-1111
-✅ Job 2: uuid-2222
-✅ Job 3: uuid-3333
-
-Monitoring (5s polling)...
-Job 1: running | Job 2: running | Job 3: running
-Job 1: running | Job 2: finished | Job 3: running
-Job 1: finished | Job 2: finished | Job 3: finished
-
-Résultats:
-✅ Job 1: returncode 0
-✅ Job 2: returncode 0
-✅ Job 3: returncode 0
-
-Nettoyage...
-✅ Tous les workspaces supprimés
-
-=== Test réussi - 3 builds parallèles OK ===
-```
-
-**Utilité** : Valider que plusieurs builds peuvent s'exécuter simultanément sans conflit.
 
 ---
 
@@ -994,5 +923,4 @@ L'API stocke les jobs en mémoire. Pour les très longues sessions (plusieurs jo
 
 !!! tip "Ressources complémentaires"
     - [Guide CI/CD complet](ci-cd.md)
-    - [README technique](/ci_cd/jenkins/README.md)
     - [Code source de l'API](/ci_cd/docker/builder/main.py)

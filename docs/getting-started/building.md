@@ -267,36 +267,24 @@ Le projet R-Type utilise un **système de builder permanent** pour les compilati
 
 ### 1. Compilation locale simple (docker-compose)
 
-Pour une compilation rapide en local avec Docker :
+Pour compiler via l'infrastructure CI/CD :
 
 ```bash
-# Se placer dans le dossier Docker
+# Lancer l'infrastructure CI/CD (Jenkins + Builder permanent)
 cd ci_cd/docker
+docker-compose up -d
 
-# Build de l'image
-docker-compose -f docker-compose.build.yml build
-
-# Compilation dans Docker
-docker-compose -f docker-compose.build.yml up
-
-# Les artifacts sont disponibles dans artifacts/
-ls -lh ../../artifacts/server/linux/
+# Le builder permanent s'initialise automatiquement
+# Vous pouvez ensuite déclencher des builds via Jenkins sur http://localhost:8081
 ```
 
-**Fichier `docker-compose.build.yml` :**
+!!! tip "Builder permanent vs build local"
+    Le builder permanent est conçu pour Jenkins et les builds automatisés. Pour le développement local quotidien, la **compilation native** (méthode 1) est plus rapide et recommandée.
 
-```yaml
-services:
-  build:
-    build:
-      context: ../..
-      dockerfile: ci_cd/docker/Dockerfile.build
-    volumes:
-      - ../../:/workspace:cached
-    working_dir: /workspace
-```
-
-Cette méthode est idéale pour **tester rapidement** la compilation en environnement isolé.
+    L'infrastructure CI/CD offre :
+    - Builds parallèles avec workspaces isolés
+    - Cache vcpkg partagé entre builds
+    - Intégration avec Jenkins pour automatisation
 
 ---
 
