@@ -143,25 +143,24 @@ class Handler(BaseHTTPRequestHandler):
 		}).encode())
 		return True
 
-	def sendHealth(self, path):
+	def sendHealth(self):
 		self._set_json(200)
 		payload = {"status": "ok", "allowed_commands": AVAILABLE_COMMANDS}
 		self.wfile.write(json.dumps(payload).encode())
-		return True
 
 	def sendStatus(self, parsed, path):
 		job_id = unquote(path[len("/status/"):])
 		if not job_id:
 			self._set_json(400)
 			self.wfile.write(json.dumps({"error": "missing job id"}).encode())
-			return True
+			return
 
 		with jobs_lock:
 			job = jobs.get(job_id)
 		if not job:
 			self._set_json(404)
 			self.wfile.write(json.dumps({"error": "job not found"}).encode())
-			return True
+			return
 
 		# parse optional tail param
 		qs = parse_qs(parsed.query)
@@ -186,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
 
 		self._set_json(200)
 		self.wfile.write(json.dumps(resp).encode())
-		return True
+		return
 
 	def do_GET(self):
 		parsed = urlparse(self.path)
@@ -197,11 +196,13 @@ class Handler(BaseHTTPRequestHandler):
 		if path.startswith("/workspace/") and "/artifacts" in path and self.sendArtifacts(path):
 			return
 
-		if path in ("/", "/health") and self.sendHealth():
+		if path in ("/", "/health"):
+			self.sendHealth()
 			return
 
 		# status endpoint: /status/<uuid>
-		if path.startswith("/status/") and self.sendStatus(parsed, path):
+		if path.startswith("/status/"):
+			self.sendStatus(parsed, path)
 			return
 
 		self.send_response(404)
