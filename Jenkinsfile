@@ -3,10 +3,10 @@ def builderAPI
 pipeline {
     agent any
 
-    // Déclencheur pour surveiller les changements dans le SCM toutes les 3 minutes
+    /* // Déclencheur pour surveiller les changements dans le SCM toutes les 3 minutes
     triggers {
         pollSCM("H/3 * * * *")
-    }
+    } */
 
     // Options globales pour le pipeline
     options {
