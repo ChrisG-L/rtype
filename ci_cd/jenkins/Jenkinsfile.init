@@ -87,8 +87,8 @@ pipeline {
         success {
             echo '✅ Builder permanent initialisé avec succès !'
             echo ''
-            echo '🔗 API HTTP:   http://localhost:8082'
-            echo '🔗 Rsync:      rsync://localhost:8873/workspace'
+            echo '🔗 API HTTP:   http://rtype_builder:8082'
+            echo '🔗 Rsync:      rsync://rtype_builder:8873/workspace'
             echo ''
             echo 'Vous pouvez maintenant lancer des builds avec le Jenkinsfile principal.'
         }
