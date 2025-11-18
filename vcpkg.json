@@ -4,6 +4,10 @@
     "gtest",
     "mongo-cxx-driver",
     "openssl",
-    "protobuf"
+    "protobuf",
+    {
+      "name": "sfml",
+      "version>=": "3.0.1"
+    }
   ]
 }

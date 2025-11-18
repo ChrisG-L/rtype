@@ -27,6 +27,7 @@ find_package(GTest CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
 find_package(OpenSSL CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
+find_package(SFML 3 REQUIRED COMPONENTS Graphics Audio Network)
 
 add_library(rtype_proto STATIC)
 
@@ -55,6 +56,7 @@ target_link_libraries(rtype_proto PRIVATE
 
 # Inclure les sous-répertoires
 add_subdirectory("src/server")
+add_subdirectory("src/client")
 
 # Ajouter des tests pour le serveur
 add_subdirectory("tests/server")

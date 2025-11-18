@@ -13,7 +13,7 @@ echo "✅ Compilation terminée avec succès"
 if [[ "$*" != *"--no-launch"* ]]; then
     echo "Lancement du serveur..."
     # Lancer le serveur compilé
-    ./artifacts/server/linux/rtype_server
+    ./artifacts/server/linux/rtype_client
 else
     echo "Serveur non lancé (flag --no-launch détecté)"
 fi
