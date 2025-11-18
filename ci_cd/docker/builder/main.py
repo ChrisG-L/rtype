@@ -283,8 +283,13 @@ class Handler(BaseHTTPRequestHandler):
 				# Lancer le process dans le workspace
 				logfile = open(log_path, "wb")
 				try:
+					# Ajouter --no-launch pour compile car le serveur ne doit pas se lancer dans CI/CD
+					script_args = ["/bin/bash", script]
+					if cmd == "compile":
+						script_args.append("--no-launch")
+
 					proc = subprocess.Popen(
-						["/bin/bash", script],
+						script_args,
 						cwd=workspace_path,  # Important: working dir = workspace
 						stdout=logfile,
 						stderr=subprocess.STDOUT

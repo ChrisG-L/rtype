@@ -8,6 +8,12 @@ cd "$(git rev-parse --show-toplevel)"
 cmake --build build --config Debug
 
 echo "✅ Compilation terminée avec succès"
-echo "Lancement du serveur..."
-# Lancer le serveur compilé
-./artifacts/server/linux/rtype_server
+
+# Vérifier si le flag --no-launch est présent
+if [[ "$*" != *"--no-launch"* ]]; then
+    echo "Lancement du serveur..."
+    # Lancer le serveur compilé
+    ./artifacts/server/linux/rtype_server
+else
+    echo "Serveur non lancé (flag --no-launch détecté)"
+fi
