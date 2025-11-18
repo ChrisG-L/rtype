@@ -1,9 +1,30 @@
 #!/bin/bash
 set -e  # Arrêter en cas d'erreur
 
+# Parse arguments
+PLATFORM="linux"  # Default platform
+for arg in "$@"; do
+    case $arg in
+        --platform=*)
+            PLATFORM="${arg#*=}"
+            shift
+            ;;
+        *)
+            # Unknown option
+            ;;
+    esac
+done
+
+# Validate platform
+if [[ "$PLATFORM" != "linux" && "$PLATFORM" != "windows" && "$PLATFORM" != "macos" ]]; then
+    echo "❌ Erreur: Platform invalide '$PLATFORM'. Utilisez: linux, windows, ou macos"
+    exit 1
+fi
+
 PROJECT_ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd)"
 VCPKG_DIR="$PROJECT_ROOT/third_party/vcpkg"
 
+echo "🎯 Plateforme cible: $PLATFORM"
 echo "📁 Installation de vcpkg dans: $VCPKG_DIR"
 
 # Créer le dossier third_party s'il n'existe pas
@@ -59,13 +80,72 @@ echo "🧹 Nettoyage du dossier build..."
 rm -rf build
 mkdir -p build
 
-echo "Configuration du projet CMake"
+# Workaround pour mongo-c-driver: créer des copies de windns.h avec la casse incorrecte
+# mongo-c-driver cherche winDNS.h au lieu de windns.h
+if [ "$PLATFORM" = "windows" ]; then
+    echo "🔧 Création de copies winDNS.h pour MinGW (workaround mongo-c-driver)..."
+    WINDNS_PATHS=$(find /usr -name 'windns.h' 2>/dev/null || true)
+    for windns_file in $WINDNS_PATHS; do
+        windns_dir=$(dirname "$windns_file")
+        windns_copy="$windns_dir/winDNS.h"
+
+        # Supprimer l'ancienne copie si elle existe pour garantir la synchronisation
+        if [ -f "$windns_copy" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+                rm "$windns_copy"
+            else
+                sudo rm "$windns_copy"
+            fi
+            echo "   🗑️  Supprimé ancienne copie: $windns_copy"
+        fi
+
+        # Créer une nouvelle copie
+        if [ "$(id -u)" -eq 0 ]; then
+            cp "$windns_file" "$windns_copy"
+        else
+            sudo cp "$windns_file" "$windns_copy"
+        fi
+        echo "   ✅ Copié: $windns_copy"
+    done
+fi
+
+# Configuration spécifique à la plateforme
+case $PLATFORM in
+    linux)
+        VCPKG_TRIPLET="x64-linux"
+        CMAKE_CXX_COMPILER="g++"
+        CMAKE_C_COMPILER="gcc"
+        CMAKE_EXTRA_FLAGS=""
+        ;;
+    windows)
+        VCPKG_TRIPLET="x64-mingw-static"
+        CMAKE_CXX_COMPILER="x86_64-w64-mingw32-g++"
+        CMAKE_C_COMPILER="x86_64-w64-mingw32-gcc"
+        CMAKE_EXTRA_FLAGS="-DCMAKE_TOOLCHAIN_FILE=$PROJECT_ROOT/triplets/toolchains/mingw-w64-x86_64.cmake"
+        ;;
+    macos)
+        VCPKG_TRIPLET="x64-osx"
+        CMAKE_CXX_COMPILER="clang++"
+        CMAKE_C_COMPILER="clang"
+        CMAKE_EXTRA_FLAGS=""
+        ;;
+esac
+
+echo "📋 Configuration CMake:"
+echo "   - Triplet vcpkg: $VCPKG_TRIPLET"
+echo "   - Compilateur C++: $CMAKE_CXX_COMPILER"
+echo "   - Compilateur C: $CMAKE_C_COMPILER"
+
+echo "⚙️  Configuration du projet CMake..."
 mkdir -p build
 cmake -S . -B build \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
     -G "Ninja" \
-    -DCMAKE_CXX_COMPILER=g++ \
-    -DCMAKE_C_COMPILER=gcc \
-    -DVCPKG_TARGET_TRIPLET=x64-linux \
+    -DCMAKE_CXX_COMPILER=$CMAKE_CXX_COMPILER \
+    -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER \
+    -DVCPKG_TARGET_TRIPLET=$VCPKG_TRIPLET \
+    $CMAKE_EXTRA_FLAGS \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+echo "✅ Configuration terminée pour plateforme: $PLATFORM"

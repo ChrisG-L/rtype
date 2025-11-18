@@ -49,18 +49,26 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         -Wall                       # Activer tous les warnings
         -Wextra                     # Activer les warnings supplémentaires
         -Wpedantic                  # Rendre le standard strict
-
-        -fsanitize=address          # Détecte erreurs mémoire
-        -fsanitize=undefined        # Détecte comportement indéfini
-        -fsanitize=leak             # Détecte fuites mémoire
         -fno-omit-frame-pointer     # Garde les pointeurs de pile pour une meilleure traçabilité
     )
-    target_link_options(rtype_server PRIVATE
-        -fsanitize=address
-        -fsanitize=undefined
-        -fsanitize=leak
-        -static-libasan
-    )
+
+    # Sanitizers : uniquement pour builds natifs Linux/macOS (pas MinGW cross-compilation)
+    if(NOT CMAKE_CROSSCOMPILING AND NOT MINGW)
+        target_compile_options(rtype_server PRIVATE
+            -fsanitize=address          # Détecte erreurs mémoire
+            -fsanitize=undefined        # Détecte comportement indéfini
+            -fsanitize=leak             # Détecte fuites mémoire
+        )
+        target_link_options(rtype_server PRIVATE
+            -fsanitize=address
+            -fsanitize=undefined
+            -fsanitize=leak
+            -static-libasan
+        )
+        message(STATUS "Sanitizers activés (build natif)")
+    else()
+        message(STATUS "Sanitizers désactivés (cross-compilation ou MinGW)")
+    endif()
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")

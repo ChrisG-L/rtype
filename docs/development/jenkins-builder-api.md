@@ -13,13 +13,13 @@ graph TB
         HANDLER[RequestHandler]
 
         subgraph Jobs["Jobs Manager"]
-            JOBS_DICT[jobs: dict<uuid, JobInfo>]
-            JOBS_LOCK[jobs_lock: threading.Lock]
+            JOBS_DICT["jobs: dict(uuid, JobInfo)"]
+            JOBS_LOCK["jobs_lock: threading.Lock"]
         end
 
         subgraph Workspaces["Workspaces Manager"]
-            WS_DICT[workspaces: dict<id, WorkspaceInfo>]
-            WS_LOCK[workspaces_lock: threading.Lock]
+            WS_DICT["workspaces: dict(id, WorkspaceInfo)"]
+            WS_LOCK["workspaces_lock: threading.Lock"]
         end
 
         HTTP --> HANDLER
@@ -32,9 +32,9 @@ graph TB
         THREAD2[Thread Job 2]
         THREAD3[Thread Job 3]
 
-        PROC1[subprocess.Popen<br/>build.sh]
-        PROC2[subprocess.Popen<br/>compile.sh]
-        PROC3[subprocess.Popen<br/>build.sh]
+        PROC1["subprocess.Popen - build.sh"]
+        PROC2["subprocess.Popen - compile.sh"]
+        PROC3["subprocess.Popen - build.sh"]
 
         THREAD1 --> PROC1
         THREAD2 --> PROC2
@@ -44,7 +44,7 @@ graph TB
     HANDLER -->|Lance| Execution
 
     subgraph Storage["Stockage"]
-        LOGS[/workspace/builds/build_N/artifacts/<br/>uuid-1234.log]
+        LOGS["/workspace/builds/build_N/artifacts/uuid-1234.log"]
     end
 
     Execution -->|Écrit| LOGS

@@ -1,282 +1,52 @@
-# SonarQube - Analyse de Qualité de Code
+# SonarCloud - Qualité de Code
 
-## Qu'est-ce que SonarQube ?
+**Dernière mise à jour:** 18 janvier 2025
 
-**SonarQube** est une plateforme open-source d'inspection continue de la qualité du code. Elle effectue des analyses automatiques pour détecter :
+---
 
-- **Bugs** : Erreurs de code qui peuvent causer des problèmes en production
-- **Vulnérabilités** : Failles de sécurité potentielles (injection SQL, XSS, etc.)
-- **Code Smells** : Mauvaises pratiques qui rendent le code difficile à maintenir
-- **Duplication de code** : Code répété qui devrait être refactorisé
-- **Couverture de tests** : Pourcentage de code couvert par les tests
-- **Complexité** : Mesure de la complexité cyclomatique du code
+## 📊 Qu'est-ce que SonarCloud ?
 
-!!! info "Pourquoi utiliser SonarQube ?"
-    - **Qualité** : Maintenir un code propre et maintenable
-    - **Sécurité** : Détecter les vulnérabilités avant la production
-    - **Dette technique** : Suivre et réduire la dette technique
-    - **Standards** : Respecter les bonnes pratiques C++23
+**SonarCloud** est une plateforme d'analyse de qualité de code en ligne qui analyse automatiquement la branche `main` du projet R-Type.
 
-## SonarQube dans le projet R-Type
+### Ce que SonarCloud détecte
 
-Dans ce projet, SonarQube vous permet de :
+- **🐛 Bugs** : Erreurs de code qui peuvent causer des problèmes en production
+- **🔒 Vulnérabilités** : Failles de sécurité (buffer overflows, injections, etc.)
+- **💩 Code Smells** : Mauvaises pratiques qui rendent le code difficile à maintenir
+- **📋 Duplication** : Code répété qui devrait être refactorisé
+- **🧪 Couverture de tests** : Pourcentage de code couvert par les tests
+- **🔢 Complexité** : Complexité cyclomatique du code
 
-1. **Analyser le code C++23** pour détecter les problèmes de qualité
-2. **Suivre la couverture de tests** (intégration avec Google Test)
-3. **Détecter les vulnérabilités de sécurité** (buffer overflows, injections, etc.)
-4. **Mesurer la complexité** du code (fonctions trop complexes, etc.)
-5. **Visualiser la dette technique** et planifier les refactorings
-6. **Générer des rapports** pour l'équipe et les reviews de code
+---
 
-## Installation et Configuration
+## 🌐 Accès à SonarCloud
 
-### Utiliser SonarCloud (Recommandé)
+Le projet R-Type est analysé automatiquement via l'intégration GitHub/GitLab.
 
-Ce projet utilise **SonarCloud**, la version cloud de SonarQube hébergée en ligne. Aucune installation locale n'est nécessaire.
+### Accéder aux résultats
 
-**Avantages de SonarCloud** :
-- ✅ Pas d'infrastructure à maintenir
-- ✅ Toujours à jour avec la dernière version
-- ✅ Gratuit pour les projets open-source
-- ✅ Intégration facile avec GitHub/GitLab
-- ✅ Analyses illimitées
+1. **Allez sur** : [https://sonarcloud.io](https://sonarcloud.io)
+2. **Connectez-vous** avec votre compte GitHub/GitLab/Bitbucket
+3. **Cherchez** le projet R-Type dans votre organisation
+4. **Consultez** le dashboard pour voir les métriques
 
-### Accès à l'interface web
+!!! tip "Analyses automatiques"
+    SonarCloud analyse automatiquement :
 
-**URL** : https://sonarcloud.io
+    - ✅ Chaque push sur la branche **main**
 
-!!! info "Authentification"
-    Connectez-vous avec votre compte GitHub, GitLab ou Bitbucket. Aucun identifiant spécifique n'est requis.
+    **Rien à configurer** - tout est géré via l'intégration SCM !
 
-## Configuration du Projet
+    !!! note "Branches et Pull Requests"
+        Seule la branche `main` est analysée. Les autres branches et pull requests ne sont pas analysées automatiquement.
 
-### Étape 1 : Créer un projet dans SonarCloud
+---
 
-1. Connectez-vous à https://sonarcloud.io
-2. Cliquez sur **"+"** puis **"Analyze new project"**
-3. Sélectionnez votre organisation GitHub/GitLab
-4. Choisissez le repository **rtype**
-5. Configurez les informations :
-   - **Project key** : `votre-org_rtype`
-   - **Display name** : `R-Type Game`
-6. Cliquez sur **"Set Up"**
+## 📈 Interpréter le Dashboard
 
-### Étape 2 : Générer un token d'authentification
+### Métriques Principales
 
-1. Dans le projet, cliquez sur **"With other CI tools"** ou **"Locally"**
-2. Générez un token :
-   - **Name** : `rtype-ci-analysis`
-   - Copiez le token généré (vous ne pourrez plus le voir après)
-3. Conservez ce token de manière sécurisée (ex: GitHub Secrets pour CI/CD)
-
-### Étape 3 : Configuration du scanner
-
-Créez un fichier `sonar-project.properties` à la racine du projet :
-
-```properties
-# Informations du projet (utilisez votre organization key de SonarCloud)
-sonar.projectKey=votre-org_rtype
-sonar.organization=votre-org
-sonar.projectName=R-Type Game
-sonar.projectVersion=1.0
-
-# Chemins du code source
-sonar.sources=src
-sonar.tests=tests
-
-# Exclusions
-sonar.exclusions=**/third_party/**,**/build/**,**/artifacts/**,**/*.pb.cc,**/*.pb.h
-
-# Langage et encodage
-sonar.language=c++
-sonar.sourceEncoding=UTF-8
-
-# Build wrapper (pour C++)
-sonar.cfamily.build-wrapper-output=build/bw-output
-
-# Couverture de tests
-sonar.cfamily.gcov.reportsPath=build/coverage
-sonar.coverageReportPaths=build/coverage/coverage.xml
-
-# Standards C++
-sonar.cfamily.standard=c++23
-sonar.cfamily.threads=4
-
-# URL de SonarCloud
-sonar.host.url=https://sonarcloud.io
-```
-
-## Analyse du Code
-
-### Méthode 1 : Analyse locale avec sonar-scanner
-
-#### Installation du scanner
-
-```bash
-# Télécharger sonar-scanner
-wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-
-# Extraire
-unzip sonar-scanner-cli-5.0.1.3006-linux.zip -d /opt/
-
-# Ajouter au PATH
-echo 'export PATH=$PATH:/opt/sonar-scanner-5.0.1.3006-linux/bin' >> ~/.bashrc
-source ~/.bashrc
-```
-
-#### Lancer l'analyse
-
-```bash
-# Depuis la racine du projet
-sonar-scanner \
-  -Dsonar.projectKey=votre-org_rtype \
-  -Dsonar.organization=votre-org \
-  -Dsonar.sources=src \
-  -Dsonar.tests=tests \
-  -Dsonar.host.url=https://sonarcloud.io \
-  -Dsonar.login=VOTRE_TOKEN_ICI
-```
-
-!!! tip "Build Wrapper pour C++"
-    Pour une analyse complète du code C++, utilisez le build-wrapper de SonarQube qui capture les informations de compilation.
-
-### Méthode 2 : Analyse avec Build Wrapper (Recommandé pour C++)
-
-Le build wrapper capture les informations de compilation pour une analyse plus précise :
-
-```bash
-# 1. Télécharger le build wrapper
-wget https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
-unzip build-wrapper-linux-x86.zip -d /opt/
-
-# 2. Ajouter au PATH
-export PATH=$PATH:/opt/build-wrapper-linux-x86
-
-# 3. Nettoyer le build
-rm -rf build
-./scripts/build.sh
-
-# 4. Compiler avec le build wrapper
-build-wrapper-linux-x86-64 --out-dir build/bw-output ./scripts/compile.sh
-
-# 5. Lancer l'analyse SonarCloud
-sonar-scanner \
-  -Dsonar.projectKey=votre-org_rtype \
-  -Dsonar.organization=votre-org \
-  -Dsonar.sources=src \
-  -Dsonar.tests=tests \
-  -Dsonar.cfamily.build-wrapper-output=build/bw-output \
-  -Dsonar.host.url=https://sonarcloud.io \
-  -Dsonar.login=VOTRE_TOKEN_ICI
-```
-
-### Méthode 3 : Script d'analyse automatique
-
-Le projet inclut déjà un script `scripts/sonar-analyze.sh` qui automatise l'analyse :
-
-```bash
-#!/bin/bash
-set -e
-
-# Variables (configurez votre organisation et token)
-SONAR_HOST="${SONAR_HOST:-https://sonarcloud.io}"
-SONAR_TOKEN="${SONAR_TOKEN:-your-token-here}"
-SONAR_ORG="${SONAR_ORG:-votre-org}"
-SONAR_PROJECT="${SONAR_PROJECT:-votre-org_rtype}"
-PROJECT_ROOT="$(cd "$(git rev-parse --show-toplevel)" && pwd)"
-
-echo "🔍 Lancement de l'analyse SonarCloud..."
-
-# Vérifier que SonarCloud est accessible
-if ! curl -s "$SONAR_HOST/api/system/status" > /dev/null; then
-    echo "❌ Erreur: SonarCloud n'est pas accessible à $SONAR_HOST"
-    echo "💡 Vérifiez votre connexion internet"
-    exit 1
-fi
-
-cd "$PROJECT_ROOT"
-
-# Nettoyer et recompiler avec build-wrapper
-echo "🧹 Nettoyage du build..."
-rm -rf build/bw-output
-
-echo "🔨 Compilation avec build-wrapper..."
-build-wrapper-linux-x86-64 --out-dir build/bw-output ./scripts/compile.sh
-
-# Lancer l'analyse
-echo "📊 Analyse SonarCloud en cours..."
-sonar-scanner \
-  -Dsonar.projectKey="$SONAR_PROJECT" \
-  -Dsonar.organization="$SONAR_ORG" \
-  -Dsonar.sources=src \
-  -Dsonar.tests=tests \
-  -Dsonar.cfamily.build-wrapper-output=build/bw-output \
-  -Dsonar.host.url="$SONAR_HOST" \
-  -Dsonar.login="$SONAR_TOKEN"
-
-echo "✅ Analyse terminée!"
-echo "📈 Consultez les résultats sur: $SONAR_HOST/project/overview?id=$SONAR_PROJECT"
-```
-
-Puis lancez-le avec vos variables d'environnement :
-
-```bash
-# Configurer les variables d'environnement
-export SONAR_TOKEN="votre-token"
-export SONAR_ORG="votre-org"
-export SONAR_PROJECT="votre-org_rtype"
-
-# Lancer l'analyse
-./scripts/sonar-analyze.sh
-```
-
-## Intégration avec Jenkins
-
-Pour analyser automatiquement le code à chaque push, ajoutez une étape dans le `Jenkinsfile` :
-
-```groovy
-stage('SonarQube Analysis') {
-    steps {
-        script {
-            // Installer le scanner si nécessaire
-            sh '''
-                if [ ! -d "/opt/sonar-scanner" ]; then
-                    wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                    unzip sonar-scanner-cli-5.0.1.3006-linux.zip -d /opt/
-                    mv /opt/sonar-scanner-* /opt/sonar-scanner
-                fi
-            '''
-
-            // Lancer l'analyse
-            withSonarQubeEnv('SonarQube') {
-                sh '''
-                    /opt/sonar-scanner/bin/sonar-scanner \
-                        -Dsonar.projectKey=rtype \
-                        -Dsonar.sources=src \
-                        -Dsonar.tests=tests \
-                        -Dsonar.cfamily.build-wrapper-output=build/bw-output
-                '''
-            }
-        }
-    }
-}
-
-stage('Quality Gate') {
-    steps {
-        timeout(time: 5, unit: 'MINUTES') {
-            waitForQualityGate abortPipeline: true
-        }
-    }
-}
-```
-
-## Interpréter les Résultats
-
-### Dashboard principal
-
-Le dashboard SonarQube affiche plusieurs métriques clés :
-
-#### 1. Bugs
+#### 🐛 Bugs
 **Définition** : Erreurs de code qui peuvent causer des problèmes en production
 
 **Exemples en C++** :
@@ -287,7 +57,7 @@ Le dashboard SonarQube affiche plusieurs métriques clés :
 
 **Priorité** : 🔴 **CRITIQUE** - À corriger immédiatement
 
-#### 2. Vulnérabilités
+#### 🔒 Vulnérabilités
 **Définition** : Failles de sécurité exploitables
 
 **Exemples en C++** :
@@ -298,19 +68,19 @@ Le dashboard SonarQube affiche plusieurs métriques clés :
 
 **Priorité** : 🔴 **CRITIQUE** - À corriger immédiatement
 
-#### 3. Code Smells
+#### 💩 Code Smells
 **Définition** : Mauvaises pratiques qui rendent le code difficile à maintenir
 
 **Exemples en C++** :
 - Fonctions trop longues (>100 lignes)
-- Complexité cyclomatique élevée
+- Complexité cyclomatique élevée (>15)
 - Duplication de code
 - Mauvais nommage de variables
 - Commentaires TODO non résolus
 
 **Priorité** : 🟡 **MOYEN** - À corriger progressivement
 
-#### 4. Couverture de tests
+#### 🧪 Couverture de Tests
 **Définition** : Pourcentage de code couvert par les tests unitaires
 
 **Objectifs** :
@@ -318,7 +88,7 @@ Le dashboard SonarQube affiche plusieurs métriques clés :
 - 🟡 **60-80%** : Couverture acceptable
 - 🔴 **<60%** : Couverture insuffisante
 
-#### 5. Duplication
+#### 📋 Duplication
 **Définition** : Pourcentage de code dupliqué
 
 **Objectifs** :
@@ -326,151 +96,276 @@ Le dashboard SonarQube affiche plusieurs métriques clés :
 - 🟡 **3-5%** : Acceptable
 - 🔴 **>5%** : Refactoring nécessaire
 
-### Niveaux de sévérité
+### Niveaux de Sévérité
 
-| Sévérité | Description | Action |
-|----------|-------------|--------|
-| 🔴 **Blocker** | Bloque le déploiement | Corriger immédiatement |
-| 🟠 **Critical** | Problème majeur | Corriger avant merge |
-| 🟡 **Major** | Problème important | Corriger rapidement |
-| 🔵 **Minor** | Problème mineur | Corriger progressivement |
-| ⚪ **Info** | Information | Optionnel |
-
-## Quality Gates
-
-Les Quality Gates sont des seuils de qualité que le code doit respecter :
-
-### Configuration recommandée pour R-Type
-
-```yaml
-Quality Gate: "R-Type Standards"
-
-Conditions:
-  - Coverage on New Code >= 80%
-  - Duplicated Lines on New Code <= 3%
-  - Maintainability Rating on New Code = A
-  - Reliability Rating on New Code = A
-  - Security Rating on New Code = A
-  - Security Hotspots Reviewed = 100%
-```
-
-### Configurer un Quality Gate
-
-1. Allez dans **Quality Gates** > **Create**
-2. Nommez-le `R-Type Standards`
-3. Ajoutez les conditions ci-dessus
-4. Associez-le au projet R-Type
-
-## Workflow de Développement avec SonarQube
-
-### Avant de créer une Pull Request
-
-```bash
-# 1. Configurer les variables d'environnement
-export SONAR_TOKEN="votre-token"
-export SONAR_ORG="votre-org"
-export SONAR_PROJECT="votre-org_rtype"
-
-# 2. Lancer l'analyse locale
-./scripts/sonar-analyze.sh
-
-# 3. Consulter les résultats
-# https://sonarcloud.io/project/overview?id=votre-org_rtype
-
-# 4. Corriger les problèmes détectés
-
-# 5. Re-analyser pour vérifier
-./scripts/sonar-analyze.sh
-
-# 6. Si tout est vert, créer la PR
-```
-
-### Règles à suivre
-
-!!! success "Checklist avant merge"
-    - [ ] Aucun bug détecté
-    - [ ] Aucune vulnérabilité détectée
-    - [ ] Code Smells < 10 pour les nouveaux fichiers
-    - [ ] Couverture de tests >= 80% pour le nouveau code
-    - [ ] Duplication < 3%
-    - [ ] Quality Gate PASSED
-
-## Commandes Utiles
-
-| Commande | Description |
-|----------|-------------|
-| `export SONAR_TOKEN="token"` | Configurer le token d'authentification |
-| `export SONAR_ORG="org"` | Configurer l'organisation SonarCloud |
-| `export SONAR_PROJECT="org_rtype"` | Configurer le projet key |
-| `./scripts/sonar-analyze.sh` | Lancer une analyse complète |
-| `sonar-scanner` | Lancer une analyse manuelle |
-| `build-wrapper-linux-x86-64 --out-dir build/bw-output ./scripts/compile.sh` | Compiler avec build-wrapper |
-
-## Résolution des Problèmes
-
-### Erreur "Unauthorized" lors de l'analyse
-
-```bash
-# Vérifier que votre token est valide
-# 1. Allez sur https://sonarcloud.io
-# 2. Mon compte > Security > Tokens
-# 3. Générez un nouveau token si nécessaire
-# 4. Configurez-le: export SONAR_TOKEN="nouveau-token"
-```
-
-### Erreur "Organization not found"
-
-```bash
-# Vérifier le nom de votre organisation sur SonarCloud
-# 1. Allez sur https://sonarcloud.io
-# 2. Vérifiez le nom dans l'URL : sonarcloud.io/organizations/VOTRE-ORG
-# 3. Configurez: export SONAR_ORG="VOTRE-ORG"
-```
-
-### Analyse échoue avec "build-wrapper not found"
-
-```bash
-# Installer le build-wrapper
-wget https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
-unzip build-wrapper-linux-x86.zip -d /opt/
-export PATH=$PATH:/opt/build-wrapper-linux-x86
-```
-
-### Erreur "Project key already exists"
-
-```bash
-# Le projet existe déjà sur SonarCloud
-# 1. Utilisez le project key existant dans sonar-project.properties
-# 2. Ou supprimez le projet sur SonarCloud et recréez-le
-```
-
-### Problème de connexion à SonarCloud
-
-```bash
-# Vérifier la connectivité
-curl -I https://sonarcloud.io
-
-# Si le problème persiste, vérifier votre pare-feu/proxy
-```
-
-## Ressources Additionnelles
-
-- [Documentation officielle SonarCloud](https://docs.sonarcloud.io/)
-- [Documentation SonarQube](https://docs.sonarqube.org/)
-- [Règles C++ SonarQube](https://rules.sonarsource.com/cpp/)
-- [Build Wrapper pour C++](https://docs.sonarqube.org/latest/analyzing-source-code/languages/c-family/)
-- [Quality Gates](https://docs.sonarcloud.io/improving/quality-gates/)
-- [Intégration CI/CD](https://docs.sonarcloud.io/advanced-setup/ci-based-analysis/)
-
-## Prochaines Étapes
-
-1. [Créer un compte SonarCloud](#installation-et-configuration)
-2. [Configurer votre projet](#configuration-du-projet)
-3. [Lancer votre première analyse](#analyse-du-code)
-4. [Configurer les Quality Gates](#quality-gates)
-5. [Intégrer à Jenkins](#integration-avec-jenkins)
-6. [Consulter la [FAQ](../reference/faq.md) pour plus de questions]
+| Sévérité | Icône | Description | Action |
+|----------|-------|-------------|--------|
+| **Blocker** | 🔴 | Bloque le déploiement | Corriger immédiatement |
+| **Critical** | 🟠 | Problème majeur | Corriger avant merge |
+| **Major** | 🟡 | Problème important | Corriger rapidement |
+| **Minor** | 🔵 | Problème mineur | Corriger progressivement |
+| **Info** | ⚪ | Information | Optionnel |
 
 ---
 
-**Note** : SonarCloud est un outil puissant pour maintenir la qualité du code. Utilisez-le régulièrement pour détecter les problèmes tôt et maintenir un code propre et maintenable !
+## ✅ Quality Gates
+
+Les **Quality Gates** sont des seuils de qualité que le code doit respecter pour être mergé.
+
+### Seuils du Projet R-Type
+
+```yaml
+✅ Coverage on New Code >= 80%
+✅ Duplicated Lines on New Code <= 3%
+✅ Maintainability Rating on New Code = A
+✅ Reliability Rating on New Code = A
+✅ Security Rating on New Code = A
+✅ Security Hotspots Reviewed = 100%
+```
+
+!!! warning "Quality Gate Failed"
+    Si le Quality Gate échoue sur la branche `main` :
+
+    1. **Consultez** les détails sur SonarCloud
+    2. **Identifiez** les problèmes détectés
+    3. **Créez** une branche de correction
+    4. **Corrigez** les problèmes
+    5. **Mergez** dans `main`
+    6. **Attendez** 2-5 minutes que SonarCloud ré-analyse automatiquement
+
+---
+
+## 🔧 Workflow de Développement
+
+### Consulter les Résultats
+
+1. **Allez sur** [sonarcloud.io](https://sonarcloud.io)
+2. **Connectez-vous** avec votre compte GitHub/GitLab
+3. **Cherchez** le projet R-Type
+4. **Consultez** les métriques de la branche **main**
+
+!!! info "Analyses de la branche main uniquement"
+    SonarCloud analyse uniquement la branche `main`. Les résultats reflètent l'état du code mergé dans la branche principale.
+
+### Corriger les Problèmes Détectés
+
+1. **Identifiez** les bugs, vulnérabilités ou code smells sur le dashboard
+2. **Créez** une branche pour corriger le problème
+3. **Corrigez** le code
+4. **Créez** une Pull Request vers `main`
+5. **Mergez** dans `main`
+6. **Attendez** 2-5 minutes que SonarCloud ré-analyse automatiquement
+7. **Vérifiez** que le problème a disparu sur SonarCloud
+
+---
+
+## 🛠️ Corriger les Problèmes
+
+### Bugs Courants en C++
+
+#### Déréférencement de Pointeur Null
+
+```cpp
+❌ Problème:
+Player* player = nullptr;
+player->move(10, 5, 0);  // Crash!
+
+✅ Solution:
+Player* player = nullptr;
+if (player != nullptr) {
+    player->move(10, 5, 0);
+}
+```
+
+#### Accès Hors Limites
+
+```cpp
+❌ Problème:
+std::vector<int> vec = {1, 2, 3};
+int value = vec[10];  // Hors limites!
+
+✅ Solution:
+std::vector<int> vec = {1, 2, 3};
+if (index < vec.size()) {
+    int value = vec[index];
+}
+// Ou utiliser .at() qui lance une exception
+int value = vec.at(index);
+```
+
+#### Fuite Mémoire
+
+```cpp
+❌ Problème:
+Player* player = new Player();
+// Jamais de delete = fuite mémoire
+
+✅ Solution:
+// Utiliser smart pointers
+std::unique_ptr<Player> player = std::make_unique<Player>();
+// Nettoyage automatique
+```
+
+### Vulnérabilités Courantes
+
+#### Buffer Overflow
+
+```cpp
+❌ Problème:
+char buffer[10];
+strcpy(buffer, "Une très longue chaîne");  // Overflow!
+
+✅ Solution:
+std::string buffer = "Une très longue chaîne";
+// Ou utiliser strncpy avec limite
+char buffer[10];
+strncpy(buffer, "longue chaîne", sizeof(buffer) - 1);
+buffer[sizeof(buffer) - 1] = '\0';
+```
+
+#### Utilisation de Fonctions Non Sécurisées
+
+```cpp
+❌ Problème:
+char output[100];
+sprintf(output, "Player: %s", playerName.c_str());
+
+✅ Solution:
+char output[100];
+snprintf(output, sizeof(output), "Player: %s", playerName.c_str());
+// Ou mieux encore, utiliser std::string
+std::string output = "Player: " + playerName;
+```
+
+### Code Smells Courants
+
+#### Fonction Trop Longue
+
+```cpp
+❌ Problème:
+void processGame() {
+    // 200 lignes de code...
+    // Trop complexe à maintenir
+}
+
+✅ Solution:
+void processGame() {
+    updatePlayers();
+    updateEnemies();
+    checkCollisions();
+    updateUI();
+}
+
+void updatePlayers() { /* logique spécifique */ }
+void updateEnemies() { /* logique spécifique */ }
+// ...
+```
+
+#### Duplication de Code
+
+```cpp
+❌ Problème:
+void movePlayerLeft() {
+    player.x -= speed;
+    validatePosition(player);
+    notifyObservers(player);
+}
+
+void movePlayerRight() {
+    player.x += speed;
+    validatePosition(player);
+    notifyObservers(player);
+}
+
+✅ Solution:
+void movePlayer(float dx, float dy) {
+    player.x += dx;
+    player.y += dy;
+    validatePosition(player);
+    notifyObservers(player);
+}
+
+void movePlayerLeft() { movePlayer(-speed, 0); }
+void movePlayerRight() { movePlayer(speed, 0); }
+```
+
+---
+
+## 📊 Métriques de Qualité du Projet
+
+### Objectifs R-Type
+
+| Métrique | Objectif | Priorité |
+|----------|----------|----------|
+| **Bugs** | 0 | 🔴 Critique |
+| **Vulnérabilités** | 0 | 🔴 Critique |
+| **Code Smells** | < 50 | 🟡 Important |
+| **Couverture de tests** | > 80% | 🟠 Élevé |
+| **Duplication** | < 3% | 🟡 Important |
+| **Maintainability Rating** | A | 🟢 Bon |
+| **Reliability Rating** | A | 🔴 Critique |
+| **Security Rating** | A | 🔴 Critique |
+
+---
+
+## 🔗 Ressources
+
+### Documentation
+
+- **[SonarCloud](https://sonarcloud.io)** - Plateforme d'analyse
+- **[Documentation SonarCloud](https://docs.sonarcloud.io/)** - Guide officiel
+- **[Règles C++ SonarQube](https://rules.sonarsource.com/cpp/)** - Règles de qualité C++
+- **[Quality Gates](https://docs.sonarcloud.io/improving/quality-gates/)** - Configuration des seuils
+
+### Documentation Projet
+
+- **[Architecture](architecture.md)** - Architecture globale du projet
+- **[Bonnes Pratiques](best-practices.md)** - Standards de code C++23
+- **[Tests](../development/testing.md)** - Guide des tests unitaires
+- **[Contribution](../development/contributing.md)** - Guide de contribution
+
+---
+
+## ❓ Questions Fréquentes
+
+### Comment voir les résultats de mon code ?
+
+1. Mergez votre code dans la branche `main`
+2. Attendez 2-5 minutes que SonarCloud analyse
+3. Allez sur [sonarcloud.io](https://sonarcloud.io)
+4. Consultez les métriques de la branche **main**
+
+!!! note "Branches de développement"
+    Seule la branche `main` est analysée. Votre code ne sera analysé qu'après avoir été mergé dans `main`.
+
+### Comment suivre la qualité de mon code avant le merge ?
+
+SonarCloud n'analyse que la branche `main`. Pour vérifier votre code avant le merge :
+
+1. **Respectez les bonnes pratiques** C++23 (voir [Bonnes Pratiques](best-practices.md))
+2. **Écrivez des tests unitaires** pour votre code
+3. **Faites une revue de code** avec l'équipe
+4. **Après le merge**, vérifiez sur SonarCloud qu'aucun problème n'a été introduit
+
+### Comment augmenter la couverture de tests ?
+
+1. Consultez le rapport de couverture sur SonarCloud
+2. Identifiez les fichiers/fonctions non couverts
+3. Ajoutez des tests unitaires avec Google Test
+4. Voir le guide [Tests](../development/testing.md)
+
+### Dois-je installer SonarCloud localement ?
+
+**Non !** SonarCloud analyse automatiquement votre code à chaque push via l'intégration GitHub/GitLab. Aucune installation locale n'est nécessaire.
+
+### Comment corriger un problème spécifique ?
+
+1. Cliquez sur le problème dans SonarCloud
+2. Lisez la description et l'explication
+3. Consultez l'exemple de code fourni
+4. Appliquez la correction recommandée
+5. Pushez et attendez la ré-analyse
+
+---
+
+**Note** : SonarCloud est un outil puissant pour maintenir la qualité du code. Consultez régulièrement les rapports pour détecter les problèmes tôt et maintenir un code propre et maintenable !
