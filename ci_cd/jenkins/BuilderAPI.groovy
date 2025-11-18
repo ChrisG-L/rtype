@@ -278,8 +278,20 @@ class BuilderAPI implements Serializable {
             return 0
         }
 
+        // Log artifacts directory BEFORE mkdir
+        script.echo "📋 Contenu du dossier artifacts AVANT mkdir:"
+        script.sh """
+            ls -la ${localPath}/../ || echo "Dossier parent n'existe pas encore"
+        """
+
         // Create local directory
         script.sh "mkdir -p ${localPath}"
+
+        // Log artifacts directory BEFORE rsync
+        script.echo "📋 Contenu du dossier artifacts AVANT rsync:"
+        script.sh """
+            ls -la ${localPath}/../ || echo "Dossier parent n'existe pas encore"
+        """
 
         // Build rsync exclude arguments
         def excludeArgs = excludePatterns.collect { "--exclude='${it}'" }.join(' ')
@@ -289,6 +301,12 @@ class BuilderAPI implements Serializable {
             rsync -avz ${excludeArgs} \
                 ${artifactsInfo.rsync_path} \
                 ${localPath}/
+        """
+
+        // Log artifacts directory AFTER rsync
+        script.echo "📋 Contenu du dossier artifacts APRÈS rsync:"
+        script.sh """
+            ls -la ${localPath}/../
         """
 
         script.echo "✅ ${artifactsInfo.artifacts.size()} artefact(s) téléchargé(s)"
