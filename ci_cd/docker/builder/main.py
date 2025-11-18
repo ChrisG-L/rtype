@@ -104,6 +104,53 @@ class Handler(BaseHTTPRequestHandler):
 	def do_GET(self):
 		parsed = urlparse(self.path)
 		path = parsed.path
+
+		# Route: GET /workspace/{workspace_id}/artifacts
+		# Retourne la liste des fichiers artifacts disponibles
+		if path.startswith("/workspace/") and "/artifacts" in path:
+			parts = path.split("/")
+			if len(parts) >= 3:
+				workspace_id = parts[2]
+
+				with workspaces_lock:
+					if workspace_id not in workspaces:
+						self._set_json(404)
+						self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
+						return
+
+					workspace_path = workspaces[workspace_id]["path"]
+
+				artifacts_path = os.path.join(workspace_path, "artifacts")
+
+				if not os.path.exists(artifacts_path):
+					self._set_json(404)
+					self.wfile.write(json.dumps({"error": "no artifacts directory"}).encode())
+					return
+
+				# Lister récursivement tous les fichiers dans artifacts/
+				artifacts_list = []
+				for root, dirs, files in os.walk(artifacts_path):
+					for file in files:
+						# Ignorer les logs du builder
+						if file.endswith(".log"):
+							continue
+						full_path = os.path.join(root, file)
+						rel_path = os.path.relpath(full_path, artifacts_path)
+						file_size = os.path.getsize(full_path)
+						artifacts_list.append({
+							"path": rel_path,
+							"size": file_size,
+							"full_path": full_path
+						})
+
+				self._set_json(200)
+				self.wfile.write(json.dumps({
+					"workspace_id": workspace_id,
+					"artifacts": artifacts_list,
+					"rsync_path": f"rsync://{os.environ.get('BUILDER_HOST', 'rtype_builder')}:873/workspace/{workspace_id}/artifacts/"
+				}).encode())
+				return
+
 		if path in ("/", "/health"):
 			self._set_json(200)
 			payload = {"status": "ok", "allowed_commands": AVAILABLE_COMMANDS}

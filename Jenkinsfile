@@ -120,6 +120,33 @@ pipeline {
                 }
             }
         }
+
+        stage('📦 Download Artifacts') {
+            steps {
+                script {
+                    echo '📦 Récupération des artefacts...'
+
+                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                    // Télécharger les artefacts via l'API
+                    def count = api.downloadArtifacts(
+                        env.WORKSPACE_ID,
+                        "${WORKSPACE}/artifacts"
+                    )
+
+                    // Archiver les artefacts dans Jenkins si des fichiers ont été téléchargés
+                    if (count > 0) {
+                        archiveArtifacts artifacts: 'artifacts/**/*',
+                                        fingerprint: true,
+                                        allowEmptyArchive: false
+
+                        echo "✅ ${count} artefact(s) archivé(s) dans Jenkins"
+                    } else {
+                        echo "⚠️  Aucun artefact à archiver"
+                    }
+                }
+            }
+        }
     }
 
     post {

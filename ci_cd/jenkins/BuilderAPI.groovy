@@ -5,12 +5,12 @@
 class BuilderAPI implements Serializable {
     def script
     String baseUrl
-    
+
     BuilderAPI(script, String host = 'localhost', int port = 8082) {
         this.script = script
         this.baseUrl = "http://${host}:${port}"
     }
-    
+
     /**
      * Parse JSON string using Groovy's native JsonSlurperClassic (no plugin needed)
      * Note: Using JsonSlurperClassic instead of JsonSlurper because it returns
@@ -49,7 +49,7 @@ class BuilderAPI implements Serializable {
         script.echo "✅ Job soumis avec UUID: ${json.job_id}"
         return json.job_id
     }
-    
+
     /**
      * Get job status
      * @param jobId UUID of the job
@@ -69,7 +69,7 @@ class BuilderAPI implements Serializable {
 
         return parseJson(response)
     }
-    
+
     /**
      * Wait for job completion with polling
      * @param jobId UUID of the job
@@ -79,30 +79,30 @@ class BuilderAPI implements Serializable {
      */
     Map waitForCompletion(String jobId, int pollInterval = 5, int maxWaitTime = 3600) {
         script.echo "⏳ Attente de la completion du job ${jobId}..."
-        
+
         def startTime = System.currentTimeMillis()
         def status = null
-        
+
         while (true) {
             status = getStatus(jobId)
-            
+
             script.echo "📊 Status: ${status.status} | Command: ${status.command}"
-            
+
             if (status.status == 'finished' || status.status == 'failed') {
                 break
             }
-            
+
             def elapsed = (System.currentTimeMillis() - startTime) / 1000
             if (elapsed > maxWaitTime) {
                 script.error("Timeout waiting for job ${jobId} (waited ${elapsed}s)")
             }
-            
+
             script.sleep(pollInterval)
         }
-        
+
         return status
     }
-    
+
     /**
      * Submit job and wait for completion
      * @param command 'build' or 'compile'
@@ -113,9 +113,9 @@ class BuilderAPI implements Serializable {
     Map runAndWait(String command, int pollInterval = 5, int maxWaitTime = 3600) {
         def jobId = submitJob(command)
         def status = waitForCompletion(jobId, pollInterval, maxWaitTime)
-        
+
         script.echo "🏁 Job terminé avec returncode: ${status.returncode}"
-        
+
         // Display last 50 lines of log
         if (status.returncode != 0) {
             script.echo "📋 Dernières lignes du log:"
@@ -124,15 +124,15 @@ class BuilderAPI implements Serializable {
                 script.echo statusWithLog.log_tail
             }
         }
-        
+
         // Fail the pipeline if the job failed
         if (status.returncode != 0) {
             script.error("Job '${command}' failed with returncode ${status.returncode}")
         }
-        
+
         return status
     }
-    
+
     /**
      * Submit a job in a specific workspace
      * @param workspaceId workspace identifier (e.g., "build_123")
@@ -239,6 +239,60 @@ class BuilderAPI implements Serializable {
             script.echo "❌ Health check failed: ${e.message}"
             return false
         }
+    }
+
+    /**
+     * Get list of artifacts from a workspace
+     * @param workspaceId workspace identifier (e.g., "build_123")
+     * @return Map with artifacts list and rsync path
+     */
+    Map getArtifacts(String workspaceId) {
+        script.echo "📦 Récupération de la liste des artefacts du workspace '${workspaceId}'..."
+
+        def response = script.sh(
+            script: "curl -s -f ${baseUrl}/workspace/${workspaceId}/artifacts",
+            returnStdout: true
+        ).trim()
+
+        def json = parseJson(response)
+        script.echo "✅ ${json.artifacts.size()} artefact(s) trouvé(s)"
+
+        return json
+    }
+
+    /**
+     * Download artifacts from a workspace using rsync
+     * @param workspaceId workspace identifier
+     * @param localPath local destination path
+     * @param excludePatterns optional list of patterns to exclude (default: [])
+     * @return number of artifacts downloaded
+     */
+    int downloadArtifacts(String workspaceId, String localPath, List<String> excludePatterns = []) {
+        script.echo "📥 Téléchargement des artefacts du workspace '${workspaceId}' vers '${localPath}'..."
+
+        // Get artifacts info
+        def artifactsInfo = getArtifacts(workspaceId)
+
+        if (artifactsInfo.artifacts.size() == 0) {
+            script.echo "⚠️  Aucun artefact à télécharger"
+            return 0
+        }
+
+        // Create local directory
+        script.sh "mkdir -p ${localPath}"
+
+        // Build rsync exclude arguments
+        def excludeArgs = excludePatterns.collect { "--exclude='${it}'" }.join(' ')
+
+        // Download via rsync
+        script.sh """
+            rsync -avz ${excludeArgs} \
+                ${artifactsInfo.rsync_path} \
+                ${localPath}/
+        """
+
+        script.echo "✅ ${artifactsInfo.artifacts.size()} artefact(s) téléchargé(s)"
+        return artifactsInfo.artifacts.size()
     }
 }
 
