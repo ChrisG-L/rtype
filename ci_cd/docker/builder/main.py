@@ -131,9 +131,6 @@ class Handler(BaseHTTPRequestHandler):
 				artifacts_list = []
 				for root, dirs, files in os.walk(artifacts_path):
 					for file in files:
-						# Ignorer les logs du builder
-						if file.endswith(".log"):
-							continue
 						full_path = os.path.join(root, file)
 						rel_path = os.path.relpath(full_path, artifacts_path)
 						file_size = os.path.getsize(full_path)
