@@ -128,19 +128,22 @@ pipeline {
 
                     def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                    // Télécharger les artefacts via l'API
+                    // Créer un dossier spécifique pour ce build
+                    def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID}"
+
+                    // Télécharger les artefacts via l'API dans le dossier dédié
                     def count = api.downloadArtifacts(
                         env.WORKSPACE_ID,
-                        "${WORKSPACE}/artifacts"
+                        artifactPath
                     )
 
                     // Archiver les artefacts dans Jenkins si des fichiers ont été téléchargés
                     if (count > 0) {
-                        archiveArtifacts artifacts: 'artifacts/**/*',
+                        archiveArtifacts artifacts: "artifacts/${env.WORKSPACE_ID}/**/*",
                                         fingerprint: true,
                                         allowEmptyArchive: false
 
-                        echo "✅ ${count} artefact(s) archivé(s) dans Jenkins"
+                        echo "✅ ${count} artefact(s) archivé(s) dans Jenkins sous artifacts/${env.WORKSPACE_ID}/"
                     } else {
                         echo "⚠️  Aucun artefact à archiver"
                     }
