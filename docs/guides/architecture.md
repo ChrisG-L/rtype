@@ -86,7 +86,7 @@ rtype/
 │   │   │   └── main.py         # Serveur HTTP REST
 │   │   ├── entrypoint.sh       # Entrypoint builder (rsync + API)
 │   │   ├── rsyncd.conf         # Config rsync daemon
-│   │   ├── build_image.sh      # Script build image
+│   │   ├── build_imageBuilder.sh      # Script build image
 │   │   ├── launch_builder_permanent.sh
 │   │   └── stop_builder_permanent.sh
 │   └── jenkins/                # Configuration Jenkins

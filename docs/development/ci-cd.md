@@ -611,7 +611,7 @@ docker build -f ci_cd/docker/Dockerfile.build -t rtype-builder:latest .
 
 # Ou utiliser le script fourni
 cd ci_cd/docker
-./build_image.sh
+./build_imageBuilder.sh
 ```
 
 !!! note "Contexte de build"
