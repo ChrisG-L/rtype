@@ -40,14 +40,16 @@ public:
                         if (anim.loop) {
                             anim.currentFrame = 0;
                         } else {
-                            anim.currentFrame = anim.frames.size() - 1;
+                            anim.currentFrame = anim.frames.size() > 0 ? anim.frames.size() - 1 : 0;
                             anim.playing = false;
                         }
                     }
                 }
 
-                // Met à jour le rectangle du sprite
-                sprite.textureRect = anim.frames[anim.currentFrame];
+                // Met à jour le rectangle du sprite (avec vérification de sécurité)
+                if (anim.currentFrame < anim.frames.size()) {
+                    sprite.textureRect = anim.frames[anim.currentFrame];
+                }
             });
     }
 

@@ -70,7 +70,9 @@ public:
 
                 // Interpolation linéaire entre les deux états
                 float totalTime = after->timestamp - before->timestamp;
-                float t = (totalTime > 0.0f) ? (targetTime - before->timestamp) / totalTime : 0.0f;
+                // Epsilon pour éviter la division par des valeurs trop petites
+                constexpr float EPSILON = 0.001f;
+                float t = (totalTime > EPSILON) ? (targetTime - before->timestamp) / totalTime : 0.0f;
 
                 // Clamp t entre 0 et 1
                 t = std::max(0.0f, std::min(t, 1.0f));

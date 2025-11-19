@@ -12,9 +12,14 @@
 namespace rtype::network {
 
 NetworkSystem::NetworkSystem() {
-    // Configure le callback de réception
+    // Configure le callback de réception (appelé depuis thread réseau)
     m_client.setReceiveCallback([this](const std::uint8_t* data, std::size_t size) {
-        handlePacket(data, size);
+        // Copie les données dans la queue (thread-safe)
+        std::vector<std::uint8_t> packet(data, data + size);
+        {
+            std::lock_guard<std::mutex> lock(m_packetMutex);
+            m_packetQueue.push(std::move(packet));
+        }
     });
 }
 
@@ -22,6 +27,19 @@ void NetworkSystem::update(ecs::Registry& registry, float dt) {
     if (!isConnected()) return;
 
     m_currentRegistry = &registry;
+
+    // Traite les paquets reçus (depuis le thread principal)
+    std::queue<std::vector<std::uint8_t>> packetsToProcess;
+    {
+        std::lock_guard<std::mutex> lock(m_packetMutex);
+        std::swap(packetsToProcess, m_packetQueue);
+    }
+
+    while (!packetsToProcess.empty()) {
+        auto& packet = packetsToProcess.front();
+        handlePacket(packet.data(), packet.size());
+        packetsToProcess.pop();
+    }
 
     // Envoie les inputs périodiquement
     m_sendTimer += dt;
@@ -157,7 +175,8 @@ void NetworkSystem::handleGameState(const std::uint8_t* data, std::size_t size, 
             netState.vx = state.vx;
             netState.vy = state.vy;
             netState.tick = packet.serverTick;
-            // Le timestamp sera défini par l'InterpolationSystem
+            // Timestamp basé sur le tick serveur (en secondes)
+            netState.timestamp = static_cast<float>(packet.serverTick) / m_tickRate;
             interp->addState(netState);
         } else {
             // Mise à jour directe si pas d'interpolation

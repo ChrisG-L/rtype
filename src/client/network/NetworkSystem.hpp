@@ -14,6 +14,8 @@
 #include "Protocol.hpp"
 #include <deque>
 #include <chrono>
+#include <mutex>
+#include <queue>
 
 namespace rtype::network {
 
@@ -104,6 +106,13 @@ private:
 
     // Pointeur vers le registry (pour le callback)
     ecs::Registry* m_currentRegistry = nullptr;
+
+    // Mutex pour la synchronisation thread-safe
+    mutable std::mutex m_registryMutex;
+
+    // Queue de paquets reçus (thread-safe)
+    std::queue<std::vector<std::uint8_t>> m_packetQueue;
+    mutable std::mutex m_packetMutex;
 };
 
 } // namespace rtype::network

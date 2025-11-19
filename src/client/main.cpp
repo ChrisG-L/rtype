@@ -51,7 +51,12 @@ int main(int argc, char* argv[]) {
         }
         else if (std::strcmp(argv[i], "-p") == 0 || std::strcmp(argv[i], "--port") == 0) {
             if (i + 1 < argc) {
-                serverPort = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+                try {
+                    serverPort = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+                } catch (const std::exception&) {
+                    std::cerr << "Erreur: Port invalide" << std::endl;
+                    return 1;
+                }
             }
         }
         else if (std::strcmp(argv[i], "-n") == 0 || std::strcmp(argv[i], "--name") == 0) {
@@ -64,12 +69,22 @@ int main(int argc, char* argv[]) {
         }
         else if (std::strcmp(argv[i], "-w") == 0 || std::strcmp(argv[i], "--width") == 0) {
             if (i + 1 < argc) {
-                config.width = static_cast<unsigned int>(std::stoi(argv[++i]));
+                try {
+                    config.width = static_cast<unsigned int>(std::stoi(argv[++i]));
+                } catch (const std::exception&) {
+                    std::cerr << "Erreur: Largeur invalide" << std::endl;
+                    return 1;
+                }
             }
         }
         else if (std::strcmp(argv[i], "--height") == 0) {
             if (i + 1 < argc) {
-                config.height = static_cast<unsigned int>(std::stoi(argv[++i]));
+                try {
+                    config.height = static_cast<unsigned int>(std::stoi(argv[++i]));
+                } catch (const std::exception&) {
+                    std::cerr << "Erreur: Hauteur invalide" << std::endl;
+                    return 1;
+                }
             }
         }
         else if (std::strcmp(argv[i], "--offline") == 0) {
