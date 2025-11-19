@@ -16,7 +16,7 @@ using boost::asio::ip::tcp;
 class Boot {
     public:
         Boot(): io_ctx{}, tcpClient(std::make_unique<TCPClient>(io_ctx)) {};
-        ~Boot();
+        ~Boot() = default;
 
         
 
