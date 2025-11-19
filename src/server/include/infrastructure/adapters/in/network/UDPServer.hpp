@@ -27,7 +27,7 @@ namespace infrastructure::adapters::in::network {
             void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred);
 
         public:
-            UDPServer(boost::asio::io_context& io_ctx);
+            explicit UDPServer(boost::asio::io_context& io_ctx);
             void start(boost::asio::io_context& io_ctx);
             void run();
             void stop();
