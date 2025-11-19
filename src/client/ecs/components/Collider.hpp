@@ -39,7 +39,7 @@ struct Collider {
     Collider() = default;
 
     Collider(float width, float height, CollisionLayer layer = CollisionLayer::None)
-        : width(width), height(height), layer(layer) {}
+        : width(width), height(height), layer(layer), mask(0xFF) {}  // Collisionne avec tout par défaut
 
     Collider(float width, float height, CollisionLayer layer, std::uint8_t mask)
         : width(width), height(height), layer(layer), mask(mask) {}

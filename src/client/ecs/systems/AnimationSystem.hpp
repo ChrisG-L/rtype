@@ -28,6 +28,11 @@ public:
             [dt](Entity /*entity*/, components::Animation& anim, components::Sprite& sprite) {
                 if (!anim.playing || anim.frames.empty()) return;
 
+                // Vérifie que frameTime est valide pour éviter une boucle infinie
+                if (anim.frameTime <= 0.0f) {
+                    anim.frameTime = 0.1f;  // Valeur par défaut sûre
+                }
+
                 anim.currentTime += dt;
 
                 // Passe à la frame suivante si nécessaire

@@ -16,7 +16,16 @@ UDPClient::UDPClient()
 }
 
 UDPClient::~UDPClient() {
-    disconnect();
+    try {
+        disconnect();
+    } catch (const std::exception& e) {
+        std::cerr << "Erreur lors de la déconnexion: " << e.what() << std::endl;
+        // Force l'arrêt en cas d'erreur
+        m_running = false;
+        if (m_networkThread.joinable()) {
+            m_networkThread.join();
+        }
+    }
 }
 
 bool UDPClient::connect(const std::string& host, std::uint16_t port) {
@@ -92,9 +101,12 @@ void UDPClient::updateAcks(std::uint16_t receivedSequence) {
     if (receivedSequence > m_lastAck) {
         std::uint32_t diff = receivedSequence - m_lastAck;
 
-        if (diff <= 32) {
-            // Décale le bitfield et ajoute l'ancien ACK
-            m_ackBitfield = (m_ackBitfield << diff) | (1 << (diff - 1));
+        if (diff < 32) {
+            // Décale le bitfield et ajoute l'ancien ACK (diff < 32 pour éviter UB)
+            m_ackBitfield = (m_ackBitfield << diff) | (1u << (diff - 1));
+        } else if (diff == 32) {
+            // Cas limite: décaler de 32 bits causerait UB, traitement spécial
+            m_ackBitfield = 1u << 31;
         } else {
             // Trop grand écart, réinitialise le bitfield
             m_ackBitfield = 0;
@@ -104,8 +116,8 @@ void UDPClient::updateAcks(std::uint16_t receivedSequence) {
     } else if (receivedSequence < m_lastAck) {
         // Paquet ancien mais valide, marque dans le bitfield
         std::uint32_t diff = m_lastAck - receivedSequence;
-        if (diff <= 32) {
-            m_ackBitfield |= (1 << (diff - 1));
+        if (diff < 32 && diff > 0) {
+            m_ackBitfield |= (1u << (diff - 1));
         }
     }
 }
@@ -123,16 +135,27 @@ void UDPClient::handleReceive(const boost::system::error_code& error, std::size_
     if (!m_running) return;
 
     if (!error && bytesReceived > 0) {
-        // Appelle le callback
+        // Copie les données immédiatement pour éviter la corruption par le prochain receive
+        std::vector<std::uint8_t> receivedData(
+            m_receiveBuffer.begin(),
+            m_receiveBuffer.begin() + bytesReceived
+        );
+
+        // Continue à recevoir AVANT de traiter le callback
+        if (m_running) {
+            startReceive();
+        }
+
+        // Appelle le callback avec les données copiées
         std::lock_guard<std::mutex> lock(m_callbackMutex);
         if (m_receiveCallback) {
-            m_receiveCallback(m_receiveBuffer.data(), bytesReceived);
+            m_receiveCallback(receivedData.data(), receivedData.size());
         }
-    }
-
-    // Continue à recevoir
-    if (m_running) {
-        startReceive();
+    } else {
+        // Erreur ou pas de données, continue à recevoir
+        if (m_running) {
+            startReceive();
+        }
     }
 }
 

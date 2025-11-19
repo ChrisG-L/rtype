@@ -88,7 +88,7 @@ public:
     /**
      * @brief Récupère le dernier ACK reçu
      */
-    [[nodiscard]] std::uint32_t getLastAck() const { return m_lastAck; }
+    [[nodiscard]] std::uint16_t getLastAck() const { return m_lastAck; }
 
     /**
      * @brief Récupère le bitfield des ACKs
@@ -119,12 +119,12 @@ private:
     std::array<std::uint8_t, BUFFER_SIZE> m_receiveBuffer;
 
     // Callback de réception
-    ReceiveCallback m_receiveCallback;
+    ReceiveCallback m_receiveCallback = nullptr;
     std::mutex m_callbackMutex;
 
     // Séquençage et ACKs
     std::uint16_t m_sequence = 0;
-    std::uint32_t m_lastAck = 0;
+    std::uint16_t m_lastAck = 0;  // Même type que receivedSequence pour éviter les conversions
     std::uint32_t m_ackBitfield = 0;
 
     // RTT

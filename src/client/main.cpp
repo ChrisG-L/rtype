@@ -52,7 +52,12 @@ int main(int argc, char* argv[]) {
         else if (std::strcmp(argv[i], "-p") == 0 || std::strcmp(argv[i], "--port") == 0) {
             if (i + 1 < argc) {
                 try {
-                    serverPort = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+                    int port = std::stoi(argv[++i]);
+                    if (port < 1 || port > 65535) {
+                        std::cerr << "Erreur: Port doit être entre 1 et 65535" << std::endl;
+                        return 1;
+                    }
+                    serverPort = static_cast<std::uint16_t>(port);
                 } catch (const std::exception&) {
                     std::cerr << "Erreur: Port invalide" << std::endl;
                     return 1;

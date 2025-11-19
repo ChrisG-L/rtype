@@ -59,6 +59,7 @@ bool NetworkSystem::connect(const std::string& host, std::uint16_t port, const s
     // Envoie le paquet de connexion
     ConnectPacket packet;
     std::strncpy(packet.playerName, playerName.c_str(), sizeof(packet.playerName) - 1);
+    packet.playerName[sizeof(packet.playerName) - 1] = '\0';  // Garantit null-termination
     packet.header.sequence = m_client.nextSequence();
 
     m_client.send(packet);
@@ -81,6 +82,13 @@ void NetworkSystem::handlePacket(const std::uint8_t* data, std::size_t size) {
     if (size < sizeof(PacketHeader)) return;
 
     PacketType type = PacketSerializer::getPacketType(data, size);
+
+    // Valide que le type de paquet est un type serveur valide
+    std::uint8_t typeValue = static_cast<std::uint8_t>(type);
+    if (typeValue < 0x10 || typeValue > 0x16) {
+        // Type invalide ou type client (ne devrait pas être reçu)
+        return;
+    }
 
     switch (type) {
         case PacketType::ServerAccept: {

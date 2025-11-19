@@ -8,6 +8,7 @@
 #pragma once
 
 #include <vector>
+#include <cassert>
 #include <SFML/Graphics/Rect.hpp>
 
 namespace rtype::ecs::components {
@@ -34,7 +35,20 @@ struct Animation {
      * @brief Récupère la frame actuelle
      */
     [[nodiscard]] const sf::IntRect& getCurrentRect() const {
+        assert(!frames.empty() && currentFrame < frames.size() &&
+               "Animation::getCurrentRect() - accès hors-limites!");
         return frames[currentFrame];
+    }
+
+    /**
+     * @brief Récupère la frame actuelle de manière sûre
+     * @return Pointeur vers la frame ou nullptr si invalide
+     */
+    [[nodiscard]] const sf::IntRect* getCurrentRectSafe() const {
+        if (frames.empty() || currentFrame >= frames.size()) {
+            return nullptr;
+        }
+        return &frames[currentFrame];
     }
 
     /**

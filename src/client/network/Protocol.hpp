@@ -189,6 +189,8 @@ struct EventPacket {
  */
 class PacketSerializer {
 public:
+    // Limite maximale d'entités par paquet pour éviter les DoS
+    static constexpr std::size_t MAX_ENTITIES_PER_PACKET = 256;
     /**
      * @brief Sérialise un paquet en bytes
      */
@@ -246,6 +248,11 @@ public:
         if (size < sizeof(GameStatePacket)) return false;
 
         std::memcpy(&packet, data, sizeof(GameStatePacket));
+
+        // Vérifie la limite maximale d'entités pour éviter les DoS
+        if (packet.entityCount > MAX_ENTITIES_PER_PACKET) {
+            return false;
+        }
 
         std::size_t expectedSize = sizeof(GameStatePacket) + packet.entityCount * sizeof(EntityState);
         if (size < expectedSize) return false;
