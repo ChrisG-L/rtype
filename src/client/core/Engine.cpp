@@ -18,6 +18,7 @@ namespace core {
 
     void Engine::initialize()
     {
+        // Changer le SFML window et rendered par quelque chose de modulaire car couplage trop fort!
         _window = std::make_unique<SFMLWindow>();
         _window->initialize({.x = 1200, .y = 1200}, "rtype");
 

@@ -28,8 +28,8 @@ namespace core {
 
         protected:
         private:
-            std::unique_ptr<SFMLWindow> _window;
-            std::unique_ptr<SFMLRenderer> _renderer;
+            std::unique_ptr<graphics::IWindow> _window;
+            std::unique_ptr<IRenderer> _renderer;
             std::unique_ptr<GameLoop> _gameLoop;
     };
 }
