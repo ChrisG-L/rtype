@@ -32,6 +32,7 @@ jobs:
 
           # Step 1: Get all Jenkins jobs and find the branch
           echo "::group::Finding Jenkins job for branch $BRANCH_NAME"
+          echo "Jenkins Job URL: $JENKINS_BASE/job/$JENKINS_JOB"
           JOBS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$JENKINS_BASE/job/$JENKINS_JOB/api/json?tree=jobs[name,url]" || echo '{"jobs":[]}')
           echo "Jobs response: $JOBS_JSON"
 
