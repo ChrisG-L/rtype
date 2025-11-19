@@ -69,12 +69,12 @@ jobs:
           # Step 4: Poll for new build
           echo "::group::Waiting for new build to appear"
           NEW_BUILD_NUMBER=0
-          for i in {1..5}; do
+          for i in {1..10}; do
             POLL_API_URL=$(url_encode_brackets "${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME}/api/json?tree=builds[number,url]")
             BUILDS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$POLL_API_URL" 2>/dev/null || echo '{"builds":[]}')
             CURRENT_MAX=$(echo "$BUILDS_JSON" | jq -r '[.builds[].number] | max // 0')
 
-            echo "Attempt $i/5: Current max build number: $CURRENT_MAX (waiting for > $LAST_BUILD_NUMBER)"
+            echo "Attempt $i/10: Current max build number: $CURRENT_MAX (waiting for > $LAST_BUILD_NUMBER)"
 
             if [ "$CURRENT_MAX" -gt "$LAST_BUILD_NUMBER" ]; then
               NEW_BUILD_NUMBER=$CURRENT_MAX
@@ -82,7 +82,7 @@ jobs:
               break
             fi
 
-            if [ $i -lt 5 ]; then
+            if [ $i -lt 10 ]; then
               echo "Waiting 5 seconds before retry..."
               sleep 5
             fi
