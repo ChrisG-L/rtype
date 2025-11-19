@@ -28,6 +28,9 @@ from urllib.parse import urlparse, unquote, parse_qs
 WORKSPACE = os.environ.get("WORKSPACE", "/workspace")
 PORT = int(os.environ.get("BUILDER_PORT", "8082"))
 
+WORKSPACE_404 = "workspace not found"
+WORKSPACE_PATHPREFIX = "/workspace/"
+
 # Commandes disponibles pour les workspaces
 AVAILABLE_COMMANDS = ["build", "compile"]
 
@@ -111,7 +114,7 @@ class Handler(BaseHTTPRequestHandler):
         with workspaces_lock:
             if workspace_id not in workspaces:
                 self._set_json(404)
-                self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
+                self.wfile.write(json.dumps({"error": WORKSPACE_404}).encode())
                 return
 
             workspace_path = workspaces[workspace_id]["path"]
@@ -193,7 +196,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # Route: GET /workspace/{workspace_id}/artifacts
         # Retourne la liste des fichiers artifacts disponibles
-        if path.startswith("/workspace/") and path.endswith("/artifacts"):
+        if path.startswith(WORKSPACE_PATHPREFIX) and path.endswith("/artifacts"):
             self.sendArtifacts(path)
             return
 
@@ -243,7 +246,7 @@ class Handler(BaseHTTPRequestHandler):
         with workspaces_lock:
             if workspace_id not in workspaces:
                 self._set_json(404)
-                self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
+                self.wfile.write(json.dumps({"error": WORKSPACE_404}).encode())
                 return
             workspace_path = workspaces[workspace_id]["path"]
 
@@ -378,7 +381,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # Route: POST /workspace/{workspace_id}/run
-        if path.startswith("/workspace/") and path.endswith("/run"):
+        if path.startswith(WORKSPACE_PATHPREFIX) and path.endswith("/run"):
             self.runCmdInWorkspace(path)
             return
 
@@ -390,7 +393,7 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
 
         # Route: DELETE /workspace/{workspace_id}
-        if path.startswith("/workspace/"):
+        if path.startswith(WORKSPACE_PATHPREFIX):
             parts = path.split("/")
             if len(parts) >= 3:
                 workspace_id = parts[2]
@@ -400,7 +403,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps({"message": "workspace deleted"}).encode())
                 else:
                     self._set_json(404)
-                    self.wfile.write(json.dumps({"error": "workspace not found"}).encode())
+                    self.wfile.write(json.dumps({"error": WORKSPACE_404}).encode())
                 return
 
         self.send_response(404)
