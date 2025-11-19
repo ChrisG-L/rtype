@@ -104,7 +104,7 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     std::vector<User>MongoDBUserRepository::findAll() {
-        throw std::logic_error("MongoDBUserRepository::findAll: not implemented");
+        return {};
     }
 }
 
