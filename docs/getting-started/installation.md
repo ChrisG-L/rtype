@@ -141,8 +141,11 @@ Ce script va :
 # Vérifier que vcpkg est installé
 ./third_party/vcpkg/vcpkg version
 
-# Vérifier que CMake est configuré
-ls build/
+# Vérifier que CMake est configuré (Linux)
+ls buildLinux/
+
+# Pour Windows
+ls buildWin/
 
 # Devrait afficher des fichiers comme CMakeCache.txt, build.ninja, etc.
 ```

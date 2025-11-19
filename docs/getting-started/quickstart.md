@@ -159,11 +159,15 @@ nano src/server/main.cpp
 ### 4. Nettoyer si nécessaire
 
 ```bash
-# Nettoyer les fichiers de build
-rm -rf build/
+# Nettoyer les fichiers de build (Linux)
+rm -rf buildLinux/
+
+# Ou nettoyer tous les builds
+rm -rf build*/
 
 # Reconfigurer complètement
-./scripts/build.sh
+./scripts/build.sh                    # Linux
+./scripts/build.sh --platform=windows # Windows
 ./scripts/compile.sh
 ```
 
@@ -234,7 +238,7 @@ df -h .             # Au moins 5 GB disponibles
 
 ```bash
 # Nettoyer et recommencer
-rm -rf build/ artifacts/
+rm -rf build*/ artifacts/
 ./scripts/build.sh
 ./scripts/compile.sh
 ```
@@ -251,7 +255,7 @@ rm -rf third_party/vcpkg
 
 ```bash
 # Recompiler en mode Debug
-rm -rf build/
+rm -rf buildLinux/
 ./scripts/build.sh
 ./scripts/compile.sh
 ./artifacts/server/linux/server_tests --gtest_verbose

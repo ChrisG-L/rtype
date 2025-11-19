@@ -3,6 +3,9 @@
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
+# Indiquer que nous utilisons MinGW (pour désactiver les sanitizers)
+set(MINGW TRUE)
+
 # Specify the cross compiler
 set(CMAKE_C_COMPILER /usr/bin/x86_64-w64-mingw32-gcc)
 set(CMAKE_CXX_COMPILER /usr/bin/x86_64-w64-mingw32-g++)
@@ -14,10 +17,11 @@ set(CMAKE_RANLIB /usr/bin/x86_64-w64-mingw32-ranlib)
 set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)
 
 # Adjust the default behavior of FIND_XXX() commands
+# Note: We use BOTH instead of ONLY to allow vcpkg packages to be found
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
 
 # Static linking flags
 set(CMAKE_CXX_FLAGS_INIT "-static -static-libgcc -static-libstdc++")

@@ -104,22 +104,29 @@ sudo ./cmake-3.28.1-linux-x86_64.sh --prefix=/usr/local --skip-license
 Problème de linkage. Reconfigurer CMake :
 
 ```bash
-rm -rf build/
+# Pour Linux
+rm -rf buildLinux/
 ./scripts/build.sh
 ./scripts/compile.sh
+
+# Pour Windows
+rm -rf buildWin/
+./scripts/build.sh --platform=windows
+./scripts/compile.sh --platform=windows
 ```
 
 ### Comment nettoyer complètement le projet ?
 
 ```bash
-# Supprimer build et artifacts
-rm -rf build/ artifacts/
+# Supprimer tous les builds et artifacts
+rm -rf build*/ artifacts/
 
 # Optionnel : supprimer vcpkg (réinstallation complète)
 rm -rf third_party/vcpkg vcpkg_installed/
 
-# Reconfigurer
-./scripts/build.sh
+# Reconfigurer pour votre plateforme
+./scripts/build.sh                    # Linux
+./scripts/build.sh --platform=windows # Windows
 ./scripts/compile.sh
 ```
 

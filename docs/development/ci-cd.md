@@ -158,7 +158,8 @@ sequenceDiagram
 │   ├── src/            # Code source uploadé
 │   ├── third_party/    # Dépendances
 │   ├── scripts/        # Scripts de build
-│   ├── build/          # Répertoire CMake
+│   ├── buildLinux/     # Répertoire CMake (Linux)
+│   ├── buildWin/       # Répertoire CMake (Windows cross-compile)
 │   └── artifacts/      # Logs des jobs
 ├── build_124/          # Build Jenkins #124
 └── build_125/          # Build Jenkins #125
@@ -543,7 +544,7 @@ with jobs_lock:
 **Isolation des fichiers** :
 - Chaque workspace a son propre répertoire → aucune collision de fichiers
 - Les logs sont stockés dans `build_123/artifacts/`, `build_124/artifacts/`, etc.
-- Pas de conflit dans CMake (chaque workspace a son propre `build/`)
+- Pas de conflit dans CMake (chaque workspace a ses propres `buildLinux/` et `buildWin/`)
 
 **Limites pratiques** :
 - **CPU** : limité par le nombre de cœurs (chaque compilation utilise `-j$(nproc)`)

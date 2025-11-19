@@ -498,8 +498,11 @@ TEST(TCPServerTest, AcceptsConnection) {
 ### Tests d'Intégration
 
 ```bash
-# Lancer serveur
-./build/artifacts/server/linux/rtype_server
+# Lancer serveur (Linux)
+./artifacts/server/linux/rtype_server
+
+# Lancer serveur (Windows - via Wine)
+wine64 ./artifacts/server/windows/rtype_server.exe
 
 # Dans un autre terminal - Test UDP
 echo "TEST_MESSAGE" | nc -u localhost 4123

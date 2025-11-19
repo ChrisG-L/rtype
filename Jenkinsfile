@@ -95,6 +95,9 @@ pipeline {
                                 rsync -avz --delete \
                                     --exclude='.git' \
                                     --exclude='build/*' \
+                                    --exclude='buildLinux/*' \
+                                    --exclude='buildWin/*' \
+                                    --exclude='buildMac/*' \
                                     --exclude='cmake-build-*' \
                                     --exclude='*.o' \
                                     --exclude='*.a' \
@@ -118,6 +121,9 @@ pipeline {
                                 rsync -avz --delete \
                                     --exclude='.git' \
                                     --exclude='build/*' \
+                                    --exclude='buildLinux/*' \
+                                    --exclude='buildWin/*' \
+                                    --exclude='buildMac/*' \
                                     --exclude='cmake-build-*' \
                                     --exclude='*.o' \
                                     --exclude='*.a' \

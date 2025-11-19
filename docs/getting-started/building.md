@@ -27,11 +27,18 @@ Le projet fournit plusieurs scripts dans `scripts/` :
 
 ### build.sh
 
-Configure l'environnement et CMake.
+Configure l'environnement et CMake pour une plateforme spécifique.
 
 ```bash
 #!/bin/bash
+# Build pour Linux (par défaut)
 ./scripts/build.sh
+
+# Build pour Windows (cross-compilation)
+./scripts/build.sh --platform=windows
+
+# Build pour macOS
+./scripts/build.sh --platform=macos
 ```
 
 **Ce script effectue :**
@@ -39,38 +46,50 @@ Configure l'environnement et CMake.
 1. Installe vcpkg dans `third_party/vcpkg`
 2. Clone le repository Microsoft vcpkg
 3. Bootstrap vcpkg (compile l'exécutable vcpkg)
-4. Configure CMake avec :
-   - Type de build : Debug
-   - Générateur : Ninja
-   - Toolchain : vcpkg
-   - Triplet : x64-linux
-   - Compilateurs : GCC/G++
+4. **Crée un dossier de build spécifique à la plateforme** (`buildLinux/`, `buildWin/`, `buildMac/`)
+5. Configure CMake avec les paramètres appropriés pour la plateforme cible
 
-**Options de configuration CMake :**
+**Dossiers de build par plateforme :**
 
-```cmake
--DCMAKE_BUILD_TYPE=Debug                    # Mode Debug
--DCMAKE_MAKE_PROGRAM=/usr/bin/ninja         # Utiliser Ninja
--G "Ninja"                                  # Générateur Ninja
--DCMAKE_CXX_COMPILER=g++                    # Compilateur C++
--DCMAKE_C_COMPILER=gcc                      # Compilateur C
--DVCPKG_TARGET_TRIPLET=x64-linux            # Architecture cible
--DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
-```
+| Plateforme | Dossier de build | Triplet vcpkg | Compilateur |
+|------------|------------------|---------------|-------------|
+| Linux | `buildLinux/` | `x64-linux` | GCC/G++ |
+| Windows | `buildWin/` | `x64-mingw-static` | MinGW-w64 |
+| macOS | `buildMac/` | `x64-osx` | Clang |
+
+**Avantages de cette approche :**
+
+- ✅ Permet d'avoir plusieurs builds actifs simultanément (Linux + Windows)
+- ✅ Pas besoin de nettoyer entre les compilations cross-plateforme
+- ✅ Facilite les tests et comparaisons entre plateformes
 
 ### compile.sh
 
-Compile le projet déjà configuré.
+Compile le projet déjà configuré pour une plateforme spécifique.
 
 ```bash
 #!/bin/bash
+# Compiler pour Linux (par défaut)
 ./scripts/compile.sh
+
+# Compiler pour Windows
+./scripts/compile.sh --platform=windows
+
+# Compiler pour macOS
+./scripts/compile.sh --platform=macos
 ```
 
-**Équivalent à :**
+**Équivalent manuel :**
 
 ```bash
-cmake --build build --config Debug
+# Linux
+cmake --build buildLinux --config Debug
+
+# Windows
+cmake --build buildWin --config Debug
+
+# macOS
+cmake --build buildMac --config Debug
 ```
 
 ## Structure CMake
@@ -210,15 +229,18 @@ Optimisé pour le développement et le débogage.
 ./scripts/compile.sh
 ```
 
-**Ou manuellement :**
+**Ou manuellement (exemple pour Linux) :**
 
 ```bash
-cmake -S . -B build \
+cmake -S . -B buildLinux \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    -DCMAKE_CXX_COMPILER=g++ \
+    -DCMAKE_C_COMPILER=gcc \
+    -DVCPKG_TARGET_TRIPLET=x64-linux \
     -G "Ninja"
 
-cmake --build build
+cmake --build buildLinux
 ```
 
 ### Mode Release
@@ -235,8 +257,8 @@ Optimisé pour la production.
 **Compilation :**
 
 ```bash
-# Configuration Release
-cmake -S . -B build \
+# Configuration Release pour Linux
+cmake -S . -B buildLinux \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake \
     -DCMAKE_CXX_COMPILER=g++ \
@@ -245,7 +267,7 @@ cmake -S . -B build \
     -G "Ninja"
 
 # Compilation
-cmake --build build --config Release
+cmake --build buildLinux --config Release
 ```
 
 ### Mode RelWithDebInfo
@@ -253,12 +275,12 @@ cmake --build build --config Release
 Optimisé avec informations de debug.
 
 ```bash
-cmake -S . -B build \
+cmake -S . -B buildLinux \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake \
     -G "Ninja"
 
-cmake --build build
+cmake --build buildLinux
 ```
 
 ## Cross-Compilation Multi-Plateforme
@@ -469,24 +491,33 @@ Ninja détecte automatiquement les fichiers modifiés et ne recompile que le né
 ### Nettoyage des objets compilés
 
 ```bash
-# Nettoyer les .o et binaires
-cmake --build build --target clean
+# Nettoyer les .o et binaires (Linux)
+cmake --build buildLinux --target clean
+
+# Nettoyer Windows
+cmake --build buildWin --target clean
 
 # Ou avec Ninja
-ninja -C build clean
+ninja -C buildLinux clean
 ```
 
 ### Nettoyage complet
 
 ```bash
-# Supprimer tout le dossier de build
-rm -rf build/
+# Supprimer les dossiers de build spécifiques
+rm -rf buildLinux/
+rm -rf buildWin/
+rm -rf buildMac/
+
+# Ou supprimer tous les dossiers de build
+rm -rf build*/
 
 # Supprimer les artifacts
 rm -rf artifacts/
 
-# Reconfigurer
-./scripts/build.sh
+# Reconfigurer pour votre plateforme
+./scripts/build.sh                    # Linux
+./scripts/build.sh --platform=windows  # Windows
 ```
 
 ### Nettoyage vcpkg
@@ -507,11 +538,14 @@ Ninja utilise automatiquement tous les cœurs disponibles.
 Pour contrôler le parallélisme :
 
 ```bash
-# Utiliser 4 jobs en parallèle
-ninja -C build -j4
+# Utiliser 4 jobs en parallèle (Linux)
+ninja -C buildLinux -j4
 
 # Utiliser tous les cœurs
-ninja -C build -j$(nproc)
+ninja -C buildLinux -j$(nproc)
+
+# Windows
+ninja -C buildWin -j$(nproc)
 ```
 
 ## Targets CMake
@@ -519,7 +553,11 @@ ninja -C build -j$(nproc)
 ### Lister tous les targets
 
 ```bash
-cmake --build build --target help
+# Linux
+cmake --build buildLinux --target help
+
+# Windows
+cmake --build buildWin --target help
 ```
 
 ### Targets principaux
@@ -534,11 +572,14 @@ cmake --build build --target help
 ### Compiler un target spécifique
 
 ```bash
-# Compiler uniquement le serveur
-cmake --build build --target rtype_server
+# Compiler uniquement le serveur (Linux)
+cmake --build buildLinux --target rtype_server
 
-# Compiler uniquement les tests
-cmake --build build --target server_tests
+# Compiler uniquement les tests (Linux)
+cmake --build buildLinux --target server_tests
+
+# Compiler pour Windows
+cmake --build buildWin --target rtype_server
 ```
 
 ## Options de compilation avancées
@@ -548,20 +589,20 @@ cmake --build build --target server_tests
 Pour voir les commandes exactes exécutées :
 
 ```bash
-cmake --build build --verbose
+cmake --build buildLinux --verbose
 
 # Ou avec Ninja
-ninja -C build -v
+ninja -C buildLinux -v
 ```
 
 ### Profiling de la compilation
 
 ```bash
 # Mesurer le temps de compilation
-time cmake --build build
+time cmake --build buildLinux
 
 # Avec Ninja, afficher les statistiques
-ninja -C build -d stats
+ninja -C buildLinux -d stats
 ```
 
 ### Compilation avec Clang
@@ -569,13 +610,13 @@ ninja -C build -d stats
 Pour utiliser Clang au lieu de GCC :
 
 ```bash
-cmake -S . -B build \
+cmake -S . -B buildLinux \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake \
     -G "Ninja"
 
-cmake --build build
+cmake --build buildLinux
 ```
 
 ## Cache CMake
@@ -583,24 +624,29 @@ cmake --build build
 ### Voir le cache
 
 ```bash
-cmake -L build
+cmake -L buildLinux
 ```
 
 ### Modifier le cache
 
 ```bash
 # Changer le type de build
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -B buildLinux -DCMAKE_BUILD_TYPE=Release
 
 # Voir toutes les options
-ccmake build  # Interface interactive
+ccmake buildLinux  # Interface interactive
 ```
 
 ### Nettoyer le cache
 
 ```bash
-rm build/CMakeCache.txt
-cmake -S . -B build
+# Linux
+rm buildLinux/CMakeCache.txt
+cmake -S . -B buildLinux
+
+# Windows
+rm buildWin/CMakeCache.txt
+cmake -S . -B buildWin
 ```
 
 ## Analyse statique
@@ -616,11 +662,11 @@ Les warnings sont déjà activés par défaut :
 ### Compiler avec warnings as errors
 
 ```bash
-cmake -S . -B build \
+cmake -S . -B buildLinux \
     -DCMAKE_CXX_FLAGS="-Werror" \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-cmake --build build
+cmake --build buildLinux
 ```
 
 ## Résolution des problèmes de compilation
@@ -631,7 +677,7 @@ Problème de linkage. Vérifier que toutes les librairies sont liées :
 
 ```bash
 # Reconfigurer proprement
-rm -rf build/
+rm -rf buildLinux/
 ./scripts/build.sh
 ./scripts/compile.sh
 ```
@@ -645,18 +691,18 @@ Dépendances vcpkg manquantes :
 cd third_party/vcpkg
 ./vcpkg install
 cd ../..
-cmake --build build
+cmake --build buildLinux
 ```
 
 ### Erreur de sanitizer
 
 ```bash
 # Si les sanitizers posent problème, les désactiver temporairement
-cmake -S . -B build \
+cmake -S . -B buildLinux \
     -DCMAKE_CXX_FLAGS="" \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-cmake --build build
+cmake --build buildLinux
 ```
 
 ### Compilation très lente
@@ -664,7 +710,7 @@ cmake --build build
 ```bash
 # Utiliser la compilation en cache
 export CCACHE_DIR=$HOME/.ccache
-cmake -S . -B build \
+cmake -S . -B buildLinux \
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
 ```
