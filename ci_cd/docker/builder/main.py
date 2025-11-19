@@ -143,7 +143,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps({
             "workspace_id": workspace_id,
             "artifacts": artifacts_list,
-            "rsync_path": f"rsync://{os.environ.get('BUILDER_HOST', 'rtype_builder')}:873/workspace/{workspace_id}/artifacts/"
+            "artifacts_path": f"/workspace/{workspace_id}/artifacts/"
         }).encode())
 
     def sendHealth(self):

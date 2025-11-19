@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    environment {
+        BUILDER_HOST = "localhost"
+        ENABLE_LOCAL_BUILDER = "true"
+        BUILDER_PORT = "8082"
+    }
+
     stages {
         stage('🔧 Build Builder Image') {
             steps {
@@ -34,10 +40,11 @@ pipeline {
                 script {
                     echo '🚀 Lancement du builder permanent...'
 
+                    def localFlag = (env.ENABLE_LOCAL_BUILDER?.toLowerCase() == 'true') ? '--local-jenkins' : ''
                     sh """
                         cd ci_cd/docker
                         chmod +x launch_builder_permanent.sh
-                        ./launch_builder_permanent.sh --local-jenkins
+                        ./launch_builder_permanent.sh ${localFlag}
                     """
 
                     echo '✅ Builder permanent lancé !'
@@ -52,7 +59,7 @@ pipeline {
 
                     retry(5) {
                         sleep 2
-                        sh 'curl -f http://localhost:8082/health'
+                        sh "curl -f http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/health"
                     }
 
                     echo '✅ Builder opérationnel !'
@@ -66,7 +73,7 @@ pipeline {
                     echo '📊 Informations sur le builder :'
 
                     def healthResponse = sh(
-                        script: 'curl -s http://localhost:8082/health',
+                        script: "curl -s http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/health",
                         returnStdout: true
                     ).trim()
 
@@ -87,8 +94,8 @@ pipeline {
         success {
             echo '✅ Builder permanent initialisé avec succès !'
             echo ''
-            echo '🔗 API HTTP:   http://localhost:8082'
-            echo '🔗 Rsync:      rsync://localhost:873/workspace'
+            echo "🔗 API HTTP:   http://${env.BUILDER_HOST}:${env.BUILDER_PORT}"
+            echo "🔗 Rsync:      rsync://${env.BUILDER_HOST}:873/workspace"
             echo ''
             echo 'Vous pouvez maintenant lancer des builds avec le Jenkinsfile principal.'
         }

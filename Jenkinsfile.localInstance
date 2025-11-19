@@ -267,6 +267,7 @@ pipeline {
 
                             // Télécharger les artefacts Windows via l'API
                             def count = api.downloadArtifacts(
+                                env.BUILDER_HOST,
                                 env.WORKSPACE_ID_WINDOWS,
                                 artifactPath
                             )

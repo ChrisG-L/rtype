@@ -178,7 +178,7 @@ class BuilderAPI implements Serializable {
      * @param excludePatterns optional list of patterns to exclude (default: [])
      * @return number of artifacts downloaded
      */
-    int downloadArtifacts(String workspaceId, String localPath, List<String> excludePatterns = []) {
+    int downloadArtifacts(String builderHost, String workspaceId, String localPath, List<String> excludePatterns = []) {
         script.echo "📥 Téléchargement des artefacts du workspace '${workspaceId}' vers '${localPath}'..."
 
         // Get artifacts info
@@ -189,20 +189,8 @@ class BuilderAPI implements Serializable {
             return 0
         }
 
-        // Log artifacts directory BEFORE mkdir
-        script.echo "📋 Contenu du dossier artifacts AVANT mkdir:"
-        script.sh """
-            ls -la ${localPath}/../ || echo "Dossier parent n'existe pas encore"
-        """
-
         // Create local directory
         script.sh "mkdir -p ${localPath}"
-
-        // Log artifacts directory BEFORE rsync
-        script.echo "📋 Contenu du dossier artifacts AVANT rsync:"
-        script.sh """
-            ls -la ${localPath}/../ || echo "Dossier parent n'existe pas encore"
-        """
 
         // Build rsync exclude arguments
         def excludeArgs = excludePatterns.collect { "--exclude='${it}'" }.join(' ')
@@ -210,7 +198,7 @@ class BuilderAPI implements Serializable {
         // Download via rsync
         script.sh """
             rsync -avz ${excludeArgs} \
-                ${artifactsInfo.rsync_path} \
+                rsync://${builderHost}:873${artifactsInfo.artifacts_path} \
                 ${localPath}/
         """
 
