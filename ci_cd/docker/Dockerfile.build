@@ -22,6 +22,13 @@ RUN apt-get update && apt-get install -y \
     tar \
     sudo \
     linux-libc-dev \
+    libx11-dev \
+    libxi-dev \
+    libxrandr-dev \
+    libxcursor-dev \
+    libxi-dev \
+    libudev-dev \
+    libgl1-mesa-dev \
     pkg-config \
     python3 \
     rsync \
