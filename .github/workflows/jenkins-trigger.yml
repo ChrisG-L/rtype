@@ -30,10 +30,16 @@ jobs:
           echo "Branch: $BRANCH_NAME"
           echo "Commit: $COMMIT_ID"
 
+          # Helper function to URL encode brackets
+          url_encode_brackets() {
+            echo "$1" | sed 's/\[/%5B/g; s/\]/%5D/g'
+          }
+
           # Step 1: Get all Jenkins jobs and find the branch
           echo "::group::Finding Jenkins job for branch $BRANCH_NAME"
           echo "Jenkins Job URL: $JENKINS_BASE/job/$JENKINS_JOB"
-          JOBS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$JENKINS_BASE/job/$JENKINS_JOB/api/json?tree=jobs[name,url]" || echo '{"jobs":[]}')
+          JOBS_API_URL=$(url_encode_brackets "$JENKINS_BASE/job/$JENKINS_JOB/api/json?tree=jobs[name,url]")
+          JOBS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$JOBS_API_URL" || echo '{"jobs":[]}')
           echo "Jobs response: $JOBS_JSON"
 
           BRANCH_JOB_URL=$(echo "$JOBS_JSON" | jq -r --arg branch "$BRANCH_NAME" '.jobs[] | select(.name == $branch) | .url' | head -n 1)
@@ -45,7 +51,8 @@ jobs:
             echo "Found Jenkins job: $BRANCH_JOB_URL"
 
             # Step 2: Get the last build number for this branch
-            BUILDS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "${BRANCH_JOB_URL}api/json?tree=builds[number,url]" || echo '{"builds":[]}')
+            BUILDS_API_URL=$(url_encode_brackets "${BRANCH_JOB_URL}api/json?tree=builds[number,url]")
+            BUILDS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$BUILDS_API_URL" || echo '{"builds":[]}')
             echo "Builds response: $BUILDS_JSON"
 
             LAST_BUILD_NUMBER=$(echo "$BUILDS_JSON" | jq -r '[.builds[].number] | max // 0')
@@ -63,7 +70,8 @@ jobs:
           echo "::group::Waiting for new build to appear"
           NEW_BUILD_NUMBER=0
           for i in {1..5}; do
-            BUILDS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME}/api/json?tree=builds[number,url]" 2>/dev/null || echo '{"builds":[]}')
+            POLL_API_URL=$(url_encode_brackets "${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME}/api/json?tree=builds[number,url]")
+            BUILDS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$POLL_API_URL" 2>/dev/null || echo '{"builds":[]}')
             CURRENT_MAX=$(echo "$BUILDS_JSON" | jq -r '[.builds[].number] | max // 0')
 
             echo "Attempt $i/5: Current max build number: $CURRENT_MAX (waiting for > $LAST_BUILD_NUMBER)"
@@ -92,7 +100,8 @@ jobs:
           RESULT="null"
 
           for i in {1..350}; do
-            BUILD_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "${BUILD_URL}/api/json?tree=result,changeSets[items[commitId]]" || echo '{"result":null}')
+            RESULT_API_URL=$(url_encode_brackets "${BUILD_URL}/api/json?tree=result,changeSets[items[commitId]]")
+            BUILD_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$RESULT_API_URL" || echo '{"result":null}')
             RESULT=$(echo "$BUILD_JSON" | jq -r '.result // "null"')
 
             echo "Attempt $i/350: Build result: $RESULT"
