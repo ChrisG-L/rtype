@@ -66,7 +66,7 @@ sleep 5
 # Health check
 MAX_RETRIES=10
 RETRY=0
-while [ $RETRY -lt $MAX_RETRIES ]; do
+while [[ $RETRY -lt $MAX_RETRIES ]]; do
     if curl -s "http://${CONTAINER_NAME}:${API_PORT}/health" >/dev/null 2>&1; then
         echo ""
         echo "✅ Builder permanent lancé avec succès !"

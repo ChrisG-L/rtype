@@ -31,9 +31,9 @@ echo "📁 Installation de vcpkg dans: $VCPKG_DIR"
 mkdir -p "$PROJECT_ROOT/third_party"
 
 # Cloner vcpkg s'il n'existe pas, sinon mettre à jour / continuer
-if [ -d "$VCPKG_DIR" ]; then
+if [[ -d "$VCPKG_DIR" ]]; then
     echo "📁 Le dossier vcpkg existe: $VCPKG_DIR"
-    if [ -d "$VCPKG_DIR/.git" ]; then
+    if [[ -d "$VCPKG_DIR/.git" ]]; then
         echo "🔄 Mise à jour du dépôt vcpkg (pull --ff-only)..."
         # Essayer de récupérer les dernières modifications sans forcer l'échec du script
         git -C "$VCPKG_DIR" pull --ff-only || echo "⚠️ Impossible de faire 'git pull --ff-only' sur vcpkg, on continue"
@@ -50,7 +50,7 @@ else
 fi
 
 # Installer argon2 : sans sudo si on est root, sinon avec sudo
-if [ "$(id -u)" -eq 0 ]; then
+if [[ "$(id -u)" -eq 0 ]]; then
     apt install -y argon2
 else
     sudo apt install -y argon2
@@ -64,7 +64,7 @@ echo "🔨 Compilation de vcpkg (bootstrap)..."
 ./bootstrap-vcpkg.sh
 
 # Vérifier que l'exécutable existe
-if [ -f "$VCPKG_DIR/vcpkg" ]; then
+if [[ -f "$VCPKG_DIR/vcpkg" ]]; then
     echo "✅ vcpkg installé avec succès!"
     "$VCPKG_DIR/vcpkg" version
 else
@@ -87,6 +87,10 @@ case $PLATFORM in
     macos)
         BUILD_DIR="buildMac"
         ;;
+    *)
+        echo "❌ Erreur: Plateforme non supportée: $PLATFORM"
+        exit 1
+        ;;
 esac
 
 echo "🧹 Nettoyage du dossier $BUILD_DIR..."
@@ -95,7 +99,7 @@ mkdir -p "$BUILD_DIR"
 
 # Workaround pour mongo-c-driver: créer des copies de windns.h avec la casse incorrecte
 # mongo-c-driver cherche winDNS.h au lieu de windns.h
-if [ "$PLATFORM" = "windows" ]; then
+if [[ "$PLATFORM" = "windows" ]]; then
     echo "🔧 Création de copies winDNS.h pour MinGW (workaround mongo-c-driver)..."
     WINDNS_PATHS=$(find /usr -name 'windns.h' 2>/dev/null || true)
     for windns_file in $WINDNS_PATHS; do
@@ -103,8 +107,8 @@ if [ "$PLATFORM" = "windows" ]; then
         windns_copy="$windns_dir/winDNS.h"
 
         # Supprimer l'ancienne copie si elle existe pour garantir la synchronisation
-        if [ -f "$windns_copy" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
+        if [[ -f "$windns_copy" ]]; then
+            if [[ "$(id -u)" -eq 0 ]]; then
                 rm "$windns_copy"
             else
                 sudo rm "$windns_copy"
@@ -113,7 +117,7 @@ if [ "$PLATFORM" = "windows" ]; then
         fi
 
         # Créer une nouvelle copie
-        if [ "$(id -u)" -eq 0 ]; then
+        if [[ "$(id -u)" -eq 0 ]]; then
             cp "$windns_file" "$windns_copy"
         else
             sudo cp "$windns_file" "$windns_copy"
@@ -122,8 +126,8 @@ if [ "$PLATFORM" = "windows" ]; then
     done
 
     echo "🔧 Création de symlink libDnsapi.a pour MinGW (workaround casse)..."
-    if [ -f /usr/x86_64-w64-mingw32/lib/libdnsapi.a ] && [ ! -f /usr/x86_64-w64-mingw32/lib/libDnsapi.a ]; then
-        if [ "$(id -u)" -eq 0 ]; then
+    if [[ -f /usr/x86_64-w64-mingw32/lib/libdnsapi.a ]] && [[ ! -f /usr/x86_64-w64-mingw32/lib/libDnsapi.a ]]; then
+        if [[ "$(id -u)" -eq 0 ]]; then
             ln -s libdnsapi.a /usr/x86_64-w64-mingw32/lib/libDnsapi.a
         else
             sudo ln -s libdnsapi.a /usr/x86_64-w64-mingw32/lib/libDnsapi.a
@@ -153,6 +157,10 @@ case $PLATFORM in
         CMAKE_CXX_COMPILER="clang++"
         CMAKE_C_COMPILER="clang"
         CMAKE_EXTRA_FLAGS=""
+        ;;
+    *)
+        echo "❌ Erreur: Plateforme non supportée: $PLATFORM"
+        exit 1
         ;;
 esac
 

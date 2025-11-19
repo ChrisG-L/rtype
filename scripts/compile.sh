@@ -36,12 +36,16 @@ case $PLATFORM in
         BUILD_DIR="buildMac"
         ARTIFACT_PATH="./artifacts/server/macos/rtype_server"
         ;;
+    *)
+        echo "❌ Erreur: Plateforme non supportée: $PLATFORM"
+        exit 1
+        ;;
 esac
 
 cd "$(git rev-parse --show-toplevel)"
 
 # Vérifier que le dossier de build existe
-if [ ! -d "$BUILD_DIR" ]; then
+if [[ ! -d "$BUILD_DIR" ]]; then
     echo "❌ Erreur: Le dossier $BUILD_DIR n'existe pas."
     echo "   Veuillez d'abord exécuter: ./scripts/build.sh --platform=$PLATFORM"
     exit 1
@@ -57,7 +61,7 @@ echo "✅ Compilation terminée avec succès"
 
 # Vérifier si le flag --no-launch est présent
 if [[ "$*" != *"--no-launch"* ]]; then
-    if [ "$PLATFORM" = "linux" ] || [ "$PLATFORM" = "macos" ]; then
+    if [[ "$PLATFORM" == "linux" || "$PLATFORM" == "macos" ]]; then
         echo "🚀 Lancement du serveur..."
         # Lancer le serveur compilé
         "$ARTIFACT_PATH"
