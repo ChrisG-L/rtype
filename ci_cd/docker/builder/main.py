@@ -40,7 +40,7 @@ workspaces = {}
 workspaces_lock = threading.Lock()
 
 
-def monitor_job(job_id, proc, log_path):
+def monitor_job(job_id, proc):
 	with jobs_lock:
 		jobs[job_id]["status"] = "running"
 		jobs[job_id]["pid"] = proc.pid
@@ -351,7 +351,7 @@ class Handler(BaseHTTPRequestHandler):
 
 		def _monitor_and_close():
 			try:
-				monitor_job(job_id, proc, log_path)
+				monitor_job(job_id, proc)
 			finally:
 				try:
 					logfile.close()
