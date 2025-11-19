@@ -217,7 +217,7 @@ pipeline {
                                     def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
                                     // Lancer la compilation dans le workspace Windows
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'compile')
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'compile', '--platform=windows')
 
                                     echo "[WINDOWS] Job créé: ${jobId}"
 
