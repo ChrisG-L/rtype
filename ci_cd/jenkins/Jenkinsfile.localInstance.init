@@ -1,0 +1,100 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('🔧 Build Builder Image') {
+            steps {
+                script {
+                    echo '🏗️  Construction de l\'image builder...'
+                    sh """
+                        cd ci_cd/docker
+                        chmod +x build_imageBuilder.sh
+                        ./build_imageBuilder.sh
+                    """
+                    echo '✅ Image construite : rtype-builder:latest'
+                }
+            }
+        }
+
+        stage('🛑 Stop Existing Builder') {
+            steps {
+                script {
+                    echo '🛑 Arrêt du builder existant (si présent)...'
+                    sh """
+                        cd ci_cd/docker
+                        chmod +x stop_builder_permanent.sh
+                        ./stop_builder_permanent.sh || true
+                    """
+                }
+            }
+        }
+
+        stage('🐳 Launch Permanent Builder') {
+            steps {
+                script {
+                    echo '🚀 Lancement du builder permanent...'
+
+                    sh """
+                        cd ci_cd/docker
+                        chmod +x launch_builder_permanent.sh
+                        ./launch_builder_permanent.sh --local-jenkins
+                    """
+
+                    echo '✅ Builder permanent lancé !'
+                }
+            }
+        }
+
+        stage('✅ Health Check') {
+            steps {
+                script {
+                    echo '🏥 Vérification de la santé du builder...'
+
+                    retry(5) {
+                        sleep 2
+                        sh 'curl -f http://localhost:8082/health'
+                    }
+
+                    echo '✅ Builder opérationnel !'
+                }
+            }
+        }
+
+        stage('📊 Builder Info') {
+            steps {
+                script {
+                    echo '📊 Informations sur le builder :'
+
+                    def healthResponse = sh(
+                        script: 'curl -s http://localhost:8082/health',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Health response: ${healthResponse}"
+
+                    sh """
+                        echo ""
+                        echo "Container Info:"
+                        docker ps --filter name=rtype_builder --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'
+                        echo ""
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Builder permanent initialisé avec succès !'
+            echo ''
+            echo '🔗 API HTTP:   http://localhost:8082'
+            echo '🔗 Rsync:      rsync://localhost:8873/workspace'
+            echo ''
+            echo 'Vous pouvez maintenant lancer des builds avec le Jenkinsfile principal.'
+        }
+        failure {
+            echo '❌ Échec de l\'initialisation du builder'
+            sh 'docker logs rtype_builder || true'
+        }
+    }
+}
