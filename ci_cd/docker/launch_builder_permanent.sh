@@ -34,7 +34,7 @@ echo "🐳 Lancement du Builder Permanent"
 echo "=================================="
 echo "  Image:           ${IMAGE}"
 echo "  Container:       ${CONTAINER_NAME}"
-if [ "$LOCAL_JENKINS" = true ]; then
+if [[ "$LOCAL_JENKINS" == true ]]; then
     echo "  Network:         (skippé --local-jenkins)"
 else
     echo "  Network:         ${NETWORK}"
@@ -44,13 +44,11 @@ echo "  Rsync Port:      ${RSYNC_PORT}"
 echo ""
 
 # Vérifier que le network existe sauf si --local-jenkins
-if [ "$LOCAL_JENKINS" = false ]; then
-    if ! docker network inspect "${NETWORK}" >/dev/null 2>&1; then
-        echo "❌ Network ${NETWORK} introuvable."
-        echo "   Si vous utilisez Jenkins In Docker, Assurez-vous que Jenkins est démarré (docker-compose up)"
-        echo "   Si vous utilisez Jenkins natif, relancez le script avec --local-jenkins"
-        exit 1
-    fi
+if [[ "$LOCAL_JENKINS" = false ]] && ! docker network inspect "${NETWORK}" >/dev/null 2>&1; then
+    echo "❌ Network ${NETWORK} introuvable."
+    echo "   Si vous utilisez Jenkins In Docker, Assurez-vous que Jenkins est démarré (docker-compose up)"
+    echo "   Si vous utilisez Jenkins natif, relancez le script avec --local-jenkins"
+    exit 1
 fi
 
 # Vérifier si le conteneur existe déjà
@@ -80,7 +78,7 @@ DOCKER_RUN_ARGS=(
     --name "${CONTAINER_NAME}"
 )
 
-if [ "$LOCAL_JENKINS" = false ]; then
+if [[ "$LOCAL_JENKINS" = false ]]; then
     DOCKER_RUN_ARGS+=(
         --network "${NETWORK}"
     )
@@ -104,7 +102,7 @@ echo "⏳ Attente du démarrage du serveur..."
 sleep 5
 
 # Health check (utiliser localhost si --local-jenkins)
-if [ "$LOCAL_JENKINS" = true ]; then
+if [[ "$LOCAL_JENKINS" = true ]]; then
     HEALTH_URL="http://localhost:${API_PORT}/health"
     API_HOST_DISPLAY="localhost:${API_PORT}"
     RSYNC_DISPLAY="localhost:${RSYNC_PORT}"
@@ -123,7 +121,7 @@ while [[ $RETRY -lt $MAX_RETRIES ]]; do
         echo ""
         echo "🔗 API HTTP:   http://${API_HOST_DISPLAY}"
         echo "🔗 Rsync:      rsync://${RSYNC_DISPLAY}/workspace"
-        if [ "$LOCAL_JENKINS" = false ]; then
+        if [[ "$LOCAL_JENKINS" = false ]]; then
             echo "🔗 Container:  ${CONTAINER_NAME} (network: ${NETWORK})"
         else
             echo "🔗 Container:  ${CONTAINER_NAME} (accessible via ports mappés sur localhost)"

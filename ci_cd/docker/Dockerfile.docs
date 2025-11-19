@@ -19,10 +19,9 @@ RUN apt-get update && apt-get install -y \
     graphviz \
     # Nettoyage
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Installer MkDocs et ses plugins via pip
-RUN pip install --no-cache-dir \
+    && rm -rf /var/lib/apt/lists/* \
+    # Installer MkDocs et ses plugins via pip
+    && pip install --no-cache-dir \
     # MkDocs de base
     mkdocs>=1.5.0 \
     # Thème Material (moderne et responsive)
