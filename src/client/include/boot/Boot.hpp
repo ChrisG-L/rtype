@@ -9,21 +9,20 @@
 #define BOOT_HPP_
 
 #include "../network/TCPClient.hpp"
+#include "../core/Engine.hpp"
 #include <memory>
 
 using boost::asio::ip::tcp;
 
 class Boot {
     public:
-        Boot(): io_ctx{}, tcpClient(std::make_unique<TCPClient>(io_ctx)) {};
-        ~Boot();
+        Boot();
+        void core();
 
-        
-
-    protected:
     private:
         boost::asio::io_context io_ctx;
         std::unique_ptr<TCPClient> tcpClient;
+        std::unique_ptr<core::Engine> engine;
 };
 
 #endif /* !BOOT_HPP_ */

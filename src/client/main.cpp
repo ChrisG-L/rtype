@@ -11,6 +11,7 @@ int main(void) {
     try
     {
         Boot boot;
+        boot.core();
     }
     catch(const std::exception& e)
     {

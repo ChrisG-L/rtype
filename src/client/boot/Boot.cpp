@@ -5,12 +5,17 @@
 ** Boot
 */
 
-#include "Boot.hpp"
+#include "boot/Boot.hpp"
 
-Boot::Boot()
+Boot::Boot(): io_ctx{},
+    tcpClient(std::make_unique<TCPClient>(io_ctx)),
+    engine(std::make_unique<core::Engine>())
 {
 }
 
-Boot::~Boot()
+void Boot::core()
 {
+    // tcpClient->run();
+    engine->initialize();
+    engine->run();
 }

@@ -10,5 +10,6 @@
 
 #include <iostream>
 #include "boot/Boot.hpp"
+#include "graphic/Graphic.hpp"
 
 #endif /* !MAIN_HPP_ */
