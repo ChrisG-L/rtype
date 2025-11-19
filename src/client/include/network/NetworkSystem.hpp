@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include "../ecs/System.hpp"
-#include "../ecs/Registry.hpp"
-#include "../ecs/components/Components.hpp"
+#include "ecs/System.hpp"
+#include "ecs/Registry.hpp"
+#include "ecs/components/Components.hpp"
 #include "UDPClient.hpp"
 #include "Protocol.hpp"
 #include <deque>

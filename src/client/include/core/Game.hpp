@@ -10,9 +10,9 @@
 #include <memory>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Window/Event.hpp>
-#include "../ecs/Registry.hpp"
-#include "../ecs/systems/Systems.hpp"
-#include "../ecs/components/Components.hpp"
+#include "ecs/Registry.hpp"
+#include "ecs/systems/Systems.hpp"
+#include "ecs/components/Components.hpp"
 #include "Clock.hpp"
 
 namespace rtype::core {

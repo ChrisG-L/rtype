@@ -5,7 +5,7 @@
 ** Game - Implémentation du game loop
 */
 
-#include "Game.hpp"
+#include "core/Game.hpp"
 #include <SFML/Window/VideoMode.hpp>
 
 namespace rtype::core {

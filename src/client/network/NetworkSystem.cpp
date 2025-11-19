@@ -5,7 +5,7 @@
 ** NetworkSystem - Implémentation du système réseau
 */
 
-#include "NetworkSystem.hpp"
+#include "network/NetworkSystem.hpp"
 #include <iostream>
 #include <cstring>
 

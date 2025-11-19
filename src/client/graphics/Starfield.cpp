@@ -5,7 +5,7 @@
 ** Starfield - Implémentation de l'effet champ d'étoiles
 */
 
-#include "Starfield.hpp"
+#include "graphics/Starfield.hpp"
 #include <chrono>
 
 namespace rtype::graphics {

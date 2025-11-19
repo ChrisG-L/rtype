@@ -5,7 +5,7 @@
 ** UDPClient - Implémentation du client UDP
 */
 
-#include "UDPClient.hpp"
+#include "network/UDPClient.hpp"
 #include <iostream>
 
 namespace rtype::network {

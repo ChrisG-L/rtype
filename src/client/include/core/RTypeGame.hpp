@@ -8,9 +8,9 @@
 #pragma once
 
 #include "Game.hpp"
-#include "../graphics/AssetManager.hpp"
-#include "../graphics/Starfield.hpp"
-#include "../network/NetworkSystem.hpp"
+#include "graphics/AssetManager.hpp"
+#include "graphics/Starfield.hpp"
+#include "network/NetworkSystem.hpp"
 
 namespace rtype::core {
 

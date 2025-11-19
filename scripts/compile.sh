@@ -4,10 +4,28 @@ set -e # Arrêter en cas d'erreur
 
 # Parse arguments
 PLATFORM="linux"  # Default platform
+LAUNCH_MODE="server"  # Default: server only (options: server, client, both, none)
+
 for arg in "$@"; do
     case $arg in
         --platform=*)
             PLATFORM="${arg#*=}"
+            shift
+            ;;
+        --client)
+            LAUNCH_MODE="client"
+            shift
+            ;;
+        --server)
+            LAUNCH_MODE="server"
+            shift
+            ;;
+        --both)
+            LAUNCH_MODE="both"
+            shift
+            ;;
+        --no-launch)
+            LAUNCH_MODE="none"
             shift
             ;;
         *)
@@ -26,15 +44,18 @@ fi
 case $PLATFORM in
     linux)
         BUILD_DIR="buildLinux"
-        ARTIFACT_PATH="./artifacts/server/linux/rtype_server"
+        SERVER_PATH="./artifacts/server/linux/rtype_server"
+        CLIENT_PATH="./artifacts/client/linux/rtype_client"
         ;;
     windows)
         BUILD_DIR="buildWin"
-        ARTIFACT_PATH="./artifacts/server/windows/rtype_server.exe"
+        SERVER_PATH="./artifacts/server/windows/rtype_server.exe"
+        CLIENT_PATH="./artifacts/client/windows/rtype_client.exe"
         ;;
     macos)
         BUILD_DIR="buildMac"
-        ARTIFACT_PATH="./artifacts/server/macos/rtype_server"
+        SERVER_PATH="./artifacts/server/macos/rtype_server"
+        CLIENT_PATH="./artifacts/client/macos/rtype_client"
         ;;
     *)
         echo "❌ Erreur: Plateforme non supportée: $PLATFORM"
@@ -59,16 +80,43 @@ cmake --build "$BUILD_DIR" --config Debug
 
 echo "✅ Compilation terminée avec succès"
 
-# Vérifier si le flag --no-launch est présent
-if [[ "$*" != *"--no-launch"* ]]; then
-    if [[ "$PLATFORM" == "linux" || "$PLATFORM" == "macos" ]]; then
-        echo "🚀 Lancement du serveur..."
-        # Lancer le serveur compilé
-        "$ARTIFACT_PATH"
-    else
-        echo "⚠️  Lancement automatique non disponible pour la plateforme $PLATFORM"
-        echo "   L'exécutable est disponible dans: $ARTIFACT_PATH"
+# Fonction pour tuer les instances précédentes
+kill_previous() {
+    if pgrep -f "rtype_server" > /dev/null 2>&1; then
+        echo "🔄 Arrêt du serveur précédent..."
+        pkill -f "rtype_server" 2>/dev/null || true
+        sleep 0.5
     fi
+}
+
+# Lancement selon le mode
+if [[ "$PLATFORM" == "linux" || "$PLATFORM" == "macos" ]]; then
+    case $LAUNCH_MODE in
+        server)
+            kill_previous
+            echo "🚀 Lancement du serveur..."
+            "$SERVER_PATH"
+            ;;
+        client)
+            echo "🎮 Lancement du client..."
+            "$CLIENT_PATH"
+            ;;
+        both)
+            kill_previous
+            echo "🚀 Lancement du serveur en arrière-plan..."
+            "$SERVER_PATH" &
+            sleep 1
+            echo "🎮 Lancement du client..."
+            "$CLIENT_PATH"
+            ;;
+        none)
+            echo "⏭️  Aucun lancement (flag --no-launch détecté)"
+            echo "   Serveur: $SERVER_PATH"
+            echo "   Client: $CLIENT_PATH"
+            ;;
+    esac
 else
-    echo "⏭️  Serveur non lancé (flag --no-launch détecté)"
+    echo "⚠️  Lancement automatique non disponible pour la plateforme $PLATFORM"
+    echo "   Serveur: $SERVER_PATH"
+    echo "   Client: $CLIENT_PATH"
 fi

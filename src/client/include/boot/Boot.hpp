@@ -8,7 +8,7 @@
 #ifndef BOOT_HPP_
 #define BOOT_HPP_
 
-#include "../network/TCPClient.hpp"
+#include "network/TCPClient.hpp"
 #include <memory>
 
 using boost::asio::ip::tcp;

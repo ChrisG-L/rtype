@@ -5,7 +5,7 @@
 ** RTypeGame - Implémentation de la classe principale
 */
 
-#include "RTypeGame.hpp"
+#include "core/RTypeGame.hpp"
 #include <iostream>
 
 namespace rtype::core {
