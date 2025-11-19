@@ -60,12 +60,12 @@ echo -e "\n${YELLOW}[3/5] Navigating to whanos-infra directory...${NC}"
 root_dir="$(git rev-parse --show-toplevel)"
 infra_dir="$(cd "${root_dir}/ci_cd/docker" && pwd)"
 
-if [ ! -f "${infra_dir}/docker-compose.yml" ]; then
+if [[ ! -f "${infra_dir}/docker-compose.yml" ]]; then
     echo -e "${RED}Error: docker-compose.yml for Jenkins not found at ${infra_dir}${NC}" >&2
     exit 1
 fi
 
-if [ ! -f "${infra_dir}/docker-compose.docs.yml" ]; then
+if [[ ! -f "${infra_dir}/docker-compose.docs.yml" ]]; then
     echo -e "${RED}Error: docker-compose.docs.yml for Documentation not found at ${infra_dir}${NC}" >&2
     exit 1
 fi
@@ -84,7 +84,7 @@ echo -e "${GRAY}  - Start MKDocs container (port 8000)${NC}"
 echo ""
 
 # Build and start services
-if [ "$use_compose_v2" = true ]; then
+if [[ "$use_compose_v2" = true ]]; then
     echo -e "${CYAN}Executing: docker compose -f docker-compose.yml up -d --build${NC}"
     docker compose -f docker-compose.yml up -d --build
 else
@@ -94,7 +94,7 @@ fi
 
 compose_exit_code=$?
 
-if [ $compose_exit_code -ne 0 ]; then
+if [[ $compose_exit_code -ne 0 ]]; then
     echo -e "\n${RED}=== DEPLOYMENT FAILED ===${NC}" >&2
     echo -e "${RED}Docker Compose exited with code: $compose_exit_code${NC}" >&2
 
@@ -102,7 +102,7 @@ if [ $compose_exit_code -ne 0 ]; then
     echo "1. Check the error messages above" >&2
     echo "2. Verify Docker is running: docker ps" >&2
     echo "3. Check docker-compose.yml syntax" >&2
-    if [ "$use_compose_v2" = true ]; then
+    if [[ "$use_compose_v2" = true ]]; then
         echo "4. View logs: docker compose logs" >&2
     else
         echo "4. View logs: docker-compose logs" >&2
@@ -111,7 +111,7 @@ if [ $compose_exit_code -ne 0 ]; then
     exit $compose_exit_code
 fi
 
-if [ "$use_compose_v2" = true ]; then
+if [[ "$use_compose_v2" = true ]]; then
     echo -e "${CYAN}Executing: docker compose -f docker-compose.docs.yml up -d --build${NC}"
     docker compose -f docker-compose.docs.yml up -d --build
 else
@@ -121,7 +121,7 @@ fi
 
 compose_exit_code=$?
 
-if [ $compose_exit_code -ne 0 ]; then
+if [[ $compose_exit_code -ne 0 ]]; then
     echo -e "\n${RED}=== DEPLOYMENT FAILED ===${NC}" >&2
     echo -e "${RED}Docker Compose exited with code: $compose_exit_code${NC}" >&2
 
@@ -129,7 +129,7 @@ if [ $compose_exit_code -ne 0 ]; then
     echo "1. Check the error messages above" >&2
     echo "2. Verify Docker is running: docker ps" >&2
     echo "3. Check docker-compose.docs.yml syntax" >&2
-    if [ "$use_compose_v2" = true ]; then
+    if [[ "$use_compose_v2" = true ]]; then
         echo "4. View logs: docker compose logs" >&2
     else
         echo "4. View logs: docker-compose logs" >&2
@@ -169,7 +169,7 @@ echo -e "\n2. Access Documentation:"
 echo -e "${GRAY}   Open: http://localhost:8000${NC}"
 
 echo -e "\n3. View logs:"
-if [ "$use_compose_v2" = true ]; then
+if [[ "$use_compose_v2" = true ]]; then
     echo -e "${GRAY}   docker compose logs rtype_jenkins      # Jenkins logs${NC}"
     echo -e "${GRAY}   docker compose logs rtype-docs         # Documentation logs${NC}"
 else
