@@ -24,7 +24,7 @@ namespace infrastructure::adapters::in::network::execute::auth {
     }
 
     void ExecuteAuth::login() {
-        
+        // Non implementé pour le moment
     }
 
     void ExecuteAuth::signupUser() {
