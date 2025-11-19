@@ -1,4 +1,6 @@
 {
+  "name": "rtype",
+  "version": "0.0.1",
   "dependencies": [
     "boost-asio",
     "gtest",
@@ -8,6 +10,13 @@
     {
       "name": "sfml",
       "version>=": "3.0.1"
+    }
+  ],
+  "builtin-baseline": "b8a81820356e90917e5eb5dfe0092bfac57dbb12",
+  "overrides": [
+    {
+      "name": "boost-asio",
+      "version": "1.89.0"
     }
   ]
 }
