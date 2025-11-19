@@ -59,11 +59,7 @@ pipeline {
                                 returnStdout: true
                             ).trim()
 
-                            // Parse JSON response and store workspace_path in env for rsync
-                            def json = new groovy.json.JsonSlurper().parseText(createResponse)
-                            env.WORKSPACE_PATH_LINUX = json.workspace_path
-
-                            echo "✅ Workspace Linux créé: ${createResponse} (path: ${env.WORKSPACE_PATH_LINUX})"
+                            echo "✅ Workspace Linux créé: ${createResponse}"
                         }
                     }
                 }
@@ -81,11 +77,7 @@ pipeline {
                                 returnStdout: true
                             ).trim()
 
-                            // Parse JSON response and store workspace_path in env for rsync
-                            def json = new groovy.json.JsonSlurper().parseText(createResponse)
-                            env.WORKSPACE_PATH_WINDOWS = json.workspace_path
-
-                            echo "✅ Workspace Windows créé: ${createResponse} (path: ${env.WORKSPACE_PATH_WINDOWS})"
+                            echo "✅ Workspace Windows créé: ${createResponse}"
                         }
                     }
                 }
@@ -113,7 +105,7 @@ pipeline {
                                     --exclude='third_party/vcpkg/.git' \
                                     --exclude='artifacts' \
                                     ${WORKSPACE}/ \
-                                    rsync://${env.BUILDER_HOST}:873${env.WORKSPACE_PATH_LINUX}/
+                                    rsync://${env.BUILDER_HOST}:873/workspace/${env.WORKSPACE_ID_LINUX}/
                             """
 
                             echo "✅ Code source uploadé vers workspace Linux"
@@ -139,7 +131,7 @@ pipeline {
                                     --exclude='third_party/vcpkg/.git' \
                                     --exclude='artifacts' \
                                     ${WORKSPACE}/ \
-                                    rsync://${env.BUILDER_HOST}:873${env.WORKSPACE_PATH_WINDOWS}/
+                                    rsync://${env.BUILDER_HOST}:873/workspace/${env.WORKSPACE_ID_WINDOWS}/
                             """
 
                             echo "✅ Code source uploadé vers workspace Windows"
