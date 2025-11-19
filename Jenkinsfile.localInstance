@@ -247,6 +247,7 @@ pipeline {
 
                             // Télécharger les artefacts Linux via l'API
                             def count = api.downloadArtifacts(
+                                env.BUILDER_HOST,
                                 env.WORKSPACE_ID_LINUX,
                                 artifactPath
                             )
