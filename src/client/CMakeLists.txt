@@ -1,6 +1,16 @@
 add_executable(rtype_client
     main.cpp
 
+    # Core
+    core/Game.cpp
+    core/RTypeGame.cpp
+
+    # Graphics
+    graphics/Starfield.cpp
+
+    # Network
+    network/UDPClient.cpp
+    network/NetworkSystem.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -35,16 +45,18 @@ endif()
 
 target_include_directories(rtype_client PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/ecs
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics
+    ${CMAKE_CURRENT_SOURCE_DIR}/network
+)
 
 target_link_libraries(rtype_client PRIVATE
-    rtype_proto
     Boost::system
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
-    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     SFML::Graphics
     SFML::Audio
     SFML::Network
+    SFML::Window
+    SFML::System
 )
