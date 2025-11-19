@@ -8,7 +8,7 @@ CONTAINER_NAME="rtype_builder"
 IMAGE="rtype-builder:latest"
 NETWORK="rtype_ci_network"
 API_PORT="8082"      # Port hôte pour l'API HTTP
-RSYNC_PORT="8873"    # Port hôte pour rsync (éviter 873 qui peut être réservé)
+RSYNC_PORT="873"    # Port hôte pour rsync (éviter 873 qui peut être réservé)
 
 LOCAL_JENKINS=false
 
