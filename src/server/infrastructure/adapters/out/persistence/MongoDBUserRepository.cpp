@@ -6,6 +6,7 @@
 */
 
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
+#include <stdexcept>
 
 namespace infrastructure::adapters::out::persistence {
     static std::unique_ptr<mongocxx::instance> _instance;
@@ -103,7 +104,7 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     std::vector<User>MongoDBUserRepository::findAll() {
-
+        throw std::logic_error("MongoDBUserRepository::findAll: not implemented");
     }
 }
 
