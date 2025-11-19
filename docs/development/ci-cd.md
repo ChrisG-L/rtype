@@ -22,6 +22,258 @@ Au lieu de créer un nouveau conteneur Docker pour chaque build (approche tradit
     - Transfert de code rapide grâce à rsync (seulement les fichiers modifiés)
     - API REST pour un contrôle fin et asynchrone des jobs
 
+## Modes de Déploiement Jenkins
+
+Le système CI/CD R-Type supporte **deux modes de déploiement Jenkins** pour s'adapter à différents environnements de développement et d'intégration continue.
+
+### Mode 1 : Jenkins-in-Docker (Production)
+
+**Architecture** : Jenkins s'exécute dans un conteneur Docker et communique avec le builder permanent via un réseau Docker partagé.
+
+```mermaid
+graph LR
+    subgraph DockerHost["Machine Hôte"]
+        subgraph Network["Docker Network: rtype_ci_network"]
+            JENKINS[Jenkins Container<br/>Port: 8080]
+            BUILDER[Builder Container<br/>rtype_builder<br/>API: 8082<br/>Rsync: 873]
+        end
+    end
+
+    JENKINS -->|http://rtype_builder:8082| BUILDER
+    JENKINS -->|rsync://rtype_builder:873| BUILDER
+
+    style JENKINS fill:#d33833,color:#fff
+    style BUILDER fill:#2a5298,color:#fff
+    style Network fill:#e8f4f8,color:#000
+```
+
+**Caractéristiques** :
+
+- **Réseau Docker** : `rtype_ci_network` (bridge network)
+- **Résolution DNS** : Jenkins accède au builder via `http://rtype_builder:8082`
+- **Isolation réseau** : Pas d'exposition des ports sur l'hôte (sécurité renforcée)
+- **Déploiement** : Via `docker-compose` (inclut Jenkins + réseau)
+
+**Avantages** :
+
+✅ Isolation complète (conteneurs séparés)
+✅ Portabilité (même config partout)
+✅ Sécurité (network bridge dédié)
+✅ Idéal pour production et serveurs d'intégration
+
+**Inconvénients** :
+
+❌ Nécessite docker-compose
+❌ Plus complexe pour développement local
+
+**Cas d'usage** :
+
+- Serveurs CI/CD de production
+- Environnements d'intégration partagés
+- Déploiements cloud (AWS, GCP, Azure)
+
+---
+
+### Mode 2 : Jenkins Natif/Local (Développement)
+
+**Architecture** : Jenkins s'exécute directement sur la machine hôte et communique avec le builder Docker via les ports mappés sur `localhost`.
+
+```mermaid
+graph LR
+    subgraph HostMachine["Machine Hôte"]
+        JENKINS_LOCAL[Jenkins Natif<br/>localhost:8080]
+
+        subgraph Docker["Docker"]
+            BUILDER_LOCAL[Builder Container<br/>rtype_builder]
+        end
+
+        PORT_MAP[Port Mapping<br/>8082:8082<br/>873:873]
+    end
+
+    JENKINS_LOCAL -->|http://localhost:8082| PORT_MAP
+    JENKINS_LOCAL -->|rsync://localhost:873| PORT_MAP
+    PORT_MAP --> BUILDER_LOCAL
+
+    style JENKINS_LOCAL fill:#d33833,color:#fff
+    style BUILDER_LOCAL fill:#2a5298,color:#fff
+    style PORT_MAP fill:#f0ad4e,color:#000
+```
+
+**Caractéristiques** :
+
+- **Pas de réseau Docker** : Utilise le port mapping Docker standard
+- **Accès via localhost** : Jenkins communique via `http://localhost:8082`
+- **Ports mappés** : `8082:8082` (API) et `873:873` (rsync)
+- **Déploiement** : Script avec flag `--local-jenkins`
+
+**Avantages** :
+
+✅ Simple pour développement local
+✅ Pas besoin de docker-compose
+✅ Jenkins installé normalement sur la machine
+✅ Débogage plus facile (Jenkins accessible directement)
+
+**Inconvénients** :
+
+❌ Moins isolé (pas de network bridge)
+❌ Ports exposés sur localhost
+
+**Cas d'usage** :
+
+- Développement local avec Jenkins natif
+- Machines Windows/Mac avec Jenkins installé manuellement
+- Tests et expérimentations
+
+---
+
+### Comparaison des deux modes
+
+| Critère | Jenkins-in-Docker | Jenkins Natif |
+|---------|-------------------|---------------|
+| **Installation Jenkins** | Container Docker | Installation système |
+| **Communication Builder** | Via network Docker (`rtype_builder:8082`) | Via localhost (`localhost:8082`) |
+| **Réseau requis** | `rtype_ci_network` | Aucun (port mapping) |
+| **Isolation** | ✅ Maximale | ⚠️ Partielle |
+| **Complexité setup** | ⚠️ Moyenne (docker-compose) | ✅ Simple (script direct) |
+| **Portabilité** | ✅ Totale | ⚠️ Dépend de l'OS |
+| **Sécurité** | ✅ Élevée | ⚠️ Moyenne |
+| **Use case principal** | Production, CI/CD serveur | Développement local |
+
+---
+
+### Comment choisir le bon mode ?
+
+```mermaid
+flowchart TD
+    START{Comment Jenkins<br/>est-il installé ?}
+
+    START -->|Conteneur Docker<br/>+ docker-compose| MODE1
+    START -->|Installation native<br/>sur la machine| MODE2
+
+    MODE1[✅ Mode Jenkins-in-Docker]
+    MODE2[✅ Mode Jenkins Natif]
+
+    MODE1 --> USE1[Utiliser:<br/>- docker-compose up<br/>- Jenkinsfile.init]
+    MODE2 --> USE2[Utiliser:<br/>- launch_builder_permanent.sh --local-jenkins<br/>- Jenkinsfile.localInstance.init]
+
+    style MODE1 fill:#4caf50,color:#fff
+    style MODE2 fill:#2196f3,color:#fff
+```
+
+**Règle simple** :
+
+- Si vous avez lancé Jenkins avec `docker-compose` → **Mode 1 (in-Docker)**
+- Si vous avez installé Jenkins avec `apt`, `brew`, ou `.exe` → **Mode 2 (natif)**
+
+---
+
+### Configuration selon le mode
+
+#### Mode 1 : Jenkins-in-Docker
+
+**1. Créer le réseau Docker** :
+```bash
+docker network create rtype_ci_network
+```
+
+**2. Lancer Jenkins via docker-compose** :
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    ports:
+      - "8080:8080"
+    networks:
+      - rtype_ci_network
+
+networks:
+  rtype_ci_network:
+    external: true
+```
+
+**3. Initialiser le builder** :
+```bash
+# Le script détecte automatiquement le network
+cd ci_cd/docker
+./launch_builder_permanent.sh
+```
+
+Ou via le Jenkinsfile d'initialisation classique :
+```groovy
+// Jenkinsfile.init
+```
+
+---
+
+#### Mode 2 : Jenkins Natif
+
+**1. Lancer le builder avec le flag `--local-jenkins`** :
+```bash
+cd ci_cd/docker
+./launch_builder_permanent.sh --local-jenkins
+```
+
+**2. Ou via le Jenkinsfile spécifique** :
+
+Exécuter le job Jenkins basé sur `Jenkinsfile.localInstance.init` qui :
+
+- Build l'image builder
+- Stoppe le builder existant
+- Lance le builder avec `--local-jenkins`
+- Vérifie la santé via `http://localhost:8082/health`
+
+**Différences clés du script en mode `--local-jenkins`** :
+
+```bash
+# ✅ Skip la vérification du network Docker
+if [ "$LOCAL_JENKINS" = false ]; then
+    if ! docker network inspect "${NETWORK}" >/dev/null 2>&1; then
+        echo "❌ Network ${NETWORK} introuvable."
+        exit 1
+    fi
+fi
+
+# ✅ Pas de --network dans docker run
+if [ "$LOCAL_JENKINS" = false ]; then
+    DOCKER_RUN_ARGS+=(--network "${NETWORK}")
+fi
+
+# ✅ Health check via localhost
+if [ "$LOCAL_JENKINS" = true ]; then
+    HEALTH_URL="http://localhost:${API_PORT}/health"
+else
+    HEALTH_URL="http://${CONTAINER_NAME}:${API_PORT}/health"
+fi
+```
+
+---
+
+### Variables d'environnement selon le mode
+
+Les Jenkinsfiles doivent adapter leurs variables selon le mode utilisé.
+
+**Mode Jenkins-in-Docker** (`Jenkinsfile`, `Jenkinsfile.init`) :
+```groovy
+environment {
+    BUILDER_HOST = "rtype_builder"        // Nom DNS dans le réseau Docker
+    BUILDER_PORT = "8082"
+    RSYNC_HOST = "rtype_builder"
+    RSYNC_PORT = "873"
+}
+```
+
+**Mode Jenkins Natif** (`Jenkinsfile.localInstance.init`) :
+```groovy
+environment {
+    BUILDER_HOST = "localhost"            // Accès via localhost
+    BUILDER_PORT = "8082"
+    RSYNC_HOST = "localhost"
+    RSYNC_PORT = "873"
+}
+```
+
 ## Architecture Globale
 
 ### Vue d'ensemble
@@ -576,7 +828,13 @@ with jobs_lock:
 
 ### Première utilisation
 
-Avant de lancer le premier build, il faut **initialiser le builder permanent** en exécutant le job Jenkins basé sur `Jenkinsfile.init`.
+Avant de lancer le premier build, il faut **initialiser le builder permanent**. La méthode d'initialisation dépend du mode de déploiement Jenkins choisi.
+
+### Initialisation selon le mode
+
+#### Mode 1 : Jenkins-in-Docker
+
+Exécuter le job Jenkins basé sur **`Jenkinsfile.init`**.
 
 **Étapes d'initialisation** :
 
@@ -588,9 +846,9 @@ flowchart LR
 
     STOP[2. Stop Existing<br/>arrêt si déjà lancé] --> LAUNCH
 
-    LAUNCH[3. Launch Builder<br/>docker run -d] --> HEALTH
+    LAUNCH[3. Launch Builder<br/>docker run -d<br/>--network rtype_ci_network] --> HEALTH
 
-    HEALTH{4. Health Check<br/>retry 5x}
+    HEALTH{4. Health Check<br/>retry 5x<br/>http://rtype_builder:8082}
     HEALTH -->|Échec| ERROR
     HEALTH -->|Succès| INFO
 
@@ -602,6 +860,91 @@ flowchart LR
     style SUCCESS fill:#4caf50,color:#fff
     style ERROR fill:#f44336,color:#fff
 ```
+
+**Fichier utilisé** : `/ci_cd/jenkins/Jenkinsfile.init`
+
+**Commande health check** :
+```groovy
+curl -f http://rtype_builder:8082/health
+```
+
+---
+
+#### Mode 2 : Jenkins Natif
+
+Exécuter le job Jenkins basé sur **`Jenkinsfile.localInstance.init`**.
+
+**Étapes d'initialisation** :
+
+```mermaid
+flowchart LR
+    START([Lancer Jenkinsfile.localInstance.init]) --> BUILD_IMAGE
+
+    BUILD_IMAGE[1. Build Image<br/>docker build] --> STOP
+
+    STOP[2. Stop Existing<br/>arrêt si déjà lancé] --> LAUNCH
+
+    LAUNCH[3. Launch Builder<br/>docker run -d<br/>--local-jenkins<br/>Pas de --network] --> HEALTH
+
+    HEALTH{4. Health Check<br/>retry 5x<br/>http://localhost:8082}
+    HEALTH -->|Échec| ERROR
+    HEALTH -->|Succès| INFO
+
+    INFO[5. Builder Info<br/>afficher statut] --> SUCCESS
+
+    SUCCESS([✅ Builder prêt])
+    ERROR([❌ Échec initialisation])
+
+    style SUCCESS fill:#4caf50,color:#fff
+    style ERROR fill:#f44336,color:#fff
+```
+
+**Fichier utilisé** : `/ci_cd/jenkins/Jenkinsfile.localInstance.init`
+
+**Différences clés** :
+
+```groovy
+stage('🐳 Launch Permanent Builder') {
+    steps {
+        script {
+            sh """
+                cd ci_cd/docker
+                chmod +x launch_builder_permanent.sh
+                ./launch_builder_permanent.sh --local-jenkins  // ← Flag spécifique
+            """
+        }
+    }
+}
+
+stage('✅ Health Check') {
+    steps {
+        script {
+            retry(5) {
+                sleep 2
+                sh 'curl -f http://localhost:8082/health'  // ← localhost au lieu de rtype_builder
+            }
+        }
+    }
+}
+```
+
+**Commande health check** :
+```groovy
+curl -f http://localhost:8082/health
+```
+
+---
+
+### Comparaison des Jenkinsfiles d'initialisation
+
+| Caractéristique | Jenkinsfile.init | Jenkinsfile.localInstance.init |
+|-----------------|------------------|--------------------------------|
+| **Mode Jenkins** | In-Docker | Natif/Local |
+| **Flag script** | (aucun) | `--local-jenkins` |
+| **Network Docker** | ✅ `rtype_ci_network` | ❌ Aucun |
+| **Health check URL** | `http://rtype_builder:8082` | `http://localhost:8082` |
+| **Rsync URL affichée** | `rsync://rtype_builder:873` | `rsync://localhost:873` |
+| **Emplacement** | `/ci_cd/jenkins/Jenkinsfile.init` | `/ci_cd/jenkins/Jenkinsfile.localInstance.init` |
 
 ### Commandes exécutées
 
@@ -619,27 +962,43 @@ cd ci_cd/docker
     Le contexte Docker doit être la **racine du projet** (pas `ci_cd/docker/`) car le Dockerfile copie des fichiers depuis `ci_cd/docker/` avec des chemins relatifs (ex: `COPY ci_cd/docker/entrypoint.sh`).
 
 **2. Lancement du builder** :
+
+Le script `launch_builder_permanent.sh` supporte plusieurs options :
+
 ```bash
 #!/bin/bash
 # Script: launch_builder_permanent.sh
 
-# Créer le réseau si nécessaire
-docker network create rtype_ci_network 2>/dev/null || true
+# Afficher l'aide
+./launch_builder_permanent.sh --help
 
-# Vérifier si déjà lancé
-if docker ps | grep -q rtype_builder; then
-    echo "Builder déjà actif"
-    exit 0
-fi
+# Usage: launch_builder_permanent.sh [--local-jenkins]
+#
+#   --local-jenkins   Skippe toutes les vérifications et utilisation du network Docker
+#                     (utiliser les ports mappés sur localhost)
+```
 
-# Lancer le conteneur
-docker run -d \
-    --name rtype_builder \
-    --network rtype_ci_network \
-    -v $(pwd)/../..:/workspace \
-    rtype-builder:latest
+**Options disponibles** :
 
-echo "Builder lancé avec succès"
+| Option | Description | Effet |
+|--------|-------------|-------|
+| (aucun) | Mode par défaut (Jenkins-in-Docker) | Vérifie le network `rtype_ci_network` et y attache le builder |
+| `--local-jenkins` | Mode Jenkins natif | Skip la vérification du network, utilise port mapping |
+| `-h` ou `--help` | Affiche l'aide | Affiche l'usage et quitte |
+
+**Exemples** :
+
+```bash
+# Mode in-Docker (défaut)
+cd ci_cd/docker
+./launch_builder_permanent.sh
+
+# Mode Jenkins natif
+cd ci_cd/docker
+./launch_builder_permanent.sh --local-jenkins
+
+# Afficher l'aide
+./launch_builder_permanent.sh --help
 ```
 
 **3. Health check** :
@@ -692,16 +1051,27 @@ $ docker network inspect rtype_ci_network
 Lancez d'abord le job d'initialisation (Jenkinsfile.init).
 ```
 
-**Cause** : Le conteneur `rtype_builder` n'est pas lancé ou n'est pas sur le bon réseau.
+**Cause** : Le conteneur `rtype_builder` n'est pas lancé ou n'est pas accessible selon le mode utilisé.
 
 **Solutions** :
 
-1. Vérifier si le conteneur est actif :
+1. **Identifier votre mode Jenkins** :
+```bash
+# Jenkins in Docker ?
+docker ps | grep jenkins
+
+# Jenkins natif ?
+ps aux | grep jenkins
+```
+
+2. **Vérifier si le conteneur builder est actif** :
 ```bash
 docker ps | grep rtype_builder
 ```
 
-2. Si absent, lancer l'initialisation :
+3. **Si absent, lancer l'initialisation selon le mode** :
+
+**Mode Jenkins-in-Docker** :
 ```bash
 # Via Jenkins
 Exécuter le job basé sur Jenkinsfile.init
@@ -711,16 +1081,112 @@ cd ci_cd/docker
 ./launch_builder_permanent.sh
 ```
 
-3. Vérifier le réseau Docker :
+**Mode Jenkins Natif** :
 ```bash
-docker network inspect rtype_ci_network
-# Le builder doit apparaître dans "Containers"
+# Via Jenkins
+Exécuter le job basé sur Jenkinsfile.localInstance.init
+
+# Ou manuellement
+cd ci_cd/docker
+./launch_builder_permanent.sh --local-jenkins
 ```
 
-4. Tester la connectivité :
+4. **Vérifier la connectivité selon le mode** :
+
+**Mode in-Docker** :
 ```bash
-# Depuis Jenkins container
+# Vérifier le réseau Docker
+docker network inspect rtype_ci_network
+# Le builder doit apparaître dans "Containers"
+
+# Tester depuis Jenkins container
 docker exec -it jenkins curl http://rtype_builder:8082/health
+```
+
+**Mode natif** :
+```bash
+# Vérifier les ports mappés
+docker port rtype_builder
+# Doit afficher: 8082/tcp -> 0.0.0.0:8082 et 873/tcp -> 0.0.0.0:873
+
+# Tester depuis localhost
+curl http://localhost:8082/health
+```
+
+---
+
+### Problème : Network rtype_ci_network introuvable
+
+**Symptôme** :
+```
+❌ Network rtype_ci_network introuvable.
+   Si vous utilisez Jenkins In Docker, Assurez-vous que Jenkins est démarré (docker-compose up)
+   Si vous utilisez Jenkins natif, relancez le script avec --local-jenkins
+```
+
+**Cause** : Vous utilisez Jenkins natif mais le script cherche le network Docker.
+
+**Solution** :
+
+Utiliser le flag `--local-jenkins` :
+```bash
+cd ci_cd/docker
+./launch_builder_permanent.sh --local-jenkins
+```
+
+Ou utiliser le Jenkinsfile approprié :
+```bash
+# Créer un job Jenkins pointant vers Jenkinsfile.localInstance.init
+```
+
+**Explication** : En mode Jenkins natif, le builder ne doit PAS être attaché au network Docker `rtype_ci_network`. Il communique via les ports mappés sur localhost.
+
+---
+
+### Problème : Health check échoue avec "Connection refused"
+
+**Symptôme** :
+```
+curl: (7) Failed to connect to rtype_builder port 8082: Connection refused
+# OU
+curl: (7) Failed to connect to localhost port 8082: Connection refused
+```
+
+**Cause** : URL de health check incorrecte pour le mode utilisé.
+
+**Solution** :
+
+1. **Identifier le mode actuel** :
+```bash
+# Vérifier si le builder est sur un network
+docker inspect rtype_builder | grep NetworkMode
+
+# Si "bridge" → mode natif (localhost)
+# Si "rtype_ci_network" → mode in-Docker
+```
+
+2. **Utiliser la bonne URL** :
+
+**Mode in-Docker** :
+```bash
+curl http://rtype_builder:8082/health
+```
+
+**Mode natif** :
+```bash
+curl http://localhost:8082/health
+```
+
+3. **Si nécessaire, relancer le builder avec le bon mode** :
+```bash
+# Stopper le builder actuel
+cd ci_cd/docker
+./stop_builder_permanent.sh
+
+# Relancer avec le bon flag
+./launch_builder_permanent.sh --local-jenkins  # Pour mode natif
+# OU
+./launch_builder_permanent.sh                  # Pour mode in-Docker
 ```
 
 ### Problème : Rsync connection failed
@@ -896,13 +1362,16 @@ options {
 | Fichier | Description | Emplacement |
 |---------|-------------|-------------|
 | `Jenkinsfile` | Pipeline principal | `/Jenkinsfile` |
-| `Jenkinsfile.init` | Initialisation builder | `/ci_cd/jenkins/Jenkinsfile.init` |
+| `Jenkinsfile.init` | Initialisation builder (mode in-Docker) | `/ci_cd/jenkins/Jenkinsfile.init` |
+| `Jenkinsfile.localInstance.init` | Initialisation builder (mode natif) | `/ci_cd/jenkins/Jenkinsfile.localInstance.init` |
 | `BuilderAPI.groovy` | Helper Groovy pour Jenkins | `/ci_cd/jenkins/BuilderAPI.groovy` |
 | `main.py` | API Python du builder | `/ci_cd/docker/builder/main.py` |
 | `entrypoint.sh` | Démarrage du builder | `/ci_cd/docker/entrypoint.sh` |
 | `rsyncd.conf` | Configuration rsync | `/ci_cd/docker/rsyncd.conf` |
 | `build.sh` | Script de configuration CMake | `/scripts/build.sh` |
 | `compile.sh` | Script de compilation | `/scripts/compile.sh` |
+| `launch_builder_permanent.sh` | Lancement du builder permanent | `/ci_cd/docker/launch_builder_permanent.sh` |
+| `stop_builder_permanent.sh` | Arrêt du builder permanent | `/ci_cd/docker/stop_builder_permanent.sh` |
 
 ### Tests manuels
 
