@@ -8,22 +8,49 @@ CONTAINER_NAME="rtype_builder"
 IMAGE="rtype-builder:latest"
 NETWORK="rtype_ci_network"
 API_PORT="8082"      # Port hôte pour l'API HTTP
-RSYNC_PORT="8873"  # Port hôte pour rsync (éviter 873 qui peut être réservé)
+RSYNC_PORT="8873"    # Port hôte pour rsync (éviter 873 qui peut être réservé)
+
+LOCAL_JENKINS=false
+
+# Simple parsing des arguments
+for arg in "$@"; do
+    case "$arg" in
+        --local-jenkins)
+            LOCAL_JENKINS=true
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--local-jenkins]"
+            echo ""
+            echo "  --local-jenkins   Skippe toutes les vérifications et utilisation du network Docker (utiliser les ports mappés sur localhost)"
+            exit 0
+            ;;
+        *)
+            # ignoré
+            ;;
+    esac
+done
 
 echo "🐳 Lancement du Builder Permanent"
 echo "=================================="
-echo "  Image:       ${IMAGE}"
-echo "  Container:   ${CONTAINER_NAME}"
-echo "  Network:     ${NETWORK}"
-echo "  API Port:    ${API_PORT}"
-echo "  Rsync Port:  ${RSYNC_PORT}"
+echo "  Image:           ${IMAGE}"
+echo "  Container:       ${CONTAINER_NAME}"
+if [ "$LOCAL_JENKINS" = true ]; then
+    echo "  Network:         (skippé --local-jenkins)"
+else
+    echo "  Network:         ${NETWORK}"
+fi
+echo "  API Port:        ${API_PORT}"
+echo "  Rsync Port:      ${RSYNC_PORT}"
 echo ""
 
-# Vérifier que le network existe
-if ! docker network inspect "${NETWORK}" >/dev/null 2>&1; then
-    echo "❌ Network ${NETWORK} introuvable."
-    echo "   Assurez-vous que Jenkins est démarré (docker-compose up)"
-    exit 1
+# Vérifier que le network existe sauf si --local-jenkins
+if [ "$LOCAL_JENKINS" = false ]; then
+    if ! docker network inspect "${NETWORK}" >/dev/null 2>&1; then
+        echo "❌ Network ${NETWORK} introuvable."
+        echo "   Si vous utilisez Jenkins In Docker, Assurez-vous que Jenkins est démarré (docker-compose up)"
+        echo "   Si vous utilisez Jenkins natif, relancez le script avec --local-jenkins"
+        exit 1
+    fi
 fi
 
 # Vérifier si le conteneur existe déjà
@@ -47,37 +74,64 @@ if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
     exit 1
 fi
 
+# Construire les arguments pour docker run
+DOCKER_RUN_ARGS=(
+    -d
+    --name "${CONTAINER_NAME}"
+)
+
+if [ "$LOCAL_JENKINS" = false ]; then
+    DOCKER_RUN_ARGS+=(
+        --network "${NETWORK}"
+    )
+fi
+
+DOCKER_RUN_ARGS+=(
+    -p "${API_PORT}:8082"
+    -p "${RSYNC_PORT}:873"
+    -e WORKSPACE=/workspace
+    -e BUILDER_PORT=8082
+    --restart unless-stopped
+    "${IMAGE}"
+)
+
 # Lancer le conteneur permanent
 echo "🚀 Lancement du conteneur..."
-docker run -d \
-    --name "${CONTAINER_NAME}" \
-    --network "${NETWORK}" \
-    -p "${API_PORT}:8082" \
-    -p "${RSYNC_PORT}:873" \
-    -e WORKSPACE=/workspace \
-    -e BUILDER_PORT=8082 \
-    --restart unless-stopped \
-    "${IMAGE}"
+docker run "${DOCKER_RUN_ARGS[@]}"
 
 # Attendre que le serveur démarre
 echo "⏳ Attente du démarrage du serveur..."
 sleep 5
 
-# Health check
+# Health check (utiliser localhost si --local-jenkins)
+if [ "$LOCAL_JENKINS" = true ]; then
+    HEALTH_URL="http://localhost:${API_PORT}/health"
+    API_HOST_DISPLAY="localhost:${API_PORT}"
+    RSYNC_DISPLAY="localhost:${RSYNC_PORT}"
+else
+    HEALTH_URL="http://${CONTAINER_NAME}:${API_PORT}/health"
+    API_HOST_DISPLAY="${CONTAINER_NAME}:${API_PORT}"
+    RSYNC_DISPLAY="${CONTAINER_NAME}:${RSYNC_PORT}"
+fi
+
 MAX_RETRIES=10
 RETRY=0
 while [[ $RETRY -lt $MAX_RETRIES ]]; do
-    if curl -s "http://${CONTAINER_NAME}:${API_PORT}/health" >/dev/null 2>&1; then
+    if curl -s "${HEALTH_URL}" >/dev/null 2>&1; then
         echo ""
         echo "✅ Builder permanent lancé avec succès !"
         echo ""
-        echo "🔗 API HTTP:   http://${CONTAINER_NAME}:${API_PORT}"
-        echo "🔗 Rsync:      rsync://${CONTAINER_NAME}:${RSYNC_PORT}/workspace"
-        echo "🔗 Container:  ${CONTAINER_NAME} (network: ${NETWORK})"
+        echo "🔗 API HTTP:   http://${API_HOST_DISPLAY}"
+        echo "🔗 Rsync:      rsync://${RSYNC_DISPLAY}/workspace"
+        if [ "$LOCAL_JENKINS" = false ]; then
+            echo "🔗 Container:  ${CONTAINER_NAME} (network: ${NETWORK})"
+        else
+            echo "🔗 Container:  ${CONTAINER_NAME} (accessible via ports mappés sur localhost)"
+        fi
         echo ""
         echo "Commandes utiles:"
         echo "  - Voir les logs:      docker logs -f ${CONTAINER_NAME}"
-        echo "  - Health check:       curl http://${CONTAINER_NAME}:${API_PORT}/health"
+        echo "  - Health check:       curl ${HEALTH_URL}"
         echo "  - Stopper:            docker stop ${CONTAINER_NAME}"
         echo ""
         echo "API Endpoints disponibles:"
