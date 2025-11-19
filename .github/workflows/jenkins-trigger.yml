@@ -89,7 +89,7 @@ jobs:
           done
 
           if [ "$NEW_BUILD_NUMBER" -eq 0 ] || [ "$NEW_BUILD_NUMBER" -eq "$LAST_BUILD_NUMBER" ]; then
-            echo "::error::No new build detected after 5 retries"
+            echo "::error::No new build detected after 10 attempts"
             exit 1
           fi
           echo "::endgroup::"
