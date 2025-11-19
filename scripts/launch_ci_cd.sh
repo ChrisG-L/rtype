@@ -18,15 +18,15 @@ echo -e "${CYAN}=== R-TYPE Infrastructure Deployment with Docker Compose ===${NC
 echo -e "\n${YELLOW}[1/5] Checking Docker...${NC}"
 
 if ! command -v docker &> /dev/null; then
-    echo -e "${RED}Error: Docker not found!${NC}"
-    echo "Please install Docker first"
+    echo -e "${RED}Error: Docker not found!${NC}" >&2
+    echo "Please install Docker first" >&2
     exit 1
 fi
 
 # Test Docker is running
 if ! docker ps &> /dev/null; then
-    echo -e "${RED}Error: Docker is not running!${NC}"
-    echo "Please start Docker and try again"
+    echo -e "${RED}Error: Docker is not running!${NC}" >&2
+    echo "Please start Docker and try again" >&2
     exit 1
 fi
 
@@ -45,8 +45,8 @@ elif docker compose version &> /dev/null; then
     compose_version=$(docker compose version)
     use_compose_v2=true
 else
-    echo -e "${RED}Error: docker-compose not found!${NC}"
-    echo "Docker Compose should be included with Docker"
+    echo -e "${RED}Error: docker-compose not found!${NC}" >&2
+    echo "Docker Compose should be included with Docker" >&2
     exit 1
 fi
 
@@ -61,12 +61,12 @@ root_dir="$(git rev-parse --show-toplevel)"
 infra_dir="$(cd "${root_dir}/ci_cd/docker" && pwd)"
 
 if [ ! -f "${infra_dir}/docker-compose.yml" ]; then
-    echo -e "${RED}Error: docker-compose.yml for Jenkins not found at ${infra_dir}${NC}"
+    echo -e "${RED}Error: docker-compose.yml for Jenkins not found at ${infra_dir}${NC}" >&2
     exit 1
 fi
 
 if [ ! -f "${infra_dir}/docker-compose.docs.yml" ]; then
-    echo -e "${RED}Error: docker-compose.docs.yml for Documentation not found at ${infra_dir}${NC}"
+    echo -e "${RED}Error: docker-compose.docs.yml for Documentation not found at ${infra_dir}${NC}" >&2
     exit 1
 fi
 
@@ -95,17 +95,17 @@ fi
 compose_exit_code=$?
 
 if [ $compose_exit_code -ne 0 ]; then
-    echo -e "\n${RED}=== DEPLOYMENT FAILED ===${NC}"
-    echo -e "${RED}Docker Compose exited with code: $compose_exit_code${NC}"
+    echo -e "\n${RED}=== DEPLOYMENT FAILED ===${NC}" >&2
+    echo -e "${RED}Docker Compose exited with code: $compose_exit_code${NC}" >&2
 
-    echo -e "\n${YELLOW}Troubleshooting:${NC}"
-    echo "1. Check the error messages above"
-    echo "2. Verify Docker is running: docker ps"
-    echo "3. Check docker-compose.yml syntax"
+    echo -e "\n${YELLOW}Troubleshooting:${NC}" >&2
+    echo "1. Check the error messages above" >&2
+    echo "2. Verify Docker is running: docker ps" >&2
+    echo "3. Check docker-compose.yml syntax" >&2
     if [ "$use_compose_v2" = true ]; then
-        echo "4. View logs: docker compose logs"
+        echo "4. View logs: docker compose logs" >&2
     else
-        echo "4. View logs: docker-compose logs"
+        echo "4. View logs: docker-compose logs" >&2
     fi
 
     exit $compose_exit_code
@@ -122,17 +122,17 @@ fi
 compose_exit_code=$?
 
 if [ $compose_exit_code -ne 0 ]; then
-    echo -e "\n${RED}=== DEPLOYMENT FAILED ===${NC}"
-    echo -e "${RED}Docker Compose exited with code: $compose_exit_code${NC}"
+    echo -e "\n${RED}=== DEPLOYMENT FAILED ===${NC}" >&2
+    echo -e "${RED}Docker Compose exited with code: $compose_exit_code${NC}" >&2
 
-    echo -e "\n${YELLOW}Troubleshooting:${NC}"
-    echo "1. Check the error messages above"
-    echo "2. Verify Docker is running: docker ps"
-    echo "3. Check docker-compose.docs.yml syntax"
+    echo -e "\n${YELLOW}Troubleshooting:${NC}" >&2
+    echo "1. Check the error messages above" >&2
+    echo "2. Verify Docker is running: docker ps" >&2
+    echo "3. Check docker-compose.docs.yml syntax" >&2
     if [ "$use_compose_v2" = true ]; then
-        echo "4. View logs: docker compose logs"
+        echo "4. View logs: docker compose logs" >&2
     else
-        echo "4. View logs: docker-compose logs"
+        echo "4. View logs: docker-compose logs" >&2
     fi
 
     exit $compose_exit_code
