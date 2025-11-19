@@ -59,8 +59,7 @@ def monitor_job(job_id, proc):
 def create_workspace(build_number):
     """Crée un workspace isolé pour un build."""
     workspace_id = f"build_{build_number}"
-    workspace_uid = f"{workspace_id}_{str(uuid.uuid4())}"
-    workspace_path = os.path.join(WORKSPACE, "builds", workspace_uid)
+    workspace_path = os.path.join(WORKSPACE, "builds", workspace_id)
 
     # Créer les répertoires
     os.makedirs(workspace_path, exist_ok=True)
