@@ -122,7 +122,7 @@ jobs:
             fi
           done
 
-          if [ "$RESULT" == "null" ]; then
+          if [ "$RESULT" = "null" ]; then
             echo "::error::Build did not complete after 58 minutes"
             exit 1
           fi
