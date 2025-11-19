@@ -63,7 +63,7 @@ namespace infrastructure::boostrap {
             }
 
         public:
-            GameBootstrap() {};
+            GameBootstrap() = default;
 
             void launch() {
                 mongodb();
