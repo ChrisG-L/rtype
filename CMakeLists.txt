@@ -67,6 +67,7 @@ target_link_libraries(rtype_proto PRIVATE
 
 # Inclure les sous-répertoires
 add_subdirectory("src/server")
+add_subdirectory("src/client")
 
 # Ajouter des tests pour le serveur
 add_subdirectory("tests/server")

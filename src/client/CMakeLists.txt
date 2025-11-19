@@ -1,6 +1,14 @@
 add_executable(rtype_client
     main.cpp
 
+    boot/Boot.cpp
+    core/Engine.cpp
+    core/GameLoop.cpp
+    graphic/Graphic.cpp
+    network/TCPClient.cpp
+    implementations/sfml/SFMLWindow.cpp
+    implementations/sfml/SFMLRenderer.cpp
+    implementations/sfml/SFMLTexture.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
