@@ -15,6 +15,7 @@
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Texture.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
@@ -101,7 +102,28 @@ private:
     void drawSprite(sf::RenderTarget& target, const RenderData& data) {
         // Récupère la texture
         auto* texture = getTexture(data.sprite.textureId);
-        if (!texture) return;
+
+        if (!texture) {
+            // Fallback: dessine un rectangle coloré si pas de texture
+            sf::RectangleShape rect;
+
+            // Utilise la taille du textureRect ou une taille par défaut
+            float width = (data.sprite.textureRect.size.x > 0)
+                ? static_cast<float>(data.sprite.textureRect.size.x)
+                : 32.0f;
+            float height = (data.sprite.textureRect.size.y > 0)
+                ? static_cast<float>(data.sprite.textureRect.size.y)
+                : 32.0f;
+
+            rect.setSize({width, height});
+            rect.setFillColor(data.sprite.color);
+            rect.setPosition({data.transform.x, data.transform.y});
+            rect.setRotation(sf::degrees(data.transform.rotation));
+            rect.setScale({data.transform.scaleX, data.transform.scaleY});
+
+            target.draw(rect);
+            return;
+        }
 
         // Configure le sprite SFML
         sf::Sprite sfSprite(*texture);
