@@ -1,0 +1,145 @@
+name: Jenkins Build Trigger
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  trigger-jenkins:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger and monitor Jenkins build
+        id: jenkins
+        shell: bash
+        run: |
+          set -e
+
+          JENKINS_BASE="https://jenkins.adrienmarette.ovh"
+          JENKINS_JOB="Rtype-killian/BuildBranch"
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          COMMIT_ID="${GITHUB_SHA}"
+
+          echo "Branch: $BRANCH_NAME"
+          echo "Commit: $COMMIT_ID"
+
+          # Step 1: Get all Jenkins jobs and find the branch
+          echo "::group::Finding Jenkins job for branch $BRANCH_NAME"
+          JOBS_JSON=$(curl -sf "$JENKINS_BASE/job/$JENKINS_JOB/api/json?tree=jobs[name,url]" || echo '{"jobs":[]}')
+          echo "Jobs response: $JOBS_JSON"
+
+          BRANCH_JOB_URL=$(echo "$JOBS_JSON" | jq -r --arg branch "$BRANCH_NAME" '.jobs[] | select(.name == $branch) | .url' | head -n 1)
+
+          if [ -z "$BRANCH_JOB_URL" ]; then
+            echo "::warning::Branch $BRANCH_NAME not found in Jenkins jobs"
+            LAST_BUILD_NUMBER=0
+          else
+            echo "Found Jenkins job: $BRANCH_JOB_URL"
+
+            # Step 2: Get the last build number for this branch
+            BUILDS_JSON=$(curl -sf "${BRANCH_JOB_URL}api/json?tree=builds[number,url]" || echo '{"builds":[]}')
+            echo "Builds response: $BUILDS_JSON"
+
+            LAST_BUILD_NUMBER=$(echo "$BUILDS_JSON" | jq -r '[.builds[].number] | max // 0')
+            echo "Last build number: $LAST_BUILD_NUMBER"
+          fi
+          echo "::endgroup::"
+
+          # Step 3: Trigger the webhook
+          echo "::group::Triggering Jenkins webhook"
+          TRIGGER_RESPONSE=$(curl -sf "$JENKINS_BASE/multibranch-webhook-trigger/invoke?token=Trigger-Rtype")
+          echo "Trigger response: $TRIGGER_RESPONSE"
+          echo "::endgroup::"
+
+          # Step 4: Poll for new build
+          echo "::group::Waiting for new build to appear"
+          NEW_BUILD_NUMBER=0
+          for i in {1..5}; do
+            BUILDS_JSON=$(curl -sf "${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME}/api/json?tree=builds[number,url]" 2>/dev/null || echo '{"builds":[]}')
+            CURRENT_MAX=$(echo "$BUILDS_JSON" | jq -r '[.builds[].number] | max // 0')
+
+            echo "Attempt $i/5: Current max build number: $CURRENT_MAX (waiting for > $LAST_BUILD_NUMBER)"
+
+            if [ "$CURRENT_MAX" -gt "$LAST_BUILD_NUMBER" ]; then
+              NEW_BUILD_NUMBER=$CURRENT_MAX
+              echo "New build detected: #$NEW_BUILD_NUMBER"
+              break
+            fi
+
+            if [ $i -lt 5 ]; then
+              echo "Waiting 5 seconds before retry..."
+              sleep 5
+            fi
+          done
+
+          if [ "$NEW_BUILD_NUMBER" -eq 0 ] || [ "$NEW_BUILD_NUMBER" -eq "$LAST_BUILD_NUMBER" ]; then
+            echo "::error::No new build detected after 5 retries"
+            exit 1
+          fi
+          echo "::endgroup::"
+
+          # Step 5: Wait for build to complete and check result
+          echo "::group::Waiting for build #$NEW_BUILD_NUMBER to complete"
+          BUILD_URL="${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME}/${NEW_BUILD_NUMBER}"
+          RESULT="null"
+
+          for i in {1..350}; do
+            BUILD_JSON=$(curl -sf "${BUILD_URL}/api/json?tree=result,changeSets[items[commitId]]" || echo '{"result":null}')
+            RESULT=$(echo "$BUILD_JSON" | jq -r '.result // "null"')
+
+            echo "Attempt $i/350: Build result: $RESULT"
+            if [ "$RESULT" != "null" ]; then
+              # Check commit ID
+              BUILD_COMMIT=$(echo "$BUILD_JSON" | jq -r '.changeSets[].items[].commitId' | head -n 1)
+              echo "Build commit: $BUILD_COMMIT"
+
+              if [ -n "$BUILD_COMMIT" ] && [ "$BUILD_COMMIT" != "$COMMIT_ID" ]; then
+                echo "::warning::Build commit ($BUILD_COMMIT) does not match push commit ($COMMIT_ID)"
+              fi
+              break
+            fi
+
+            if [ $i -lt 350 ]; then
+              echo "Waiting 10 seconds before retry..."
+              sleep 10
+            fi
+          done
+
+          if [ "$RESULT" == "null" ]; then
+            echo "::error::Build did not complete after 58 minutes"
+            exit 1
+          fi
+          echo "::endgroup::"
+
+          # Step 6: Create annotations and set final status
+          ARTIFACTS_URL="${BUILD_URL}/artifact/artifacts/"
+
+          echo "::notice title=Jenkins Build::Build URL: $BUILD_URL"
+          echo "::notice title=Jenkins Artifacts::Artifacts URL: $ARTIFACTS_URL"
+
+          case "$RESULT" in
+            SUCCESS)
+              echo "::notice title=Build Result::Jenkins build succeeded"
+              echo "BUILD_STATUS=success" >> $GITHUB_OUTPUT
+              exit 0
+              ;;
+            FAILURE)
+              echo "::error title=Build Result::Jenkins build failed"
+              echo "BUILD_STATUS=failure" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+            ABORTED)
+              echo "::error title=Build Result::Jenkins build was aborted"
+              echo "BUILD_STATUS=aborted" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+            *)
+              echo "::error title=Build Result::Unknown build result: $RESULT"
+              echo "BUILD_STATUS=unknown" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+          esac
