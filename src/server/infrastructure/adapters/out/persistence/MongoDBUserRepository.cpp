@@ -18,9 +18,7 @@ namespace infrastructure::adapters::out::persistence {
         _collection = std::make_unique<mongocxx::v_noabi::collection>(db["user"]);
     }
 
-    MongoDBUserRepository::~MongoDBUserRepository()
-    {
-    }
+    MongoDBUserRepository::~MongoDBUserRepository() = default;
 
     bsoncxx::types::b_date MongoDBUserRepository::timePointToDate(
         const std::chrono::system_clock::time_point& tp) const {
@@ -75,7 +73,7 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     void MongoDBUserRepository::update(const User& user) {
-
+        // Non implémenté pour le moment
     }
 
     std::optional<User> MongoDBUserRepository::findById(const std::string& id) {
@@ -103,6 +101,7 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     std::vector<User> MongoDBUserRepository::findAll() {
+        // Non implémenté pour le moment
         return {};
     }
 }
