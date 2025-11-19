@@ -6,7 +6,6 @@
 */
 
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
-#include <stdexcept>
 
 namespace infrastructure::adapters::out::persistence {
     static std::unique_ptr<mongocxx::instance> _instance;
@@ -103,7 +102,7 @@ namespace infrastructure::adapters::out::persistence {
         return user;
     }
 
-    std::vector<User>MongoDBUserRepository::findAll() {
+    std::vector<User> MongoDBUserRepository::findAll() {
         return {};
     }
 }
