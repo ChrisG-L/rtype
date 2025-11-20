@@ -7,9 +7,17 @@
 
 
 #include "infrastructure/boostrap/GameBootstrap.hpp"
+#include "infrastructure/logging/Logger.hpp"
 
 int main(void) {
     using infrastructure::boostrap::GameBootstrap;
+
+    // Initialize logging
+    server::logging::Logger::init();
+    auto logger = server::logging::Logger::getMainLogger();
+
+    logger->info("R-Type server starting...");
+
     try
     {
         GameBootstrap gameBoostrap;
@@ -17,7 +25,12 @@ int main(void) {
     }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        logger->error("Fatal error: {}", e.what());
+        server::logging::Logger::shutdown();
+        return 1;
     }
+
+    logger->info("R-Type server shutting down...");
+    server::logging::Logger::shutdown();
     return 0;
 }
