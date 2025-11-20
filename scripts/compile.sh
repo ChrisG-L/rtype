@@ -80,6 +80,8 @@ cmake --build "$BUILD_DIR" --config Debug
 
 echo "✅ Compilation terminée avec succès"
 
+SANITIZER_ENV="LSAN_OPTIONS=suppressions=$(pwd)/lsan.supp"
+
 # Fonction pour tuer les instances précédentes
 kill_previous() {
     if pgrep -f "rtype_server" > /dev/null 2>&1; then
@@ -95,19 +97,19 @@ if [[ "$PLATFORM" == "linux" || "$PLATFORM" == "macos" ]]; then
         server)
             kill_previous
             echo "🚀 Lancement du serveur..."
-            "$SERVER_PATH"
+            env $SANITIZER_ENV "$SERVER_PATH"
             ;;
         client)
             echo "🎮 Lancement du client..."
-            "$CLIENT_PATH"
+            env $SANITIZER_ENV "$CLIENT_PATH"
             ;;
         both)
             kill_previous
             echo "🚀 Lancement du serveur en arrière-plan..."
-            "$SERVER_PATH" &
+            env $SANITIZER_ENV "$SERVER_PATH" &
             sleep 1
             echo "🎮 Lancement du client..."
-            "$CLIENT_PATH"
+            env $SANITIZER_ENV "$CLIENT_PATH"
             ;;
         none)
             echo "⏭️  Aucun lancement (flag --no-launch détecté)"
