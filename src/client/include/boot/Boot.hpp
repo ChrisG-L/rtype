@@ -12,16 +12,13 @@
 #include "../core/Engine.hpp"
 #include <memory>
 
-using boost::asio::ip::tcp;
-
 class Boot {
     public:
         Boot();
         void core();
 
     private:
-        boost::asio::io_context io_ctx;
-        std::unique_ptr<TCPClient> tcpClient;
+        std::unique_ptr<client::network::TCPClient> tcpClient;
         std::unique_ptr<core::Engine> engine;
 };
 

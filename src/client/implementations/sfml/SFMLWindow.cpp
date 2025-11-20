@@ -21,9 +21,20 @@ bool SFMLWindow::isOpen()
     return _window.isOpen();
 }
 
+std::optional<sf::Event> SFMLWindow::pollEvent()
+{
+    return _window.pollEvent();
+}
+
 void SFMLWindow::draw(const sf::Sprite& sprite) {
     _window.draw(sprite);
-    // _window.draw(sf::Drawable(drawable));
+}
+
+void SFMLWindow::drawRect(float x, float y, float width, float height, sf::Color color) {
+    sf::RectangleShape rect({width, height});
+    rect.setPosition({x, y});
+    rect.setFillColor(color);
+    _window.draw(rect);
 }
 
 void SFMLWindow::clear() {

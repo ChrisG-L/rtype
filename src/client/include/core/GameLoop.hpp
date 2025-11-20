@@ -9,6 +9,8 @@
 #define GAMELOOP_HPP_
 
 #include "IGameLoop.hpp"
+#include "scenes/SceneManager.hpp"
+#include "scenes/LoginScene.hpp"
 
 #include <memory>
 
@@ -25,6 +27,7 @@ namespace core {
         private:
             graphics::IWindow* _window;
             IRenderer* _renderer;
+            std::unique_ptr<SceneManager> _sceneManager;
     };
 }
 

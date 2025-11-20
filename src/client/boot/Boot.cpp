@@ -7,15 +7,17 @@
 
 #include "boot/Boot.hpp"
 
-Boot::Boot(): io_ctx{},
-    tcpClient(std::make_unique<TCPClient>(io_ctx)),
+Boot::Boot():
+    tcpClient(std::make_unique<client::network::TCPClient>()),
     engine(std::make_unique<core::Engine>())
 {
 }
 
 void Boot::core()
 {
-    // tcpClient->run();
+    tcpClient->connect("127.0.0.1", 4123); // TODO: A voir si on laisse hardcoder l'ip et le port
+    tcpClient->test(); // TODO: Retirer la function une fois les tests terminés
+    
     engine->initialize();
     engine->run();
 }

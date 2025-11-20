@@ -1,3 +1,5 @@
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR})
+
 add_executable(rtype_client
     main.cpp
 
@@ -6,6 +8,9 @@ add_executable(rtype_client
     core/GameLoop.cpp
     graphic/Graphic.cpp
     network/TCPClient.cpp
+    scenes/SceneManager.cpp
+    scenes/LoginScene.cpp
+    scenes/GameScene.cpp
     implementations/sfml/SFMLWindow.cpp
     implementations/sfml/SFMLRenderer.cpp
     implementations/sfml/SFMLTexture.cpp
