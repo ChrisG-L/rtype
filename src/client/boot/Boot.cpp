@@ -15,9 +15,16 @@ Boot::Boot():
 
 void Boot::core()
 {
+    // Configuration des callbacks réseau
+    tcpClient->setOnConnected([this]() {
+        std::cout << "[Boot] Connecté au serveur!" << std::endl;
+    });
+    tcpClient->setOnDisconnected([]() {
+        std::cout << "[Boot] Déconnecté du serveur" << std::endl;
+    });
     tcpClient->connect("127.0.0.1", 4123); // TODO: A voir si on laisse hardcoder l'ip et le port
-    tcpClient->test(); // TODO: Retirer la function une fois les tests terminés
-    
-    engine->initialize();
+
+    // Le moteur démarre sans attendre la connexion
+    engine->initialize(tcpClient.get());
     engine->run();
 }

@@ -11,13 +11,14 @@
 #include "IGameLoop.hpp"
 #include "scenes/SceneManager.hpp"
 #include "scenes/LoginScene.hpp"
+#include "network/TCPClient.hpp"
 
 #include <memory>
 
 namespace core {
     class GameLoop: public IGameLoop {
         public:
-            GameLoop(graphics::IWindow* window, IRenderer* renderer);
+            GameLoop(graphics::IWindow* window, IRenderer* renderer, client::network::TCPClient* tcpClient = nullptr);
             ~GameLoop();
 
             void run() override;
@@ -28,6 +29,7 @@ namespace core {
             graphics::IWindow* _window;
             IRenderer* _renderer;
             std::unique_ptr<SceneManager> _sceneManager;
+            client::network::TCPClient* _tcpClient;
     };
 }
 

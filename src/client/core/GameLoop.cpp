@@ -9,9 +9,11 @@
 #include <iostream>
 
 namespace core {
-    GameLoop::GameLoop(graphics::IWindow* window, IRenderer* renderer): _window(window), _renderer(renderer)
+    GameLoop::GameLoop(graphics::IWindow* window, IRenderer* renderer, client::network::TCPClient* tcpClient)
+        : _window(window), _renderer(renderer), _tcpClient(tcpClient)
     {
         _sceneManager = std::make_unique<SceneManager>();
+        _sceneManager->setTCPClient(_tcpClient);
         _sceneManager->changeScene(std::make_unique<LoginScene>());
     }
 

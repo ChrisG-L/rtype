@@ -18,9 +18,17 @@ SceneManager::~SceneManager()
 void SceneManager::changeScene(std::unique_ptr<IScene> newScene)
 {
     _currentScene = std::move(newScene);
-    if (_currentScene)
+    if (_currentScene) {
         _currentScene->setSceneManager(this);
+        _currentScene->setTCPClient(_tcpClient);
+    }
 }
+
+void SceneManager::setTCPClient(client::network::TCPClient* tcpClient)
+{
+    _tcpClient = tcpClient;
+}
+
 void SceneManager::handleEvent(const sf::Event &event)
 {
     if (_currentScene)

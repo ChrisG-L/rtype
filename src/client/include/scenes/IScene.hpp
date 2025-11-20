@@ -12,6 +12,9 @@
 #include <SFML/Window/Event.hpp>
 
 class SceneManager;
+namespace client::network {
+    class TCPClient;
+}
 
 class IScene
 {
@@ -23,9 +26,11 @@ public:
     virtual void render(graphics::IWindow *window) = 0;
 
     void setSceneManager(SceneManager* manager) { _sceneManager = manager; }
+    void setTCPClient(client::network::TCPClient* tcpClient) { _tcpClient = tcpClient; }
 
 protected:
     SceneManager* _sceneManager = nullptr;
+    client::network::TCPClient* _tcpClient = nullptr;
 };
 
 #endif /* !ISCENE_HPP_ */

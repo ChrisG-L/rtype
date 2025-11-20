@@ -14,6 +14,7 @@
 #include "../graphics/IWindow.hpp"
 #include "../implementations/sfml/SFMLWindow.hpp"
 #include "../implementations/sfml/SFMLRenderer.hpp"
+#include "../network/TCPClient.hpp"
 
 #include <memory>
 
@@ -24,6 +25,7 @@ namespace core {
             ~Engine();
 
             void initialize() override;
+            void initialize(client::network::TCPClient* tcpClient);
             void run() override;
 
         protected:
@@ -31,6 +33,7 @@ namespace core {
             std::unique_ptr<graphics::IWindow> _window;
             std::unique_ptr<IRenderer> _renderer;
             std::unique_ptr<GameLoop> _gameLoop;
+            client::network::TCPClient* _tcpClient = nullptr;
     };
 }
 

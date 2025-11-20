@@ -9,6 +9,7 @@
 #define SCENEMANAGER_HPP_
 
 #include "scenes/IScene.hpp"
+#include "network/TCPClient.hpp"
 #include <memory>
 
 class SceneManager
@@ -21,9 +22,12 @@ public:
     void update();
     void render(graphics::IWindow *window);
 
+    void setTCPClient(client::network::TCPClient* tcpClient);
+
 protected:
 private:
     std::unique_ptr<IScene> _currentScene;
+    client::network::TCPClient* _tcpClient = nullptr;
 };
 
 #endif /* !SCENEMANAGER_HPP_ */
