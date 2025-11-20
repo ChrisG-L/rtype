@@ -1,44 +1,140 @@
 /*
 ** EPITECH PROJECT, 2025
-** rtype [WSL: Ubuntu-24.04]
+** rtype [WSL : Ubuntu-24.04]
 ** File description:
 ** TCPClient
 */
 
 #include "network/TCPClient.hpp"
 
-TCPClient::TCPClient(boost::asio::io_context& io_ctx): _io_ctx{io_ctx}, _socket{io_ctx}
+namespace client::network
 {
-    tcp::resolver resolver(_io_ctx);
-    //TODO ça serait pas mal de faire un système de port dynamique
-    tcp::resolver::results_type endpoints = resolver.resolve("127.0.0.1", "4123");
-    boost::asio::async_connect(_socket, endpoints, [this](const boost::system::error_code& error,
-        const tcp::endpoint& endpoint) {
-        if (!error) {
-            std::cout << "Connected to " << endpoint << std::endl;
-        } else {
-            std::cout << "Connection failed: " << error.message() << std::endl;
+
+    TCPClient::TCPClient() : _socket(_ioContext)
+    {
+    }
+
+    TCPClient::~TCPClient()
+    {
+        disconnect();
+    }
+
+    // TODO: Retirer la function une fois les tests terminés
+    void TCPClient::test()
+    {
+        std::string response;
+
+        if (send("Hello, Server!"))
+        {
+            std::cout << "[TCPClient] Message sent to server" << std::endl;
         }
-    });
-}
+        else
+        {
+            std::cout << "[TCPClient] Failed to send message" << std::endl;
+            return;
+        }
 
-void TCPClient::run()
-{
-    // _socket.w
-    // for (;;) {
-    //     // std::array<char, 128> buf;
-    //     std::string buf2 = "coucou";
-    //     // boost::system::error_code error;
+        if (receive(response)) // Pour l'instant le serv ne répond pas
+        {
+            std::cout << "[TCPClient] Received: " << response << std::endl;
+        }
+        else
+        {
+            std::cout << "[TCPClient] No data received" << std::endl;
+        }
+    }
 
-    //     // size_t len = _socket.read_some(boost::asio::buffer(buf), error);
-    //     // std::cout << "len: " << len << std::endl;
+    bool TCPClient::connect(const std::string &host, std::uint16_t port)
+    {
+        if (_connected)
+        {
+            disconnect();
+        }
 
-    //     // if (error = boost::asio::error::eof)
-    //     //     break;
-    //     // else if (error) {
-    //     //     throw boost::system::system_error(error);
-    //     // }
-    //     // std::cout.write(buf.data(), len) << std::endl;
-    //     _socket.write_some(boost::asio::buffer(buf2));
-    // }
+        try
+        {
+            tcp::resolver resolver(_ioContext);
+            tcp::resolver::results_type endpoints = resolver.resolve(host, std::to_string(port));
+
+            boost::asio::connect(_socket, endpoints);
+            _connected = true;
+
+            std::cout << "[TCPClient] Connected to " << host << ":" << port << std::endl;
+            return true;
+        }
+        catch (const boost::system::system_error &e)
+        {
+            std::cerr << "[TCPClient] Connection failed: " << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    void TCPClient::disconnect()
+    {
+        if (_connected)
+        {
+            boost::system::error_code ec;
+            _socket.shutdown(tcp::socket::shutdown_both, ec);
+            _socket.close(ec);
+            _connected = false;
+            _socket = tcp::socket(_ioContext);
+            std::cout << "[TCPClient] Disconnected" << std::endl;
+        }
+    }
+
+    bool TCPClient::isConnected() const
+    {
+        return _connected && _socket.is_open();
+    }
+
+    bool TCPClient::send(const std::string &message)
+    {
+        if (!_connected)
+        {
+            return false;
+        }
+
+        try
+        {
+            boost::asio::write(_socket, boost::asio::buffer(message));
+            return true;
+        }
+        catch (const boost::system::system_error &e)
+        {
+            std::cerr << "[TCPClient] Send failed: " << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    bool TCPClient::receive(std::string &message)
+    {
+        if (!_connected)
+        {
+            return false;
+        }
+
+        try
+        {
+            // Non-bloquant : vérifier si des données sont disponibles
+            if (_socket.available() == 0)
+            {
+                return false;
+            }
+
+            char buffer[BUFFER_SIZE];
+            std::size_t len = _socket.read_some(boost::asio::buffer(buffer, BUFFER_SIZE - 1));
+            message.assign(buffer, len);
+            return true;
+        }
+        catch (const boost::system::system_error &e)
+        {
+            if (e.code() == boost::asio::error::eof)
+            {
+                _connected = false;
+                std::cerr << "[TCPClient] Server disconnected" << std::endl;
+            }
+            return false;
+        }
+    }
+
 }
