@@ -26,6 +26,7 @@ namespace graphics {
             virtual bool initialize(Vec2u winSize, const std::string& name) = 0;
 
             virtual bool isOpen() = 0;
+            virtual void close() = 0;
             virtual std::optional<sf::Event> pollEvent() = 0;
 
             virtual void draw(const sf::Sprite& sprite) = 0;

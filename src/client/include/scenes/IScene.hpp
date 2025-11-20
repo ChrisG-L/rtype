@@ -10,6 +10,7 @@
 
 #include "graphics/IWindow.hpp"
 #include <SFML/Window/Event.hpp>
+#include <memory>
 
 class SceneManager;
 namespace client::network {
@@ -23,14 +24,14 @@ public:
 
     virtual void handleEvent(const sf::Event &event) = 0;
     virtual void update() = 0;
-    virtual void render(graphics::IWindow *window) = 0;
+    virtual void render(std::shared_ptr<graphics::IWindow> window) = 0;
 
     void setSceneManager(SceneManager* manager) { _sceneManager = manager; }
-    void setTCPClient(client::network::TCPClient* tcpClient) { _tcpClient = tcpClient; }
+    void setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient) { _tcpClient = tcpClient; }
 
 protected:
     SceneManager* _sceneManager = nullptr;
-    client::network::TCPClient* _tcpClient = nullptr;
+    std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
 };
 
 #endif /* !ISCENE_HPP_ */

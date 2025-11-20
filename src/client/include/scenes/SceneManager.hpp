@@ -2,7 +2,7 @@
 ** EPITECH PROJECT, 2025
 ** rtype [WSL : Ubuntu-24.04]
 ** File description:
-** SceneManger
+** SceneManager
 */
 
 #ifndef SCENEMANAGER_HPP_
@@ -14,20 +14,19 @@
 
 class SceneManager
 {
-public:
-    SceneManager();
-    ~SceneManager();
-    void changeScene(std::unique_ptr<IScene> newScene);
-    void handleEvent(const sf::Event &event);
-    void update();
-    void render(graphics::IWindow *window);
+    public:
+        SceneManager();
+        ~SceneManager();
+        void changeScene(std::unique_ptr<IScene> newScene);
+        void handleEvent(const sf::Event &event);
+        void update();
+        void render(std::shared_ptr<graphics::IWindow>  window);
 
-    void setTCPClient(client::network::TCPClient* tcpClient);
+        void setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient);
 
-protected:
-private:
-    std::unique_ptr<IScene> _currentScene;
-    client::network::TCPClient* _tcpClient = nullptr;
+    private:
+        std::unique_ptr<IScene> _currentScene;
+        std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
 };
 
 #endif /* !SCENEMANAGER_HPP_ */

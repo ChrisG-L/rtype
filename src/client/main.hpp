@@ -8,7 +8,7 @@
 #ifndef MAIN_HPP_
     #define MAIN_HPP_
 
-#include <iostream>
+#include "core/Logger.hpp"
 #include "boot/Boot.hpp"
 #include "graphic/Graphic.hpp"
 

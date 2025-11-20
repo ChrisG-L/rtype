@@ -21,7 +21,7 @@ public:
 
     void handleEvent(const sf::Event &event) override;
     void update() override;
-    void render(graphics::IWindow *window) override;
+    void render(std::shared_ptr<graphics::IWindow>  window) override;
 };
 
 #endif /* !LOGINSCENE_HPP_ */

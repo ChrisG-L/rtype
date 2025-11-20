@@ -18,7 +18,7 @@ class Boot {
         void core();
 
     private:
-        std::unique_ptr<client::network::TCPClient> tcpClient;
+        std::shared_ptr<client::network::TCPClient> tcpClient;
         std::unique_ptr<core::Engine> engine;
 };
 

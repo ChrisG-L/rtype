@@ -25,15 +25,15 @@ namespace core {
             ~Engine();
 
             void initialize() override;
-            void initialize(client::network::TCPClient* tcpClient);
+            void initialize(std::shared_ptr<client::network::TCPClient> tcpClient);
             void run() override;
 
         protected:
         private:
-            std::unique_ptr<graphics::IWindow> _window;
-            std::unique_ptr<IRenderer> _renderer;
+            std::shared_ptr<graphics::IWindow>  _window;
+            std::shared_ptr<IRenderer> _renderer;
             std::unique_ptr<GameLoop> _gameLoop;
-            client::network::TCPClient* _tcpClient = nullptr;
+            std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
     };
 }
 

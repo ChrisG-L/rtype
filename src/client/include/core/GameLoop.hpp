@@ -18,7 +18,10 @@
 namespace core {
     class GameLoop: public IGameLoop {
         public:
-            GameLoop(graphics::IWindow* window, IRenderer* renderer, client::network::TCPClient* tcpClient = nullptr);
+            GameLoop(
+                std::shared_ptr<graphics::IWindow> window,
+                std::shared_ptr<IRenderer>,
+                std::shared_ptr<client::network::TCPClient> tcpClient = nullptr);
             ~GameLoop();
 
             void run() override;
@@ -26,10 +29,10 @@ namespace core {
             void display() override;
 
         private:
-            graphics::IWindow* _window;
-            IRenderer* _renderer;
+            std::shared_ptr<graphics::IWindow> _window;
+            std::shared_ptr<IRenderer> _renderer;
             std::unique_ptr<SceneManager> _sceneManager;
-            client::network::TCPClient* _tcpClient;
+            std::shared_ptr<client::network::TCPClient> _tcpClient;
     };
 }
 
