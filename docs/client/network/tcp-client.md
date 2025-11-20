@@ -1,4 +1,4 @@
-# TCPClient - Client Réseau Synchrone
+# TCPClient - Client Réseau Asynchrone
 
 ## Vue d'Ensemble
 
