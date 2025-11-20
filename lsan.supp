@@ -1,0 +1,5 @@
+leak:libGLX
+leak:libglapi
+leak:libGL
+leak:nvidia
+leak:mesa
