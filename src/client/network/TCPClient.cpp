@@ -125,7 +125,9 @@ namespace client::network
         }
 
         boost::asio::post(_ioContext, [this]() {
+            std::lock_guard<std::mutex> lock(_mutex);
             if (!_isWriting) {
+                _isWriting = true;
                 asyncWrite();
             }
         });
