@@ -16,8 +16,6 @@ Boot::Boot():
 
 void Boot::core()
 {
-    // Initialize logging system
-    client::logging::Logger::init();
     auto logger = client::logging::Logger::getBootLogger();
 
     logger->info("R-Type client starting...");
@@ -36,5 +34,4 @@ void Boot::core()
     engine->run();
 
     logger->info("R-Type client shutting down...");
-    client::logging::Logger::shutdown();
 }
