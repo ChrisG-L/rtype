@@ -22,3 +22,5 @@ site/
 settings.local.json
 
 third_party/vcpkg/vcpkglogs/
+
+client.log
