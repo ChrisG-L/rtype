@@ -101,10 +101,9 @@ markdown_extensions:
   # Emojis et icônes
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator:
-        !!python/name:material.extensions.emoji.to_svg # Listes et tableaux
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
-
+  # Listes et tableaux
   - def_list
   - pymdownx.tasklist:
       custom_checkbox: true
@@ -125,19 +124,43 @@ nav:
   - État du Projet: project-status.md
 
   - Pour Commencer:
+      - getting-started/index.md
       - Installation: getting-started/installation.md
       - Démarrage Rapide: getting-started/quickstart.md
       - Compilation: getting-started/building.md
 
-  - Guides Utilisateurs:
-      - Vue d'ensemble: guides/architecture.md
+  - Client:
+      - client/index.md
+      - Architecture:
+          - Vue d'ensemble: client/architecture/overview.md
+      - Core:
+          - client/core/index.md
+          - Main: client/core/main.md
+          - Boot: client/core/boot.md
+          - Engine: client/core/engine.md
+          - GameLoop: client/core/gameloop.md
+          - Scenes: client/core/scenes.md
+          - Renderer: client/core/renderer.md
+      - Graphics:
+          - client/graphics/index.md
+          - Vue d'ensemble: client/graphics/overview.md
+          - AssetManager: client/graphics/asset-manager.md
+          - Implémentation SFML: client/graphics/sfml-implementation.md
+      - Network:
+          - client/network/index.md
+          - TCPClient: client/network/tcp-client.md
+      - API:
+          - Interfaces: client/api/interfaces.md
+      - Guides:
+          - Démarrage: client/guides/getting-started.md
+
+  - Guides:
+      - Architecture Générale: guides/architecture.md
       - Architecture Hexagonale: guides/hexagonal-architecture.md
       - Architecture Réseau: guides/network-architecture.md
       - Séparation Header/Implementation C++: guides/cpp-header-implementation.md
       - Système d'Authentification: guides/authentication.md
-      - Tutoriels:
-          - Premier Pas: guides/tutorials/first-steps.md
-      - Bonnes Pratiques: guides/best-practices.md
+      - SonarQube - Qualité Code: guides/sonarqube.md
 
   - Référence API:
       - Vue d'ensemble: api/overview.md
@@ -146,22 +169,20 @@ nav:
       - Guide de Migration: api/migration.md
 
   - Développement:
+      - development/index.md
       - Contribuer: development/contributing.md
-      - Changelog: development/changelog.md
-      - Architecture Technique: development/architecture.md
-      - Implémentation Hexagonale: development/hexagonal-implementation.md
-      - Tests: development/testing.md
+      - Système de Logging: development/logging.md
       - Politiques de Commit: development/COMMIT_POLICES.md
+      - Tests: development/testing.md
       - CI/CD Jenkins: development/ci-cd.md
       - API Builder Jenkins: development/jenkins-builder-api.md
       - Cross-Compilation Windows: development/cross-compilation.md
-      - SonarQube - Qualité Code: guides/sonarqube.md
+      - Changelog: development/changelog.md
 
   - Ruche d'Agents IA:
       - Introduction: hive/introduction.md
 
   - Référence:
-      - Glossaire: reference/glossary.md
       - FAQ: reference/faq.md
 
 # Configuration extra
