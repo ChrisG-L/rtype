@@ -42,10 +42,10 @@ namespace client::network
         void send(const std::string &message);
 
         // Configuration des callbacks
-        void setOnConnected(OnConnectedCallback callback);
-        void setOnDisconnected(OnDisconnectedCallback callback);
-        void setOnReceive(OnReceiveCallback callback);
-        void setOnError(OnErrorCallback callback);
+        void setOnConnected(const OnConnectedCallback& callback);
+        void setOnDisconnected(const OnDisconnectedCallback& callback);
+        void setOnReceive(const OnReceiveCallback& callback);
+        void setOnError(const OnErrorCallback& callback);
 
     private:
         // Méthodes async
@@ -61,7 +61,7 @@ namespace client::network
         // Contexte et socket
         boost::asio::io_context _ioContext;
         tcp::socket _socket;
-        std::thread _ioThread;
+        std::jthread _ioThread;
 
         // État
         bool _connected;
