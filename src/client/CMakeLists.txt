@@ -6,6 +6,7 @@ add_executable(rtype_client
     boot/Boot.cpp
     core/Engine.cpp
     core/GameLoop.cpp
+    core/Logger.cpp
     graphic/Graphic.cpp
     network/TCPClient.cpp
     scenes/SceneManager.cpp
@@ -14,6 +15,7 @@ add_executable(rtype_client
     implementations/sfml/SFMLWindow.cpp
     implementations/sfml/SFMLRenderer.cpp
     implementations/sfml/SFMLTexture.cpp
+    implementations/sfml/AssetManager.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -60,4 +62,5 @@ target_link_libraries(rtype_client PRIVATE
     SFML::Graphics
     SFML::Audio
     SFML::Network
+    spdlog::spdlog
 )
