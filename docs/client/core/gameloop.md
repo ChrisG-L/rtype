@@ -2,7 +2,10 @@
 
 ## Vue d'Ensemble
 
-La `GameLoop` est le **coeur battant** du moteur de jeu R-Type. Elle implémente le pattern classique **Clear → Update → Display** et orchestre le cycle de rendu à chaque frame.
+La `GameLoop` est le **coeur battant** du moteur de jeu R-Type. Elle implémente le pattern classique **Event → Update → Render** et orchestre le cycle de rendu à chaque frame.
+
+!!! success "Mise à Jour SFML 3"
+    La GameLoop utilise maintenant l'API SFML 3 pour les événements et intègre le **SceneManager** pour la gestion des scènes.
 
 ### Responsabilités Principales
 
@@ -10,12 +13,13 @@ La `GameLoop` est le **coeur battant** du moteur de jeu R-Type. Elle implémente
 mindmap
   root((GameLoop))
     Cycle de Rendu
+      Traiter les événements
       Clear l'écran
-      Update les composants
+      Update les scènes
       Display le frame
     Coordination
       Interroger la fenêtre
-      Déléguer au renderer
+      Déléguer au SceneManager
       Maintenir le rythme
     Contrôle
       Boucle while principale
@@ -38,8 +42,8 @@ classDiagram
 
     class GameLoop {
         -IWindow* _window
-        -IRenderer* _renderer
-        +GameLoop(IWindow*, IRenderer*)
+        -SceneManager* _sceneManager
+        +GameLoop(IWindow*, SceneManager*)
         +~GameLoop()
         +run() void
         +clear() void
@@ -49,22 +53,26 @@ classDiagram
     class IWindow {
         <<interface>>
         +isOpen() bool
+        +pollEvent() optional~Event~
         +clear() void
         +display() void
         +draw(sprite) void
+        +drawRect() void
     }
 
-    class IRenderer {
-        <<interface>>
-        +initialize() void
+    class SceneManager {
+        -unique_ptr~IScene~ _currentScene
+        +changeScene(unique_ptr~IScene~) void
+        +handleEvent(Event) void
         +update() void
+        +render(IWindow*) void
     }
 
     IGameLoop <|-- GameLoop : implémente
-    GameLoop --> IWindow : observe (pointeur brut)
-    GameLoop --> IRenderer : observe (pointeur brut)
+    GameLoop --> IWindow : observe
+    GameLoop --> SceneManager : observe
 
-    note for GameLoop "Ne possède PAS les ressources\nReçoit des observateurs\nDurée de vie courte"
+    note for GameLoop "Délègue événements et\nrendu au SceneManager\nUtilise SFML 3 events API"
 ```
 
 ### Pattern d'Observation
@@ -102,6 +110,7 @@ graph TD
 #define GAMELOOP_HPP_
 
 #include "IGameLoop.hpp"
+#include "scenes/SceneManager.hpp"
 
 #include <memory>
 
@@ -109,7 +118,7 @@ namespace core {
     class GameLoop: public IGameLoop {
         public:
             // Constructeur : prend des OBSERVATEURS (pointeurs bruts)
-            GameLoop(graphics::IWindow* window, IRenderer* renderer);
+            GameLoop(graphics::IWindow* window, SceneManager* sceneManager);
             ~GameLoop();
 
             void run() override;      // Boucle principale
@@ -119,7 +128,7 @@ namespace core {
         private:
             // Pointeurs bruts = OBSERVATION, pas ownership
             graphics::IWindow* _window;
-            IRenderer* _renderer;
+            SceneManager* _sceneManager;
     };
 }
 
@@ -141,8 +150,8 @@ namespace core {
 
 namespace core {
     // Constructeur : initialise les pointeurs d'observation
-    GameLoop::GameLoop(graphics::IWindow* window, IRenderer* renderer)
-        : _window(window), _renderer(renderer)
+    GameLoop::GameLoop(graphics::IWindow* window, SceneManager* sceneManager)
+        : _window(window), _sceneManager(sceneManager)
     {
         // Pas d'allocation : on stocke juste les adresses
         // Les ressources sont possédées par Engine
@@ -151,35 +160,64 @@ namespace core {
     GameLoop::~GameLoop()
     {
         // Pas de libération : on ne possède rien
-        // Les pointeurs deviennent invalides, mais c'est OK
-        // car Engine les détruira juste après
     }
 
-    // Boucle principale : exécution bloquante
+    // Boucle principale avec gestion des événements SFML 3
     void GameLoop::run()
     {
-        // Boucle infinie jusqu'à fermeture de la fenêtre
         while (_window->isOpen()) {
-            clear();            // Étape 1: Nettoyer
-            _renderer->update(); // Étape 2: Mettre à jour et dessiner
-            display();          // Étape 3: Afficher
+            // Étape 1: Traiter TOUS les événements en attente
+            while (auto event = _window->pollEvent()) {
+                // Fermeture de la fenêtre
+                if (event->is<sf::Event::Closed>()) {
+                    return;
+                }
+                // Déléguer au SceneManager
+                _sceneManager->handleEvent(*event);
+            }
+
+            // Étape 2: Mise à jour de la scène
+            _sceneManager->update();
+
+            // Étape 3: Rendu
+            clear();
+            _sceneManager->render(_window);
+            display();
         }
-        // Sortie propre quand la fenêtre est fermée
     }
 
-    // Délégation à la fenêtre pour nettoyer l'écran
     void GameLoop::clear()
     {
         _window->clear();
     }
 
-    // Délégation à la fenêtre pour afficher le frame
     void GameLoop::display()
     {
         _window->display();
     }
 }
 ```
+
+### Points Clés SFML 3
+
+#### Nouvelle API d'Événements
+
+```cpp
+// pollEvent() retourne std::optional<sf::Event>
+while (auto event = _window->pollEvent()) {
+    // event est un std::optional, déréférencer avec *event
+    if (event->is<sf::Event::Closed>()) {
+        return;
+    }
+    _sceneManager->handleEvent(*event);
+}
+```
+
+**Avantages de SFML 3 :**
+
+- Plus de `sf::Event event;` sans constructeur par défaut
+- Typage fort avec `is<>()` et `getIf<>()`
+- Code plus expressif et sûr
 
 ### Interface (IGameLoop.hpp)
 
@@ -1386,6 +1424,7 @@ Avant de continuer, assurez-vous de comprendre :
 
 ## Voir Aussi
 
+- [Scenes Documentation](./scenes.md) - Système de gestion des scènes
 - [Engine Documentation](./engine.md) - Orchestrateur principal
 - [Renderer Documentation](./renderer.md) - Système de rendu
 - [Window Documentation](../graphics/window.md) - Gestion de la fenêtre

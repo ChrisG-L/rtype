@@ -1,17 +1,17 @@
-# TCPClient - Client Réseau Asynchrone
+# TCPClient - Client Réseau Synchrone
 
 ## Vue d'Ensemble
 
-Le **TCPClient** est le composant réseau du client R-Type, responsable de la communication asynchrone avec le serveur de jeu via TCP. Il utilise **Boost.Asio** pour gérer les connexions, lectures et écritures de manière non-bloquante.
+Le **TCPClient** est le composant réseau du client R-Type, responsable de la communication avec le serveur de jeu via TCP. Il utilise **Boost.Asio** pour gérer les connexions, lectures et écritures.
 
 !!! info "Localisation"
-    - **Header**: `/home/simia/epitech/second_year/projects/rtype/src/client/include/network/TCPClient.hpp`
-    - **Implementation**: `/home/simia/epitech/second_year/projects/rtype/src/client/network/TCPClient.cpp`
-    - **Namespace**: Global
+    - **Header**: `src/client/include/network/TCPClient.hpp`
+    - **Implementation**: `src/client/network/TCPClient.cpp`
+    - **Namespace**: `client::network`
     - **Dépendances**: Boost.Asio 1.89.0+
 
-!!! warning "État Actuel"
-    **PARTIELLEMENT IMPLÉMENTÉ** : La connexion fonctionne, mais la méthode `run()` est un stub.
+!!! success "État Actuel"
+    **FONCTIONNEL** : Connexion, envoi, réception et déconnexion implémentés.
 
 ---
 
@@ -21,32 +21,30 @@ Le **TCPClient** est le composant réseau du client R-Type, responsable de la co
 graph TB
     subgraph "Client R-Type"
         Boot[Boot] -->|crée| TCP[TCPClient]
-        Boot -->|fournit référence| IoCtx[io_context]
     end
 
     subgraph "TCPClient Internals"
-        TCP -->|utilise| IoCtx
+        TCP -->|possède| IoCtx[io_context]
         TCP -->|possède| Socket[tcp::socket]
         TCP -->|utilise| Resolver[tcp::resolver]
     end
 
     subgraph "Serveur R-Type"
-        Socket -.->|async_connect| Server[127.0.0.1:4123]
+        Socket -.->|connect| Server[127.0.0.1:4123]
     end
 
-    subgraph "Boost.Asio"
-        IoCtx -->|gère| EventLoop[Event Loop]
-        EventLoop -->|callbacks| Handlers[Async Handlers]
+    subgraph "Constantes"
+        BUF[BUFFER_SIZE = 4096]
     end
 
-    style TCP fill:#FF9800,color:#000
-    style IoCtx fill:#4CAF50,color:#fff
+    style TCP fill:#4CAF50,color:#fff
+    style IoCtx fill:#FF9800,color:#000
     style Server fill:#2196F3,color:#fff
 ```
 
 ---
 
-## Code Source Complet
+## Code Source
 
 ### Header (TCPClient.hpp)
 
@@ -62,481 +60,317 @@ graph TB
 #define TCPCLIENT_HPP_
 
 #include <boost/asio.hpp>
-#include <boost/bind/bind.hpp>
-#include <memory>
+#include <string>
+#include <cstdint>
+
+namespace client::network {
 
 using boost::asio::ip::tcp;
 
+// Taille du buffer de réception - constexpr évite les VLA
+static constexpr std::size_t BUFFER_SIZE = 4096;
+
 class TCPClient {
-    public:
-        // Constructeur: prend une référence au io_context
-        TCPClient(boost::asio::io_context& io_context);
+public:
+    TCPClient();
+    ~TCPClient();
 
-        // Méthode pour lancer les opérations réseau (à implémenter)
-        void run();
+    // Connexion au serveur
+    bool connect(const std::string &host, std::uint16_t port);
 
-    protected:
-    private:
-        boost::asio::io_context& _io_ctx;  // Référence au contexte ASIO
-        tcp::socket _socket;                // Socket TCP pour la connexion
+    // Déconnexion propre
+    void disconnect();
+
+    // Vérifier l'état de connexion
+    bool isConnected() const;
+
+    // Envoyer un message
+    bool send(const std::string &message);
+
+    // Recevoir un message (non-bloquant)
+    bool receive(std::string &message);
+
+private:
+    boost::asio::io_context _ioContext;  // Contexte ASIO propre
+    tcp::socket _socket;                  // Socket TCP
+    bool _connected = false;              // État de connexion
 };
+
+} // namespace client::network
 
 #endif /* !TCPCLIENT_HPP_ */
 ```
 
-### Implémentation (TCPClient.cpp)
+### Points Clés du Design
+
+#### 1. Constante BUFFER_SIZE
 
 ```cpp
-/*
-** EPITECH PROJECT, 2025
-** rtype [WSL: Ubuntu-24.04]
-** File description:
-** TCPClient
-*/
+static constexpr std::size_t BUFFER_SIZE = 4096;
+```
 
-#include "network/TCPClient.hpp"
-#include <iostream>
+**Pourquoi `constexpr` ?**
 
-TCPClient::TCPClient(boost::asio::io_context& io_context)
-    : _io_ctx(io_context), _socket(_io_ctx)
+- Évite les VLA (Variable Length Arrays) qui causent des warnings
+- Valeur connue à la compilation
+- Optimisation possible par le compilateur
+
+```cpp
+// ❌ MAUVAIS : VLA avec const
+const std::size_t size = 4096;
+char buffer[size];  // Warning: VLA
+
+// ✅ BON : Taille fixe avec constexpr
+static constexpr std::size_t BUFFER_SIZE = 4096;
+char buffer[BUFFER_SIZE];  // OK: taille connue à la compilation
+```
+
+#### 2. Contexte ASIO Propre
+
+```cpp
+boost::asio::io_context _ioContext;  // Possède son propre contexte
+tcp::socket _socket;
+```
+
+**Avantages :**
+
+- TCPClient est autonome, pas de dépendance externe
+- Pas besoin de passer de référence au constructeur
+- Simplification de l'API
+
+#### 3. Double Vérification de Connexion
+
+```cpp
+bool TCPClient::isConnected() const
 {
-    // Résolution DNS du serveur
-    tcp::resolver resolver(_io_ctx);
-    tcp::resolver::results_type endpoints = resolver.resolve("127.0.0.1", "4123");
-
-    // Connexion asynchrone
-    boost::asio::async_connect(
-        _socket,
-        endpoints,
-        [this](boost::system::error_code ec, tcp::endpoint) {
-            if (!ec) {
-                // Connexion réussie
-                std::cout << "Connecté au serveur R-Type!" << std::endl;
-                // TODO: Lancer async_read ici
-            } else {
-                // Erreur de connexion
-                std::cerr << "Erreur de connexion: " << ec.message() << std::endl;
-            }
-        }
-    );
+    return _connected && _socket.is_open();
 }
+```
 
-void TCPClient::run()
-{
-    // TODO: Implémenter les opérations de lecture/écriture
-    // Actuellement stub
-}
+**Pourquoi deux conditions ?**
+
+- `_connected` : État logique géré par le code
+- `_socket.is_open()` : État réel du socket système
+
+```mermaid
+graph TD
+    A[isConnected appelé] --> B{_connected ?}
+    B -->|false| C[Retourne false]
+    B -->|true| D{_socket.is_open ?}
+    D -->|false| C
+    D -->|true| E[Retourne true]
+
+    style E fill:#4CAF50,color:#fff
+    style C fill:#f44336,color:#fff
 ```
 
 ---
 
-## Analyse Détaillée
+## Implémentation Détaillée
 
-### Constructeur
+### Constructeur et Destructeur
 
 ```cpp
-TCPClient::TCPClient(boost::asio::io_context& io_context)
-    : _io_ctx(io_context), _socket(_io_ctx)
+TCPClient::TCPClient()
+    : _socket(_ioContext)
+{
+    // Socket initialisé avec le contexte
+}
+
+TCPClient::~TCPClient()
+{
+    disconnect();  // Fermeture propre
+}
 ```
 
-**Étapes d'initialisation** :
+### Méthode `connect()`
+
+```cpp
+bool TCPClient::connect(const std::string &host, std::uint16_t port)
+{
+    if (_connected)
+        return true;  // Déjà connecté
+
+    try {
+        tcp::resolver resolver(_ioContext);
+        auto endpoints = resolver.resolve(host, std::to_string(port));
+
+        boost::asio::connect(_socket, endpoints);
+        _connected = true;
+
+        std::cout << "[TCPClient] Connected to " << host << ":" << port << std::endl;
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "[TCPClient] Connection failed: " << e.what() << std::endl;
+        return false;
+    }
+}
+```
+
+**Flux de connexion :**
 
 ```mermaid
 sequenceDiagram
-    participant Boot
-    participant TCP as TCPClient
+    participant Client as TCPClient
     participant Resolver as tcp::resolver
     participant Socket as tcp::socket
-    participant Server as Serveur R-Type
+    participant Server as Serveur
 
-    Boot->>TCP: new TCPClient(io_ctx)
+    Client->>Client: Vérifier si déjà connecté
+    Client->>+Resolver: resolve(host, port)
+    Resolver-->>-Client: endpoints
 
-    TCP->>TCP: Initialiser _socket(io_ctx)
-    TCP->>Resolver: resolver.resolve("127.0.0.1", "4123")
-    Resolver-->>TCP: endpoints (IPv4 + IPv6)
+    Client->>+Socket: connect(endpoints)
+    Socket->>+Server: TCP Handshake (SYN)
+    Server-->>Socket: SYN-ACK
+    Socket-->>Server: ACK
+    Server-->>-Socket: Connexion établie
+    Socket-->>-Client: Succès
 
-    TCP->>Socket: async_connect(socket, endpoints, callback)
-    Note over Socket,Server: Connexion asynchrone lancée
-
-    Socket-->>Server: SYN packet
-    Server-->>Socket: SYN-ACK packet
-    Socket-->>Server: ACK packet
-
-    Server-->>TCP: Connexion établie
-    TCP->>TCP: Lambda callback appelé
-    TCP->>TCP: std::cout << "Connecté!"
-
-    TCP-->>Boot: TCPClient prêt
+    Client->>Client: _connected = true
 ```
 
-**Points clés** :
-
-1. **Référence à io_context** :
-   ```cpp
-   boost::asio::io_context& _io_ctx;
-   ```
-   - Pas de copie, juste une référence
-   - Le io_context doit survivre au TCPClient
-
-2. **Résolution DNS** :
-   ```cpp
-   tcp::resolver resolver(_io_ctx);
-   tcp::resolver::results_type endpoints = resolver.resolve("127.0.0.1", "4123");
-   ```
-   - Convertit "127.0.0.1" et "4123" en endpoints TCP
-   - Peut retourner plusieurs endpoints (IPv4, IPv6)
-   - **Opération bloquante** (à améliorer avec `async_resolve`)
-
-3. **Connexion Asynchrone** :
-   ```cpp
-   boost::asio::async_connect(_socket, endpoints, callback);
-   ```
-   - Tente de se connecter à tous les endpoints jusqu'à succès
-   - Non-bloquant : retourne immédiatement
-   - Callback appelé quand connexion établie ou échec
-
-4. **Lambda Callback** :
-   ```cpp
-   [this](boost::system::error_code ec, tcp::endpoint) {
-       if (!ec) {
-           std::cout << "Connecté au serveur R-Type!" << std::endl;
-       } else {
-           std::cerr << "Erreur de connexion: " << ec.message() << std::endl;
-       }
-   }
-   ```
-   - Capture `this` pour accéder aux membres
-   - `ec` : Code d'erreur (vide si succès)
-   - `tcp::endpoint` : Endpoint réellement connecté (ignoré ici)
-
----
-
-### Méthode `run()`
+### Méthode `disconnect()`
 
 ```cpp
-void TCPClient::run()
+void TCPClient::disconnect()
 {
-    // TODO: Implémenter les opérations de lecture/écriture
+    if (!_connected)
+        return;
+
+    boost::system::error_code ec;
+    _socket.shutdown(tcp::socket::shutdown_both, ec);
+    _socket.close(ec);
+
+    // Recréer le socket pour permettre une reconnexion
+    _socket = tcp::socket(_ioContext);
+    _connected = false;
+
+    std::cout << "[TCPClient] Disconnected" << std::endl;
 }
 ```
 
-**État actuel** : Stub vide, aucune implémentation.
-
-**Ce qui devrait être fait** :
+**Point important : Recréation du socket**
 
 ```cpp
-void TCPClient::run()
+_socket = tcp::socket(_ioContext);
+```
+
+Après `close()`, le socket ne peut plus être réutilisé. On le recrée pour permettre un futur `connect()`.
+
+### Méthode `send()`
+
+```cpp
+bool TCPClient::send(const std::string &message)
 {
-    // Lancer la lecture asynchrone
-    async_read_header();
-}
+    if (!isConnected())
+        return false;
 
-private:
-void async_read_header() {
-    boost::asio::async_read(
-        _socket,
-        boost::asio::buffer(&_header, sizeof(_header)),
-        [this](boost::system::error_code ec, std::size_t) {
-            if (!ec) {
-                async_read_body();
-            } else {
-                handle_error(ec);
-            }
-        }
-    );
-}
-
-void async_read_body() {
-    _buffer.resize(_header.size);
-    boost::asio::async_read(
-        _socket,
-        boost::asio::buffer(_buffer),
-        [this](boost::system::error_code ec, std::size_t) {
-            if (!ec) {
-                process_message(_buffer);
-                async_read_header();  // Lire le message suivant
-            } else {
-                handle_error(ec);
-            }
-        }
-    );
+    try {
+        boost::asio::write(_socket, boost::asio::buffer(message));
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "[TCPClient] Send failed: " << e.what() << std::endl;
+        disconnect();
+        return false;
+    }
 }
 ```
 
----
-
-## Pattern Asynchrone
-
-```mermaid
-stateDiagram-v2
-    [*] --> Connecting : async_connect()
-
-    Connecting --> Connected : Succès
-    Connecting --> Error : Échec
-
-    Connected --> ReadingHeader : async_read_header()
-
-    ReadingHeader --> ReadingBody : Header reçu
-    ReadingHeader --> Error : Erreur
-
-    ReadingBody --> Processing : Body reçu
-    ReadingBody --> Error : Erreur
-
-    Processing --> ReadingHeader : process_message()
-    Processing --> Writing : Envoyer réponse
-
-    Writing --> ReadingHeader : Écriture terminée
-    Writing --> Error : Erreur
-
-    Error --> Reconnecting : Tentative reconnexion
-    Error --> [*] : Abandon
-
-    Reconnecting --> Connecting
-
-    note right of ReadingHeader
-        Boucle infinie:
-        Toujours en attente
-        du prochain message
-    end note
-```
-
----
-
-## Exemple d'Implémentation Complète
-
-### TCPClient Complet (Proposition)
+### Méthode `receive()`
 
 ```cpp
-#ifndef TCPCLIENT_HPP_
-#define TCPCLIENT_HPP_
+bool TCPClient::receive(std::string &message)
+{
+    if (!isConnected())
+        return false;
 
-#include <boost/asio.hpp>
-#include <memory>
-#include <vector>
-#include <queue>
+    try {
+        // Vérifier si des données sont disponibles (non-bloquant)
+        if (_socket.available() == 0)
+            return false;
 
-using boost::asio::ip::tcp;
+        char buffer[BUFFER_SIZE];
+        std::size_t len = _socket.read_some(boost::asio::buffer(buffer, BUFFER_SIZE));
 
-struct MessageHeader {
-    uint32_t size;      // Taille du body
-    uint32_t type;      // Type de message (PLAYER_MOVE, SHOOT, etc.)
-};
-
-class TCPClient {
-public:
-    TCPClient(boost::asio::io_context& io_context);
-
-    // Envoyer un message au serveur
-    void send(uint32_t type, const std::vector<uint8_t>& data);
-
-    // Lancer les opérations réseau
-    void run();
-
-private:
-    // Connexion
-    void async_connect(tcp::resolver::results_type endpoints);
-
-    // Lecture
-    void async_read_header();
-    void async_read_body();
-
-    // Écriture
-    void async_write();
-
-    // Traitement
-    void process_message(const std::vector<uint8_t>& data);
-
-    // Gestion d'erreur
-    void handle_error(const boost::system::error_code& ec);
-
-    boost::asio::io_context& _io_ctx;
-    tcp::socket _socket;
-
-    MessageHeader _read_header;
-    std::vector<uint8_t> _read_buffer;
-
-    std::queue<std::vector<uint8_t>> _write_queue;
-    bool _is_writing = false;
-};
-
-#endif
+        message.assign(buffer, len);  // Optimisé: pas de concaténation
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "[TCPClient] Receive failed: " << e.what() << std::endl;
+        disconnect();
+        return false;
+    }
+}
 ```
 
-### Implémentation
+**Optimisation avec `assign()` :**
+
+```cpp
+// ❌ Moins efficace
+message = std::string(buffer, len);  // Allocation + copie
+
+// ✅ Plus efficace
+message.assign(buffer, len);  // Réutilise le buffer existant si possible
+```
+
+---
+
+## Utilisation
+
+### Exemple Basique
 
 ```cpp
 #include "network/TCPClient.hpp"
-#include <iostream>
 
-TCPClient::TCPClient(boost::asio::io_context& io_context)
-    : _io_ctx(io_context), _socket(_io_ctx)
-{
-    tcp::resolver resolver(_io_ctx);
-    auto endpoints = resolver.resolve("127.0.0.1", "4123");
-    async_connect(endpoints);
-}
+int main() {
+    client::network::TCPClient client;
 
-void TCPClient::async_connect(tcp::resolver::results_type endpoints)
-{
-    boost::asio::async_connect(
-        _socket,
-        endpoints,
-        [this](boost::system::error_code ec, tcp::endpoint) {
-            if (!ec) {
-                std::cout << "Connecté au serveur!" << std::endl;
-                run();  // Lancer lecture/écriture
-            } else {
-                handle_error(ec);
-            }
-        }
-    );
-}
-
-void TCPClient::run()
-{
-    async_read_header();
-}
-
-void TCPClient::async_read_header()
-{
-    boost::asio::async_read(
-        _socket,
-        boost::asio::buffer(&_read_header, sizeof(_read_header)),
-        [this](boost::system::error_code ec, std::size_t) {
-            if (!ec) {
-                async_read_body();
-            } else {
-                handle_error(ec);
-            }
-        }
-    );
-}
-
-void TCPClient::async_read_body()
-{
-    _read_buffer.resize(_read_header.size);
-
-    boost::asio::async_read(
-        _socket,
-        boost::asio::buffer(_read_buffer),
-        [this](boost::system::error_code ec, std::size_t) {
-            if (!ec) {
-                process_message(_read_buffer);
-                async_read_header();  // Message suivant
-            } else {
-                handle_error(ec);
-            }
-        }
-    );
-}
-
-void TCPClient::send(uint32_t type, const std::vector<uint8_t>& data)
-{
-    // Construire le message complet (header + body)
-    std::vector<uint8_t> message;
-    message.resize(sizeof(MessageHeader) + data.size());
-
-    MessageHeader header{static_cast<uint32_t>(data.size()), type};
-    std::memcpy(message.data(), &header, sizeof(header));
-    std::memcpy(message.data() + sizeof(header), data.data(), data.size());
-
-    // Ajouter à la queue d'écriture
-    _write_queue.push(std::move(message));
-
-    // Lancer l'écriture si pas déjà en cours
-    if (!_is_writing) {
-        async_write();
-    }
-}
-
-void TCPClient::async_write()
-{
-    if (_write_queue.empty()) {
-        _is_writing = false;
-        return;
+    // Connexion
+    if (!client.connect("127.0.0.1", 4123)) {
+        std::cerr << "Impossible de se connecter" << std::endl;
+        return 1;
     }
 
-    _is_writing = true;
-    auto& message = _write_queue.front();
+    // Envoi d'un message
+    client.send("LOGIN|username|password");
 
-    boost::asio::async_write(
-        _socket,
-        boost::asio::buffer(message),
-        [this](boost::system::error_code ec, std::size_t) {
-            if (!ec) {
-                _write_queue.pop();
-                async_write();  // Message suivant
-            } else {
-                handle_error(ec);
-            }
-        }
-    );
-}
-
-void TCPClient::process_message(const std::vector<uint8_t>& data)
-{
-    switch (_read_header.type) {
-        case 1:  // PLAYER_POSITION
-            std::cout << "Position joueur reçue" << std::endl;
-            break;
-        case 2:  // ENEMY_SPAWN
-            std::cout << "Ennemi apparu" << std::endl;
-            break;
-        // ... autres types
+    // Réception (dans une boucle de jeu)
+    std::string response;
+    if (client.receive(response)) {
+        std::cout << "Réponse: " << response << std::endl;
     }
-}
 
-void TCPClient::handle_error(const boost::system::error_code& ec)
-{
-    std::cerr << "Erreur réseau: " << ec.message() << std::endl;
-
-    // TODO: Tentative de reconnexion
+    // Déconnexion automatique à la destruction
+    return 0;
 }
 ```
 
----
-
-## Intégration avec Boot
-
-### Version Actuelle (Commentée)
+### Intégration avec Boot
 
 ```cpp
-// Dans Boot::core()
-void Boot::core()
-{
-    engine->initialize();
-    engine->run();  // Bloquant
+// Dans Boot.hpp
+#include "network/TCPClient.hpp"
 
-    // Le code réseau est commenté car run() n'est pas implémenté
-    // std::thread network_thread([this]() {
-    //     io_ctx.run();
-    // });
-    // tcpClient->run();
-    // network_thread.join();
+class Boot {
+private:
+    std::unique_ptr<client::network::TCPClient> _tcpClient;
+};
+
+// Dans Boot.cpp
+Boot::Boot()
+{
+    _tcpClient = std::make_unique<client::network::TCPClient>();
 }
-```
 
-### Version Future
-
-```cpp
 void Boot::core()
 {
-    engine->initialize();
+    // Connexion au serveur
+    if (_tcpClient->connect("127.0.0.1", 4123)) {
+        // Prêt à communiquer
+    }
 
-    // Thread réseau dédié
-    std::thread network_thread([this]() {
-        io_ctx.run();  // Boucle d'événements Boost.Asio
-    });
-
-    // Lancer le client réseau (non-bloquant)
-    tcpClient->run();
-
-    // Thread graphique (main thread, bloquant)
-    engine->run();
-
-    // Arrêt propre
-    io_ctx.stop();
-    network_thread.join();
+    // Lancer le moteur de jeu
+    _engine->run();
 }
 ```
 
@@ -544,122 +378,132 @@ void Boot::core()
 
 ## Protocole de Communication
 
-### Format des Messages
+### Format des Messages (Texte)
+
+Le serveur R-Type utilise un protocole pipe-delimited :
 
 ```
-┌─────────────────────────────────────────┐
-│          Message Complet                │
-├─────────────────┬───────────────────────┤
-│     Header      │         Body          │
-│   (8 bytes)     │   (size bytes)        │
-├─────────┬───────┼───────────────────────┤
-│  size   │ type  │      payload          │
-│(4 bytes)│(4 bytes)│                      │
-└─────────┴───────┴───────────────────────┘
+COMMAND|param1|param2|...
 ```
 
-### Exemples de Messages
+### Exemples de Commandes
 
-**1. Mouvement du joueur (Client → Serveur)** :
-
+**Inscription :**
 ```
-Header:
-  size: 8 bytes (2 floats)
-  type: 0x0001 (PLAYER_MOVE)
-Body:
-  x: 150.5 (float)
-  y: 200.0 (float)
+REGISTER|username|email|password
 ```
 
-**2. Tir (Client → Serveur)** :
-
+**Connexion :**
 ```
-Header:
-  size: 12 bytes (position + direction)
-  type: 0x0002 (PLAYER_SHOOT)
-Body:
-  x: 150.5 (float)
-  y: 200.0 (float)
-  angle: 90.0 (float)
+LOGIN|username|password
 ```
 
-**3. État du jeu (Serveur → Client)** :
-
+**Mouvement joueur :**
 ```
-Header:
-  size: Variable
-  type: 0x0100 (GAME_STATE)
-Body:
-  player_count: 4 (uint32_t)
-  players: [...]
-  enemies: [...]
+MOVE|x|y|direction
+```
+
+**Tir :**
+```
+SHOOT|x|y|angle
 ```
 
 ---
 
-## Problèmes Actuels et TODOs
+## Diagramme d'États
 
-### ❌ Problèmes
+```mermaid
+stateDiagram-v2
+    [*] --> Disconnected : Création
 
-1. **`run()` non implémenté** : Méthode vide
-2. **Port hardcodé** : "4123" en dur dans le code
-3. **IP hardcodée** : "127.0.0.1" uniquement
-4. **Pas de protocole** : Format de message non défini
-5. **Pas de reconnexion** : Échec = arrêt du client
-6. **Résolution DNS bloquante** : `resolve()` bloque le thread
+    Disconnected --> Connecting : connect()
+    Connecting --> Connected : Succès
+    Connecting --> Disconnected : Échec
 
-### ✅ TODOs Prioritaires
+    Connected --> Sending : send()
+    Sending --> Connected : Succès
+    Sending --> Disconnected : Erreur
 
-- [ ] Implémenter `run()` avec `async_read` / `async_write`
-- [ ] Définir protocole de messages (header + body)
-- [ ] Ajouter paramètres configurables (IP, port)
-- [ ] Implémenter reconnexion automatique
-- [ ] Utiliser `async_resolve` au lieu de `resolve`
-- [ ] Ajouter heartbeat pour détecter déconnexion
-- [ ] Thread-safety pour send() depuis thread graphique
+    Connected --> Receiving : receive()
+    Receiving --> Connected : Données/Vide
+    Receiving --> Disconnected : Erreur
 
----
+    Connected --> Disconnected : disconnect()
 
-## Questions Fréquentes
+    note right of Connected
+        isConnected() = true
+        Socket ouvert
+        Prêt pour I/O
+    end note
 
-**Q: Pourquoi utiliser Boost.Asio ?**
-
-R: Boost.Asio est une bibliothèque C++ async I/O mature et performante. Alternative : ASIO standalone (même chose sans boost::).
-
-**Q: Pourquoi async et pas synchrone ?**
-
-R: Les opérations synchrones bloqueraient le jeu. L'async permet de continuer le rendu pendant l'attente réseau.
-
-**Q: Comment tester sans serveur ?**
-
-R: Utiliser `nc` (netcat) :
-```bash
-nc -l 127.0.0.1 4123
+    note right of Disconnected
+        isConnected() = false
+        Socket recréé
+        Prêt pour connect()
+    end note
 ```
 
-**Q: Comment changer l'IP du serveur ?**
+---
 
-R: Actuellement, il faut modifier le code source. Future amélioration : fichier de config.
+## Améliorations Apportées
+
+### Commit `77f0247`
+
+| Avant | Après | Avantage |
+|-------|-------|----------|
+| `const size_t BUFFER_SIZE` | `static constexpr size_t BUFFER_SIZE` | Évite VLA warnings |
+| `return _connected` | `return _connected && _socket.is_open()` | Détection connexion perdue |
+| `message = string(buffer, len)` | `message.assign(buffer, len)` | Performance |
+| Socket non réutilisable | `_socket = tcp::socket(_ioContext)` | Permet reconnexion |
 
 ---
 
-## Ressources
+## Bonnes Pratiques
 
-- [Documentation Boost.Asio](https://www.boost.org/doc/libs/1_89_0/doc/html/boost_asio.html)
-- [Tutoriel Async TCP](https://www.boost.org/doc/libs/1_89_0/doc/html/boost_asio/tutorial/tutdaytime3.html)
-- [Boot Documentation](../core/boot.md)
+### ✅ BON : Vérifier avant d'utiliser
+
+```cpp
+if (client.isConnected()) {
+    client.send("HELLO");
+}
+```
+
+### ✅ BON : Gérer les échecs
+
+```cpp
+if (!client.send("DATA")) {
+    // Reconnexion ou erreur utilisateur
+    client.connect("127.0.0.1", 4123);
+}
+```
+
+### ❌ MAUVAIS : Ignorer les retours
+
+```cpp
+client.send("DATA");  // Ignorer si ça a marché
+client.receive(msg);  // Ignorer si données reçues
+```
 
 ---
 
-## Résumé
+## FAQ
 
-**TCPClient** gère la communication réseau du client R-Type :
+**Q: Pourquoi synchrone et pas asynchrone ?**
 
-✅ **Connexion async** : Fonctionne
-❌ **Lecture/Écriture** : À implémenter
-⏳ **Protocole** : À définir
-⏳ **Intégration** : En attente
+R: Simplicité. Pour un jeu, l'API synchrone est plus facile à intégrer dans la game loop. L'async sera ajouté si le besoin se présente.
 
-**Architecture** : Boost.Asio avec callbacks asynchrones
+**Q: Comment gérer la reconnexion automatique ?**
 
-**Future** : Thread réseau dédié + protocole binaire robuste
+R: Appeler `connect()` après un échec de `send()` ou `receive()`.
+
+**Q: Quelle est la taille max d'un message ?**
+
+R: `BUFFER_SIZE` = 4096 bytes. Pour des messages plus grands, implémenter un protocole avec header de taille.
+
+---
+
+## Voir Aussi
+
+- [Boot Documentation](../core/boot.md) - Orchestration du client
+- [Network Architecture](../../guides/network-architecture.md) - Architecture réseau globale
+- [Authentication](../../guides/authentication.md) - Système d'authentification
