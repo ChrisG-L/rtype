@@ -9,8 +9,16 @@
 #include <iostream>
 
 namespace core {
-    GameLoop::GameLoop(graphics::IWindow* window, IRenderer* renderer): _window(window), _renderer(renderer)
+    GameLoop::GameLoop(
+        std::shared_ptr<graphics::IWindow> window,
+        std::shared_ptr<IRenderer> renderer,
+        std::shared_ptr<client::network::TCPClient> tcpClient
+    )
+        : _window(window), _renderer(renderer), _tcpClient(tcpClient)
     {
+        _sceneManager = std::make_unique<SceneManager>();
+        _sceneManager->setTCPClient(_tcpClient);
+        _sceneManager->changeScene(std::make_unique<LoginScene>());
     }
 
     GameLoop::~GameLoop()
@@ -20,8 +28,20 @@ namespace core {
     void GameLoop::run()
     {
         while (_window->isOpen()) {
+            while (auto event = _window->pollEvent()) {
+                if (event->is<sf::Event::Closed>()) {
+                    _window->close();
+                    return;
+                }
+                _sceneManager->handleEvent(*event);
+            }
+
+            // Update
+            _sceneManager->update();
+
+            // Render
             clear();
-            _renderer->update();
+            _sceneManager->render(_window);
             display();
         }
     }

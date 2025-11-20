@@ -6,6 +6,7 @@
 */
 
 #include "infrastructure/adapters/in/network/TCPServer.hpp"
+#include "infrastructure/logging/Logger.hpp"
 
 namespace infrastructure::adapters::in::network {
     // Session implementation
@@ -18,12 +19,14 @@ namespace infrastructure::adapters::in::network {
 
     void Session::do_read() {
         auto self = shared_from_this();
+        auto logger = server::logging::Logger::getNetworkLogger();
+
         // changer _data en fonction de la réponse
         _socket.async_read_some(
             boost::asio::buffer(_data, max_length),
-            [this, self](boost::system::error_code ec, std::size_t length) {
+            [this, self, logger](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
-                    std::cout << "Reçu: " << std::string(_data, length) << std::endl;
+                    logger->debug("Received: {}", std::string(_data, length));
                     // do_write(length);
                     handle_command(length);
                     do_read();
@@ -46,17 +49,18 @@ namespace infrastructure::adapters::in::network {
 
     void Session::handle_command(std::size_t length) {
         using infrastructure::adapters::in::network::execute::Execute;
-    
+
         infrastructure::adapters::in::network::protocol::CommandParser cmdParser;
         Command cmd = cmdParser.parse(std::string(_data, length));
-        std::vector<std::string> args = {"LOGIN", "killian", "PLUENET"}; 
+        std::vector<std::string> args = {"LOGIN", "killian", "PLUENET"};
         Execute execute(cmd, _userRepository);
     }
 
     // TCPServer implementation
     TCPServer::TCPServer(boost::asio::io_context& io_ctx, std::shared_ptr<MongoDBUserRepository> userRepository)
         : _io_ctx(io_ctx), _userRepository(userRepository) , _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4123)) {
-        std::cout << "Serveur TCP démarré sur le port 4123\n";
+        auto logger = server::logging::Logger::getNetworkLogger();
+        logger->info("TCP Server started on port 4123");
     }
 
     void TCPServer::start() {
@@ -68,10 +72,12 @@ namespace infrastructure::adapters::in::network {
     }
 
     void TCPServer::start_accept() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
         _acceptor.async_accept(
-            [this](boost::system::error_code ec, tcp::socket socket) {
+            [this, logger](boost::system::error_code ec, tcp::socket socket) {
                 if (!ec) {
-                    std::cout << "Nouvelle connexion acceptée!" << std::endl;
+                    logger->info("New connection accepted!");
                     std::make_shared<Session>(std::move(socket), _userRepository)->start();
                 }
                 start_accept();

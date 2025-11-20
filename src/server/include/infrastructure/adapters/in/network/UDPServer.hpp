@@ -18,8 +18,8 @@ namespace infrastructure::adapters::in::network {
 
     class UDPServer {
         private:
-            udp::socket _socket;
             boost::asio::io_context& _io_ctx;
+            udp::socket _socket;
             udp::endpoint _remote_endpoint;
             std::array<char, 1024> _recv_buffer;
 

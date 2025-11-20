@@ -18,14 +18,21 @@ namespace core {
 
     void Engine::initialize()
     {
+        initialize(nullptr);
+    }
+
+    void Engine::initialize(std::shared_ptr<client::network::TCPClient> tcpClient)
+    {
+        _tcpClient = tcpClient;
+
         // Changer le SFML window et rendered par quelque chose de modulaire car couplage trop fort!
-        _window = std::make_unique<SFMLWindow>();
+        _window = std::make_shared<SFMLWindow>();
         _window->initialize({.x = 1200, .y = 1200}, "rtype");
 
-        _renderer = std::make_unique<SFMLRenderer>(_window.get());
+        _renderer = std::make_shared<SFMLRenderer>(_window);
         _renderer->initialize();
 
-        _gameLoop = std::make_unique<GameLoop>(_window.get(), _renderer.get());
+        _gameLoop = std::make_unique<GameLoop>(_window, _renderer, _tcpClient);
     }
 
     void Engine::run()

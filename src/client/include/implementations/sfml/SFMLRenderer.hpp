@@ -16,12 +16,12 @@
 
 class SFMLRenderer: public core::IRenderer {
     public:
-        SFMLRenderer(graphics::IWindow* window);
+        SFMLRenderer(std::shared_ptr<graphics::IWindow> window);
         void initialize() override;
         void update() override;
 
     private:
-        graphics::IWindow* _window;
+        std::shared_ptr<graphics::IWindow> _window;
         std::unique_ptr<AssetManager> mAsset;
 };
 

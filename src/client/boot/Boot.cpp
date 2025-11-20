@@ -6,16 +6,32 @@
 */
 
 #include "boot/Boot.hpp"
+#include "core/Logger.hpp"
 
-Boot::Boot(): io_ctx{},
-    tcpClient(std::make_unique<TCPClient>(io_ctx)),
+Boot::Boot():
+    tcpClient(std::make_unique<client::network::TCPClient>()),
     engine(std::make_unique<core::Engine>())
 {
 }
 
 void Boot::core()
 {
-    // tcpClient->run();
-    engine->initialize();
+    auto logger = client::logging::Logger::getBootLogger();
+
+    logger->info("R-Type client starting...");
+
+    // Configuration des callbacks réseau
+    tcpClient->setOnConnected([logger]() {
+        logger->info("Connected to server!");
+    });
+    tcpClient->setOnDisconnected([logger]() {
+        logger->info("Disconnected from server");
+    });
+    tcpClient->connect("127.0.0.1", 4123); // TODO: A voir si on laisse hardcoder l'ip et le port
+
+    // Le moteur démarre sans attendre la connexion
+    engine->initialize(tcpClient);
     engine->run();
+
+    logger->info("R-Type client shutting down...");
 }

@@ -1,44 +1,259 @@
 /*
 ** EPITECH PROJECT, 2025
-** rtype [WSL: Ubuntu-24.04]
+** rtype [WSL : Ubuntu-24.04]
 ** File description:
 ** TCPClient
 */
 
 #include "network/TCPClient.hpp"
+#include "core/Logger.hpp"
 
-TCPClient::TCPClient(boost::asio::io_context& io_ctx): _io_ctx{io_ctx}, _socket{io_ctx}
+namespace client::network
 {
-    tcp::resolver resolver(_io_ctx);
-    //TODO ça serait pas mal de faire un système de port dynamique
-    tcp::resolver::results_type endpoints = resolver.resolve("127.0.0.1", "4123");
-    boost::asio::async_connect(_socket, endpoints, [this](const boost::system::error_code& error,
-        const tcp::endpoint& endpoint) {
-        if (!error) {
-            std::cout << "Connected to " << endpoint << std::endl;
-        } else {
-            std::cout << "Connection failed: " << error.message() << std::endl;
+    TCPClient::TCPClient()
+        : _socket(_ioContext), _connected(false), _isWriting(false)
+    {
+        client::logging::Logger::getNetworkLogger()->debug("TCPClient created");
+    }
+
+    TCPClient::~TCPClient()
+    {
+        disconnect();
+    }
+
+    void TCPClient::setOnConnected(const OnConnectedCallback& callback)
+    {
+        _onConnected = callback;
+    }
+
+    void TCPClient::setOnDisconnected(const OnDisconnectedCallback& callback)
+    {
+        _onDisconnected = callback;
+    }
+
+    void TCPClient::setOnReceive(const OnReceiveCallback& callback)
+    {
+        _onReceive = callback;
+    }
+
+    void TCPClient::setOnError(const OnErrorCallback& callback)
+    {
+        _onError = callback;
+    }
+
+    void TCPClient::connect(const std::string &host, std::uint16_t port)
+    {
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        if (_connected) {
+            logger->warn("Already connected, disconnecting...");
+            disconnect();
         }
-    });
-}
 
-void TCPClient::run()
-{
-    // _socket.w
-    // for (;;) {
-    //     // std::array<char, 128> buf;
-    //     std::string buf2 = "coucou";
-    //     // boost::system::error_code error;
+        logger->info("Connecting to {}:{}...", host, port);
 
-    //     // size_t len = _socket.read_some(boost::asio::buffer(buf), error);
-    //     // std::cout << "len: " << len << std::endl;
+        try {
+            tcp::resolver resolver(_ioContext);
+            auto endpoints = resolver.resolve(host, std::to_string(port));
 
-    //     // if (error = boost::asio::error::eof)
-    //     //     break;
-    //     // else if (error) {
-    //     //     throw boost::system::system_error(error);
-    //     // }
-    //     // std::cout.write(buf.data(), len) << std::endl;
-    //     _socket.write_some(boost::asio::buffer(buf2));
-    // }
+            asyncConnect(endpoints);
+
+            _ioThread = std::jthread([this, logger]() {
+                logger->debug("IO thread started");
+                _ioContext.run();
+                logger->debug("IO thread terminated");
+            });
+
+            logger->info("Connection initiated");
+        } catch (const std::exception &e) {
+            logger->error("Resolution error: {}", e.what());
+            if (_onError) {
+                _onError(std::string("Connexion échouée: ") + e.what());
+            }
+        }
+    }
+
+    void TCPClient::disconnect()
+    {
+        std::scoped_lock lock(_mutex);
+        if (!_connected) {
+            return;
+        }
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Disconnecting...");
+
+        _connected = false;
+        _ioContext.stop();
+
+        boost::system::error_code ec;
+        _socket.shutdown(tcp::socket::shutdown_both, ec);
+        _socket.close(ec);
+
+        if (_onDisconnected) {
+            _onDisconnected();
+        }
+
+        _ioContext.restart();
+        _socket = tcp::socket(_ioContext);
+
+        {
+            std::scoped_lock lock(_mutex);
+            while (!_sendQueue.empty()) {
+                _sendQueue.pop();
+            }
+            _isWriting = false;
+        }
+
+        logger->info("Disconnected successfully");
+    }
+
+    bool TCPClient::isConnected() const
+    {
+        std::scoped_lock lock(_mutex);
+        return _connected && _socket.is_open();
+    }
+
+    void TCPClient::send(const std::string &message)
+    {
+        if (!isConnected()) {
+            return;
+        }
+
+        {
+            std::scoped_lock lock(_mutex);
+            _sendQueue.push(message);
+        }
+
+        boost::asio::post(_ioContext, [this]() {
+            std::scoped_lock lock(_mutex);
+            if (!_isWriting) {
+                _isWriting = true;
+                asyncWrite();
+            }
+        });
+    }
+
+    void TCPClient::asyncConnect(tcp::resolver::results_type endpoints)
+    {
+        boost::asio::async_connect(
+            _socket,
+            endpoints,
+            [this](const boost::system::error_code &error, const tcp::endpoint &) {
+                handleConnect(error);
+            }
+        );
+    }
+
+    void TCPClient::asyncRead()
+    {
+        _socket.async_read_some(
+            boost::asio::buffer(_readBuffer, BUFFER_SIZE),
+            [this](const boost::system::error_code &error, std::size_t bytes) {
+                handleRead(error, bytes);
+            }
+        );
+    }
+
+    void TCPClient::asyncWrite()
+    {
+        std::scoped_lock lock(_mutex);
+
+        if (_sendQueue.empty()) {
+            _isWriting = false;
+            return;
+        }
+
+        _isWriting = true;
+        std::string message = _sendQueue.front();
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(message),
+            [this](const boost::system::error_code &error, std::size_t) {
+                handleWrite(error);
+            }
+        );
+    }
+
+    void TCPClient::handleConnect(const boost::system::error_code &error)
+    {
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        if (!error) {
+            {
+                std::scoped_lock lock(_mutex);
+                _connected = true;
+            }
+
+            logger->info("Connected successfully");
+
+            if (_onConnected) {
+                _onConnected();
+            }
+
+            asyncRead();
+        } else {
+            logger->error("Connection failed: {}", error.message());
+
+            if (_onError) {
+                _onError("Connexion échouée: " + error.message());
+            }
+        }
+    }
+
+    void TCPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
+    {
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        if (!error) {
+            std::string message(_readBuffer, bytes);
+
+            logger->debug("Received {} bytes", bytes);
+
+            if (_onReceive) {
+                _onReceive(message);
+            }
+
+            asyncRead();
+        } else {
+            if (error == boost::asio::error::eof) {
+                logger->info("Server disconnected");
+            } else {
+                logger->error("Read error: {}", error.message());
+            }
+
+            if (_onError) {
+                _onError("Erreur lecture: " + error.message());
+            }
+
+            disconnect();
+        }
+    }
+
+    void TCPClient::handleWrite(const boost::system::error_code &error)
+    {
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        {
+            std::scoped_lock lock(_mutex);
+            if (!_sendQueue.empty()) {
+                _sendQueue.pop();
+            }
+        }
+
+        if (!error) {
+            asyncWrite();
+        } else {
+            logger->error("Write error: {}", error.message());
+
+            if (_onError) {
+                _onError("Erreur envoi: " + error.message());
+            }
+
+            _isWriting = false;
+            disconnect();
+        }
+    }
+
 }

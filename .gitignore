@@ -21,4 +21,6 @@ site/
 .vscode/
 settings.local.json
 
-third_party/vcpkg/vcpkg
+third_party/vcpkg/vcpkglogs/
+
+client.log

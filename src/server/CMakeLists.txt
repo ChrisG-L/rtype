@@ -40,6 +40,9 @@ add_executable(rtype_server
     infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
     infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
     infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
+
+    # Infrastructure - Logging
+    infrastructure/logging/Logger.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -98,6 +101,7 @@ target_link_libraries(rtype_server PRIVATE
     OpenSSL::Crypto
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
+    spdlog::spdlog
 )
 
 # Bibliothèques Windows supplémentaires pour Boost.Asio

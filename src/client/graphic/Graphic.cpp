@@ -6,6 +6,7 @@
 */
 
 #include "graphic/Graphic.hpp"
+#include "core/Logger.hpp"
 
 Graphic::Graphic(): _window{sf::VideoMode({1200, 1200}), "R-type window"}
 {
@@ -14,32 +15,35 @@ Graphic::Graphic(): _window{sf::VideoMode({1200, 1200}), "R-type window"}
 
 void Graphic::run()
 {
+    auto logger = client::logging::Logger::getGraphicsLogger();
+
     _window.setActive(false);
-    std::thread thread(&Graphic::renderingThread, this, &_window);
+    std::jthread thread(&Graphic::renderingThread, this, &_window);
     while (_window.isOpen())
     {
         while (const std::optional event = _window.pollEvent())
         {
             if (event->is<sf::Event::Closed>())
                 _window.close();
-            
+
             if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
-                std::cout << "button left pressed" << std::endl;
+                logger->debug("Left mouse button pressed");
             }
         }
     }
-    thread.join();
 }
 
 void Graphic::renderingThread(sf::RenderWindow* window)
 {
+    auto logger = client::logging::Logger::getGraphicsLogger();
+
     const sf::Texture tBedroom("assets/spaceship/bedroom.jpg");
     window->setActive(true);
 
     sf::Sprite sBedroom(tBedroom);
     sf::Vector2u windowSize = window->getSize();
     sf::Vector2u sTextureSize = tBedroom.getSize();
-    
+
     sBedroom.setScale({
         static_cast<float>(windowSize.x) / sTextureSize.x,
         static_cast<float>(windowSize.y) / sTextureSize.y
@@ -64,7 +68,7 @@ void Graphic::renderingThread(sf::RenderWindow* window)
         window->display();
         window->clear();
         window->draw(sBedroom);
-        if (boundingBox.contains({mousePos.x, mousePos.y})) { 
+        if (boundingBox.contains({mousePos.x, mousePos.y})) {
             window->setMouseCursor(hand_cursor);
             window->draw(convex);
         } else {

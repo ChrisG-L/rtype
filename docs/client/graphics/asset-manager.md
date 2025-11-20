@@ -4,16 +4,9 @@
 
 L'**AssetManager** est un composant central du système graphique du client R-Type. Il gère de manière optimisée le chargement, le stockage et le rendu des ressources graphiques (textures et sprites) en implémentant un pattern de cache et de pooling pour améliorer les performances.
 
-!!! info "Localisation"
-    - **Fichier source**: `/home/simia/epitech/second_year/projects/rtype/src/client/include/implementations/sfml/utils/AssetManager.hpp`
-    - **Namespace**: Global (header-only class)
-    - **Dépendances**: SFML Graphics, IWindow interface
+!!! info "Localisation" - **Fichier source**: `/home/simia/epitech/second_year/projects/rtype/src/client/include/implementations/sfml/utils/AssetManager.hpp` - **Namespace**: Global (header-only class) - **Dépendances**: SFML Graphics, IWindow interface
 
-!!! success "Avantages principaux"
-    - **Cache de textures**: Évite les chargements multiples de la même ressource
-    - **Sprite pooling**: Gestion efficace de multiples instances de sprites
-    - **API simple**: Interface intuitive et facile à utiliser
-    - **Gestion mémoire optimisée**: Utilisation de move semantics et références
+!!! success "Avantages principaux" - **Cache de textures**: Évite les chargements multiples de la même ressource - **Sprite pooling**: Gestion efficace de multiples instances de sprites - **API simple**: Interface intuitive et facile à utiliser - **Gestion mémoire optimisée**: Utilisation de move semantics et références
 
 ---
 
@@ -99,6 +92,7 @@ AssetManager()
 **Complexité**: O(1)
 
 **Exemple**:
+
 ```cpp
 auto assetManager = std::make_unique<AssetManager>();
 ```
@@ -126,10 +120,12 @@ void registerTexture(const std::string& file)
 5. **Stockage**: Utilise `std::move()` pour transférer la texture dans le cache via `emplace()`
 
 **Complexité**:
+
 - O(1) si texture en cache
 - O(n) pour le chargement depuis disque (n = taille du fichier)
 
 **Gestion d'erreur**:
+
 ```cpp
 if (!newTexture.loadFromFile(file)) {
     std::cout << "La texture n'a pas pu etre chargé correctement!" << std::endl;
@@ -138,6 +134,7 @@ if (!newTexture.loadFromFile(file)) {
 ```
 
 **Exemple d'utilisation**:
+
 ```cpp
 AssetManager assets;
 
@@ -152,11 +149,7 @@ assets.registerTexture("assets/enemies/enemy1.png");
 assets.registerTexture("assets/backgrounds/space.jpg");
 ```
 
-!!! warning "Points d'attention"
-    - Le chemin doit être valide et accessible
-    - La méthode ne throw pas d'exception en cas d'échec
-    - Les messages d'erreur sont affichés sur `std::cout`
-    - Le fichier doit être dans un format supporté par SFML (PNG, JPG, BMP, etc.)
+!!! warning "Points d'attention" - Le chemin doit être valide et accessible - La méthode ne throw pas d'exception en cas d'échec - Les messages d'erreur sont affichés sur `std::cout` - Le fichier doit être dans un format supporté par SFML (PNG, JPG, BMP, etc.)
 
 ---
 
@@ -179,6 +172,7 @@ sf::Texture& getTexture(const std::string& key)
 **Complexité**: O(1) en moyenne (accès hash map)
 
 **Exemple d'utilisation**:
+
 ```cpp
 // Enregistrement préalable
 assets.registerTexture("assets/player.png");
@@ -193,6 +187,7 @@ playerTexture.setRepeated(false);
 ```
 
 **Gestion d'erreur**:
+
 ```cpp
 try {
     sf::Texture& tex = assets.getTexture("non_existent.png");
@@ -203,7 +198,7 @@ try {
 ```
 
 !!! danger "Attention"
-    La texture doit avoir été enregistrée via `registerTexture()` avant d'appeler `getTexture()`, sinon une exception `std::out_of_range` sera levée.
+La texture doit avoir été enregistrée via `registerTexture()` avant d'appeler `getTexture()`, sinon une exception `std::out_of_range` sera levée.
 
 ---
 
@@ -227,6 +222,7 @@ void removeTexture(const std::string& file)
 **Complexité**: O(1) en moyenne
 
 **Exemple d'utilisation**:
+
 ```cpp
 // Chargement d'une texture temporaire
 assets.registerTexture("assets/temp/loading_screen.png");
@@ -238,7 +234,7 @@ assets.removeTexture("assets/temp/loading_screen.png");
 ```
 
 !!! warning "Attention aux références pendantes"
-    Assurez-vous qu'aucun sprite n'utilise cette texture avant de la supprimer, sinon vous aurez des comportements indéfinis. Les sprites stockent des pointeurs internes vers la texture.
+Assurez-vous qu'aucun sprite n'utilise cette texture avant de la supprimer, sinon vous aurez des comportements indéfinis. Les sprites stockent des pointeurs internes vers la texture.
 
 ---
 
@@ -265,6 +261,7 @@ void addSprite(const std::string& key, const sf::Sprite& sprite)
 **Cas d'usage typiques**:
 
 **1. Multiples ennemis du même type**:
+
 ```cpp
 // Enregistrer la texture une fois
 assets.registerTexture("assets/enemies/alien.png");
@@ -279,6 +276,7 @@ for (int i = 0; i < 10; i++) {
 ```
 
 **2. Système de particules**:
+
 ```cpp
 assets.registerTexture("assets/fx/particle.png");
 sf::Texture& particleTex = assets.getTexture("assets/fx/particle.png");
@@ -292,6 +290,7 @@ for (int i = 0; i < 100; i++) {
 ```
 
 **3. Tuiles de niveau**:
+
 ```cpp
 assets.registerTexture("assets/tiles/grass.png");
 sf::Texture& grassTex = assets.getTexture("assets/tiles/grass.png");
@@ -318,7 +317,7 @@ void drawAll(graphics::IWindow* window)
 
 **Paramètres**:
 
-- `window` (graphics::IWindow*): Pointeur vers l'interface de fenêtre qui expose la méthode `draw()`
+- `window` (graphics::IWindow\*): Pointeur vers l'interface de fenêtre qui expose la méthode `draw()`
 
 **Comportement détaillé**:
 
@@ -327,6 +326,7 @@ void drawAll(graphics::IWindow* window)
 3. **Délégation**: Appelle `window->draw(sprite)` pour chaque sprite
 
 **Code interne**:
+
 ```cpp
 for (auto const& [key, sprites]: spritePools) {
     for (const auto& sprite: sprites) {
@@ -338,6 +338,7 @@ for (auto const& [key, sprites]: spritePools) {
 **Complexité**: O(n) où n = nombre total de sprites dans tous les pools
 
 **Exemple d'utilisation dans SFMLRenderer**:
+
 ```cpp
 void SFMLRenderer::update()
 {
@@ -347,6 +348,7 @@ void SFMLRenderer::update()
 ```
 
 **Pattern d'utilisation dans la boucle de jeu**:
+
 ```cpp
 // Dans la GameLoop
 void GameLoop::run()
@@ -360,7 +362,7 @@ void GameLoop::run()
 ```
 
 !!! tip "Optimisation future"
-    Pour améliorer les performances avec de nombreux sprites:
+Pour améliorer les performances avec de nombreux sprites:
 
     - Implémenter le **sprite batching**: regrouper les draws par texture
     - Ajouter un **système de culling**: ne dessiner que les sprites visibles
@@ -409,6 +411,7 @@ std::unordered_map<std::string, std::vector<sf::Sprite>> spritePools;
 3. **Batch rendering potentiel**: Tous les sprites du même pool utilisent souvent la même texture
 
 **Exemple de structure**:
+
 ```
 spritePools = {
     "enemies": [sprite1, sprite2, sprite3],
@@ -600,13 +603,13 @@ explosionFx.emit({400, 300}, 50); // Explosion de 50 particules
 
 ### Analyse de complexité
 
-| Opération | Complexité | Justification |
-|-----------|------------|---------------|
+| Opération           | Complexité   | Justification                          |
+| ------------------- | ------------ | -------------------------------------- |
 | `registerTexture()` | O(1) ou O(n) | O(1) si en cache, O(n) pour I/O disque |
-| `getTexture()` | O(1) | Accès hash map |
-| `removeTexture()` | O(1) | Suppression hash map |
-| `addSprite()` | O(1) amortie | `vector::push_back()` |
-| `drawAll()` | O(n) | n = nombre total de sprites |
+| `getTexture()`      | O(1)         | Accès hash map                         |
+| `removeTexture()`   | O(1)         | Suppression hash map                   |
+| `addSprite()`       | O(1) amortie | `vector::push_back()`                  |
+| `drawAll()`         | O(n)         | n = nombre total de sprites            |
 
 ### Utilisation mémoire
 
@@ -641,6 +644,7 @@ TOTAL: ~356 KB (très léger!)
 !!! tip "Améliorations possibles"
 
 **1. Sprite Batching**
+
 ```cpp
 // Regrouper les draws par texture pour minimiser les changements d'état GPU
 void drawAllBatched(graphics::IWindow* window) {
@@ -655,6 +659,7 @@ void drawAllBatched(graphics::IWindow* window) {
 ```
 
 **2. Frustum Culling**
+
 ```cpp
 // Ne dessiner que les sprites visibles
 void drawAllCulled(graphics::IWindow* window, const sf::FloatRect& viewport) {
@@ -669,6 +674,7 @@ void drawAllCulled(graphics::IWindow* window, const sf::FloatRect& viewport) {
 ```
 
 **3. Clear Pool**
+
 ```cpp
 // Ajouter la capacité de vider un pool spécifique
 void clearPool(const std::string& key) {
@@ -680,6 +686,7 @@ void clearPool(const std::string& key) {
 ```
 
 **4. Texture Atlas**
+
 ```cpp
 // Combiner plusieurs petites textures en une grande
 // Réduit les changements de texture
@@ -696,6 +703,7 @@ void loadAtlas(const std::string& atlasFile,
 ```
 
 **5. Async Loading**
+
 ```cpp
 // Charger les textures de manière asynchrone
 std::future<bool> registerTextureAsync(const std::string& file) {
@@ -705,7 +713,7 @@ std::future<bool> registerTextureAsync(const std::string& file) {
             return false;
         }
 
-        std::lock_guard<std::mutex> lock(textureMutex);
+        std::scoped_lock lock(textureMutex);
         textures.emplace(file, std::move(newTexture));
         return true;
     });
@@ -719,6 +727,7 @@ std::future<bool> registerTextureAsync(const std::string& file) {
 ### DO - À faire
 
 1. **Enregistrer les textures une seule fois**
+
 ```cpp
 // Bon: chargement une fois au démarrage
 void GameInit::loadAssets(AssetManager* assets) {
@@ -728,6 +737,7 @@ void GameInit::loadAssets(AssetManager* assets) {
 ```
 
 2. **Utiliser des clés cohérentes**
+
 ```cpp
 // Bon: convention de nommage claire
 assets->registerTexture("assets/sprites/player.png");
@@ -735,6 +745,7 @@ assets->addSprite("assets/sprites/player.png", playerSprite);
 ```
 
 3. **Vérifier les erreurs de chargement**
+
 ```cpp
 // Bon: validation post-chargement
 assets->registerTexture("important.png");
@@ -749,6 +760,7 @@ try {
 ### DON'T - À éviter
 
 1. **Ne pas charger dans la boucle de jeu**
+
 ```cpp
 // MAUVAIS: I/O dans la game loop
 while (gameRunning) {
@@ -758,6 +770,7 @@ while (gameRunning) {
 ```
 
 2. **Ne pas oublier de supprimer les textures inutilisées**
+
 ```cpp
 // MAUVAIS: fuite mémoire
 for (int level = 1; level <= 100; level++) {
@@ -775,6 +788,7 @@ void loadLevel(int level) {
 ```
 
 3. **Ne pas créer de copies inutiles**
+
 ```cpp
 // MAUVAIS: copie de la texture
 sf::Texture texCopy = assets->getTexture("player.png"); // Copie complète!
@@ -836,38 +850,35 @@ graph TD
 
 ### État actuel
 
-| Fonctionnalité | Statut | Notes |
-|----------------|--------|-------|
-| Cache de textures | Implémenté | Fonctionne parfaitement |
-| Sprite pooling | Implémenté | Organisation par clé |
-| Chargement synchrone | Implémenté | Bloquant, mais simple |
+| Fonctionnalité          | Statut     | Notes                   |
+| ----------------------- | ---------- | ----------------------- |
+| Cache de textures       | Implémenté | Fonctionne parfaitement |
+| Sprite pooling          | Implémenté | Organisation par clé    |
+| Chargement synchrone    | Implémenté | Bloquant, mais simple   |
 | Suppression de textures | Implémenté | Gestion mémoire basique |
-| Rendu groupé | Implémenté | Via `drawAll()` |
+| Rendu groupé            | Implémenté | Via `drawAll()`         |
 
 ### Limitations actuelles
 
-!!! warning "Limitations connues"
-    - **Pas de gestion des sprites individuels**: Impossible de modifier/supprimer un sprite spécifique dans un pool
-    - **Pas de culling**: Tous les sprites sont dessinés, même hors écran
-    - **Pas de batching GPU**: Chaque sprite = un draw call
-    - **Pas de méthode clearPool()**: Impossible de vider un pool sans recréer l'AssetManager
-    - **Messages d'erreur en français**: Non internationalisé
-    - **Pas de logging**: Utilise `std::cout` directement
+!!! warning "Limitations connues" - **Pas de gestion des sprites individuels**: Impossible de modifier/supprimer un sprite spécifique dans un pool - **Pas de culling**: Tous les sprites sont dessinés, même hors écran - **Pas de batching GPU**: Chaque sprite = un draw call - **Pas de méthode clearPool()**: Impossible de vider un pool sans recréer l'AssetManager - **Messages d'erreur en français**: Non internationalisé - **Pas de logging**: Utilise `std::cout` directement
 
 ### Roadmap future
 
 **Version 2.0**:
+
 - Ajouter `clearPool(key)` et `removeSprite(key, index)`
 - Implémenter le frustum culling
 - Ajouter des statistiques (nombre de textures, taille mémoire)
 
 **Version 3.0**:
+
 - Sprite batching pour optimiser le rendu
 - Chargement asynchrone des textures
 - Support des texture atlases
 - Système de logging structuré
 
 **Version 4.0**:
+
 - Intégration avec le système ECS
 - Animation sprites
 - Gestion automatique du LOD (Level of Detail)

@@ -1,14 +1,21 @@
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR})
+
 add_executable(rtype_client
     main.cpp
 
     boot/Boot.cpp
     core/Engine.cpp
     core/GameLoop.cpp
+    core/Logger.cpp
     graphic/Graphic.cpp
     network/TCPClient.cpp
+    scenes/SceneManager.cpp
+    scenes/LoginScene.cpp
+    scenes/GameScene.cpp
     implementations/sfml/SFMLWindow.cpp
     implementations/sfml/SFMLRenderer.cpp
     implementations/sfml/SFMLTexture.cpp
+    implementations/sfml/AssetManager.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -67,4 +74,5 @@ target_link_libraries(rtype_client PRIVATE
     SFML::Graphics
     SFML::Audio
     SFML::Network
+    spdlog::spdlog
 )
