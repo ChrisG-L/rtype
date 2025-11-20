@@ -21,6 +21,11 @@ bool SFMLWindow::isOpen()
     return _window.isOpen();
 }
 
+void SFMLWindow::close()
+{
+    return _window.close();
+}
+
 std::optional<sf::Event> SFMLWindow::pollEvent()
 {
     return _window.pollEvent();

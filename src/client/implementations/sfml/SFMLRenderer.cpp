@@ -7,7 +7,7 @@
 
 #include "implementations/sfml/SFMLRenderer.hpp"
 
-SFMLRenderer::SFMLRenderer(graphics::IWindow* window): _window{window}, mAsset{std::make_unique<AssetManager>()}
+SFMLRenderer::SFMLRenderer(std::shared_ptr<graphics::IWindow> window): _window{window}, mAsset{std::make_unique<AssetManager>()}
 {
 }
 
@@ -16,10 +16,11 @@ void SFMLRenderer::initialize()
     // Image test
     std::string bedRoomFile = "assets/spaceship/bedroom.jpg";
 
-    mAsset->registerTexture(bedRoomFile);
+    if (mAsset->registerTexture(bedRoomFile)) {
+        sf::Sprite bedRoomSprite(mAsset->getTexture(bedRoomFile));
+        mAsset->addSprite(bedRoomFile, bedRoomSprite);
+    }
 
-    sf::Sprite bedRoomSprite(mAsset->getTexture(bedRoomFile));
-    mAsset->addSprite(bedRoomFile, bedRoomSprite);
 }
 
 void SFMLRenderer::update()

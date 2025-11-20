@@ -10,12 +10,15 @@
 int main(void) {
     try
     {
+        client::logging::Logger::init();
         Boot boot;
         boot.core();
+        client::logging::Logger::shutdown();
     }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
+        // client::logging::Logger::error("Exception caught: {}", e.what());
+        return EXIT_FAILURE;
     }
     
     return 0;

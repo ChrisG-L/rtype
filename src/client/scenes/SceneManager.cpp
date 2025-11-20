@@ -24,7 +24,7 @@ void SceneManager::changeScene(std::unique_ptr<IScene> newScene)
     }
 }
 
-void SceneManager::setTCPClient(client::network::TCPClient* tcpClient)
+void SceneManager::setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient)
 {
     _tcpClient = tcpClient;
 }
@@ -41,7 +41,7 @@ void SceneManager::update()
         _currentScene->update();
 }
 
-void SceneManager::render(graphics::IWindow *window)
+void SceneManager::render(std::shared_ptr<graphics::IWindow>  window)
 {
     if (_currentScene)
         _currentScene->render(window);
