@@ -29,14 +29,19 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     bool MongoDBConfiguration::pingServer() const {
-        auto db = getDatabaseConfig();
-        auto collection = db["ping"];
-        auto result = collection.find_one(make_document(kvp("ping", "me")));
+        try {
+            auto db = getDatabaseConfig();
+            auto collection = db["ping"];
+            auto result = collection.find_one(make_document(kvp("ping", "me")));
 
-        if (result) {
-            std::cout << bsoncxx::to_json(*result) << std::endl;
-            return true;
-        } else {
+            if (result) {
+                std::cout << bsoncxx::to_json(*result) << std::endl;
+                return true;
+            } else {
+                return false;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Erreur de ping MongoDB: " << e.what() << std::endl;
             return false;
         }
     };
