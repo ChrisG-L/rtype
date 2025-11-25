@@ -2,7 +2,7 @@
 
 **État:** ✅ Implémenté et Documenté
 **Version:** 0.3.0
-**Dernière mise à jour:** 17 janvier 2025
+**Dernière mise à jour:** 25 novembre 2025
 
 ---
 
@@ -927,5 +927,5 @@ TEST(HealthTest, HealReturnsNewHealth) {
 
 ---
 
-**Dernière révision:** 11/01/2025 par Agent Documentation
-**Statut:** ✅ Complet et à jour avec le code (v0.2.0)
+**Dernière révision:** 25/11/2025 par Agent Documentation
+**Statut:** ✅ Complet et à jour avec le code (v0.3.0)

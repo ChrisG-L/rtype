@@ -19,9 +19,10 @@ Le client R-Type est une application C++ moderne utilisant SFML 3 pour le rendu 
 
 | Technologie | Version | Usage |
 |------------|---------|-------|
-| **C++** | 20 | Langage principal |
+| **C++** | 20/23 | Langage principal |
 | **SFML** | >= 3.0.1 | Rendu graphique, fenêtrage |
-| **Boost.Asio** | 1.89.0 | Communications réseau asynchrones |
+| **Boost.Asio** | Latest | Communications réseau asynchrones |
+| **spdlog** | Latest | Système de logging |
 | **CMake** | >= 3.20 | Système de build |
 | **vcpkg** | Latest | Gestionnaire de dépendances |
 
@@ -35,31 +36,53 @@ Le client R-Type est une application C++ moderne utilisant SFML 3 pour le rendu 
 
     Découvrez l'architecture complète du client, ses composants et leurs interactions.
 
--   **[Patterns de Conception](architecture/design-patterns.md)**
+-   **[Interfaces API](api/interfaces.md)**
 
-    Apprenez les patterns utilisés (Adapter, Dependency Injection, etc.).
+    Référence des interfaces (IEngine, IGameLoop, IRenderer, IWindow, etc.).
 
 </div>
 
-### Systèmes
+### Core
 
 <div class="grid cards" markdown>
 
--   **[Système Graphique](graphics/overview.md)**
+-   **[Core Overview](core/index.md)**
 
-    Interfaces graphiques (IWindow, ITexture, IDrawable) et implémentations SFML.
+    Vue d'ensemble des composants principaux (Boot, Engine, GameLoop).
 
 -   **[Moteur de Jeu](core/engine.md)**
 
     Engine, GameLoop et orchestration des composants.
 
+-   **[Système de Scènes](core/scenes.md)**
+
+    SceneManager, LoginScene et GameScene.
+
 -   **[Système de Rendu](core/renderer.md)**
 
     SFMLRenderer et AssetManager pour la gestion des ressources.
 
--   **[Système Réseau](network/tcp-client.md)**
+</div>
+
+### Graphics & Network
+
+<div class="grid cards" markdown>
+
+-   **[Système Graphique](graphics/index.md)**
+
+    Interfaces graphiques (IWindow, ITexture, IDrawable) et implémentations SFML.
+
+-   **[AssetManager](graphics/asset-manager.md)**
+
+    Gestion du cache de textures et sprites.
+
+-   **[Système Réseau](network/index.md)**
 
     TCPClient et communications asynchrones avec Boost.Asio.
+
+-   **[TCPClient](network/tcp-client.md)**
+
+    Client TCP asynchrone thread-safe.
 
 </div>
 
@@ -71,17 +94,9 @@ Le client R-Type est une application C++ moderne utilisant SFML 3 pour le rendu 
 
     Compilez et lancez le client pour la première fois.
 
--   **[Guide du Développeur](guides/developer-guide.md)**
+-   **[Contribution](../development/contributing.md)**
 
     Bonnes pratiques et workflow de développement.
-
--   **[Ajouter une Feature](guides/adding-features.md)**
-
-    Tutoriel pas-à-pas pour étendre le client.
-
--   **[Référence API](api/index.md)**
-
-    Documentation détaillée de toutes les classes et interfaces.
 
 </div>
 
@@ -145,42 +160,56 @@ graph TB
 ```
 src/client/
 ├── boot/                    # Point d'entrée et orchestration
-│   ├── Boot.cpp
-│   └── Boot.hpp
+│   └── Boot.cpp/.hpp
 │
 ├── core/                    # Cœur du moteur
 │   ├── Engine.cpp          # Moteur principal
 │   ├── GameLoop.cpp        # Boucle de jeu
-│   ├── IEngine.hpp         # Interface moteur
-│   ├── IGameLoop.hpp       # Interface game loop
-│   └── IRenderer.hpp       # Interface renderer
+│   └── Logger.cpp          # Système de logging
 │
-├── graphic/                 # Classe démo SFML
-│   └── Graphic.cpp
+├── graphics/                # Utilitaires graphiques
+│   └── Graphics.cpp        # GraphicTexture
 │
-├── implementations/         # Implémentations concrètes
+├── scenes/                  # Système de scènes
+│   ├── SceneManager.cpp    # Gestionnaire de scènes
+│   ├── LoginScene.cpp      # Scène de connexion
+│   └── GameScene.cpp       # Scène de jeu
+│
+├── implementations/         # Implémentations concrètes SFML
 │   └── sfml/
 │       ├── SFMLWindow.cpp
 │       ├── SFMLRenderer.cpp
 │       ├── SFMLTexture.cpp
-│       └── utils/
-│           └── AssetManager.hpp
+│       └── AssetManager.cpp
 │
 ├── network/                 # Communications réseau
 │   └── TCPClient.cpp
 │
-└── include/                 # Headers publics
-    ├── boot/
-    ├── core/
-    ├── graphic/
-    ├── graphics/           # Interfaces graphiques
-    │   ├── IWindow.hpp
-    │   ├── IDrawable.hpp
-    │   └── ITexture.hpp
-    ├── implementations/
-    ├── network/
-    └── utils/
-        └── Vecs.hpp        # Structures vecteurs
+├── include/                 # Headers publics
+│   ├── boot/Boot.hpp
+│   ├── core/               # Interfaces et headers
+│   │   ├── IEngine.hpp, Engine.hpp
+│   │   ├── IGameLoop.hpp, GameLoop.hpp
+│   │   ├── IRenderer.hpp
+│   │   └── Logger.hpp
+│   ├── graphics/           # Interfaces graphiques
+│   │   ├── IWindow.hpp, IDrawable.hpp, ITexture.hpp
+│   │   ├── Asset.hpp       # std::variant pour assets
+│   │   └── Graphics.hpp    # GraphicTexture
+│   ├── scenes/             # Interfaces scènes
+│   │   ├── IScene.hpp
+│   │   ├── SceneManager.hpp
+│   │   ├── LoginScene.hpp
+│   │   └── GameScene.hpp
+│   ├── implementations/sfml/
+│   │   ├── SFMLWindow.hpp, SFMLRenderer.hpp
+│   │   └── utils/AssetManager.hpp, TextField.hpp
+│   ├── network/TCPClient.hpp
+│   ├── ui/                 # UI components (stubs)
+│   │   ├── IUIElement.hpp, Button.hpp, TextInput.hpp
+│   └── utils/Vecs.hpp      # Vec2i, Vec2u, Vec2f, Vec3i, Vec3f
+│
+└── main.cpp                 # Point d'entrée
 ```
 
 ## 🎨 Concepts Clés
@@ -259,13 +288,13 @@ sequenceDiagram
 
 - [Guide d'Installation](../getting-started/installation.md)
 - [Architecture Serveur](../guides/network-architecture.md)
-- [Bonnes Pratiques C++](../guides/best-practices.md)
-- [Politiques de Commit](../development/COMMIT_POLICES.md)
+- [Architecture Hexagonale](../guides/hexagonal-architecture.md)
+- [Système de Logging](../development/logging.md)
+- [Politiques de Commit](../development/contributing.md)
 
 ## 🆘 Besoin d'Aide ?
 
 - **FAQ** : [Foire Aux Questions](../reference/faq.md)
-- **Glossaire** : [Termes Techniques](../reference/glossary.md)
 - **Issues GitHub** : [Rapporter un Bug](https://github.com/Pluenet-Killian/rtype/issues)
 
 ---

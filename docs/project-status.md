@@ -1,26 +1,29 @@
 # État du Projet R-Type
 
-**Dernière mise à jour:** 11 janvier 2025
-**Version:** 0.2.0 (Phase: Core Engine - Architecture)
+**Dernière mise à jour:** 25 novembre 2025
+**Version:** 0.3.0 (Phase: Core Engine - Client & Server Integration)
 
 ---
 
 ## 📊 Vue d'Ensemble
 
-Le projet R-Type est actuellement en phase de **développement du Core Engine**. L'architecture hexagonale est complète avec séparation propre .hpp/.cpp, et les fondations réseau sont implémentées.
+Le projet R-Type est en phase de **développement actif** avec un client graphique fonctionnel et un serveur avec architecture hexagonale complète. L'intégration client-serveur est en cours.
 
 ### Phase Actuelle
 
-🚧 **Phase 2: Core Engine - Architecture** (60% complété)
+🚧 **Phase 3: Core Engine - Client & Server Integration** (70% complété)
 
-Nous avons construit une architecture solide avec:
-- Architecture hexagonale complète (Domain/Application/Infrastructure)
-- Séparation .hpp/.cpp (18 fichiers)
-- Serveurs réseau UDPServer et TCPServer (Boost.Asio)
-- Entités et Value Objects du domaine
-- Système d'authentification (entité User)
+**Réalisations:**
+- ✅ Architecture hexagonale serveur complète (Domain/Application/Infrastructure)
+- ✅ Client graphique SFML fonctionnel (Boot, Engine, GameLoop, Scenes)
+- ✅ Système de scènes (LoginScene, GameScene)
+- ✅ Communication TCP client-serveur (Boost.Asio)
+- ✅ Authentification complète (Login, Register, MongoDBUserRepository)
+- ✅ Système de logging professionnel (spdlog) - 12 loggers
+- ✅ Gestionnaire d'assets (AssetManager)
+- 🚧 UI et gameplay en cours
 
-**Prochaine phase:** Gameplay et ECS
+**Prochaine phase:** Gameplay ECS et Multijoueur
 
 ---
 
@@ -29,26 +32,33 @@ Nous avons construit une architecture solide avec:
 | Composant | État | Avancement | Ticket Linear | Notes |
 |-----------|------|------------|---------------|-------|
 | **Infrastructure CI/CD** | ✅ Terminé | 100% | [EPI-9](https://linear.app/epitech-study/issue/EPI-9) | Pipeline complet |
-| **Documentation** | 🚧 En cours | 75% | [EPI-15](https://linear.app/epitech-study/issue/EPI-15) | Mise à jour en cours |
+| **Documentation** | 🚧 En cours | 85% | [EPI-15](https://linear.app/epitech-study/issue/EPI-15) | Mise à jour en cours |
 | **Architecture Hexagonale** | ✅ Terminé | 100% | [EPI-22](https://linear.app/epitech-study/issue/EPI-22) | 3 couches complètes |
-| ├─ Séparation .hpp/.cpp | ✅ Terminé | 100% | [EPI-23](https://linear.app/epitech-study/issue/EPI-23) | 18 fichiers .cpp |
+| ├─ Séparation .hpp/.cpp | ✅ Terminé | 100% | [EPI-23](https://linear.app/epitech-study/issue/EPI-23) | 40+ fichiers .cpp |
 | └─ Serveurs Réseau | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | UDP + TCP |
-| **Domain Layer** | 🚧 En cours | 70% | - | Entités et Value Objects |
+| **Domain Layer** | ✅ Terminé | 95% | - | Entités et Value Objects |
 | ├─ Entité Player | ✅ Terminé | 100% | - | Position, Health, PlayerId |
-| ├─ Entité User | ✅ Terminé | 100% | - | Auth (Username, Password) |
-| ├─ Value Objects | ✅ Terminé | 100% | - | 8 Value Objects |
+| ├─ Entité User | ✅ Terminé | 100% | - | Auth (Username, Email, Password) |
+| ├─ Value Objects | ✅ Terminé | 100% | - | 9 Value Objects (incl. Email) |
 | └─ Exceptions | ✅ Terminé | 100% | - | 10 Exceptions métier |
-| **Application Layer** | 🚧 En cours | 50% | - | Use Cases |
+| **Application Layer** | ✅ Terminé | 90% | - | Use Cases |
 | ├─ MovePlayerUseCase | ✅ Terminé | 100% | - | Déplacement joueur |
-| ├─ LoginUseCase | 🚧 En cours | 60% | - | Authentification utilisateur |
-| └─ RegisterUseCase | 📋 Planifié | 0% | - | Inscription utilisateur |
-| **Infrastructure Layer** | 🚧 En cours | 50% | - | Adapters |
+| ├─ LoginUseCase | ✅ Terminé | 100% | - | Authentification par email |
+| └─ RegisterUseCase | ✅ Terminé | 100% | - | Inscription utilisateur |
+| **Infrastructure Layer** | 🚧 En cours | 80% | - | Adapters |
 | ├─ UDPServer | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | Port 4123 |
-| ├─ TCPServer | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | Port 4123 |
+| ├─ TCPServer | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | Port 3000 |
 | ├─ MongoDBConfiguration | ✅ Terminé | 100% | - | Connexion DB |
-| └─ Repositories | 🚧 En cours | 40% | - | IPlayerRepository, IUserRepository |
+| ├─ MongoDBUserRepository | ✅ Terminé | 100% | - | CRUD utilisateurs |
+| └─ MongoDBPlayerRepository | 🚧 En cours | 30% | - | Stub implémentation |
+| **Client Graphique** | 🚧 En cours | 65% | [EPI-11](https://linear.app/epitech-study/issue/EPI-11) | SFML fonctionnel |
+| ├─ Boot/Engine/GameLoop | ✅ Terminé | 100% | - | Architecture complète |
+| ├─ SceneManager | ✅ Terminé | 100% | - | LoginScene, GameScene |
+| ├─ SFMLRenderer/Window | ✅ Terminé | 90% | - | Rendu fonctionnel |
+| ├─ AssetManager | ✅ Terminé | 95% | - | Cache textures/sprites |
+| ├─ TCPClient | ✅ Terminé | 85% | - | Communication async |
+| └─ UI Components | 🚧 En cours | 20% | - | TextField en cours |
 | **Architecture ECS** | 📋 Planifié | 0% | [EPI-17](https://linear.app/epitech-study/issue/EPI-17) | À démarrer |
-| **Client graphique** | 📋 Planifié | 0% | [EPI-11](https://linear.app/epitech-study/issue/EPI-11) | À démarrer |
 
 ### Légende des États
 
@@ -61,74 +71,85 @@ Nous avons construit une architecture solide avec:
 
 ## 💻 Statistiques Code
 
-### Lignes de Code (Mise à jour 11/01/2025)
+### Lignes de Code (Mise à jour 25/11/2025)
 
 | Catégorie | Fichiers | Lignes | Pourcentage |
 |-----------|----------|--------|-------------|
-| **Code Source Serveur** | 46 | ~2,500 | 45% |
-| ├─ Headers (.hpp) | 23 | ~1,200 | 22% |
-| └─ Implémentations (.cpp) | 23 | ~1,300 | 23% |
-| **Documentation** | 12 | ~3,200 | 55% |
-| **Tests** | 2 | 50 | <1% |
-| **Total Projet** | 60+ | ~5,750 | 100% |
+| **Code Source Serveur** | 50+ | ~3,500 | 35% |
+| ├─ Headers (.hpp) | 25+ | ~1,500 | 15% |
+| └─ Implémentations (.cpp) | 25+ | ~2,000 | 20% |
+| **Code Source Client** | 30+ | ~2,500 | 25% |
+| ├─ Headers (.hpp) | 20+ | ~1,200 | 12% |
+| └─ Implémentations (.cpp) | 14 | ~1,300 | 13% |
+| **Documentation** | 42 | ~7,500 | 35% |
+| **Tests** | 5+ | 200+ | 2% |
+| **Total Projet** | 120+ | ~13,700 | 100% |
 
-**Ratio Documentation/Code:** 1.3:1 (normalisé)
+**Ratio Documentation/Code:** 1.25:1
 
 ### Architecture du Code Source
 
 ```
-src/server/
-├── domain/
-│   ├── entities/
-│   │   ├── Player.hpp/.cpp ✅
-│   │   └── User.hpp/.cpp ✅ (nouveau)
-│   ├── value_objects/
-│   │   ├── Health.hpp/.cpp ✅
-│   │   ├── Position.hpp/.cpp ✅
-│   │   ├── player/
-│   │   │   └── PlayerId.hpp/.cpp ✅
-│   │   └── user/ ✅ (nouveau)
-│   │       ├── UserId.hpp/.cpp
-│   │       ├── Username.hpp/.cpp
-│   │       └── Password.hpp/.cpp
-│   ├── exceptions/
-│   │   ├── DomainException.hpp/.cpp ✅
-│   │   ├── HealthException.hpp/.cpp ✅
-│   │   ├── PositionException.hpp/.cpp ✅
-│   │   ├── player/
-│   │   │   └── PlayerIdException.hpp/.cpp ✅
-│   │   └── user/ ✅ (nouveau)
-│   │       ├── UserIdException.hpp/.cpp
-│   │       ├── UsernameException.hpp/.cpp
-│   │       └── PasswordException.hpp/.cpp
-│   └── services/
-│       └── GameRule.hpp (placeholder)
-├── application/
-│   ├── use_cases/
-│   │   └── MovePlayerUseCase.hpp/.cpp ✅
-│   ├── ports/
-│   │   ├── in/
-│   │   │   └── IGameCommands.hpp ✅
-│   │   └── out/
-│   │       └── persistence/
-│   │           └── IPlayerRepository.hpp ✅
-│   └── dto/
-│       └── PlayerDTO.hpp ✅
-├── infrastructure/
-│   ├── adapters/
-│   │   ├── in/
-│   │   │   ├── cli/
-│   │   │   │   └── CLIGameController.hpp/.cpp ✅
-│   │   │   └── network/ ✅ (nouveau)
-│   │   │       ├── UDPServer.hpp/.cpp
-│   │   │       └── TCPServer.hpp/.cpp
-│   │   └── out/
-│   │       └── persistence/
-│   │           ├── MongoDBConfiguration.hpp/.cpp ✅
-│   │           └── MongoDBPlayerRepository.hpp 🚧
-│   └── configuration/
-│       └── DBConfig.hpp ✅
-└── main.cpp ✅ (intégré avec UDPServer)
+src/
+├── server/                          # Serveur de jeu (Architecture Hexagonale)
+│   ├── domain/
+│   │   ├── entities/
+│   │   │   ├── Player.hpp/.cpp ✅
+│   │   │   └── User.hpp/.cpp ✅
+│   │   ├── value_objects/
+│   │   │   ├── Health.hpp/.cpp ✅
+│   │   │   ├── Position.hpp/.cpp ✅
+│   │   │   ├── player/PlayerId.hpp/.cpp ✅
+│   │   │   └── user/ ✅
+│   │   │       ├── UserId, Username, Password.hpp/.cpp
+│   │   │       ├── Email.hpp/.cpp ✅ (nouveau)
+│   │   │       └── utils/PasswordUtils.hpp/.cpp ✅
+│   │   └── exceptions/ ✅ (10 exceptions métier)
+│   ├── application/
+│   │   ├── use_cases/
+│   │   │   ├── MovePlayerUseCase.hpp/.cpp ✅
+│   │   │   ├── Login.hpp/.cpp ✅
+│   │   │   └── Register.hpp/.cpp ✅
+│   │   └── ports/ (IGameCommands, IUserRepository, IPlayerRepository) ✅
+│   ├── infrastructure/
+│   │   ├── adapters/
+│   │   │   ├── in/network/
+│   │   │   │   ├── TCPServer.hpp/.cpp ✅
+│   │   │   │   ├── UDPServer.hpp/.cpp ✅
+│   │   │   │   ├── Execute.hpp/.cpp ✅
+│   │   │   │   └── ExecuteAuth.hpp/.cpp ✅
+│   │   │   └── out/persistence/
+│   │   │       ├── MongoDBConfiguration.hpp/.cpp ✅
+│   │   │       ├── MongoDBUserRepository.hpp/.cpp ✅
+│   │   │       └── MongoDBPlayerRepository.hpp 🚧
+│   │   ├── logging/Logger.hpp/.cpp ✅
+│   │   └── boostrap/GameBootstrap.hpp ✅
+│   └── main.cpp ✅
+│
+└── client/                          # Client de jeu (SFML)
+    ├── boot/Boot.hpp/.cpp ✅
+    ├── core/
+    │   ├── Engine.hpp/.cpp ✅
+    │   ├── GameLoop.hpp/.cpp ✅
+    │   └── Logger.hpp/.cpp ✅
+    ├── scenes/
+    │   ├── SceneManager.hpp/.cpp ✅
+    │   ├── LoginScene.hpp/.cpp ✅
+    │   └── GameScene.hpp/.cpp ✅
+    ├── graphics/Graphics.hpp/.cpp ✅
+    ├── network/TCPClient.hpp/.cpp ✅
+    ├── implementations/sfml/
+    │   ├── SFMLWindow.hpp/.cpp ✅
+    │   ├── SFMLRenderer.hpp/.cpp ✅
+    │   ├── SFMLTexture.hpp/.cpp ✅
+    │   └── utils/AssetManager.hpp/.cpp ✅
+    ├── include/
+    │   ├── core/ (IEngine, IGameLoop, IRenderer)
+    │   ├── graphics/ (IWindow, ITexture, IDrawable, Asset, GraphicTexture)
+    │   ├── scenes/ (IScene)
+    │   ├── ui/ (IUIElement, Button, TextInput) 🚧
+    │   └── utils/ (Vecs, TextField)
+    └── main.cpp ✅
 ```
 
 ### Dépendances Utilisées
@@ -173,54 +194,58 @@ src/server/
 - [EPI-23: Séparation .hpp/.cpp](https://linear.app/epitech-study/issue/EPI-23)
 - [EPI-24: Serveurs réseau UDP/TCP](https://linear.app/epitech-study/issue/EPI-24)
 
-### 🚧 Jalon 3: Core Engine (En cours - Jan-Fév 2025)
+### ✅ Jalon 3: Core Engine (Complété - Nov 2025)
 
 **Objectif:** Développer le moteur de jeu de base
-**Date estimée:** Janvier - Février 2025
-**Statut:** 🚧 **35% complété**
+**Date complétée:** Novembre 2025
+**Statut:** ✅ **95% complété**
 
-**Tâches principales:**
-- 🚧 Système d'authentification User (75%)
-  - ✅ Entité User complète
-  - ✅ IUserRepository (interface)
-  - 🚧 LoginUseCase (en cours)
-  - 📋 RegisterUseCase (à faire)
-  - 📋 MongoDBUserRepository (à faire)
-- 📋 Architecture ECS (Entity Component System) (0%)
-- 📋 Protocole réseau R-Type (0%)
-- 📋 Game loop serveur (0%)
-- 📋 Gestion des sessions de jeu (0%)
+**Réalisations:**
+- ✅ Système d'authentification User complet
+  - ✅ Entité User avec Email
+  - ✅ IUserRepository + MongoDBUserRepository
+  - ✅ LoginUseCase (authentification par email)
+  - ✅ RegisterUseCase (inscription)
+  - ✅ ExecuteAuth (routage commandes auth)
+- ✅ Client graphique fonctionnel
+  - ✅ Boot, Engine, GameLoop
+  - ✅ SceneManager avec LoginScene/GameScene
+  - ✅ SFMLRenderer, SFMLWindow
+  - ✅ AssetManager avec cache
+  - ✅ TCPClient asynchrone
+- ✅ Système de logging (12 loggers)
+- 🚧 UI Components (TextField en cours)
 
 **Tickets Linear:**
-- [EPI-17: Architecture ECS](https://linear.app/epitech-study/issue/EPI-17) - Priorité Haute
-- À créer: Ticket pour finaliser LoginUseCase
-- À créer: Protocole réseau R-Type
+- [EPI-17: Architecture ECS](https://linear.app/epitech-study/issue/EPI-17) - Prochaine priorité
 
-### 📋 Jalon 4: Gameplay Basique (Planifié - Mars 2025)
+### 🚧 Jalon 4: Gameplay et ECS (En cours - Déc 2025)
 
-**Objectif:** Gameplay R-Type fonctionnel
-**Date estimée:** Mars 2025
+**Objectif:** Gameplay R-Type fonctionnel avec ECS
+**Date estimée:** Décembre 2025
+**Statut:** 🚧 **10% complété**
+
+**Tâches principales:**
+- 📋 Architecture ECS (Entity Component System)
+- 📋 Vaisseau joueur contrôlable
+- 📋 Système de tir
+- 📋 Ennemis basiques avec patterns
+- 📋 Système de collisions
+- 📋 Power-ups
+- 📋 Synchronisation réseau état de jeu
+
+### 📋 Jalon 5: Polish et Multijoueur (Planifié - 2026)
+
+**Objectif:** Expérience multijoueur complète
+**Date estimée:** 2026
 **Statut:** 📋 **Planifié (0%)**
 
 **Tâches principales:**
-- Vaisseau joueur contrôlable
-- Système de tir
-- Ennemis basiques avec patterns
-- Système de collisions
-- Power-ups
-
-### 📋 Jalon 5: Client Graphique (Planifié - Avril 2025)
-
-**Objectif:** Interface graphique jouable
-**Date estimée:** Avril 2025
-**Statut:** 📋 **Planifié (0%)**
-
-**Tâches principales:**
-- Rendu graphique SFML
-- Gestion des inputs
-- UI et menus
-- Système audio
-- Assets graphiques
+- UI et menus complets
+- Système audio (musique, effets)
+- Matchmaking
+- Lobby et chat
+- Optimisations réseau
 
 ---
 
@@ -265,40 +290,38 @@ src/server/
 
 ### Cette Semaine (Priorité Urgente)
 
-1. **Documentation réseau** - Créer `docs/guides/network-architecture.md`
-   - Documenter UDPServer et TCPServer
-   - Diagrammes de flux
-   - Exemples d'utilisation
-
-2. **Documentation API** - Créer `docs/api/domain.md` et `docs/api/adapters.md`
-   - Référence complète des entités
-   - Value Objects et Exceptions
-   - Adapters réseau
-
-3. **Use Cases Auth** - Implémenter LoginUserUseCase et RegisterUserUseCase
-   - Utiliser l'entité User
-   - Intégrer avec TCPServer
-
-### Semaines Suivantes (Priorité Haute)
-
-4. **[EPI-17](https://linear.app/epitech-study/issue/EPI-17)** - Architecture ECS
+1. **Architecture ECS** - [EPI-17](https://linear.app/epitech-study/issue/EPI-17)
    - Entity Manager
    - Components (Position, Velocity, Sprite, Collider)
    - Systems (Movement, Rendering, Collision)
-   - Estimation: 2 semaines
 
-5. **Protocole Réseau R-Type**
+2. **UI Components Client**
+   - Finaliser TextField pour input utilisateur
+   - Implémenter Button interactif
+   - Menu de connexion fonctionnel
+
+3. **Intégration Auth Client-Serveur**
+   - Connecter LoginScene au serveur via TCPClient
+   - Implémenter RegisterScene
+
+### Semaines Suivantes (Priorité Haute)
+
+4. **Protocole Réseau Gameplay**
    - Définir format messages UDP (positions, actions)
    - Définir format messages TCP (auth, chat)
-   - Sérialisation/désérialisation
-   - Estimation: 1 semaine
+   - Sérialisation/désérialisation Protocol Buffers
+
+5. **Gameplay de Base**
+   - Vaisseau joueur contrôlable
+   - Système de tir basique
+   - Premier ennemi
 
 ### Plus Tard
 
-6. **Game Loop** - Boucle principale du serveur
-7. **Gameplay** - Ennemis, tirs, collisions
-8. **Client** - Interface graphique SFML
-9. **Tests** - Couverture complète
+6. **Ennemis et Patterns** - IA basique
+7. **Collisions** - Détection et réponse
+8. **Power-ups** - Système d'améliorations
+9. **Audio** - Musique et effets sonores
 10. **Polish** - Optimisations et finitions
 
 ---
@@ -360,26 +383,39 @@ src/server/
 ## 🏆 Accomplissements
 
 **Ce qui fonctionne aujourd'hui:**
+
+### Serveur
 - ✅ Build automatisé avec CMake
 - ✅ Pipeline Jenkins fonctionnel
 - ✅ Serveur UDP écoute sur port 4123
-- ✅ Serveur TCP accepte connexions
+- ✅ Serveur TCP accepte connexions (port 3000)
 - ✅ Entités Player et User complètes
-- ✅ Value Objects avec validation
-- ✅ Exceptions métier
-- ✅ MongoDB configuré et prêt
+- ✅ Value Objects avec validation (9 VOs dont Email)
+- ✅ Exceptions métier (10 exceptions)
+- ✅ MongoDB configuré avec MongoDBUserRepository
 - ✅ Architecture hexagonale respectée
+- ✅ Use Cases complets (Login, Register, MovePlayer)
+- ✅ Système de logging (6 loggers serveur)
+
+### Client
+- ✅ Client SFML fonctionnel
+- ✅ Architecture modulaire (Boot, Engine, GameLoop)
+- ✅ Système de scènes (LoginScene, GameScene)
+- ✅ SFMLRenderer et SFMLWindow
+- ✅ AssetManager avec cache textures/sprites
+- ✅ TCPClient asynchrone
+- ✅ Système de logging (6 loggers client)
 
 **Ce qui reste à faire:**
-- 🚧 Documentation réseau à créer
-- 🚧 Use Cases d'authentification
+- 🚧 UI Components (TextField, Button)
+- 🚧 Intégration complète auth client-serveur
 - 📋 Architecture ECS
-- 📋 Protocole réseau R-Type
-- 📋 Game loop serveur
-- 📋 Client graphique
-- 📋 Gameplay complet
+- 📋 Protocole réseau gameplay (UDP)
+- 📋 Gameplay (vaisseau, tir, ennemis)
+- 📋 Audio et effets
+- 📋 Multijoueur complet
 
 ---
 
-**Dernière révision:** 11/01/2025 par la Reine des Abeilles 👑
-**Prochaine mise à jour:** Après création documentation réseau et API
+**Dernière révision:** 25/11/2025 par la Reine des Abeilles 👑
+**Prochaine mise à jour:** Après implémentation ECS

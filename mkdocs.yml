@@ -170,6 +170,7 @@ nav:
 
   - Développement:
       - development/index.md
+      - Roadmap Complète: development/roadmap.md
       - Contribuer: development/contributing.md
       - Système de Logging: development/logging.md
       - Politiques de Commit: development/COMMIT_POLICES.md

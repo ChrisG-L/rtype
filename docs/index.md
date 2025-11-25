@@ -23,14 +23,14 @@ git clone https://github.com/Pluenet-Killian/rtype.git && cd rtype
 
 ## 🚧 État du Projet
 
-!!! success "Phase Actuelle: Développement Actif"
-    Le projet est en **phase de construction** avec infrastructure complète et implémentation progressive des fonctionnalités.
+!!! success "Phase Actuelle: Développement Actif - v0.3.0"
+    Le projet est en **phase d'intégration client-serveur** avec architecture complète et client SFML fonctionnel.
 
     **Infrastructure:** ✅ 100% complété
-    **Système de Logging:** ✅ 100% complété 🆕
-    **Client (Core, Graphics, Network):** 🚧 50% complété
-    **Serveur (Domain, Network):** 🚧 60% complété
-    **Gameplay:** 📋 Planifié
+    **Système de Logging:** ✅ 100% complété (12 loggers)
+    **Serveur (Domain, Auth, Network):** ✅ 90% complété
+    **Client (Core, Graphics, Network):** 🚧 65% complété
+    **Gameplay/ECS:** 📋 En planification
 
 📊 [Voir l'état détaillé du projet](project-status.md)
 
@@ -286,13 +286,15 @@ rtype/
 
 | Métrique | Valeur |
 |----------|--------|
-| **Lignes de code** | ~10,000+ |
-| **Fichiers sources** | 50+ |
+| **Lignes de code** | ~13,700+ |
+| **Fichiers sources** | 80+ |
 | **Tests unitaires** | 30+ tests |
 | **Couverture tests** | 60%+ |
 | **Loggers implémentés** | 12 (6 client + 6 serveur) |
+| **Value Objects** | 9 (avec validation) |
+| **Use Cases** | 3 (Login, Register, MovePlayer) |
 | **Commits** | 100+ |
-| **Documentation** | 35+ pages |
+| **Documentation** | 42 pages |
 
 </div>
 
@@ -306,23 +308,28 @@ rtype/
 - [x] **Engine** - Orchestration générale
 - [x] **GameLoop** - Boucle de jeu update/render
 - [x] **SceneManager** - Gestion des scènes (Login, Game)
-- [x] **TCPClient** - Communication réseau asynchrone
-- [x] **AssetManager** - Gestion textures et sprites
-- [x] **Logging** - Système centralisé spdlog 🆕
-- [x] **SFML Renderer** - Backend graphique
+- [x] **TCPClient** - Communication réseau asynchrone (thread-safe)
+- [x] **AssetManager** - Gestion textures et sprites avec cache
+- [x] **Logging** - Système centralisé spdlog (6 loggers)
+- [x] **SFML Renderer** - Backend graphique SFML 3.x
+- [x] **GraphicTexture** - Système de textures avec std::variant
 - [ ] **UDP Client** - Gameplay temps réel (planifié)
 - [ ] **ECS** - Entity Component System (planifié)
-- [ ] **UI System** - Interface utilisateur (en cours)
+- [ ] **UI System** - Interface utilisateur (en cours - TextField)
 
 ### Serveur
 
-- [x] **TCPServer** - Serveur TCP asynchrone
+- [x] **TCPServer** - Serveur TCP asynchrone (Boost.Asio)
 - [x] **UDPServer** - Serveur UDP asynchrone
 - [x] **Architecture Hexagonale** - Domain, Application, Infrastructure
-- [x] **User Entity** - Authentification et utilisateurs
-- [x] **MongoDB Integration** - Persistance des données
-- [x] **Logging** - Système centralisé spdlog 🆕
-- [ ] **Game Logic** - Logique de jeu (en cours)
+- [x] **User Entity** - Avec Email, Username, Password (bcrypt)
+- [x] **Player Entity** - Position, Health, PlayerId
+- [x] **Value Objects** - 9 VOs avec validation
+- [x] **Use Cases** - Login, Register, MovePlayer
+- [x] **MongoDB Integration** - MongoDBUserRepository complet
+- [x] **Logging** - Système centralisé spdlog (6 loggers)
+- [x] **ExecuteAuth** - Routage commandes d'authentification
+- [ ] **Game Logic** - Logique de jeu (planifié)
 - [ ] **Matchmaking** - Système de matchmaking (planifié)
 - [ ] **ECS Serveur** - Synchronisation d'état (planifié)
 
