@@ -24,3 +24,9 @@ settings.local.json
 third_party/vcpkg/vcpkglogs/
 
 client.log
+
+.cache/*
+log.txt
+.direnv/flake-profile
+.gitignore
+.direnv/flake-profile-6-link
