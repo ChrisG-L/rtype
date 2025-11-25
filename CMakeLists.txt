@@ -45,6 +45,8 @@ add_library(rtype_proto STATIC)
 
 set(PROTO_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/proto/user.proto
+    ${CMAKE_CURRENT_SOURCE_DIR}/proto/auth.proto
+    ${CMAKE_CURRENT_SOURCE_DIR}/proto/game.proto
 )
 
 PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
@@ -70,5 +72,6 @@ target_link_libraries(rtype_proto PRIVATE
 add_subdirectory("src/server")
 add_subdirectory("src/client")
 
-# Ajouter des tests pour le serveur
+# Ajouter les tests
 add_subdirectory("tests/server")
+add_subdirectory("tests/client")
