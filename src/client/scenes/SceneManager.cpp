@@ -7,7 +7,8 @@
 
 #include "scenes/SceneManager.hpp"
 
-SceneManager::SceneManager() : _currentScene(nullptr)
+SceneManager::SceneManager()
+    : _currentScene(nullptr)
 {
 }
 
@@ -37,12 +38,13 @@ void SceneManager::handleEvent(const sf::Event &event)
 
 void SceneManager::update()
 {
-    if (_currentScene)
+    if (_currentScene) {
         _currentScene->update();
+    }
 }
 
 void SceneManager::render(std::shared_ptr<graphics::IWindow>  window)
 {
     if (_currentScene)
-        _currentScene->render(window);
+        _currentScene->render();
 }

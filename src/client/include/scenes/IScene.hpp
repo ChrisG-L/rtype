@@ -24,14 +24,14 @@ public:
 
     virtual void handleEvent(const sf::Event &event) = 0;
     virtual void update() = 0;
-    virtual void render(std::shared_ptr<graphics::IWindow> window) = 0;
+    virtual void render() = 0;
 
     void setSceneManager(SceneManager* manager) { _sceneManager = manager; }
     void setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient) { _tcpClient = tcpClient; }
 
 protected:
     SceneManager* _sceneManager = nullptr;
-    std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
+    std::shared_ptr<client::network::TCPClient> _tcpClient;
 };
 
 #endif /* !ISCENE_HPP_ */

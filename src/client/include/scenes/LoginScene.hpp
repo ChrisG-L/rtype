@@ -10,18 +10,23 @@
 
 #include "scenes/IScene.hpp"
 #include <SFML/Window/Event.hpp>
+
 #include "graphics/IWindow.hpp"
+#include "../implementations/sfml/SFMLRenderer.hpp"
 #include <iostream>
 
 class LoginScene : public IScene
 {
-public:
-    LoginScene();
-    ~LoginScene() override = default;
+    public:
+        LoginScene(std::shared_ptr<core::IRenderer>);
+        ~LoginScene() override = default;
 
-    void handleEvent(const sf::Event &event) override;
-    void update() override;
-    void render(std::shared_ptr<graphics::IWindow>  window) override;
+        void handleEvent(const sf::Event &event) override;
+        void update() override;
+        void render() override;
+    private:
+        std::shared_ptr<core::IRenderer> _renderer;
+        GraphicAssets _loginAssets;
 };
 
 #endif /* !LOGINSCENE_HPP_ */

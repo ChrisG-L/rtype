@@ -6,13 +6,26 @@
 */
 
 #include "scenes/LoginScene.hpp"
+#include "graphics/Graphics.hpp"
 #include "scenes/SceneManager.hpp"
 #include "scenes/GameScene.hpp"
 #include "core/Logger.hpp"
+#include "utils/Vecs.hpp"
+#include <SFML/Graphics/Rect.hpp>
+#include <SFML/Graphics/Text.hpp>
+#include <algorithm>
+#include <memory>
+#include <spdlog/logger.h>
+#include <vector>
 
-LoginScene::LoginScene()
+LoginScene::LoginScene(std::shared_ptr<core::IRenderer> renderer): _renderer(renderer), _loginAssets{}
 {
     client::logging::Logger::getSceneLogger()->debug("LoginScene created");
+    graphic::GraphicTexture bgMenuT("assets/login/loginMenuBg.jpg", Vec2f({0, 0}), Vec2f({1, 1}));
+    graphic::GraphicTexture inputT("assets/login/loginInput.jpg", Vec2f({0, 0}), Vec2f({1, 1}));
+    _loginAssets.push_back(bgMenuT);
+    _loginAssets.push_back(inputT);
+    _renderer->initialize(std::move(_loginAssets));
 }
 
 void LoginScene::handleEvent(const sf::Event &event)
@@ -25,13 +38,21 @@ void LoginScene::handleEvent(const sf::Event &event)
             }
         }
     }
+    // if (const auto* keyPressed = event.getIf<sf::Event::TextEntered>()){
+    //     if (event.getIf<sf::>()){
+    //         s += static_cast<char>(event.text.unicode);
+    //     } else {
+    //         // Time to consider sf::String or some other unicode-capable string
+    //     }
+    // }
 }
 
 void LoginScene::update()
 {
+    _renderer->update();
 }
 
-void LoginScene::render(std::shared_ptr<graphics::IWindow>  window)
+void LoginScene::render()
 {
-    window->drawRect(100.f, 100.f, 200.f, 200.f, sf::Color::Blue);
+    _renderer->render();
 }

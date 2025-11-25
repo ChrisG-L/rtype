@@ -10,6 +10,7 @@
 
 #include "scenes/IScene.hpp"
 #include "network/TCPClient.hpp"
+#include "../implementations/sfml/SFMLRenderer.hpp"
 #include <memory>
 
 class SceneManager
@@ -26,6 +27,7 @@ class SceneManager
 
     private:
         std::unique_ptr<IScene> _currentScene;
+        std::shared_ptr<core::IRenderer> _renderer;
         std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
 };
 

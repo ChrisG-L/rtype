@@ -21,6 +21,6 @@ public:
 
     void handleEvent(const sf::Event &event) override;
     void update() override;
-    void render(std::shared_ptr<graphics::IWindow> window) override;
+    void render() override;
 };
 #endif /* !GAMESCENE_HPP_ */
