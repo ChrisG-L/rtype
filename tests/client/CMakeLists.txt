@@ -1,0 +1,57 @@
+#===============================================================================
+# R-Type Client Tests - CMakeLists.txt
+#===============================================================================
+# Configuration des tests unitaires pour le client R-Type
+# Utilise Google Test (GTest) pour les tests
+#===============================================================================
+
+project("client_tests" VERSION 0.0.1 LANGUAGES CXX)
+
+# Sources de tests
+set(TEST_SOURCES
+    main.cpp
+
+    # Tests Utils
+    utils/VecsTest.cpp
+    utils/SignalTest.cpp
+)
+
+# Créer l'exécutable de tests
+add_executable(client_tests
+    ${TEST_SOURCES}
+)
+
+# Configuration de compilation pour les tests
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(client_tests PRIVATE
+        -O0
+        -g3
+        -Wall
+        -Wextra
+    )
+endif()
+
+# Inclure les répertoires d'en-têtes du client
+target_include_directories(client_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/client
+    ${CMAKE_SOURCE_DIR}/src/client/include
+)
+
+# Lier les bibliothèques nécessaires
+target_link_libraries(client_tests PRIVATE
+    GTest::gtest
+    GTest::gtest_main
+)
+
+# Enregistrer les tests avec CTest
+include(GoogleTest)
+gtest_discover_tests(client_tests)
+
+# Définir la sortie des tests dans artifacts/tests
+set_target_properties(client_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/tests
+)
+
+# Message de configuration
+message(STATUS "Client tests configured with ${CMAKE_BUILD_TYPE} mode")
+message(STATUS "Test output directory: ${CMAKE_SOURCE_DIR}/artifacts/tests")
