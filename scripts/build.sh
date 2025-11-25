@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e  # Arrêter en cas d'erreur
+
+export VCPKG_FORCE_SYSTEM_BINARIES=1
 
 # Parse arguments
 PLATFORM="linux"  # Default platform
@@ -50,11 +52,11 @@ else
 fi
 
 # Installer argon2 : sans sudo si on est root, sinon avec sudo
-if [[ "$(id -u)" -eq 0 ]]; then
-    apt install -y argon2
-else
-    sudo apt install -y argon2
-fi
+# if [[ "$(id -u)" -eq 0 ]]; then
+#     apt install -y argon2
+# else
+#     sudo apt install -y argon2
+# fi
 
 # Aller dans le dossier vcpkg
 cd "$VCPKG_DIR"
@@ -142,8 +144,8 @@ fi
 case $PLATFORM in
     linux)
         VCPKG_TRIPLET="x64-linux"
-        CMAKE_CXX_COMPILER="g++"
-        CMAKE_C_COMPILER="gcc"
+        CMAKE_CXX_COMPILER="clang++"
+        CMAKE_C_COMPILER="clang"
         CMAKE_EXTRA_FLAGS=""
         ;;
     windows)
@@ -174,12 +176,14 @@ echo "⚙️  Configuration du projet CMake..."
 mkdir -p "$BUILD_DIR"
 cmake -S . -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Debug \
-    -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja \
+    -DCMAKE_MAKE_PROGRAM=ninja \
     -G "Ninja" \
     -DCMAKE_CXX_COMPILER=$CMAKE_CXX_COMPILER \
     -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER \
     -DVCPKG_TARGET_TRIPLET=$VCPKG_TRIPLET \
     $CMAKE_EXTRA_FLAGS \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 echo "✅ Configuration terminée pour plateforme: $PLATFORM dans $BUILD_DIR"
