@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package rtype.game;
+
+// Types de messages de jeu
+enum GameMessageType {
+    MSG_UNKNOWN = 0;
+    MSG_CLIENT_INPUT = 1;
+    MSG_WORLD_SNAPSHOT = 2;
+    MSG_ENTITY_SPAWN = 3;
+    MSG_ENTITY_DESTROY = 4;
+    MSG_PLAYER_JOIN = 5;
+    MSG_PLAYER_LEAVE = 6;
+    MSG_GAME_STATE = 7;
+    MSG_PING = 8;
+    MSG_PONG = 9;
+}
+
+// Types d'entités
+enum EntityType {
+    ENTITY_UNKNOWN = 0;
+    ENTITY_PLAYER = 1;
+    ENTITY_ENEMY_BASIC = 2;
+    ENTITY_ENEMY_BOSS = 3;
+    ENTITY_PROJECTILE_PLAYER = 4;
+    ENTITY_PROJECTILE_ENEMY = 5;
+    ENTITY_POWERUP = 6;
+    ENTITY_OBSTACLE = 7;
+}
+
+// États de jeu
+enum GameState {
+    GAME_WAITING = 0;
+    GAME_STARTING = 1;
+    GAME_RUNNING = 2;
+    GAME_PAUSED = 3;
+    GAME_ENDED = 4;
+}
+
+// Vecteur 2D
+message Vec2 {
+    float x = 1;
+    float y = 2;
+}
+
+// Vecteur 3D
+message Vec3 {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+// Flags d'input
+message InputFlags {
+    bool move_up = 1;
+    bool move_down = 2;
+    bool move_left = 3;
+    bool move_right = 4;
+    bool shoot = 5;
+    bool special = 6;
+}
+
+// Input du client
+message ClientInput {
+    uint32 sequence_number = 1;
+    uint32 client_tick = 2;
+    uint64 timestamp_ms = 3;
+    InputFlags input = 4;
+    Vec2 aim_direction = 5;
+}
+
+// État d'une entité
+message EntityState {
+    uint32 network_id = 1;
+    EntityType type = 2;
+    Vec2 position = 3;
+    Vec2 velocity = 4;
+    float rotation = 5;
+    uint32 health = 6;
+    uint32 max_health = 7;
+    bool is_dead = 8;
+    uint32 owner_id = 9;  // Pour les projectiles
+}
+
+// Événement de jeu
+message GameEvent {
+    uint32 event_id = 1;
+    string event_type = 2;
+    uint32 source_entity = 3;
+    uint32 target_entity = 4;
+    int32 value = 5;
+    Vec2 position = 6;
+}
+
+// Snapshot du monde
+message WorldSnapshot {
+    uint32 server_tick = 1;
+    uint64 timestamp_ms = 2;
+    GameState state = 3;
+    repeated EntityState entities = 4;
+    repeated GameEvent events = 5;
+}
+
+// Spawn d'entité
+message EntitySpawn {
+    EntityState entity = 1;
+}
+
+// Destruction d'entité
+message EntityDestroy {
+    uint32 network_id = 1;
+    string reason = 2;
+}
+
+// Joueur rejoint
+message PlayerJoin {
+    uint32 player_id = 1;
+    string username = 2;
+    EntityState initial_state = 3;
+}
+
+// Joueur quitte
+message PlayerLeave {
+    uint32 player_id = 1;
+    string reason = 2;
+}
+
+// Ping/Pong pour latence
+message Ping {
+    uint64 client_timestamp = 1;
+    uint32 sequence = 2;
+}
+
+message Pong {
+    uint64 client_timestamp = 1;
+    uint64 server_timestamp = 2;
+    uint32 sequence = 3;
+}
+
+// Message de jeu générique (wrapper)
+message GameMessage {
+    GameMessageType type = 1;
+    uint32 sequence_id = 2;
+    uint64 timestamp_ms = 3;
+
+    oneof payload {
+        ClientInput client_input = 10;
+        WorldSnapshot world_snapshot = 11;
+        EntitySpawn entity_spawn = 12;
+        EntityDestroy entity_destroy = 13;
+        PlayerJoin player_join = 14;
+        PlayerLeave player_leave = 15;
+        Ping ping = 16;
+        Pong pong = 17;
+    }
+}
