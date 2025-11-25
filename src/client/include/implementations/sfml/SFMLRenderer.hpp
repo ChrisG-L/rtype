@@ -9,16 +9,20 @@
 #define SFMLRENDERER_HPP_
 
 #include "../../core/IRenderer.hpp"
-
 #include "utils/AssetManager.hpp"
+#include "../../graphics/Graphics.hpp"
 #include <unordered_map>
 #include <memory>
 
 class SFMLRenderer: public core::IRenderer {
     public:
         SFMLRenderer(std::shared_ptr<graphics::IWindow> window);
-        void initialize() override;
+        
+        void initialize(GraphicAssets) override;
         void update() override;
+        void render() override;
+
+        void initGraphicTexture(const graphic::GraphicTexture& graphT);
 
     private:
         std::shared_ptr<graphics::IWindow> _window;

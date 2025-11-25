@@ -10,6 +10,7 @@
 
 #include <SFML/Graphics.hpp>
 #include "../../../graphics/IWindow.hpp"
+#include "implementations/sfml/SFMLWindow.hpp"
 
 #include <unordered_map>
 #include <iostream>

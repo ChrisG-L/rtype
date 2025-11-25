@@ -10,14 +10,21 @@
 
 #include "../graphics/IWindow.hpp"
 #include <SFML/Graphics.hpp>
+#include <memory>
+#include <variant>
+#include <vector>
+#include "../graphics/Asset.hpp"
+
+typedef std::vector<Asset> GraphicAssets;
 
 namespace core {
     class IRenderer {
         public:
             virtual ~IRenderer() = default;
 
-            virtual void initialize() = 0;
+            virtual void initialize(GraphicAssets) = 0;
             virtual void update() = 0;
+            virtual void render() = 0;
 
     };
 }

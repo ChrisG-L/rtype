@@ -7,6 +7,7 @@
 
 #include "implementations/sfml/utils/AssetManager.hpp"
 #include "core/Logger.hpp"
+#include "implementations/sfml/SFMLWindow.hpp"
 #include <memory>
 
 AssetManager::AssetManager()
