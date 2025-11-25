@@ -7,7 +7,7 @@ add_executable(rtype_client
     core/Engine.cpp
     core/GameLoop.cpp
     core/Logger.cpp
-    graphic/Graphic.cpp
+    graphics/Graphics.cpp
     network/TCPClient.cpp
     scenes/SceneManager.cpp
     scenes/LoginScene.cpp
@@ -16,6 +16,8 @@ add_executable(rtype_client
     implementations/sfml/SFMLRenderer.cpp
     implementations/sfml/SFMLTexture.cpp
     implementations/sfml/AssetManager.cpp
+
+    ui/Button.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")

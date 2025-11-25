@@ -35,4 +35,10 @@ struct Vec3f {
     float z;
 };
 
+struct Vec4i {
+    int x;
+    int y;
+    int z;
+};
+
 #endif /* !VECS_HPP_ */
