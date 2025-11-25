@@ -30,3 +30,5 @@ log.txt
 .direnv/flake-profile
 .gitignore
 .direnv/flake-profile-6-link
+compile_commands.json
+logs/server.log
