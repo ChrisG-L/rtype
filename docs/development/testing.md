@@ -1,53 +1,125 @@
 # Tests et Qualité de Code
 
 **Dernière mise à jour:** 25 novembre 2025
+**Version:** 1.1.0
 
-Ce guide décrit les pratiques de test et les outils de qualité de code utilisés dans le projet R-Type.
+Ce guide décrit le système de tests unitaires et les outils de qualité de code utilisés dans le projet R-Type.
 
 ---
 
 ## Vue d'Ensemble
 
-Le projet R-Type utilise plusieurs niveaux de test et outils de qualité :
+Le projet R-Type dispose d'une suite de tests complète utilisant Google Test (GTest).
+
+| Composant | Tests | Couverture |
+|-----------|-------|------------|
+| **Serveur - Value Objects** | 70+ tests | Health, Position, Email, Username |
+| **Serveur - Entities** | 20+ tests | Player |
+| **Serveur - Network Protobuf** | 35+ tests | User, Auth, Game messages |
+| **Serveur - Network Protocol** | 30+ tests | CommandParser |
+| **Serveur - TCP Integration** | 19 tests | Client/Server communication |
+| **Serveur - UDP Integration** | 16 tests | Datagrammes, latence |
+| **Client - Utils** | 40+ tests | Vecs, Signal |
+| **Total** | 210+ tests | ~75% |
+
+### Outils Utilisés
 
 | Outil | Usage | Statut |
 |-------|-------|--------|
 | **Google Test** | Tests unitaires | ✅ Configuré |
 | **Sanitizers** | Détection bugs runtime | ✅ Activé (Debug) |
-| **SonarCloud** | Analyse statique | ✅ Intégré CI |
-| **Valgrind** | Analyse mémoire | 📋 Optionnel |
+| **CTest** | Orchestration tests | ✅ Intégré |
+| **script test.sh** | Runner personnalisé | ✅ Disponible |
 
 ---
 
-## Google Test
+## Démarrage Rapide
 
-### Installation
-
-Google Test est installé via vcpkg :
+### Exécuter Tous les Tests
 
 ```bash
-./vcpkg install gtest
+# Méthode recommandée : utiliser le script
+./scripts/test.sh
+
+# Alternative : via CMake/CTest
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+ctest --test-dir build --output-on-failure
 ```
 
-### Structure des Tests
+### Options du Script test.sh
+
+```bash
+# Aide
+./scripts/test.sh --help
+
+# Tests serveur uniquement
+./scripts/test.sh --server
+
+# Tests client uniquement
+./scripts/test.sh --client
+
+# Mode verbose
+./scripts/test.sh --verbose
+
+# Filtrer les tests
+./scripts/test.sh --filter "HealthTest.*"
+./scripts/test.sh --filter "*Position*"
+
+# Lister les tests disponibles
+./scripts/test.sh --list
+
+# Nettoyer et rebuilder
+./scripts/test.sh --clean
+```
+
+---
+
+## Structure des Tests
 
 ```
 tests/
-├── domain/
-│   ├── entities/
-│   │   ├── PlayerTest.cpp
-│   │   └── UserTest.cpp
-│   └── value_objects/
-│       ├── HealthTest.cpp
-│       ├── PositionTest.cpp
-│       └── EmailTest.cpp
-├── application/
-│   └── use_cases/
-│       └── LoginTest.cpp
-└── CMakeLists.txt
+├── server/                              # Tests du serveur
+│   ├── main.cpp                         # Point d'entrée GTest
+│   ├── CMakeLists.txt                   # Configuration CMake
+│   ├── domain/
+│   │   ├── value_objects/
+│   │   │   ├── HealthTest.cpp           # 25 tests Health
+│   │   │   ├── PositionTest.cpp         # 25 tests Position
+│   │   │   ├── EmailTest.cpp            # 20 tests Email
+│   │   │   └── UsernameTest.cpp         # 20 tests Username
+│   │   └── entities/
+│   │       └── PlayerTest.cpp           # 25 tests Player
+│   │
+│   └── network/                         # Tests réseau
+│       ├── ProtobufTest.cpp             # 35+ tests sérialisation
+│       ├── protocol/
+│       │   └── CommandParserTest.cpp    # 30+ tests parsing
+│       ├── TCPIntegrationTest.cpp       # 19 tests TCP
+│       └── UDPIntegrationTest.cpp       # 16 tests UDP
+│
+├── client/                              # Tests du client
+│   ├── main.cpp                         # Point d'entrée GTest
+│   ├── CMakeLists.txt                   # Configuration CMake
+│   └── utils/
+│       ├── VecsTest.cpp                 # 30 tests Vecs
+│       └── SignalTest.cpp               # 25 tests Signal
+│
+└── artifacts/tests/                     # Binaires générés
+    ├── server_tests
+    └── client_tests
+
+proto/                                   # Définitions Protobuf
+├── user.proto                           # Messages User
+├── auth.proto                           # Messages authentification
+└── game.proto                           # Messages gameplay
 ```
 
-### Écrire un Test
+---
+
+## Écrire des Tests
+
+### Structure de Base
 
 ```cpp
 #include <gtest/gtest.h>
@@ -57,253 +129,364 @@ tests/
 using namespace domain::value_objects;
 using namespace domain::exceptions;
 
-// Test basique
-TEST(HealthTest, ValidHealth) {
-    Health hp(100.0f);
-    EXPECT_EQ(hp.value(), 100.0f);
-}
-
-// Test d'exception
-TEST(HealthTest, NegativeHealthThrows) {
-    EXPECT_THROW(Health(-10.0f), HealthException);
-}
-
-// Test immuabilité
-TEST(HealthTest, HealReturnsNewHealth) {
-    Health hp(100.0f);
-    Health healed = hp.heal(50.0f);
-
-    EXPECT_EQ(hp.value(), 100.0f);      // Original inchangé
-    EXPECT_EQ(healed.value(), 150.0f);  // Nouveau avec +50
-}
-
-// Fixture pour tests complexes
-class UserTest : public ::testing::Test {
+/**
+ * @brief Suite de tests pour Health Value Object
+ */
+class HealthTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Setup avant chaque test
+        // Initialisation avant chaque test
     }
-
     void TearDown() override {
-        // Cleanup après chaque test
+        // Nettoyage après chaque test
     }
 };
 
-TEST_F(UserTest, CreateValidUser) {
-    // Test avec fixture
+// Test de création valide
+TEST_F(HealthTest, CreateWithValidValue) {
+    Health health(3.0f);
+    EXPECT_FLOAT_EQ(health.value(), 3.0f);
+}
+
+// Test d'exception
+TEST_F(HealthTest, CreateWithNegativeThrows) {
+    EXPECT_THROW({
+        Health health(-1.0f);
+    }, HealthException);
+}
+
+// Test d'immutabilité
+TEST_F(HealthTest, HealIsImmutable) {
+    Health original(2.0f);
+    Health healed = original.heal(1.0f);
+
+    EXPECT_FLOAT_EQ(original.value(), 2.0f);  // Inchangé
+    EXPECT_FLOAT_EQ(healed.value(), 3.0f);    // Nouveau
 }
 ```
 
-### Exécuter les Tests
+### Assertions GTest
+
+```cpp
+// Assertions fatales (arrêtent le test en cas d'échec)
+ASSERT_EQ(a, b);          // a == b
+ASSERT_NE(a, b);          // a != b
+ASSERT_TRUE(condition);   // condition == true
+ASSERT_FALSE(condition);  // condition == false
+ASSERT_NO_THROW({ ... }); // Pas d'exception levée
+ASSERT_THROW({ ... }, ExceptionType);  // Exception levée
+
+// Assertions non-fatales (continuent le test)
+EXPECT_EQ(a, b);
+EXPECT_FLOAT_EQ(a, b);    // Comparaison float avec tolérance
+EXPECT_NEAR(a, b, delta); // |a - b| < delta
+EXPECT_STREQ(s1, s2);     // Strings égales
+```
+
+### Patterns de Tests
+
+#### Test de Constructeur
+
+```cpp
+TEST_F(PositionTest, CreateWithDefaultValues) {
+    Position pos;
+    EXPECT_FLOAT_EQ(pos.getX(), 0.0f);
+    EXPECT_FLOAT_EQ(pos.getY(), 0.0f);
+    EXPECT_FLOAT_EQ(pos.getZ(), 0.0f);
+}
+```
+
+#### Test de Validation
+
+```cpp
+TEST_F(EmailTest, InvalidEmailWithoutAtThrows) {
+    EXPECT_THROW({
+        Email email("invalid-email.com");
+    }, EmailException);
+}
+```
+
+#### Test d'Opérateurs
+
+```cpp
+TEST_F(HealthTest, EqualityOperator) {
+    Health h1(3.0f);
+    Health h2(3.0f);
+    Health h3(2.0f);
+
+    EXPECT_TRUE(h1 == h2);
+    EXPECT_FALSE(h1 == h3);
+}
+```
+
+#### Test de Signal/Slot
+
+```cpp
+TEST_F(SignalTest, SignalEmitsToMultipleSlots) {
+    Signal<int> signal;
+    int sum = 0;
+
+    signal.connect([&sum](int v) { sum += v; });
+    signal.connect([&sum](int v) { sum += v * 2; });
+
+    signal.emit(10);
+
+    EXPECT_EQ(sum, 30);  // 10 + 20
+}
+```
+
+#### Test Protobuf (Sérialisation)
+
+```cpp
+TEST_F(GameProtoTest, SerializeWorldSnapshot) {
+    rtype::game::WorldSnapshot original;
+    original.set_server_tick(999);
+    original.set_state(rtype::game::GAME_RUNNING);
+
+    for (int i = 0; i < 10; i++) {
+        auto* entity = original.add_entities();
+        entity->set_network_id(i);
+        entity->set_type(rtype::game::ENTITY_PLAYER);
+        entity->mutable_position()->set_x(static_cast<float>(i));
+        entity->set_health(100);
+    }
+
+    std::string serialized;
+    ASSERT_TRUE(original.SerializeToString(&serialized));
+
+    rtype::game::WorldSnapshot deserialized;
+    ASSERT_TRUE(deserialized.ParseFromString(serialized));
+
+    EXPECT_EQ(deserialized.server_tick(), 999u);
+    EXPECT_EQ(deserialized.entities_size(), 10);
+}
+```
+
+#### Test TCP/UDP Integration
+
+```cpp
+TEST_F(TCPCommunicationTest, SendReceiveSimpleMessage) {
+    std::string message = "Hello, Server!";
+
+    ASSERT_TRUE(_client->send(message));
+
+    std::string response = _client->receive(1000);
+    EXPECT_EQ(response, message);  // Echo server
+}
+
+TEST_F(UDPProtobufTest, SendClientInput) {
+    rtype::game::ClientInput input;
+    input.set_sequence_number(42);
+    input.mutable_input()->set_shoot(true);
+
+    std::string serialized;
+    ASSERT_TRUE(input.SerializeToString(&serialized));
+
+    ASSERT_TRUE(_client->sendTo("127.0.0.1", 19892, serialized));
+
+    std::string response = _client->receive(1000);
+    rtype::game::ClientInput received;
+    ASSERT_TRUE(received.ParseFromString(response));
+    EXPECT_EQ(received.sequence_number(), 42u);
+}
+```
+
+---
+
+## Conventions de Nommage
+
+### Fichiers de Test
+
+```
+{ComponentName}Test.cpp
+
+# Exemples
+HealthTest.cpp
+PositionTest.cpp
+PlayerTest.cpp
+SignalTest.cpp
+```
+
+### Classes de Test
+
+```cpp
+class {ComponentName}Test : public ::testing::Test { };
+
+// Exemples
+class HealthTest : public ::testing::Test { };
+class PlayerTest : public ::testing::Test { };
+```
+
+### Méthodes de Test
+
+Format : `{Action}{Condition}{ExpectedResult}`
+
+```cpp
+// Exemples
+TEST_F(HealthTest, CreateWithMinValue)
+TEST_F(HealthTest, CreateWithNegativeValueThrows)
+TEST_F(HealthTest, HealIncreasesHealth)
+TEST_F(HealthTest, HealIsImmutable)
+TEST_F(PositionTest, MoveOutOfBoundsThrows)
+TEST_F(EmailTest, CreateWithValidEmail)
+```
+
+---
+
+## Filtrage des Tests
+
+### Patterns GTest
 
 ```bash
-# Compiler avec tests
-cmake -B build -DBUILD_TESTS=ON
-cmake --build build
+# Tous les tests d'une classe
+./scripts/test.sh --filter "HealthTest.*"
 
-# Exécuter tous les tests
-ctest --test-dir build --output-on-failure
+# Tests commençant par un préfixe
+./scripts/test.sh --filter "HealthTest.Create*"
 
-# Exécuter un test spécifique
-ctest --test-dir build -R HealthTest
+# Tests contenant un mot
+./scripts/test.sh --filter "*Position*"
 
-# Avec verbose
-ctest --test-dir build -V
+# Exclure des tests
+./scripts/test.sh --filter "-HealthTest.*"
+
+# Combinaison
+./scripts/test.sh --filter "HealthTest.*:PositionTest.*"
+```
+
+### Exemples Pratiques
+
+```bash
+# Tests de création uniquement
+./scripts/test.sh --filter "*Create*"
+
+# Tests d'exceptions
+./scripts/test.sh --filter "*Throws*"
+
+# Tests d'opérateurs
+./scripts/test.sh --filter "*Operator*"
+
+# Un test spécifique
+./scripts/test.sh --filter "HealthTest.CreateWithMaxValue"
 ```
 
 ---
 
 ## Sanitizers
 
-### Types de Sanitizers
+Les sanitizers sont automatiquement activés en mode Debug.
 
-| Sanitizer | Flag | Détecte |
-|-----------|------|---------|
-| **AddressSanitizer (ASan)** | `-fsanitize=address` | Buffer overflow, use-after-free |
-| **UndefinedBehaviorSan (UBSan)** | `-fsanitize=undefined` | Division par zéro, integer overflow |
-| **LeakSanitizer (LSan)** | `-fsanitize=leak` | Fuites mémoire |
-| **ThreadSanitizer (TSan)** | `-fsanitize=thread` | Data races |
+### Types
+
+| Sanitizer | Détecte |
+|-----------|---------|
+| **AddressSanitizer** | Buffer overflow, use-after-free |
+| **UndefinedBehaviorSan** | Division par zéro, integer overflow |
+| **LeakSanitizer** | Fuites mémoire |
 
 ### Configuration CMake
 
-Les sanitizers sont activés automatiquement en mode Debug :
-
 ```cmake
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    if(NOT CMAKE_CROSSCOMPILING AND NOT MINGW)
-        target_compile_options(rtype_server PRIVATE
-            -fsanitize=address
-            -fsanitize=undefined
-            -fsanitize=leak
-        )
-        target_link_options(rtype_server PRIVATE
-            -fsanitize=address
-            -fsanitize=undefined
-            -fsanitize=leak
-        )
-    endif()
+    target_compile_options(target PRIVATE
+        -fsanitize=address
+        -fsanitize=undefined
+        -fsanitize=leak
+    )
+    target_link_options(target PRIVATE
+        -fsanitize=address
+        -fsanitize=undefined
+        -fsanitize=leak
+    )
 endif()
 ```
 
-### Exécuter avec Sanitizers
-
-```bash
-# Compiler en Debug (sanitizers activés)
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-
-# Exécuter
-./build/src/server/rtype_server
-
-# Les erreurs sont reportées automatiquement
-```
-
-### Exemple de Sortie ASan
-
-```
-=================================================================
-==12345==ERROR: AddressSanitizer: heap-use-after-free on address 0x602000000010
-    #0 0x55555555abcd in MyClass::doSomething() src/MyClass.cpp:42
-    #1 0x55555555dcba in main src/main.cpp:15
-=================================================================
-```
-
 ---
 
-## SonarCloud
-
-### Intégration
-
-SonarCloud est intégré au pipeline Jenkins pour l'analyse statique du code.
-
-### Métriques Analysées
-
-- **Bugs** : Problèmes de code potentiels
-- **Vulnerabilities** : Failles de sécurité
-- **Code Smells** : Problèmes de maintenabilité
-- **Coverage** : Couverture de tests
-- **Duplications** : Code dupliqué
-
-### Configuration
-
-Le fichier `sonar-project.properties` à la racine configure l'analyse :
-
-```properties
-sonar.projectKey=rtype
-sonar.organization=epitech-study
-sonar.sources=src
-sonar.tests=tests
-sonar.language=cpp
-sonar.cpp.file.suffixes=.cpp,.hpp
-```
-
-### Voir les Résultats
-
-1. Ouvrir [SonarCloud](https://sonarcloud.io)
-2. Naviguer vers le projet R-Type
-3. Consulter les métriques et issues
-
----
-
-## Bonnes Pratiques de Test
-
-### Principes FIRST
-
-- **F**ast : Tests rapides (<1s chacun)
-- **I**ndependent : Tests indépendants les uns des autres
-- **R**epeatable : Résultats identiques à chaque exécution
-- **S**elf-validating : Pass ou Fail, pas d'interprétation
-- **T**imely : Écrits en même temps que le code
-
-### Couverture de Code
-
-Viser une couverture de :
-
-| Couche | Couverture Cible |
-|--------|------------------|
-| Domain | 90%+ |
-| Application | 80%+ |
-| Infrastructure | 60%+ |
-
-### Nommage des Tests
-
-```cpp
-// Format: MethodName_StateUnderTest_ExpectedBehavior
-TEST(Health, Constructor_NegativeValue_ThrowsException)
-TEST(User, VerifyPassword_CorrectPassword_ReturnsTrue)
-TEST(TCPClient, Connect_ServerOffline_CallsErrorCallback)
-```
-
----
-
-## Tests d'Intégration
-
-### Base de Données
-
-Pour les tests avec MongoDB :
-
-```cpp
-class MongoDBIntegrationTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        // Utiliser une base de test
-        config.dbName = "rtype_test";
-    }
-
-    void TearDown() override {
-        // Nettoyer après test
-        dropTestDatabase();
-    }
-};
-```
-
-### Réseau
-
-Pour les tests réseau :
-
-```cpp
-class TCPClientTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        // Démarrer un serveur mock
-        mockServer.start(12345);
-    }
-
-    void TearDown() override {
-        mockServer.stop();
-    }
-};
-```
-
----
-
-## CI/CD et Tests
+## CI/CD
 
 ### Pipeline Jenkins
 
 Le pipeline exécute automatiquement :
 
-1. **Compilation** Debug et Release
-2. **Tests unitaires** via ctest
-3. **Analyse Sanitizers** en Debug
-4. **Analyse SonarCloud**
-5. **Build artifacts**
+1. **Compilation** Debug
+2. **Tests unitaires** via test.sh
+3. **Analyse Sanitizers**
+4. **Rapport de couverture**
 
-### Exécution Locale avant Push
+### Vérification Locale
 
 ```bash
-# Script de vérification pré-commit
-#!/bin/bash
-set -e
+# Avant chaque commit
+./scripts/test.sh
 
-echo "Building..."
+# Ou avec plus de détails
+./scripts/test.sh --verbose
+```
+
+---
+
+## Bonnes Pratiques
+
+### Principes FIRST
+
+- **F**ast : Tests rapides (<100ms chacun)
+- **I**ndependent : Tests indépendants
+- **R**epeatable : Résultats identiques
+- **S**elf-validating : Pass ou Fail clair
+- **T**imely : Écrits avec le code
+
+### Couverture Cible
+
+| Couche | Objectif |
+|--------|----------|
+| Value Objects | 95%+ |
+| Entities | 90%+ |
+| Use Cases | 80%+ |
+| Utils | 85%+ |
+
+### Documentation
+
+Chaque fichier de test devrait contenir :
+
+```cpp
+/**
+ * @brief Suite de tests pour [Component]
+ *
+ * [Description du composant testé]
+ * Contraintes : [Liste des règles de validation]
+ */
+```
+
+---
+
+## Dépannage
+
+### Erreur de Compilation
+
+```bash
+# Nettoyer et reconfigurer
+./scripts/test.sh --clean
+
+# Vérifier les dépendances
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j$(nproc)
+```
 
-echo "Running tests..."
-ctest --test-dir build --output-on-failure
+### Tests qui Échouent
 
-echo "All checks passed!"
+```bash
+# Mode verbose pour plus de détails
+./scripts/test.sh --verbose
+
+# Exécuter un test spécifique
+./scripts/test.sh --filter "FailingTest.*"
+```
+
+### Sanitizer Errors
+
+```bash
+# Les erreurs sont affichées automatiquement
+# Chercher les lignes avec ERROR: AddressSanitizer
 ```
 
 ---
@@ -311,10 +494,9 @@ echo "All checks passed!"
 ## Ressources
 
 - [Google Test Documentation](https://google.github.io/googletest/)
+- [GTest Primer](https://google.github.io/googletest/primer.html)
 - [Sanitizers Documentation](https://clang.llvm.org/docs/AddressSanitizer.html)
-- [SonarCloud Documentation](https://sonarcloud.io/documentation)
-- [Guide SonarQube](../guides/sonarqube.md)
 
 ---
 
-**Dernière révision:** 25/11/2025
+**Dernière révision:** 25/11/2025 par Agent Documentation
