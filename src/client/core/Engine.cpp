@@ -27,12 +27,9 @@ namespace core {
 
         // Changer le SFML window et rendered par quelque chose de modulaire car couplage trop fort!
         _window = std::make_shared<SFMLWindow>();
-        _window->initialize({.x = 1200, .y = 1200}, "rtype");
+        _window->initialize({.x = 1920, .y = 1080}, "rtype");
 
-        _renderer = std::make_shared<SFMLRenderer>(_window);
-        _renderer->initialize();
-
-        _gameLoop = std::make_unique<GameLoop>(_window, _renderer, _tcpClient);
+        _gameLoop = std::make_unique<GameLoop>(_window, _tcpClient);
     }
 
     void Engine::run()

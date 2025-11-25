@@ -12,6 +12,7 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/LoginScene.hpp"
 #include "network/TCPClient.hpp"
+#include "../implementations/sfml/SFMLRenderer.hpp"
 
 #include <memory>
 
@@ -20,7 +21,6 @@ namespace core {
         public:
             GameLoop(
                 std::shared_ptr<graphics::IWindow> window,
-                std::shared_ptr<IRenderer>,
                 std::shared_ptr<client::network::TCPClient> tcpClient = nullptr);
             ~GameLoop();
 

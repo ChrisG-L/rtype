@@ -6,19 +6,22 @@
 */
 
 #include "core/GameLoop.hpp"
+#include "core/IRenderer.hpp"
 #include <iostream>
+#include <vector>
 
 namespace core {
     GameLoop::GameLoop(
         std::shared_ptr<graphics::IWindow> window,
-        std::shared_ptr<IRenderer> renderer,
         std::shared_ptr<client::network::TCPClient> tcpClient
     )
-        : _window(window), _renderer(renderer), _tcpClient(tcpClient)
+        : _window(window), _tcpClient(tcpClient)
     {
+        _renderer = std::make_shared<SFMLRenderer>(_window);
+        
         _sceneManager = std::make_unique<SceneManager>();
         _sceneManager->setTCPClient(_tcpClient);
-        _sceneManager->changeScene(std::make_unique<LoginScene>());
+        _sceneManager->changeScene(std::make_unique<LoginScene>(_renderer));
     }
 
     GameLoop::~GameLoop()

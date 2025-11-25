@@ -10,6 +10,7 @@
 
 #include "core/Logger.hpp"
 #include "boot/Boot.hpp"
-#include "graphic/Graphic.hpp"
+#include "events/Signal.hpp"
+#include "ui/Button.hpp"
 
 #endif /* !MAIN_HPP_ */

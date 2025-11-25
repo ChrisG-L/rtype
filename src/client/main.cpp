@@ -20,6 +20,5 @@ int main(void) {
         // client::logging::Logger::error("Exception caught: {}", e.what());
         return EXIT_FAILURE;
     }
-    
     return 0;
 }

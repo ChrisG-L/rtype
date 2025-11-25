@@ -13,7 +13,6 @@
 #include "IRenderer.hpp"
 #include "../graphics/IWindow.hpp"
 #include "../implementations/sfml/SFMLWindow.hpp"
-#include "../implementations/sfml/SFMLRenderer.hpp"
 #include "../network/TCPClient.hpp"
 
 #include <memory>
@@ -31,7 +30,6 @@ namespace core {
         protected:
         private:
             std::shared_ptr<graphics::IWindow>  _window;
-            std::shared_ptr<IRenderer> _renderer;
             std::unique_ptr<GameLoop> _gameLoop;
             std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
     };
