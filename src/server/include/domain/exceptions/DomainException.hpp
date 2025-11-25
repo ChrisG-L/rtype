@@ -10,7 +10,6 @@
 
 #include <exception>
 #include <string>
-#include <sstream>
 
 namespace domain::exceptions {
     class DomainException: public std::exception {
