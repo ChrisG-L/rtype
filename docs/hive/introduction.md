@@ -1,509 +1,336 @@
-# Introduction à la Ruche d'Agents IA - R-Type
+# Army2077 - Système d'Assistance Militaire IA
 
 ## Vue d'Ensemble
 
-La **Ruche d'Agents IA** est un système d'assistance au développement basé sur **Claude Code** qui utilise des agents spécialisés pour améliorer la qualité et la productivité du projet R-Type. Chaque agent est un **prompt spécialisé** que vous pouvez invoquer pour obtenir une expertise ciblée.
+**Army2077** est un système d'assistance au développement de niveau professionnel, basé sur **Claude Code**, utilisant une **hiérarchie militaire** pour maximiser l'efficacité, la qualité et la cohérence du projet R-Type.
 
-!!! info "Qu'est-ce qu'un Agent ?"
-    Un agent est un fichier markdown (`.md`) dans `.claude/agents/` qui définit un rôle, des responsabilités et des standards spécifiques. Lorsque vous invoquez un agent, Claude adopte cette personnalité et cette expertise pour vous assister.
+!!! info "Philosophie"
+    Inspirée des structures militaires d'élite, Army2077 utilise une chaîne de commandement claire où chaque agent a un rôle précis, des responsabilités définies et des standards stricts à respecter.
 
-## 🎯 Philosophie
+---
 
-**Objectif** : Améliorer la qualité et la cohérence du code grâce à des assistants IA spécialisés.
+## Architecture Hiérarchique
 
-- ✅ **Expertise ciblée** : Chaque agent maîtrise un domaine spécifique
-- ✅ **Standards cohérents** : Tous les agents respectent les mêmes conventions
-- ✅ **Qualité professionnelle** : Guidance experte pour chaque tâche
-- ✅ **Flexibilité** : Invoquez les agents selon vos besoins
+```mermaid
+graph TB
+    subgraph "ÉTAT-MAJOR"
+        GEN["<b>GÉNÉRAL</b><br/>Orchestrateur Suprême<br/><i>general_agent.md</i>"]
+    end
 
-## 👑 Architecture de la Ruche
+    subgraph "COMMANDANTS"
+        CMD_DOC["<b>COMMANDANT DOCS</b><br/>Documentation<br/><i>commander_documentation.md</i>"]
+        CMD_GIT["<b>COMMANDANT GIT</b><br/>Versioning & Commits<br/><i>commander_git.md</i>"]
+        CMD_QUA["<b>COMMANDANT QUALITÉ</b><br/>Tests & Standards<br/><i>commander_quality.md</i>"]
+        CMD_SEC["<b>COMMANDANT SÉCURITÉ</b><br/>Sécurité & CI/CD<br/><i>commander_security.md</i>"]
+    end
 
-```
-          👑 Queen Bee (Orchestratrice)
-                      |
-       ┌──────────────┼──────────────┬─────────────┐
-       |              |              |             |
-   🐝 Tests       🐝 Security    🐝 Git       🐝 Docs
-                      |
-                  🐝 Linear
-```
+    subgraph "SOLDATS SPÉCIALISÉS"
+        SOL_ARCH["<b>SOLDAT ARCHITECTE</b><br/>Conception & Design<br/><i>soldier_architecture.md</i>"]
+        SOL_REV["<b>SOLDAT REVIEW</b><br/>Code Review<br/><i>soldier_code_review.md</i>"]
+        SOL_LEARN["<b>SOLDAT MENTOR</b><br/>Apprentissage<br/><i>soldier_learning_advisor.md</i>"]
+    end
 
-### Hiérarchie des Agents
+    GEN --> CMD_DOC
+    GEN --> CMD_GIT
+    GEN --> CMD_QUA
+    GEN --> CMD_SEC
 
-- **Queen Bee** : Agent orchestrateur qui coordonne les autres agents
-- **Agents Spécialisés** : Experts dans leur domaine respectif
+    CMD_QUA --> SOL_ARCH
+    CMD_QUA --> SOL_REV
+    CMD_DOC --> SOL_LEARN
 
-## 📂 Structure du Projet
-
-```
-rtype/
-├── .claude/                  # Configuration Claude Code
-│   ├── agents/               # Agents IA (prompts spécialisés)
-│   │   ├── queen_bee_agent.md          # 👑 Orchestratrice
-│   │   ├── docs_agent.md               # 📚 Documentation
-│   │   ├── git_commit_agent.md         # 📝 Commits Git
-│   │   ├── tests_quality_agent.md      # 🧪 Tests & Qualité
-│   │   ├── security_ci_agent.md        # 🔒 Sécurité & CI
-│   │   └── linear_manager_agent.md     # 📋 Gestion Linear
-│   └── settings.local.json   # Configuration locale
-│
-└── docs/                     # Documentation du projet
-    └── hive/                 # Documentation de la Ruche
-        └── introduction.md   # Ce fichier
-```
-
-## 🐝 Les Agents Disponibles
-
-### 👑 Queen Bee Agent - L'Orchestratrice
-
-**Fichier** : `.claude/agents/queen_bee_agent.md`
-
-**Rôle** : Agent suprême qui coordonne tous les autres agents et assure la cohérence globale du projet.
-
-**Responsabilités** :
-- Orchestrer le travail des agents spécialisés
-- Superviser la qualité globale du projet
-- Garantir la cohérence entre code, documentation et tickets
-- Valider que les standards sont respectés
-
-**Quand l'invoquer** :
-```
-@queen_bee_agent "J'ai terminé une feature majeure, vérifie que tout est en ordre"
+    style GEN fill:#FFD700,stroke:#B8860B,stroke-width:3px,color:#000
+    style CMD_DOC fill:#4169E1,stroke:#00008B,stroke-width:2px,color:#fff
+    style CMD_GIT fill:#4169E1,stroke:#00008B,stroke-width:2px,color:#fff
+    style CMD_QUA fill:#4169E1,stroke:#00008B,stroke-width:2px,color:#fff
+    style CMD_SEC fill:#4169E1,stroke:#00008B,stroke-width:2px,color:#fff
+    style SOL_ARCH fill:#228B22,stroke:#006400,stroke-width:2px,color:#fff
+    style SOL_REV fill:#228B22,stroke:#006400,stroke-width:2px,color:#fff
+    style SOL_LEARN fill:#228B22,stroke:#006400,stroke-width:2px,color:#fff
 ```
 
 ---
 
-### 📚 Documentation Agent
+## Les Grades et Leurs Rôles
 
-**Fichier** : `.claude/agents/docs_agent.md`
+### Général - Orchestrateur Suprême
 
-**Rôle** : Expert en documentation technique avec MkDocs Material.
+| Attribut | Valeur |
+|----------|--------|
+| **Fichier** | `.claude/agents/general_agent.md` |
+| **Rang** | État-Major |
+| **Mission** | Coordination globale et prise de décision stratégique |
+| **Autorité** | Peut invoquer et coordonner tous les commandants et soldats |
 
-**Responsabilités** :
-- Créer une documentation technique de qualité professionnelle
-- Maintenir la cohérence et la clarté de la documentation
-- Éviter la documentation superficielle ou inutile
-- Utiliser des diagrammes et exemples concrets
+**Responsabilités clés :**
 
-**Standards** :
-- Documentation en français
-- Markdown bien formaté
-- Exemples fonctionnels
-- Diagrammes Mermaid quand pertinent
-- Pas de pages "TODO" ou placeholder
-
-**Quand l'invoquer** :
-```
-@docs_agent "Crée la documentation pour le système ECS"
-@docs_agent "Vérifie que la documentation réseau est complète"
-```
+- Analyser la demande utilisateur et déterminer la stratégie optimale
+- Déléguer aux agents appropriés selon la complexité
+- Assurer la cohérence globale du travail produit
+- Prendre les décisions finales en cas de conflit
 
 ---
 
-### 📝 Git Commit Agent
+### Commandants - Experts de Domaine
 
-**Fichier** : `.claude/agents/git_commit_agent.md`
+Les commandants sont des **experts spécialisés** dans leur domaine respectif.
 
-**Rôle** : Expert en gestion de versions Git et création de commits atomiques.
+<div class="grid cards" markdown>
 
-**Responsabilités** :
-- Analyser les changements staged et unstaged
-- Proposer des commits atomiques et cohérents
-- Respecter la convention Conventional Commits
-- Créer des messages de commit clairs en français
+-   :material-file-document:{ .lg .middle } **Commandant Documentation**
 
-**Convention de Commit** :
-```
-<type>(<scope>): <description courte> [ID-TICKET]
+    ---
 
-<description détaillée>
+    Expert en documentation technique MkDocs Material.
 
-<footer>
-```
+    - Documentation professionnelle et complète
+    - Diagrammes Mermaid
+    - Exemples de code fonctionnels
 
-**Types de commits** :
-- `FEAT` : Nouvelle fonctionnalité
-- `FIX` : Correction de bug
-- `REFACTOR` : Refactorisation
-- `DOCS` : Documentation
-- `BUILD` : Build et dépendances
-- `TEST` : Tests
-- `CI` : CI/CD
-- `PERF` : Performance
+    [:octicons-arrow-right-24: Détails](agents/commander-documentation.md)
 
-**Quand l'invoquer** :
-```
-@git_commit_agent "Analyse mes changements et propose des commits atomiques"
-@git_commit_agent "Crée un commit pour le système ECS"
-```
+-   :material-source-commit:{ .lg .middle } **Commandant Git**
 
----
+    ---
 
-### 🧪 Tests & Quality Agent
+    Expert en versioning et gestion de commits.
 
-**Fichier** : `.claude/agents/tests_quality_agent.md`
+    - Commits atomiques et conventionnels
+    - Historique Git propre
+    - Pull Requests structurées
 
-**Rôle** : Expert en tests unitaires et qualité de code C++23.
+    [:octicons-arrow-right-24: Détails](agents/commander-git.md)
 
-**Responsabilités** :
-- Créer des tests unitaires avec Google Test
-- Vérifier la couverture de tests
-- Analyser la qualité du code
-- Proposer des améliorations
+-   :material-test-tube:{ .lg .middle } **Commandant Qualité**
 
-**Standards** :
-- Couverture de tests >= 80%
-- Tests atomiques et indépendants
-- Nommage clair des tests
-- Assertions appropriées
+    ---
 
-**Quand l'invoquer** :
-```
-@tests_quality_agent "Crée des tests pour la classe Entity"
-@tests_quality_agent "Analyse la couverture de tests du module ECS"
-```
+    Expert en tests et qualité de code.
+
+    - Tests unitaires Google Test
+    - Couverture de code
+    - Standards C++23
+
+    [:octicons-arrow-right-24: Détails](agents/commander-quality.md)
+
+-   :material-shield-lock:{ .lg .middle } **Commandant Sécurité**
+
+    ---
+
+    Expert en sécurité et CI/CD.
+
+    - Audit de vulnérabilités
+    - Pipeline Jenkins
+    - SonarCloud
+
+    [:octicons-arrow-right-24: Détails](agents/commander-security.md)
+
+</div>
 
 ---
 
-### 🔒 Security & CI Agent
+### Soldats - Spécialistes Techniques
 
-**Fichier** : `.claude/agents/security_ci_agent.md`
+Les soldats sont des **spécialistes pointus** dans des domaines techniques précis.
 
-**Rôle** : Expert en sécurité et intégration continue.
+<div class="grid cards" markdown>
 
-**Responsabilités** :
-- Détecter les vulnérabilités de sécurité
-- Configurer et optimiser les pipelines CI/CD
-- Analyser les dépendances
-- Recommander les meilleures pratiques
+-   :material-sitemap:{ .lg .middle } **Soldat Architecte**
 
-**Domaines** :
-- Sécurité du code C++
-- Configuration Jenkins
-- Analyse SonarQube
-- Docker et conteneurisation
+    ---
 
-**Quand l'invoquer** :
-```
-@security_ci_agent "Vérifie les vulnérabilités dans le code réseau"
-@security_ci_agent "Optimise le pipeline Jenkins"
-```
+    Spécialiste en conception logicielle.
 
----
+    - Patterns de conception
+    - Architecture hexagonale
+    - SOLID et Clean Code
 
-### 📋 Linear Manager Agent
+    [:octicons-arrow-right-24: Détails](agents/soldier-architecture.md)
 
-**Fichier** : `.claude/agents/linear_manager_agent.md`
+-   :material-magnify:{ .lg .middle } **Soldat Code Review**
 
-**Rôle** : Chef de projet technique spécialisé dans Linear.
+    ---
 
-**Responsabilités** :
-- Créer et organiser les tickets Linear
-- Maintenir une structure claire et cohérente
-- Documenter le travail accompli
-- Lier le code aux tickets
+    Spécialiste en revue de code.
 
-**Structure Linear** :
-```
-Epic (FR) → Features (FR) → Tasks (FR) → Bugs (FR)
-```
+    - Analyse critique constructive
+    - Détection de code smells
+    - Suggestions d'amélioration
 
-**Nomenclature** :
-- Épics : `[EPIC] Système ECS`
-- Features : `[FEAT] Component Manager`
-- Tasks : `[TASK] Implémentation de la classe Entity`
-- Bugs : `[BUG] Fuite mémoire dans EntityManager`
+    [:octicons-arrow-right-24: Détails](agents/soldier-code-review.md)
 
-**Quand l'invoquer** :
-```
-@linear_manager_agent "Crée les tickets pour le système ECS"
-@linear_manager_agent "Organise les tickets de la feature réseau"
-```
+-   :material-school:{ .lg .middle } **Soldat Mentor**
+
+    ---
+
+    Conseiller d'apprentissage technique.
+
+    - Explication pédagogique
+    - Guide sans modifier le code
+    - Ressources d'apprentissage
+
+    [:octicons-arrow-right-24: Détails](agents/soldier-learning-advisor.md)
+
+</div>
 
 ---
 
-## 💻 Comment Utiliser les Agents
+## Comment Invoquer les Agents
 
-### Méthode 1 : Invocation Directe
+### Méthode Directe
 
-Dans Claude Code, utilisez la syntaxe `@nom_agent` :
+Utilisez la syntaxe `@nom_du_fichier` dans Claude Code :
 
-```
-@docs_agent "Crée la documentation du système de particules"
-```
+```bash
+# Invoquer le Général pour une tâche complexe
+@general_agent "Analyse mon projet et propose un plan d'amélioration"
 
-### Méthode 2 : Demande à la Reine
+# Invoquer un Commandant spécifique
+@commander_git "Propose des commits atomiques pour mes changements"
 
-Demandez à Queen Bee de coordonner plusieurs agents :
-
-```
-@queen_bee_agent "J'ai terminé le système ECS, assure-toi que tout est parfait (code, tests, docs, tickets)"
-```
-
-La Reine va :
-1. Analyser le code avec l'agent Tests
-2. Vérifier la sécurité avec l'agent Security
-3. Proposer des commits avec l'agent Git
-4. Valider la documentation avec l'agent Docs
-5. Créer les tickets avec l'agent Linear
-
-### Méthode 3 : Conversation Naturelle
-
-Vous pouvez aussi simplement décrire votre besoin :
-
-```
-"Aide-moi à créer des tests unitaires pour la classe NetworkManager"
+# Invoquer un Soldat pour une tâche spécialisée
+@soldier_learning_advisor "Explique-moi le pattern Observer"
 ```
 
-Claude comprendra automatiquement qu'il doit adopter le rôle de l'agent Tests & Quality.
+### Via le Général (Recommandé)
 
-## 🔄 Workflows Typiques
+Pour les tâches complexes, passez par le Général qui coordonnera les agents :
 
-### Workflow 1 : Développement d'une Feature
-
-```
-1. Vous codez la feature
-2. @tests_quality_agent "Crée les tests unitaires"
-3. @docs_agent "Documente cette feature"
-4. @git_commit_agent "Propose des commits atomiques"
-5. @linear_manager_agent "Crée les tickets correspondants"
+```bash
+@general_agent "J'ai terminé le système de particules,
+                assure-toi que tout est parfait (code, tests, docs, commits)"
 ```
 
-### Workflow 2 : Review de Code
+Le Général va :
 
-```
-1. @security_ci_agent "Analyse les vulnérabilités du code réseau"
-2. @tests_quality_agent "Vérifie la couverture de tests"
-3. @queen_bee_agent "Valide que tout respecte les standards"
-```
+1. Analyser la demande
+2. Invoquer le **Commandant Qualité** pour les tests
+3. Invoquer le **Commandant Sécurité** pour l'audit
+4. Invoquer le **Commandant Documentation** pour la doc
+5. Invoquer le **Commandant Git** pour les commits
+6. Synthétiser et valider le tout
 
-### Workflow 3 : Bugfix
+---
 
-```
-1. @tests_quality_agent "Crée un test de régression pour le bug"
-2. Vous corrigez le bug
-3. @git_commit_agent "Crée un commit de fix"
-4. @linear_manager_agent "Marque le ticket comme résolu"
-```
+## Flux de Décision
 
-### Workflow 4 : Documentation
+```mermaid
+flowchart TD
+    START([Demande Utilisateur]) --> ANALYZE{Type de demande?}
 
-```
-1. @docs_agent "Crée un guide complet sur l'architecture ECS"
-2. @docs_agent "Ajoute des diagrammes Mermaid"
-3. @git_commit_agent "Commit la documentation"
-```
+    ANALYZE -->|Simple & Unique| DIRECT[Invocation Directe]
+    ANALYZE -->|Complexe / Multi-domaine| GENERAL[Via le Général]
 
-## 📊 Standards et Conventions
+    DIRECT --> EXEC_DIRECT[Agent exécute]
 
-### Standards de Qualité
+    GENERAL --> STRAT[Analyse stratégique]
+    STRAT --> DELEGATE[Délégation aux Commandants]
+    DELEGATE --> CMD1[Commandant 1]
+    DELEGATE --> CMD2[Commandant 2]
+    DELEGATE --> CMDN[Commandant N]
 
-Tous les agents respectent ces standards :
+    CMD1 --> SOL1{Besoin soldat?}
+    SOL1 -->|Oui| SOLDIER1[Soldat spécialisé]
+    SOL1 -->|Non| EXEC1[Exécution directe]
 
-| Critère | Standard |
-|---------|----------|
-| **Couverture de tests** | >= 80% |
-| **Commits** | Atomiques, Conventional Commits |
-| **Documentation** | Complète, avec exemples |
-| **Code** | C++23, RAII, Modern C++ |
-| **Sécurité** | 0 vulnérabilité critique |
+    CMD2 --> EXEC2[Exécution directe]
+    CMDN --> EXECN[Exécution directe]
 
-### Conventions de Nommage
+    SOLDIER1 --> EXEC1
 
-- **Commits** : Français, Conventional Commits
-- **Tickets Linear** : Français, [TYPE] Description
-- **Documentation** : Français, Markdown bien formaté
-- **Code** : Anglais, camelCase/PascalCase selon contexte
+    EXEC1 --> MERGE[Synthèse Général]
+    EXEC2 --> MERGE
+    EXECN --> MERGE
+    EXEC_DIRECT --> RESULT
 
-## 🎓 Exemples Concrets
+    MERGE --> VALIDATE{Validation OK?}
+    VALIDATE -->|Oui| RESULT([Résultat Final])
+    VALIDATE -->|Non| ITERATE[Itération / Correction]
+    ITERATE --> DELEGATE
 
-### Exemple 1 : Créer une Feature Complète
-
-```
-Vous: @queen_bee_agent "Je viens de terminer le système de particules.
-     Assure-toi que le code, les tests, la documentation et les tickets
-     sont parfaits avant que je commit."
-
-Queen Bee: 🔍 Analyse en cours...
-
-          ✅ Tests & Qualité
-             - Couverture: 87%
-             - Tous les tests passent
-             - Suggestion: Ajouter test de charge
-
-          ✅ Sécurité
-             - Aucune vulnérabilité détectée
-             - Bonnes pratiques RAII respectées
-
-          📝 Commits Proposés
-             1. FEAT(rendering): ajout système de particules [RT-45]
-             2. TEST(rendering): ajout tests unitaires particules
-             3. DOCS(rendering): documentation système particules
-
-          📚 Documentation
-             - Guide créé: docs/guides/particle-system.md
-             - Diagrammes ajoutés
-             - Exemples fonctionnels inclus
-
-          📋 Linear
-             - Ticket [FEAT] Système de Particules créé
-             - Lié à Epic "Rendering Engine"
-             - Statut: Completed
-
-          ✅ VALIDATION GLOBALE: Prêt pour commit et merge !
+    style START fill:#E8F5E9,stroke:#4CAF50
+    style RESULT fill:#E8F5E9,stroke:#4CAF50
+    style GENERAL fill:#FFD700,stroke:#B8860B
+    style MERGE fill:#FFD700,stroke:#B8860B
+    style CMD1 fill:#4169E1,stroke:#00008B,color:#fff
+    style CMD2 fill:#4169E1,stroke:#00008B,color:#fff
+    style CMDN fill:#4169E1,stroke:#00008B,color:#fff
+    style SOLDIER1 fill:#228B22,stroke:#006400,color:#fff
 ```
 
-### Exemple 2 : Review de Sécurité
-
-```
-Vous: @security_ci_agent "Analyse le code du NetworkManager pour détecter
-     les vulnérabilités potentielles"
-
-Security Agent: 🔒 Analyse de sécurité du NetworkManager
-
-                Fichiers analysés:
-                - src/network/NetworkManager.cpp
-                - src/network/Socket.cpp
-                - src/network/Protocol.cpp
-
-                ✅ Points positifs:
-                - Utilisation de smart pointers (pas de fuites)
-                - Validation des entrées réseau
-                - Timeouts configurés
-
-                ⚠️  Points à améliorer:
-                1. Buffer overflow potentiel ligne 234
-                   Recommandation: Utiliser std::span<> ou vérifier size
-
-                2. Pas de rate limiting sur les connexions
-                   Recommandation: Implémenter TokenBucket
-
-                📊 Score de sécurité: 8.5/10
-```
-
-### Exemple 3 : Documentation Technique
-
-```
-Vous: @docs_agent "Crée une documentation complète pour l'architecture ECS
-     avec des diagrammes et des exemples"
-
-Docs Agent: 📚 Documentation de l'Architecture ECS
-
-            Fichier créé: docs/guides/ecs-architecture.md
-
-            Contenu:
-            ✅ Introduction au pattern ECS
-            ✅ Diagramme d'architecture (Mermaid)
-            ✅ Explication des Components
-            ✅ Explication des Systems
-            ✅ Explication des Entities
-            ✅ Exemple complet d'utilisation
-            ✅ Bonnes pratiques
-            ✅ Anti-patterns à éviter
-            ✅ Performance et optimisations
-
-            Sections créées: 8
-            Diagrammes: 3
-            Exemples de code: 5
-            Temps de lecture estimé: 15 minutes
-
-            La documentation est prête à être consultée !
-```
-
-## 🛠️ Configuration
-
-### Fichier de Configuration
-
-**Emplacement** : `.claude/settings.local.json`
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(chmod:*)"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}
-```
-
-### Ajouter un Nouvel Agent
-
-Pour créer un nouvel agent :
-
-1. Créez un fichier `.md` dans `.claude/agents/`
-2. Définissez le rôle, les responsabilités et les standards
-3. Documentez les exemples d'utilisation
-4. Testez l'agent avec `@nom_agent`
-
-**Structure recommandée d'un agent** :
-
-```markdown
-# Nom de l'Agent
-
-## Identité et Mission
-
-Description du rôle et de la mission
+---
 
 ## Principes Fondamentaux
 
-Liste des principes clés
+### Standards Communs à Tous les Agents
 
-## Responsabilités
+| Critère | Standard |
+|---------|----------|
+| **Langue** | Français (code en anglais) |
+| **Format commits** | Conventional Commits (FEAT, FIX, DOCS...) |
+| **Tests** | Couverture >= 80% |
+| **Documentation** | Complète avec exemples |
+| **Code** | C++23, RAII, Modern C++ |
+| **Sécurité** | 0 vulnérabilité critique |
 
-- Responsabilité 1
-- Responsabilité 2
+### Règles d'Engagement
 
-## Standards
-
-Liste des standards à respecter
-
-## Exemples d'Utilisation
-
-Exemples concrets
-```
-
-## 🆘 FAQ
-
-### Comment savoir quel agent utiliser ?
-
-- **Code & Tests** → Tests & Quality Agent
-- **Documentation** → Documentation Agent
-- **Commits Git** → Git Commit Agent
-- **Sécurité & CI/CD** → Security & CI Agent
-- **Tickets Linear** → Linear Manager Agent
-- **Coordination globale** → Queen Bee Agent
-
-### Puis-je utiliser plusieurs agents en même temps ?
-
-Oui ! Utilisez Queen Bee qui va orchestrer automatiquement les agents nécessaires.
-
-### Les agents peuvent-ils modifier mon code ?
-
-Les agents proposent des modifications, mais c'est **vous qui décidez** d'accepter ou non. Vous gardez toujours le contrôle.
-
-### Comment personnaliser un agent ?
-
-Éditez le fichier `.md` de l'agent dans `.claude/agents/` pour modifier son comportement.
-
-### Où sont stockés les résultats des agents ?
-
-Les résultats sont affichés directement dans la conversation Claude Code. Il n'y a pas de fichiers de rapports automatiques.
-
-## 📚 Ressources
-
-- [Documentation Claude Code](https://docs.claude.com/claude-code)
-- [Agents du projet](./.claude/agents/)
-- [Guide de contribution](../development/contributing.md)
-
-## 🎯 Prochaines Étapes
-
-1. **Explorez les agents** : Lisez les fichiers dans `.claude/agents/`
-2. **Testez un agent** : Essayez `@docs_agent "Aide-moi à documenter ce code"`
-3. **Utilisez Queen Bee** : `@queen_bee_agent "Analyse mon feature complète"`
-4. **Personnalisez** : Adaptez les agents à vos besoins
+1. **Clarté** : Chaque agent explique ses actions et décisions
+2. **Transparence** : Les agents signalent ce qu'ils ne peuvent pas faire
+3. **Qualité** : Aucun compromis sur les standards
+4. **Respect** : Les agents ne modifient jamais sans accord explicite
+5. **Apprentissage** : Les agents fournissent des explications pédagogiques
 
 ---
 
-**🐝 Bienvenue dans la Ruche R-Type ! Les agents IA sont là pour vous assister, vous restez aux commandes.**
+## Navigation
+
+<div class="grid cards" markdown>
+
+-   :material-map:{ .lg .middle } **Architecture Détaillée**
+
+    ---
+
+    Diagrammes complets et interactions entre agents.
+
+    [:octicons-arrow-right-24: architecture.md](architecture.md)
+
+-   :material-cog:{ .lg .middle } **Workflows**
+
+    ---
+
+    Processus et workflows pour chaque type de tâche.
+
+    [:octicons-arrow-right-24: workflows.md](workflows.md)
+
+-   :material-lightning-bolt:{ .lg .middle } **Référence Rapide**
+
+    ---
+
+    Commandes et exemples d'utilisation.
+
+    [:octicons-arrow-right-24: quick-reference.md](quick-reference.md)
+
+-   :material-account-group:{ .lg .middle } **Agents Détaillés**
+
+    ---
+
+    Documentation complète de chaque agent.
+
+    [:octicons-arrow-right-24: agents/](agents/)
+
+</div>
+
+---
+
+## Prochaines Étapes
+
+1. **Découvrez l'architecture** : [architecture.md](architecture.md)
+2. **Apprenez les workflows** : [workflows.md](workflows.md)
+3. **Consultez la référence rapide** : [quick-reference.md](quick-reference.md)
+4. **Explorez chaque agent** : [agents/](agents/)
+
+---
+
+!!! success "Bienvenue dans Army2077"
+    Le système d'agents IA est conçu pour vous assister, pas vous remplacer. Vous restez le décideur final. Les agents sont là pour augmenter votre productivité et garantir la qualité du projet.
