@@ -12,7 +12,7 @@
 #include <SFML/Window/Event.hpp>
 
 #include "graphics/IWindow.hpp"
-#include "../implementations/sfml/SFMLRenderer.hpp"
+#include "../core/IRenderer.hpp"
 #include <iostream>
 
 class LoginScene : public IScene
@@ -22,7 +22,7 @@ class LoginScene : public IScene
         ~LoginScene() override = default;
 
         void handleEvent(const sf::Event &event) override;
-        void update() override;
+        void update(float deltatime) override;
         void render() override;
     private:
         std::shared_ptr<core::IRenderer> _renderer;

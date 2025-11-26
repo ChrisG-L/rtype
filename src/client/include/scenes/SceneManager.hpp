@@ -9,8 +9,8 @@
 #define SCENEMANAGER_HPP_
 
 #include "scenes/IScene.hpp"
+#include "../core/IRenderer.hpp"
 #include "network/TCPClient.hpp"
-#include "../implementations/sfml/SFMLRenderer.hpp"
 #include <memory>
 
 class SceneManager
@@ -20,7 +20,7 @@ class SceneManager
         ~SceneManager();
         void changeScene(std::unique_ptr<IScene> newScene);
         void handleEvent(const sf::Event &event);
-        void update();
+        void update(float deltatime);
         void render(std::shared_ptr<graphics::IWindow>  window);
 
         void setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient);

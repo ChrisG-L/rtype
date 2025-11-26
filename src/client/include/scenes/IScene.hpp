@@ -23,7 +23,7 @@ public:
     virtual ~IScene() = default;
 
     virtual void handleEvent(const sf::Event &event) = 0;
-    virtual void update() = 0;
+    virtual void update(float deltatime) = 0;
     virtual void render() = 0;
 
     void setSceneManager(SceneManager* manager) { _sceneManager = manager; }

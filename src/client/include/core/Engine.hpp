@@ -8,14 +8,14 @@
 #ifndef ENGINE_HPP_
 #define ENGINE_HPP_
 
+#include <memory>
+
 #include "IEngine.hpp"
 #include "GameLoop.hpp"
 #include "IRenderer.hpp"
 #include "../graphics/IWindow.hpp"
-#include "../implementations/sfml/SFMLWindow.hpp"
 #include "../network/TCPClient.hpp"
 
-#include <memory>
 
 namespace core {
     class Engine: public IEngine {

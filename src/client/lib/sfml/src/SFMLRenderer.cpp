@@ -5,15 +5,7 @@
 ** SFMLRenderer
 */
 
-#include "implementations/sfml/SFMLRenderer.hpp"
-#include "graphics/Graphics.hpp"
-#include "utils/Vecs.hpp"
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/System/Vector2.hpp>
-#include <stdexcept>
-#include <variant>
-
-void test() {}
+#include "SFMLRenderer.hpp"
 
 SFMLRenderer::SFMLRenderer(std::shared_ptr<graphics::IWindow> window)
     : _window{window}, mAsset{std::make_unique<AssetManager>()}
@@ -29,7 +21,7 @@ void SFMLRenderer::initialize(GraphicAssets assets)
     }
 }
 
-void SFMLRenderer::update()
+void SFMLRenderer::update(float deltatime)
 {
     // mAsset->drawAll(_window);
 }

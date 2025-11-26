@@ -47,9 +47,9 @@ void LoginScene::handleEvent(const sf::Event &event)
     // }
 }
 
-void LoginScene::update()
+void LoginScene::update(float deltatime)
 {
-    _renderer->update();
+    _renderer->update(deltatime);
 }
 
 void LoginScene::render()

@@ -9,12 +9,12 @@
 #define ASSETMANAGER_HPP_
 
 #include <SFML/Graphics.hpp>
-#include "../../../graphics/IWindow.hpp"
-#include "implementations/sfml/SFMLWindow.hpp"
 
+#include <memory>
 #include <unordered_map>
-#include <iostream>
 
+#include "graphics/IWindow.hpp"
+#include "core/Logger.hpp"
 
 class AssetManager {
     public:

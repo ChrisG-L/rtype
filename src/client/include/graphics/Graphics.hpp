@@ -8,8 +8,9 @@
 #ifndef GRAPHICS_HPP_
 #define GRAPHICS_HPP_
 
-#include "utils/Vecs.hpp"
 #include <iostream>
+
+#include "utils/Vecs.hpp"
 
 namespace graphic {
     class GraphicTexture {

@@ -1,23 +1,46 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR})
 
+add_library(rtype_sfml SHARED
+    lib/sfml/src/AssetManager.cpp
+    lib/sfml/src/SFMLRenderer.cpp
+    lib/sfml/src/SFMLTexture.cpp
+    lib/sfml/src/SFMLWindow.cpp
+
+    lib/sfml/src/plugins/SFMLPlugin.cpp
+)
+
+set_target_properties(rtype_sfml PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS NO
+)
+
+target_include_directories(rtype_sfml PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/sfml/include
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+target_link_libraries(rtype_sfml PRIVATE
+    SFML::Graphics
+    SFML::Audio
+    SFML::Network
+    spdlog::spdlog
+    # rtype_proto
+)
+
+
 add_executable(rtype_client
     main.cpp
 
-    boot/Boot.cpp
-    core/Engine.cpp
-    core/GameLoop.cpp
-    core/Logger.cpp
-    graphics/Graphics.cpp
-    network/TCPClient.cpp
-    scenes/SceneManager.cpp
-    scenes/LoginScene.cpp
-    scenes/GameScene.cpp
-    implementations/sfml/SFMLWindow.cpp
-    implementations/sfml/SFMLRenderer.cpp
-    implementations/sfml/SFMLTexture.cpp
-    implementations/sfml/AssetManager.cpp
-
-    ui/Button.cpp
+    src/boot/Boot.cpp
+    src/core/Engine.cpp
+    src/core/GameLoop.cpp
+    src/core/Logger.cpp
+    src/graphics/Graphics.cpp
+    src/network/TCPClient.cpp
+    src/scenes/SceneManager.cpp
+    src/scenes/LoginScene.cpp
+    src/scenes/GameScene.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -67,14 +90,12 @@ target_include_directories(rtype_client PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(rtype_client PRIVATE
-    rtype_proto
+    # rtype_proto
     Boost::system
     OpenSSL::SSL
     OpenSSL::Crypto
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
-    SFML::Graphics
-    SFML::Audio
-    SFML::Network
     spdlog::spdlog
+    rtype_sfml
 )

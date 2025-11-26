@@ -8,13 +8,17 @@
 #ifndef GAMELOOP_HPP_
 #define GAMELOOP_HPP_
 
-#include "IGameLoop.hpp"
-#include "scenes/SceneManager.hpp"
-#include "scenes/LoginScene.hpp"
-#include "network/TCPClient.hpp"
-#include "../implementations/sfml/SFMLRenderer.hpp"
-
 #include <memory>
+#include <iostream>
+#include <vector>
+#include <chrono>
+
+#include "scenes/SceneManager.hpp"
+#include "network/TCPClient.hpp"
+#include "IGameLoop.hpp"
+#include "core/IRenderer.hpp"
+#include "events/Event.hpp"
+#include "scenes/LoginScene.hpp"
 
 namespace core {
     class GameLoop: public IGameLoop {
@@ -29,6 +33,8 @@ namespace core {
             void display() override;
 
         private:
+            float _deltatime;
+            // std::chrono::duration _clock;
             std::shared_ptr<graphics::IWindow> _window;
             std::shared_ptr<IRenderer> _renderer;
             std::unique_ptr<SceneManager> _sceneManager;

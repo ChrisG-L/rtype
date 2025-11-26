@@ -8,7 +8,7 @@
 #ifndef SFMLTEXTURE_HPP_
 #define SFMLTEXTURE_HPP_
 
-#include "../../graphics/ITexture.hpp"
+#include "graphics/ITexture.hpp"
 
 class SFMLTexture: public graphics::ITexture {
     public:

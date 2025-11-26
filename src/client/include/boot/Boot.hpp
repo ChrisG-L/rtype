@@ -8,9 +8,10 @@
 #ifndef BOOT_HPP_
 #define BOOT_HPP_
 
+#include <memory>
+
 #include "../network/TCPClient.hpp"
 #include "../core/Engine.hpp"
-#include <memory>
 
 class Boot {
     public:

@@ -8,18 +8,24 @@
 #ifndef SFMLRENDERER_HPP_
 #define SFMLRENDERER_HPP_
 
-#include "../../core/IRenderer.hpp"
-#include "utils/AssetManager.hpp"
-#include "../../graphics/Graphics.hpp"
-#include <unordered_map>
+#include <SFML/Graphics/Sprite.hpp>
+#include <SFML/System/Vector2.hpp>
+
+#include <stdexcept>
 #include <memory>
+
+#include "core/IRenderer.hpp"
+#include "utils/AssetManager.hpp"
+#include "graphics/Graphics.hpp"
+#include "utils/Vecs.hpp"
+
 
 class SFMLRenderer: public core::IRenderer {
     public:
         SFMLRenderer(std::shared_ptr<graphics::IWindow> window);
         
         void initialize(GraphicAssets) override;
-        void update() override;
+        void update(float deltatime) override;
         void render() override;
 
         void initGraphicTexture(const graphic::GraphicTexture& graphT);

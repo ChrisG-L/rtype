@@ -5,7 +5,7 @@
 ** SFMLTexture
 */
 
-#include "implementations/sfml/SFMLTexture.hpp"
+#include "SFMLTexture.hpp"
 
 SFMLTexture::SFMLTexture(): _size{.x = 0, .y = 0}
 {

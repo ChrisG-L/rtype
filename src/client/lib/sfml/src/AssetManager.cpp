@@ -5,10 +5,7 @@
 ** AssetManager
 */
 
-#include "implementations/sfml/utils/AssetManager.hpp"
-#include "core/Logger.hpp"
-#include "implementations/sfml/SFMLWindow.hpp"
-#include <memory>
+#include "utils/AssetManager.hpp"
 
 AssetManager::AssetManager()
 {
@@ -62,7 +59,7 @@ void AssetManager::drawAll(std::shared_ptr<graphics::IWindow> window)
 {
     for (auto const& [key, sprites]: spritePools) {
         for (const auto& sprite: sprites) {
-            window->draw(sprite);
+            // window->draw(sprite);
         }
     }
 }

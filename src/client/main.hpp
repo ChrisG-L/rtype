@@ -11,6 +11,7 @@
 #include "core/Logger.hpp"
 #include "boot/Boot.hpp"
 #include "events/Signal.hpp"
-#include "ui/Button.hpp"
+
+#include <dlfcn.h>
 
 #endif /* !MAIN_HPP_ */

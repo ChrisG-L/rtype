@@ -41,4 +41,11 @@ struct Vec4i {
     int z;
 };
 
+struct rgba {
+    int r;
+    int g;
+    int b;
+    int a;
+};
+
 #endif /* !VECS_HPP_ */

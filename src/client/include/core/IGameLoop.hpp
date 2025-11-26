@@ -8,12 +8,6 @@
 #ifndef IGAMELOOP_HPP_
 #define IGAMELOOP_HPP_
 
-#include "IRenderer.hpp"
-#include "../graphics/IWindow.hpp"
-#include "../graphics/IDrawable.hpp"
-
-#include <memory>
-
 namespace core {
     class IGameLoop {
         public:

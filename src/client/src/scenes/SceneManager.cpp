@@ -36,10 +36,10 @@ void SceneManager::handleEvent(const sf::Event &event)
         _currentScene->handleEvent(event);
 }
 
-void SceneManager::update()
+void SceneManager::update(float _deltatime)
 {
     if (_currentScene) {
-        _currentScene->update();
+        _currentScene->update(_deltatime);
     }
 }
 

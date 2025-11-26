@@ -20,7 +20,7 @@ public:
     ~GameScene() override = default;
 
     void handleEvent(const sf::Event &event) override;
-    void update() override;
+    void update(float deltatime) override;
     void render() override;
 };
 #endif /* !GAMESCENE_HPP_ */

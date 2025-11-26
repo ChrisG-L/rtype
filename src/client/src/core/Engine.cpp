@@ -26,8 +26,8 @@ namespace core {
         _tcpClient = tcpClient;
 
         // Changer le SFML window et rendered par quelque chose de modulaire car couplage trop fort!
-        _window = std::make_shared<SFMLWindow>();
-        _window->initialize({.x = 1920, .y = 1080}, "rtype");
+        // _window = std::make_shared<SFMLWindow>(); // Changer ceci
+        // _window->initialize({.x = 1920, .y = 1080}, "rtype");
 
         _gameLoop = std::make_unique<GameLoop>(_window, _tcpClient);
     }

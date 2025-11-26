@@ -8,13 +8,12 @@
 #ifndef IWINDOW_HPP_
 #define IWINDOW_HPP_
 
-#include "../utils/Vecs.hpp"
-#include "IDrawable.hpp"
-
 #include <string>
 #include <optional>
-#include <SFML/Window/Event.hpp>
-#include <SFML/Graphics/Color.hpp>
+
+#include "../utils/Vecs.hpp"
+#include "IDrawable.hpp"
+#include "../events/Event.hpp"
 
 namespace graphics {
 
@@ -22,16 +21,14 @@ namespace graphics {
         public:
             virtual ~IWindow() = default;
 
-            virtual bool initialize(Vec2u winSize, const std::string& name) = 0;
-
             virtual Vec2u getSize() const = 0;
             virtual bool isOpen() = 0;
             virtual void close() = 0;
-            virtual std::optional<sf::Event> pollEvent() = 0;
+            virtual bool pollEvent() = 0;
 
-            virtual void    draw(const sf::Sprite& sprite) = 0;
-            virtual void drawRect(float x, float y, float width, float height, sf::Color color) = 0;
-            virtual void drawImg(sf::Sprite& imgS, float x, float y, float scaleX, float scaleY) = 0;
+            virtual void draw(const IDrawable& drawable) = 0;
+            virtual void drawRect(float x, float y, float width, float height, rgba color) = 0;
+            virtual void drawImg(graphics::IDrawable, float x, float y, float scaleX, float scaleY) = 0;
             virtual void clear() = 0;
             virtual void display() = 0;
 
