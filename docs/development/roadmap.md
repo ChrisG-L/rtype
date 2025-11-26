@@ -1,352 +1,989 @@
-# Roadmap R-Type - Guide Complet d'Implémentation
+# Roadmap R-Type - Guide d'Implémentation par Priorité
 
-**Version:** 1.0
+**Version:** 2.1
 **Dernière mise à jour:** 25 novembre 2025
 **Objectif:** Terminer le projet R-Type multijoueur
 
 ---
 
-## Vue d'Ensemble
+## 🎯 Vue d'Ensemble des Priorités
 
-Ce document présente la roadmap complète pour finaliser le projet R-Type. Il est organisé en **6 phases** progressives, chacune construisant sur la précédente.
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        ORDRE D'IMPLÉMENTATION                                │
+│                                                                              │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌───────────┐ │
+│  │  PRIORITÉ 0 │ ──▶ │  PRIORITÉ 1 │ ──▶ │  PRIORITÉ 2 │ ──▶ │PRIORITÉ 3 │ │
+│  │   (Base)    │     │   (Core)    │     │  (Features) │     │ (Polish)  │ │
+│  └─────────────┘     └─────────────┘     └─────────────┘     └───────────┘ │
+│                                                                              │
+│  • Libs Dynamiques   • ECS Complet       • Ennemis & IA     • Audio        │
+│  • Delta Time        • Player            • Power-ups        • Particules   │
+│  • InputManager      • Projectiles       • Waves            • Menus        │
+│  • World basique     • Collisions        • Network UDP      • Polish       │
+│                      • Rendu             • Multijoueur      • Niveaux      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ### État Actuel du Projet
 
 ```
 ✅ COMPLÉTÉ                          🚧 EN COURS                    📋 À FAIRE
 ─────────────────────────────────────────────────────────────────────────────
-• Architecture hexagonale serveur    • UI Components client         • ECS
-• Client SFML (Boot, Engine, Loop)   • Intégration auth            • Gameplay
-• Système de scènes                  • TextField                    • Multijoueur
-• TCPClient/TCPServer                                               • Audio
-• Authentification (Login/Register)                                 • Polish
-• MongoDB (Users)
+• Architecture hexagonale serveur    • UI Components client         • Libs dyn.
+• Client SFML (Boot, Engine, Loop)   • Intégration auth            • ECS
+• Système de scènes                  • TextField                    • Gameplay
+• TCPClient/TCPServer                                               • Multijoueur
+• Authentification (Login/Register)                                 • Audio
+• MongoDB (Users)                                                   • Polish
 • Logging (12 loggers)
 • AssetManager
+• Tests (261 tests)
 ```
-
-### Estimation Globale
-
-| Phase | Durée Estimée | Complexité | Priorité |
-|-------|---------------|------------|----------|
-| Phase 1: UI & Auth Integration | 1-2 semaines | Moyenne | Haute |
-| Phase 2: ECS Architecture | 2-3 semaines | Haute | Haute |
-| Phase 3: Gameplay Core | 2-3 semaines | Haute | Haute |
-| Phase 4: Networking Gameplay | 2 semaines | Très Haute | Haute |
-| Phase 5: Content & Polish | 1-2 semaines | Moyenne | Moyenne |
-| Phase 6: Audio & Effects | 1 semaine | Basse | Basse |
-
-**Total estimé:** 9-13 semaines
 
 ---
 
-## Phase 1: UI & Intégration Authentification
+## 📋 Checklist Rapide - Par Ordre
 
-**Objectif:** Interface utilisateur fonctionnelle et authentification complète client-serveur.
-
-### 1.1 Système UI Complet
-
-#### Tâches
-
-| ID | Tâche | Fichiers | Design Pattern |
-|----|-------|----------|----------------|
-| 1.1.1 | Implémenter `IUIElement` interface | `include/ui/IUIElement.hpp` | Strategy |
-| 1.1.2 | Créer `Button` interactif | `ui/Button.hpp/.cpp` | Observer |
-| 1.1.3 | Finaliser `TextField` avec curseur | `utils/TextField.hpp/.cpp` | - |
-| 1.1.4 | Créer `Label` pour texte statique | `ui/Label.hpp/.cpp` | - |
-| 1.1.5 | Créer `Panel` conteneur | `ui/Panel.hpp/.cpp` | Composite |
-| 1.1.6 | Implémenter `UIManager` | `ui/UIManager.hpp/.cpp` | Facade |
-
-#### Architecture UI Recommandée
+Coche au fur et à mesure :
 
 ```
-IUIElement (interface)
-├── Button : IUIElement
-│   ├── onClick callback
-│   ├── hover state
-│   └── disabled state
-├── TextField : IUIElement
-│   ├── text buffer
-│   ├── cursor position
-│   ├── selection
-│   └── onSubmit callback
-├── Label : IUIElement
-│   └── text content
-└── Panel : IUIElement (Composite)
-    └── vector<IUIElement*> children
+PRIORITÉ 0 - FONDATIONS (Faire en premier !)
+├── □ Architecture Libs Dynamiques (.so/.dll)
+│   ├── □ IGraphicsPlugin interface (init, createWindow, createRenderer)
+│   ├── □ PluginLoader (dlopen/LoadLibrary)
+│   ├── □ Plugin SFML (libsfml_plugin.so)
+│   └── □ Retirer sf::Event de IScene
+├── □ Delta Time dans GameLoop
+├── □ InputManager (abstraction complète)
+├── □ Entity + EntityManager basique
+├── □ ComponentPool<T> template
+└── □ World façade minimale
+
+PRIORITÉ 1 - CORE GAMEPLAY (Un joueur jouable)
+├── □ TransformComponent + VelocityComponent
+├── □ SpriteComponent + RenderSystem
+├── □ MovementSystem
+├── □ ColliderComponent + CollisionSystem
+├── □ PlayerComponent + PlayerInputSystem
+├── □ ProjectileComponent + ProjectileFactory
+├── □ HealthComponent + HealthSystem
+└── □ Un joueur qui tire et peut mourir
+
+PRIORITÉ 2 - GAMEPLAY COMPLET (Jeu solo jouable)
+├── □ EnemyComponent + EnemyFactory
+├── □ EnemyAISystem (patterns basiques)
+├── □ WaveSystem (spawn ennemis)
+├── □ PowerUpComponent + PowerUpSystem
+├── □ AnimationSystem
+├── □ Score et Game Over
+└── □ 1 niveau complet jouable en solo
+
+PRIORITÉ 3 - MULTIJOUEUR (Jeu multi jouable)
+├── □ NetworkSyncComponent
+├── □ UDPClient gameplay
+├── □ Client-side prediction
+├── □ Entity interpolation
+├── □ Lobby TCP
+└── □ 2-4 joueurs simultanés
+
+PRIORITÉ 4 - POLISH (Jeu fini)
+├── □ AudioManager + Sons
+├── □ Système de particules
+├── □ 3 niveaux + Boss
+├── □ Menus complets
+└── □ Polish et bugfix
 ```
 
-#### Design Pattern: Observer pour les événements UI
+---
 
+# PRIORITÉ 0 : Fondations du Game Engine
+
+**🎯 Objectif : Avoir les bases pour construire le reste**
+
+> ⚠️ **NE PAS SAUTER CETTE ÉTAPE** - Tout le reste dépend de ces fondations !
+
+---
+
+## 0.1 Architecture Bibliothèques Dynamiques (Plugins)
+
+### Pourquoi c'est critique
+
+Actuellement le code a un **couplage fort avec SFML** :
+- `sf::Event` directement dans `IScene::handleEvent()`
+- Impossible de changer de bibliothèque graphique
+- Impossible de tester sans SFML
+
+**Solution : Les bibliothèques dynamiques (.so sur Linux, .dll sur Windows)**
+
+Le core engine ne connaît que des **interfaces abstraites**. L'implémentation SFML est dans une lib dynamique séparée chargée au runtime.
+
+### Architecture Cible
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         ARCHITECTURE PLUGIN                                  │
+│                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                           CORE ENGINE                                  │  │
+│  │                    (Ne connaît AUCUNE lib graphique)                   │  │
+│  │                                                                        │  │
+│  │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                │  │
+│  │   │  IWindow     │  │  IRenderer   │  │  IInput      │                │  │
+│  │   │  (abstract)  │  │  (abstract)  │  │  (abstract)  │                │  │
+│  │   └──────────────┘  └──────────────┘  └──────────────┘                │  │
+│  │          ▲                 ▲                ▲                          │  │
+│  │          │                 │                │                          │  │
+│  │   ┌──────┴─────────────────┴────────────────┴──────┐                  │  │
+│  │   │              IGraphicsPlugin                    │                  │  │
+│  │   │   (Interface que chaque plugin implémente)      │                  │  │
+│  │   └─────────────────────────────────────────────────┘                  │  │
+│  │                            ▲                                           │  │
+│  └────────────────────────────│───────────────────────────────────────────┘  │
+│                               │                                              │
+│                      ┌────────┴────────┐                                     │
+│                      │  PluginLoader   │                                     │
+│                      │  (dlopen/       │                                     │
+│                      │   LoadLibrary)  │                                     │
+│                      └────────┬────────┘                                     │
+│                               │                                              │
+│          ┌────────────────────┼────────────────────┐                         │
+│          ▼                    ▼                    ▼                         │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                   │
+│  │ SFML Plugin  │    │  SDL Plugin  │    │ Raylib Plugin│                   │
+│  │ (.so/.dll)   │    │  (.so/.dll)  │    │  (.so/.dll)  │                   │
+│  │              │    │              │    │              │                   │
+│  │ SFMLWindow   │    │ SDLWindow    │    │ RaylibWindow │                   │
+│  │ SFMLRenderer │    │ SDLRenderer  │    │RaylibRenderer│                   │
+│  │ SFMLInput    │    │ SDLInput     │    │ RaylibInput  │                   │
+│  └──────────────┘    └──────────────┘    └──────────────┘                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Structure des Fichiers à Créer
+
+```
+src/client/
+├── core/
+│   ├── Engine.hpp/.cpp
+│   ├── GameLoop.hpp/.cpp
+│   └── PluginLoader.hpp/.cpp       # NOUVEAU
+│
+├── graphics/
+│   ├── IWindow.hpp                 # Interface abstraite (déjà existe)
+│   ├── IRenderer.hpp               # Interface abstraite (déjà existe)
+│   └── IGraphicsPlugin.hpp         # NOUVEAU - Interface plugin
+│
+├── input/
+│   ├── InputAction.hpp             # NOUVEAU - Enum des actions
+│   ├── IInput.hpp                  # NOUVEAU - Interface abstraite
+│   └── InputManager.hpp/.cpp       # NOUVEAU - Utilise IInput
+│
+└── plugins/
+    └── sfml/                       # Compile en .so/.dll séparé
+        ├── CMakeLists.txt
+        ├── SFMLPlugin.hpp/.cpp     # Implémente IGraphicsPlugin
+        ├── SFMLWindow.hpp/.cpp     # Implémente IWindow
+        ├── SFMLRenderer.hpp/.cpp   # Implémente IRenderer
+        └── SFMLInput.hpp/.cpp      # Implémente IInput
+```
+
+### Étape 1 : Créer les Interfaces Abstraites
+
+**Fichier : `src/client/input/InputAction.hpp`**
 ```cpp
-// Observer Pattern pour Button
-class IButtonObserver {
+#pragma once
+
+enum class InputAction {
+    MoveUp,
+    MoveDown,
+    MoveLeft,
+    MoveRight,
+    Fire,
+    SpecialFire,
+    Pause,
+    Confirm,
+    Cancel,
+    COUNT  // Pour itérer
+};
+```
+
+**Fichier : `src/client/input/IInput.hpp`**
+```cpp
+#pragma once
+
+#include "InputAction.hpp"
+
+/**
+ * @brief Interface abstraite pour les inputs
+ *
+ * Implémentée par chaque plugin graphique (SFML, SDL, etc.)
+ * Le core engine ne connaît QUE cette interface
+ */
+class IInput {
 public:
-    virtual void onClick(Button* button) = 0;
-    virtual void onHover(Button* button) = 0;
+    virtual ~IInput() = default;
+
+    // Appelé au début de chaque frame pour traiter les events
+    virtual void pollEvents() = 0;
+
+    // Requêtes d'état
+    virtual bool isPressed(InputAction action) const = 0;
+    virtual bool isJustPressed(InputAction action) const = 0;
+    virtual bool isJustReleased(InputAction action) const = 0;
+
+    // Gestion fenêtre (détecté via events)
+    virtual bool shouldClose() const = 0;
+
+    // Optionnel : rebind
+    virtual void bindKey(InputAction action, int keyCode) = 0;
+};
+```
+
+**Fichier : `src/client/graphics/IGraphicsPlugin.hpp`**
+```cpp
+#pragma once
+
+#include <memory>
+#include <string>
+
+class IWindow;
+class IRenderer;
+class IInput;
+
+/**
+ * @brief Interface pour les plugins graphiques
+ *
+ * Chaque plugin (SFML, SDL, Raylib...) implémente cette interface.
+ * Le PluginLoader charge le .so/.dll et récupère cette interface.
+ */
+class IGraphicsPlugin {
+public:
+    virtual ~IGraphicsPlugin() = default;
+
+    // Nom du plugin (pour logs)
+    virtual std::string getName() const = 0;
+
+    // Initialisation/Cleanup
+    virtual bool init() = 0;
+    virtual void shutdown() = 0;
+
+    // Factory methods - crée les implémentations concrètes
+    virtual std::unique_ptr<IWindow> createWindow(
+        unsigned int width,
+        unsigned int height,
+        const std::string& title
+    ) = 0;
+
+    virtual std::unique_ptr<IRenderer> createRenderer(IWindow& window) = 0;
+    virtual std::unique_ptr<IInput> createInput(IWindow& window) = 0;
 };
 
-class Button : public IUIElement {
-    std::vector<IButtonObserver*> _observers;
-public:
-    void addObserver(IButtonObserver* obs);
-    void click() {
-        for (auto* obs : _observers) obs->onClick(this);
+// Point d'entrée exporté par chaque plugin
+// Le PluginLoader appelle cette fonction après dlopen()
+extern "C" {
+    typedef IGraphicsPlugin* (*CreatePluginFn)();
+    typedef void (*DestroyPluginFn)(IGraphicsPlugin*);
+}
+
+// Macro pour exporter le plugin (à mettre dans chaque plugin)
+#define EXPORT_GRAPHICS_PLUGIN(PluginClass)                     \
+    extern "C" {                                                \
+        IGraphicsPlugin* createPlugin() {                       \
+            return new PluginClass();                           \
+        }                                                       \
+        void destroyPlugin(IGraphicsPlugin* plugin) {           \
+            delete plugin;                                      \
+        }                                                       \
     }
+```
+
+### Étape 2 : Créer le PluginLoader
+
+**Fichier : `src/client/core/PluginLoader.hpp`**
+```cpp
+#pragma once
+
+#include <memory>
+#include <string>
+#include "graphics/IGraphicsPlugin.hpp"
+
+/**
+ * @brief Charge les plugins graphiques dynamiquement
+ *
+ * Utilise dlopen() sur Linux, LoadLibrary() sur Windows
+ */
+class PluginLoader {
+public:
+    PluginLoader() = default;
+    ~PluginLoader();
+
+    // Charge un plugin depuis un fichier .so/.dll
+    // Retourne nullptr si échec
+    IGraphicsPlugin* load(const std::string& path);
+
+    // Décharge le plugin actuel
+    void unload();
+
+    // Vérifie si un plugin est chargé
+    bool isLoaded() const;
+
+private:
+    void* _handle = nullptr;
+    IGraphicsPlugin* _plugin = nullptr;
+    DestroyPluginFn _destroyFn = nullptr;
 };
 ```
 
-### 1.2 LoginScene Fonctionnelle
-
-#### Tâches
-
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 1.2.1 | Ajouter TextField email | Input pour l'email utilisateur |
-| 1.2.2 | Ajouter TextField password | Input masqué pour mot de passe |
-| 1.2.3 | Ajouter Button "Login" | Déclenche l'authentification |
-| 1.2.4 | Ajouter Button "Register" | Bascule vers RegisterScene |
-| 1.2.5 | Afficher messages d'erreur | Label pour feedback utilisateur |
-| 1.2.6 | Gérer états (loading, error, success) | State Machine |
-
-#### Flux d'Authentification
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Loading: Click Login
-    Loading --> Success: Server OK
-    Loading --> Error: Server Error
-    Error --> Idle: Retry
-    Success --> GameScene: Transition
-```
-
-### 1.3 Intégration Client-Serveur Auth avec Protocol Buffers
-
-#### Tâches
-
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 1.3.1 | Définir messages protobuf auth | `proto/auth.proto` |
-| 1.3.2 | Compiler les fichiers .proto | Générer C++ avec protoc |
-| 1.3.3 | Implémenter `AuthService` client | Encapsule logique auth |
-| 1.3.4 | Connecter LoginScene à TCPClient | Envoi credentials sérialisés |
-| 1.3.5 | Parser réponses serveur | Désérialisation protobuf |
-| 1.3.6 | Stocker session utilisateur | Token ou user info |
-| 1.3.7 | Créer RegisterScene | Inscription nouveaux users |
-
-#### Fichier `proto/auth.proto`
-
-```protobuf
-syntax = "proto3";
-
-package rtype.auth;
-
-option cc_namespace = "rtype::proto::auth";
-
-// ═══════════════════════════════════════════════════════════════
-// ENUMS
-// ═══════════════════════════════════════════════════════════════
-
-enum AuthMessageType {
-    AUTH_UNKNOWN = 0;
-    AUTH_LOGIN_REQUEST = 1;
-    AUTH_LOGIN_RESPONSE = 2;
-    AUTH_REGISTER_REQUEST = 3;
-    AUTH_REGISTER_RESPONSE = 4;
-    AUTH_LOGOUT_REQUEST = 5;
-    AUTH_LOGOUT_RESPONSE = 6;
-}
-
-enum AuthErrorCode {
-    AUTH_ERROR_NONE = 0;
-    AUTH_ERROR_INVALID_CREDENTIALS = 1;
-    AUTH_ERROR_USER_NOT_FOUND = 2;
-    AUTH_ERROR_EMAIL_ALREADY_EXISTS = 3;
-    AUTH_ERROR_USERNAME_ALREADY_EXISTS = 4;
-    AUTH_ERROR_INVALID_EMAIL_FORMAT = 5;
-    AUTH_ERROR_PASSWORD_TOO_WEAK = 6;
-    AUTH_ERROR_SERVER_ERROR = 7;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// REQUESTS
-// ═══════════════════════════════════════════════════════════════
-
-message LoginRequest {
-    string email = 1;
-    string password_hash = 2;  // SHA-256 hash côté client
-}
-
-message RegisterRequest {
-    string username = 1;
-    string email = 2;
-    string password_hash = 3;
-}
-
-message LogoutRequest {
-    string session_token = 1;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// RESPONSES
-// ═══════════════════════════════════════════════════════════════
-
-message UserInfo {
-    string user_id = 1;
-    string username = 2;
-    string email = 3;
-    uint64 last_login = 4;     // Unix timestamp
-    uint64 created_at = 5;
-}
-
-message LoginResponse {
-    bool success = 1;
-    AuthErrorCode error_code = 2;
-    string error_message = 3;
-
-    // Si success == true
-    string session_token = 4;
-    UserInfo user = 5;
-}
-
-message RegisterResponse {
-    bool success = 1;
-    AuthErrorCode error_code = 2;
-    string error_message = 3;
-
-    // Si success == true
-    UserInfo user = 4;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// WRAPPER MESSAGE (pour TCP)
-// ═══════════════════════════════════════════════════════════════
-
-message AuthMessage {
-    AuthMessageType type = 1;
-
-    oneof payload {
-        LoginRequest login_request = 2;
-        LoginResponse login_response = 3;
-        RegisterRequest register_request = 4;
-        RegisterResponse register_response = 5;
-        LogoutRequest logout_request = 6;
-    }
-}
-```
-
-#### Utilisation Côté Client
-
+**Fichier : `src/client/core/PluginLoader.cpp`**
 ```cpp
-#include "proto/auth.pb.h"
+#include "PluginLoader.hpp"
+#include <iostream>
 
-class AuthService {
-public:
-    void login(const std::string& email, const std::string& password) {
-        // 1. Créer le message
-        rtype::proto::auth::AuthMessage msg;
-        msg.set_type(rtype::proto::auth::AUTH_LOGIN_REQUEST);
+#ifdef _WIN32
+    #include <windows.h>
+    #define LOAD_LIBRARY(path) LoadLibraryA(path)
+    #define GET_SYMBOL(handle, name) GetProcAddress((HMODULE)handle, name)
+    #define CLOSE_LIBRARY(handle) FreeLibrary((HMODULE)handle)
+    #define PLUGIN_EXT ".dll"
+#else
+    #include <dlfcn.h>
+    #define LOAD_LIBRARY(path) dlopen(path, RTLD_LAZY)
+    #define GET_SYMBOL(handle, name) dlsym(handle, name)
+    #define CLOSE_LIBRARY(handle) dlclose(handle)
+    #define PLUGIN_EXT ".so"
+#endif
 
-        auto* request = msg.mutable_login_request();
-        request->set_email(email);
-        request->set_password_hash(hashSHA256(password));
+PluginLoader::~PluginLoader() {
+    unload();
+}
 
-        // 2. Sérialiser
-        std::string serialized;
-        msg.SerializeToString(&serialized);
+IGraphicsPlugin* PluginLoader::load(const std::string& path) {
+    // Décharger l'ancien plugin si présent
+    unload();
 
-        // 3. Envoyer via TCP (avec length prefix)
-        uint32_t length = serialized.size();
-        _tcpClient->send(reinterpret_cast<char*>(&length), 4);
-        _tcpClient->send(serialized);
+    // Charger la bibliothèque
+    _handle = LOAD_LIBRARY(path.c_str());
+    if (!_handle) {
+        #ifndef _WIN32
+            std::cerr << "Failed to load plugin: " << dlerror() << std::endl;
+        #endif
+        return nullptr;
     }
 
-    void handleResponse(const std::string& data) {
-        rtype::proto::auth::AuthMessage msg;
-        msg.ParseFromString(data);
+    // Récupérer les fonctions exportées
+    auto createFn = reinterpret_cast<CreatePluginFn>(
+        GET_SYMBOL(_handle, "createPlugin")
+    );
+    _destroyFn = reinterpret_cast<DestroyPluginFn>(
+        GET_SYMBOL(_handle, "destroyPlugin")
+    );
 
-        if (msg.type() == rtype::proto::auth::AUTH_LOGIN_RESPONSE) {
-            auto& response = msg.login_response();
-            if (response.success()) {
-                _sessionToken = response.session_token();
-                _currentUser = response.user();
-                // Transition vers GameScene
+    if (!createFn || !_destroyFn) {
+        std::cerr << "Plugin missing required symbols" << std::endl;
+        CLOSE_LIBRARY(_handle);
+        _handle = nullptr;
+        return nullptr;
+    }
+
+    // Créer le plugin
+    _plugin = createFn();
+    if (!_plugin) {
+        std::cerr << "Failed to create plugin instance" << std::endl;
+        CLOSE_LIBRARY(_handle);
+        _handle = nullptr;
+        return nullptr;
+    }
+
+    return _plugin;
+}
+
+void PluginLoader::unload() {
+    if (_plugin && _destroyFn) {
+        _destroyFn(_plugin);
+        _plugin = nullptr;
+    }
+
+    if (_handle) {
+        CLOSE_LIBRARY(_handle);
+        _handle = nullptr;
+    }
+
+    _destroyFn = nullptr;
+}
+
+bool PluginLoader::isLoaded() const {
+    return _plugin != nullptr;
+}
+```
+
+### Étape 3 : Créer le Plugin SFML
+
+**Fichier : `src/client/plugins/sfml/SFMLInput.hpp`**
+```cpp
+#pragma once
+
+#include "input/IInput.hpp"
+#include <SFML/Window/Keyboard.hpp>
+#include <SFML/Window/Event.hpp>
+#include <SFML/Graphics/RenderWindow.hpp>
+#include <unordered_map>
+#include <unordered_set>
+
+class SFMLInput : public IInput {
+public:
+    explicit SFMLInput(sf::RenderWindow& window);
+
+    void pollEvents() override;
+
+    bool isPressed(InputAction action) const override;
+    bool isJustPressed(InputAction action) const override;
+    bool isJustReleased(InputAction action) const override;
+
+    bool shouldClose() const override;
+
+    void bindKey(InputAction action, int keyCode) override;
+
+private:
+    sf::RenderWindow& _window;
+    bool _shouldClose = false;
+
+    std::unordered_map<InputAction, sf::Keyboard::Key> _bindings;
+    std::unordered_set<InputAction> _currentState;
+    std::unordered_set<InputAction> _previousState;
+
+    void setupDefaultBindings();
+    void updateKeyState(sf::Keyboard::Key key, bool pressed);
+};
+```
+
+**Fichier : `src/client/plugins/sfml/SFMLInput.cpp`**
+```cpp
+#include "SFMLInput.hpp"
+
+SFMLInput::SFMLInput(sf::RenderWindow& window) : _window(window) {
+    setupDefaultBindings();
+}
+
+void SFMLInput::setupDefaultBindings() {
+    _bindings[InputAction::MoveUp] = sf::Keyboard::Key::Z;
+    _bindings[InputAction::MoveDown] = sf::Keyboard::Key::S;
+    _bindings[InputAction::MoveLeft] = sf::Keyboard::Key::Q;
+    _bindings[InputAction::MoveRight] = sf::Keyboard::Key::D;
+    _bindings[InputAction::Fire] = sf::Keyboard::Key::Space;
+    _bindings[InputAction::SpecialFire] = sf::Keyboard::Key::LShift;
+    _bindings[InputAction::Pause] = sf::Keyboard::Key::Escape;
+    _bindings[InputAction::Confirm] = sf::Keyboard::Key::Enter;
+    _bindings[InputAction::Cancel] = sf::Keyboard::Key::Escape;
+}
+
+void SFMLInput::pollEvents() {
+    // Sauvegarder l'état précédent
+    _previousState = _currentState;
+
+    // Traiter les events
+    while (auto event = _window.pollEvent()) {
+        if (event->is<sf::Event::Closed>()) {
+            _shouldClose = true;
+        }
+        else if (auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+            updateKeyState(keyPressed->code, true);
+        }
+        else if (auto* keyReleased = event->getIf<sf::Event::KeyReleased>()) {
+            updateKeyState(keyReleased->code, false);
+        }
+    }
+}
+
+void SFMLInput::updateKeyState(sf::Keyboard::Key key, bool pressed) {
+    for (const auto& [action, boundKey] : _bindings) {
+        if (boundKey == key) {
+            if (pressed) {
+                _currentState.insert(action);
             } else {
-                // Afficher erreur
-                showError(response.error_message());
+                _currentState.erase(action);
             }
         }
     }
+}
+
+bool SFMLInput::isPressed(InputAction action) const {
+    return _currentState.count(action) > 0;
+}
+
+bool SFMLInput::isJustPressed(InputAction action) const {
+    return _currentState.count(action) > 0 &&
+           _previousState.count(action) == 0;
+}
+
+bool SFMLInput::isJustReleased(InputAction action) const {
+    return _currentState.count(action) == 0 &&
+           _previousState.count(action) > 0;
+}
+
+bool SFMLInput::shouldClose() const {
+    return _shouldClose;
+}
+
+void SFMLInput::bindKey(InputAction action, int keyCode) {
+    _bindings[action] = static_cast<sf::Keyboard::Key>(keyCode);
+}
+```
+
+**Fichier : `src/client/plugins/sfml/SFMLPlugin.hpp`**
+```cpp
+#pragma once
+
+#include "graphics/IGraphicsPlugin.hpp"
+
+class SFMLPlugin : public IGraphicsPlugin {
+public:
+    std::string getName() const override { return "SFML"; }
+
+    bool init() override;
+    void shutdown() override;
+
+    std::unique_ptr<IWindow> createWindow(
+        unsigned int width,
+        unsigned int height,
+        const std::string& title
+    ) override;
+
+    std::unique_ptr<IRenderer> createRenderer(IWindow& window) override;
+    std::unique_ptr<IInput> createInput(IWindow& window) override;
+};
+
+// Export le plugin
+EXPORT_GRAPHICS_PLUGIN(SFMLPlugin)
+```
+
+### Étape 4 : CMakeLists.txt pour le Plugin
+
+**Fichier : `src/client/plugins/sfml/CMakeLists.txt`**
+```cmake
+# Plugin SFML - compile en bibliothèque dynamique
+
+add_library(sfml_plugin SHARED
+    SFMLPlugin.cpp
+    SFMLWindow.cpp
+    SFMLRenderer.cpp
+    SFMLInput.cpp
+)
+
+# Le plugin link SFML, pas le core engine
+target_link_libraries(sfml_plugin PRIVATE
+    sfml-graphics
+    sfml-window
+    sfml-system
+)
+
+# Headers du core (interfaces)
+target_include_directories(sfml_plugin PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/client
+    ${CMAKE_SOURCE_DIR}/src/client/include
+)
+
+# Output dans le dossier plugins
+set_target_properties(sfml_plugin PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins  # Windows
+    PREFIX "lib"  # libsfml_plugin.so
+)
+```
+
+### Étape 5 : Modifier le Core Engine
+
+**Fichier : `src/client/core/Engine.hpp` (modifié)**
+```cpp
+#pragma once
+
+#include <memory>
+#include <string>
+
+class IWindow;
+class IRenderer;
+class IInput;
+class IGraphicsPlugin;
+class PluginLoader;
+class SceneManager;
+
+class Engine {
+public:
+    Engine();
+    ~Engine();
+
+    // Initialise avec un plugin graphique
+    bool init(const std::string& pluginPath);
+    void run();
+    void shutdown();
+
+    // Accès aux systèmes (pour les scènes)
+    IWindow& getWindow() { return *_window; }
+    IRenderer& getRenderer() { return *_renderer; }
+    IInput& getInput() { return *_input; }
+
+private:
+    std::unique_ptr<PluginLoader> _pluginLoader;
+    IGraphicsPlugin* _plugin = nullptr;
+
+    std::unique_ptr<IWindow> _window;
+    std::unique_ptr<IRenderer> _renderer;
+    std::unique_ptr<IInput> _input;
+    std::unique_ptr<SceneManager> _sceneManager;
+
+    bool _running = false;
 };
 ```
 
-### 1.4 Livrables Phase 1
+### Étape 6 : Modifier IScene (Plus de sf::Event !)
 
-- [ ] UI System complet (Button, TextField, Label, Panel)
-- [ ] LoginScene avec formulaire fonctionnel
-- [ ] RegisterScene pour inscription
-- [ ] Communication auth client-serveur
-- [ ] Gestion d'erreurs et feedback utilisateur
+**Fichier : `src/client/include/scenes/IScene.hpp` (modifié)**
+```cpp
+#pragma once
+
+class IRenderer;
+class IInput;
+
+/**
+ * @brief Interface pour les scènes
+ *
+ * IMPORTANT: Plus aucune dépendance SFML !
+ * Les scènes utilisent IInput pour les inputs
+ */
+class IScene {
+public:
+    virtual ~IScene() = default;
+
+    virtual void init() = 0;
+    virtual void cleanup() = 0;
+
+    // Plus de handleEvent(sf::Event) !
+    // Les scènes interrogent IInput directement
+
+    virtual void update(float deltaTime) = 0;
+    virtual void render(IRenderer& renderer) = 0;
+};
+```
+
+**Exemple d'utilisation dans GameScene :**
+```cpp
+void GameScene::update(float deltaTime) {
+    // Plus de handleEvent() ! On query IInput directement
+
+    if (_input.isPressed(InputAction::MoveUp)) {
+        // Bouger vers le haut
+    }
+
+    if (_input.isJustPressed(InputAction::Fire)) {
+        // Tirer (une seule fois par appui)
+    }
+
+    if (_input.isJustPressed(InputAction::Pause)) {
+        // Mettre en pause
+    }
+
+    // ... reste de la logique
+}
+```
+
+### Étape 7 : Nouveau GameLoop
+
+**Fichier : `src/client/core/GameLoop.cpp` (modifié)**
+```cpp
+void GameLoop::run() {
+    while (_running && !_input->shouldClose()) {
+        // 1. Delta time
+        _deltaTime = _clock.restart().asSeconds();
+        if (_deltaTime > 0.1f) _deltaTime = 0.1f;
+
+        // 2. Poll events (via plugin, pas direct SFML)
+        _input->pollEvents();
+
+        // 3. Update
+        _sceneManager->update(_deltaTime);
+
+        // 4. Render
+        _window->clear();
+        _sceneManager->render(*_renderer);
+        _window->display();
+    }
+}
+```
+
+### Checklist Architecture Plugin
+
+- [ ] Créer `IInput` interface abstraite
+- [ ] Créer `IGraphicsPlugin` interface
+- [ ] Créer `PluginLoader` (dlopen/LoadLibrary)
+- [ ] Créer `SFMLInput` implémente `IInput`
+- [ ] Créer `SFMLPlugin` implémente `IGraphicsPlugin`
+- [ ] Modifier `SFMLWindow` pour implémenter `IWindow`
+- [ ] Modifier `SFMLRenderer` pour implémenter `IRenderer`
+- [ ] CMakeLists pour compiler le plugin en .so/.dll
+- [ ] Modifier `Engine` pour charger le plugin
+- [ ] **Retirer `sf::Event` de `IScene::handleEvent()`**
+- [ ] Modifier `IScene::handleEvent()` → les scènes query `IInput`
+- [ ] Mettre à jour `LoginScene`, `GameScene` etc.
+- [ ] Tester le chargement du plugin
+
+### Avantages de cette Architecture
+
+1. **Découplage total** : Le core engine ne connaît pas SFML
+2. **Testabilité** : On peut créer un MockPlugin pour les tests
+3. **Flexibilité** : Facile d'ajouter SDL, Raylib, etc.
+4. **Propreté** : Les interfaces sont claires et documentées
+5. **Portabilité** : Même core, plugins différents par plateforme
 
 ---
 
-## Phase 2: Architecture ECS (Entity Component System)
+## 0.2 Delta Time dans GameLoop
 
-**Objectif:** Implémenter un ECS performant pour gérer les entités de jeu.
+### Pourquoi c'est critique
 
-### 2.1 Pourquoi ECS ?
+Sans delta time :
+- PC 60 FPS : objets bougent à vitesse X
+- PC 144 FPS : objets bougent 2.4x plus vite
+- PC 30 FPS : objets bougent 2x plus lent
 
-L'ECS sépare les données (Components) de la logique (Systems), permettant :
-- Performance via cache-friendly data layout
-- Flexibilité pour composer des entités
-- Facilité de test des Systems isolés
-- Parallélisation des Systems
+**Le jeu est injouable sur différentes machines.**
 
-### 2.2 Architecture ECS
+### Ce qu'il faut faire
 
-```
-ECS/
-├── Entity.hpp              # Identifiant unique (uint64_t)
-├── Component.hpp           # Base des composants
-├── System.hpp              # Base des systèmes
-├── Registry.hpp            # Conteneur principal
-├── ComponentPool.hpp       # Stockage dense des composants
-│
-├── components/             # Composants de données
-│   ├── Transform.hpp       # Position, Rotation, Scale
-│   ├── Velocity.hpp        # Vitesse et direction
-│   ├── Sprite.hpp          # Texture et animation frame
-│   ├── Collider.hpp        # Hitbox et layer
-│   ├── Health.hpp          # Points de vie
-│   ├── Player.hpp          # Tag + input state
-│   ├── Enemy.hpp           # Tag + AI state
-│   ├── Projectile.hpp      # Tag + damage + owner
-│   └── NetworkSync.hpp     # ID réseau + dirty flag
-│
-└── systems/                # Systèmes de logique
-    ├── MovementSystem.hpp
-    ├── RenderSystem.hpp
-    ├── CollisionSystem.hpp
-    ├── InputSystem.hpp
-    ├── AISystem.hpp
-    ├── ProjectileSystem.hpp
-    ├── HealthSystem.hpp
-    └── NetworkSyncSystem.hpp
+**Fichier : `src/client/core/GameLoop.hpp`**
+
+Ajouter :
+```cpp
+private:
+    sf::Clock _clock;
+    float _deltaTime = 0.0f;
 ```
 
-### 2.3 Implémentation du Registry
+**Fichier : `src/client/core/GameLoop.cpp`**
 
-#### Design Pattern: Registry (Entity Manager)
+Modifier `run()` :
+```cpp
+void GameLoop::run() {
+    while (_window->isOpen()) {
+        // 1. Calculer delta time
+        _deltaTime = _clock.restart().asSeconds();
+
+        // 2. Limiter delta time (évite les sauts après pause)
+        if (_deltaTime > 0.1f) _deltaTime = 0.1f;
+
+        // 3. Process events
+        while (auto event = _window->pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
+                _window->close();
+                return;
+            }
+            _sceneManager->handleEvent(*event);
+        }
+
+        // 4. Update avec delta time
+        _sceneManager->update(_deltaTime);
+
+        // 5. Render
+        clear();
+        _sceneManager->render(_window);
+        display();
+    }
+}
+```
+
+**Fichier : `src/client/include/scenes/IScene.hpp`**
+
+Modifier l'interface :
+```cpp
+virtual void update(float deltaTime) = 0;  // Ajouter deltaTime
+```
+
+### Checklist
+
+- [ ] Ajouter `sf::Clock _clock` dans GameLoop
+- [ ] Calculer `_deltaTime` au début de chaque frame
+- [ ] Modifier `IScene::update()` pour prendre `float deltaTime`
+- [ ] Mettre à jour toutes les scènes existantes
+
+---
+
+## 0.3 InputManager (Wrapper optionnel)
+
+> **Note** : L'essentiel de la gestion des inputs est dans le plugin (section 0.1).
+> Cette section décrit un wrapper optionnel pour des fonctionnalités avancées.
+
+### Fonctionnalités Avancées (Optionnel)
+
+Si tu veux des features supplémentaires au-delà de `IInput` :
 
 ```cpp
-class Registry {
+#pragma once
+
+#include "IInput.hpp"
+#include <memory>
+
+/**
+ * @brief Wrapper optionnel autour de IInput
+ *
+ * Ajoute des fonctionnalités comme :
+ * - Input buffering (pour combos)
+ * - Rebinding runtime
+ * - Sauvegarde/chargement config
+ */
+class InputManager {
 public:
-    // Création/Destruction d'entités
+    explicit InputManager(IInput& input);
+
+    // Délègue à IInput
+    bool isPressed(InputAction action) const;
+    bool isJustPressed(InputAction action) const;
+    bool isJustReleased(InputAction action) const;
+
+    // Fonctionnalités avancées
+    void enableBuffering(float windowMs);  // Input buffering
+    bool wasRecentlyPressed(InputAction action) const;  // Pour combos
+
+    void saveBindings(const std::string& path);
+    void loadBindings(const std::string& path);
+
+private:
+    IInput& _input;
+    // ... état pour buffering, etc.
+};
+```
+
+### Checklist InputManager (Optionnel)
+
+- [ ] Créer `InputManager` wrapper (si besoin)
+- [ ] Input buffering (pour combos)
+- [ ] Sauvegarde/chargement config
+
+> **Pour l'instant, utilise directement `IInput` dans les scènes. C'est suffisant.**
+
+---
+
+## 0.4 ECS Basique - Entity et World
+
+### Structure des fichiers à créer
+
+```
+src/client/ecs/
+├── Types.hpp           # Entity = uint32_t
+├── Entity.hpp          # Constantes et helpers
+├── ComponentPool.hpp   # Stockage template
+├── EntityManager.hpp   # Création/destruction
+├── World.hpp           # Façade
+└── World.cpp
+```
+
+### Ce qu'il faut faire
+
+**Fichier : `src/client/ecs/Types.hpp`**
+```cpp
+#pragma once
+#include <cstdint>
+
+using Entity = uint32_t;
+constexpr Entity NULL_ENTITY = 0;
+constexpr uint32_t MAX_ENTITIES = 10000;
+```
+
+**Fichier : `src/client/ecs/EntityManager.hpp`**
+```cpp
+#pragma once
+
+#include "Types.hpp"
+#include <queue>
+#include <vector>
+
+class EntityManager {
+public:
+    EntityManager();
+
+    Entity create();
+    void destroy(Entity entity);
+    bool isAlive(Entity entity) const;
+
+private:
+    std::queue<Entity> _available;
+    std::vector<bool> _alive;
+    Entity _nextEntity = 1;  // 0 est NULL_ENTITY
+};
+```
+
+**Fichier : `src/client/ecs/ComponentPool.hpp`**
+```cpp
+#pragma once
+
+#include "Types.hpp"
+#include <vector>
+#include <unordered_map>
+
+template<typename T>
+class ComponentPool {
+public:
+    void add(Entity entity, T component) {
+        _entityToIndex[entity] = _components.size();
+        _indexToEntity.push_back(entity);
+        _components.push_back(std::move(component));
+    }
+
+    void remove(Entity entity) {
+        if (!has(entity)) return;
+
+        size_t index = _entityToIndex[entity];
+        size_t lastIndex = _components.size() - 1;
+
+        if (index != lastIndex) {
+            _components[index] = std::move(_components[lastIndex]);
+            Entity lastEntity = _indexToEntity[lastIndex];
+            _entityToIndex[lastEntity] = index;
+            _indexToEntity[index] = lastEntity;
+        }
+
+        _components.pop_back();
+        _indexToEntity.pop_back();
+        _entityToIndex.erase(entity);
+    }
+
+    T& get(Entity entity) {
+        return _components[_entityToIndex[entity]];
+    }
+
+    bool has(Entity entity) const {
+        return _entityToIndex.count(entity) > 0;
+    }
+
+    std::vector<T>& all() { return _components; }
+    const std::vector<Entity>& entities() const { return _indexToEntity; }
+
+private:
+    std::vector<T> _components;
+    std::vector<Entity> _indexToEntity;
+    std::unordered_map<Entity, size_t> _entityToIndex;
+};
+```
+
+**Fichier : `src/client/ecs/World.hpp`**
+```cpp
+#pragma once
+
+#include "Types.hpp"
+#include "EntityManager.hpp"
+#include "ComponentPool.hpp"
+#include <memory>
+#include <typeindex>
+#include <unordered_map>
+
+class World {
+public:
+    // Entités
     Entity createEntity();
     void destroyEntity(Entity entity);
+    bool isAlive(Entity entity) const;
 
-    // Gestion des composants
+    // Composants
     template<typename T, typename... Args>
     T& addComponent(Entity entity, Args&&... args);
 
@@ -357,1217 +994,1370 @@ public:
     T& getComponent(Entity entity);
 
     template<typename T>
-    bool hasComponent(Entity entity);
+    bool hasComponent(Entity entity) const;
 
-    // Itération sur les entités avec composants spécifiques
-    template<typename... Components>
-    auto view() -> View<Components...>;
-
-private:
-    std::queue<Entity> _availableEntities;
-    std::array<Signature, MAX_ENTITIES> _signatures;
-    std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> _pools;
-};
-```
-
-### 2.4 Composants Détaillés
-
-| Composant | Données | Usage |
-|-----------|---------|-------|
-| `Transform` | `Vec2f position, float rotation, Vec2f scale` | Position monde |
-| `Velocity` | `Vec2f velocity, float maxSpeed` | Mouvement |
-| `Sprite` | `std::string textureKey, IntRect texRect, int zOrder` | Rendu |
-| `Animator` | `vector<Frame> frames, int current, float timer` | Animation |
-| `Collider` | `FloatRect bounds, uint32_t layer, uint32_t mask` | Collision |
-| `Health` | `float current, float max, bool invincible` | Vie |
-| `Player` | `int playerId, InputState input` | Joueur |
-| `Enemy` | `EnemyType type, AIState state` | Ennemi |
-| `Projectile` | `float damage, Entity owner, float lifetime` | Projectile |
-| `NetworkSync` | `uint32_t netId, bool isDirty, uint32_t lastUpdate` | Réseau |
-
-### 2.5 Systèmes Détaillés
-
-#### MovementSystem
-
-```cpp
-class MovementSystem : public System {
-public:
-    void update(Registry& registry, float deltaTime) {
-        for (auto entity : registry.view<Transform, Velocity>()) {
-            auto& transform = registry.getComponent<Transform>(entity);
-            auto& velocity = registry.getComponent<Velocity>(entity);
-
-            transform.position.x += velocity.velocity.x * deltaTime;
-            transform.position.y += velocity.velocity.y * deltaTime;
-        }
-    }
-};
-```
-
-#### CollisionSystem (AABB)
-
-```cpp
-class CollisionSystem : public System {
-public:
-    void update(Registry& registry) {
-        auto entities = registry.view<Transform, Collider>();
-
-        for (auto a : entities) {
-            for (auto b : entities) {
-                if (a >= b) continue;  // Éviter double check
-
-                if (checkCollision(a, b, registry)) {
-                    handleCollision(a, b, registry);
-                }
-            }
-        }
-    }
+    // Accès aux pools (pour les systems)
+    template<typename T>
+    ComponentPool<T>& getPool();
 
 private:
-    bool checkCollision(Entity a, Entity b, Registry& reg) {
-        auto& colA = reg.getComponent<Collider>(a);
-        auto& colB = reg.getComponent<Collider>(b);
+    EntityManager _entities;
+    std::unordered_map<std::type_index, std::shared_ptr<void>> _pools;
 
-        // Check layer mask
-        if (!(colA.mask & colB.layer)) return false;
-
-        auto& posA = reg.getComponent<Transform>(a);
-        auto& posB = reg.getComponent<Transform>(b);
-
-        // AABB intersection
-        return intersects(
-            posA.position + colA.bounds.position,
-            colA.bounds.size,
-            posB.position + colB.bounds.position,
-            colB.bounds.size
-        );
-    }
+    template<typename T>
+    ComponentPool<T>& getOrCreatePool();
 };
+
+// Implémentations template (dans le header)
+template<typename T, typename... Args>
+T& World::addComponent(Entity entity, Args&&... args) {
+    auto& pool = getOrCreatePool<T>();
+    pool.add(entity, T{std::forward<Args>(args)...});
+    return pool.get(entity);
+}
+
+template<typename T>
+void World::removeComponent(Entity entity) {
+    if (auto it = _pools.find(std::type_index(typeid(T))); it != _pools.end()) {
+        auto& pool = *static_cast<ComponentPool<T>*>(it->second.get());
+        pool.remove(entity);
+    }
+}
+
+template<typename T>
+T& World::getComponent(Entity entity) {
+    return getPool<T>().get(entity);
+}
+
+template<typename T>
+bool World::hasComponent(Entity entity) const {
+    auto it = _pools.find(std::type_index(typeid(T)));
+    if (it == _pools.end()) return false;
+    return static_cast<ComponentPool<T>*>(it->second.get())->has(entity);
+}
+
+template<typename T>
+ComponentPool<T>& World::getPool() {
+    return *static_cast<ComponentPool<T>*>(_pools.at(std::type_index(typeid(T))).get());
+}
+
+template<typename T>
+ComponentPool<T>& World::getOrCreatePool() {
+    auto typeIdx = std::type_index(typeid(T));
+    if (_pools.find(typeIdx) == _pools.end()) {
+        _pools[typeIdx] = std::make_shared<ComponentPool<T>>();
+    }
+    return *static_cast<ComponentPool<T>*>(_pools[typeIdx].get());
+}
 ```
 
-### 2.6 Tâches Phase 2
+### Checklist
 
-| ID | Tâche | Priorité |
-|----|-------|----------|
-| 2.1.1 | Implémenter `Entity` (typedef uint64_t) | Haute |
-| 2.1.2 | Implémenter `ComponentPool<T>` | Haute |
-| 2.1.3 | Implémenter `Registry` | Haute |
-| 2.1.4 | Implémenter `View<Components...>` | Haute |
-| 2.2.1 | Créer composant `Transform` | Haute |
-| 2.2.2 | Créer composant `Velocity` | Haute |
-| 2.2.3 | Créer composant `Sprite` | Haute |
-| 2.2.4 | Créer composant `Collider` | Haute |
-| 2.2.5 | Créer composant `Health` | Moyenne |
-| 2.2.6 | Créer composants tags (Player, Enemy, Projectile) | Moyenne |
-| 2.3.1 | Implémenter `MovementSystem` | Haute |
-| 2.3.2 | Implémenter `RenderSystem` | Haute |
-| 2.3.3 | Implémenter `CollisionSystem` | Haute |
-| 2.3.4 | Implémenter `InputSystem` | Haute |
-| 2.4.1 | Intégrer ECS dans GameScene | Haute |
-| 2.4.2 | Tests unitaires ECS | Moyenne |
-
-### 2.7 Livrables Phase 2
-
-- [ ] Registry ECS fonctionnel
-- [ ] 8+ composants implémentés
-- [ ] 4+ systèmes de base (Movement, Render, Collision, Input)
-- [ ] Intégration dans GameScene
-- [ ] Tests unitaires
+- [ ] Créer dossier `src/client/ecs/`
+- [ ] Créer `Types.hpp`
+- [ ] Créer `EntityManager.hpp/.cpp`
+- [ ] Créer `ComponentPool.hpp` (template)
+- [ ] Créer `World.hpp/.cpp`
+- [ ] Tester : créer entité, ajouter composant, récupérer
 
 ---
 
-## Phase 3: Gameplay Core
+## 0.5 Validation Priorité 0
 
-**Objectif:** Implémenter les mécaniques de jeu R-Type de base.
+Avant de passer à la Priorité 1, vérifie :
 
-### 3.1 Vaisseau Joueur
+### Test Plugin Architecture
+```cpp
+// Dans main.cpp
+int main() {
+    PluginLoader loader;
 
-#### Tâches
+    // Charger le plugin SFML
+    auto* plugin = loader.load("plugins/libsfml_plugin.so");
+    if (!plugin) {
+        std::cerr << "Failed to load plugin" << std::endl;
+        return 1;
+    }
 
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 3.1.1 | Créer entité Player | Transform, Velocity, Sprite, Collider, Health, Player |
-| 3.1.2 | Implémenter InputSystem | Lecture clavier (ZQSD/WASD + Espace) |
-| 3.1.3 | Mouvement 4 directions | Limité aux bounds de l'écran |
-| 3.1.4 | Animation vaisseau | Frames idle, up, down |
-| 3.1.5 | Invincibilité temporaire | Après dégât, 2 secondes |
+    plugin->init();
 
-#### Input Mapping
+    // Créer les objets via le plugin
+    auto window = plugin->createWindow(1280, 720, "R-Type");
+    auto renderer = plugin->createRenderer(*window);
+    auto input = plugin->createInput(*window);
+
+    // Test input sans sf::Event !
+    while (!input->shouldClose()) {
+        input->pollEvents();
+
+        if (input->isPressed(InputAction::Fire)) {
+            std::cout << "Fire!" << std::endl;
+        }
+
+        // ... render ...
+    }
+
+    plugin->shutdown();
+    return 0;
+}
+```
+
+### Test Delta Time
+```cpp
+// Delta time fonctionne
+// update() reçoit float deltaTime
+void GameScene::update(float deltaTime) {
+    // deltaTime est entre 0.016 (60fps) et 0.033 (30fps)
+    // Mouvement indépendant du framerate
+    position.x += velocity.x * deltaTime;
+}
+```
+
+### Test ECS
+```cpp
+// ECS fonctionne
+World world;
+Entity e = world.createEntity();
+
+struct TestComponent { float x, y; };
+world.addComponent<TestComponent>(e, 10.0f, 20.0f);
+
+auto& comp = world.getComponent<TestComponent>(e);
+// comp.x == 10.0f ✓
+
+world.destroyEntity(e);
+// world.isAlive(e) == false ✓
+```
+
+### Checklist Finale Priorité 0
+
+- [ ] Plugin SFML compile en `.so`/`.dll` séparé
+- [ ] `PluginLoader` charge le plugin correctement
+- [ ] `IInput` fonctionne (plus de `sf::Event` dans les scènes !)
+- [ ] Delta time calculé dans GameLoop
+- [ ] `IScene::update()` reçoit `float deltaTime`
+- [ ] ECS : création/destruction entités
+- [ ] ECS : ajout/suppression composants
+- [ ] ECS : query composants
+
+---
+
+# PRIORITÉ 1 : Core Gameplay
+
+**⏱️ Durée estimée : 1 semaine**
+**🎯 Objectif : Un joueur qui se déplace, tire, et peut mourir**
+
+> Prérequis : Priorité 0 complète
+
+---
+
+## 1.1 Components de Base
+
+### Fichiers à créer
+
+```
+src/client/components/
+├── TransformComponent.hpp
+├── VelocityComponent.hpp
+├── SpriteComponent.hpp
+├── ColliderComponent.hpp
+├── HealthComponent.hpp
+├── PlayerComponent.hpp
+└── ProjectileComponent.hpp
+```
+
+### TransformComponent
 
 ```cpp
-struct InputState {
-    bool moveUp = false;
-    bool moveDown = false;
-    bool moveLeft = false;
-    bool moveRight = false;
-    bool fire = false;
-    bool fireReleased = true;  // Pour tir unique
+#pragma once
+
+struct TransformComponent {
+    float x = 0.0f;
+    float y = 0.0f;
+    float rotation = 0.0f;
+    float scaleX = 1.0f;
+    float scaleY = 1.0f;
+};
+```
+
+### VelocityComponent
+
+```cpp
+#pragma once
+
+struct VelocityComponent {
+    float vx = 0.0f;
+    float vy = 0.0f;
+    float maxSpeed = 300.0f;
+};
+```
+
+### SpriteComponent
+
+```cpp
+#pragma once
+#include <string>
+
+struct SpriteComponent {
+    std::string textureKey;
+    int srcX = 0, srcY = 0;
+    int srcWidth = 32, srcHeight = 32;
+    int zOrder = 0;
+    bool flipX = false;
+    bool flipY = false;
+};
+```
+
+### ColliderComponent
+
+```cpp
+#pragma once
+#include <cstdint>
+
+// Layers (bitmask)
+namespace CollisionLayer {
+    constexpr uint32_t NONE          = 0;
+    constexpr uint32_t PLAYER        = 1 << 0;  // 1
+    constexpr uint32_t ENEMY         = 1 << 1;  // 2
+    constexpr uint32_t PLAYER_BULLET = 1 << 2;  // 4
+    constexpr uint32_t ENEMY_BULLET  = 1 << 3;  // 8
+    constexpr uint32_t POWERUP       = 1 << 4;  // 16
+}
+
+struct ColliderComponent {
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+    float width = 32.0f;
+    float height = 32.0f;
+    uint32_t layer = CollisionLayer::NONE;
+    uint32_t mask = CollisionLayer::NONE;  // Avec quoi on collide
+    bool isTrigger = false;
+};
+```
+
+### HealthComponent
+
+```cpp
+#pragma once
+
+struct HealthComponent {
+    float current = 100.0f;
+    float max = 100.0f;
+    float invincibilityTimer = 0.0f;
+    float invincibilityDuration = 2.0f;
+    bool isDead = false;
+};
+```
+
+### PlayerComponent
+
+```cpp
+#pragma once
+
+struct PlayerComponent {
+    int playerId = 1;
+    int score = 0;
+    int lives = 3;
+    float speed = 300.0f;
+    float fireCooldown = 0.0f;
+    float fireRate = 0.15f;  // Secondes entre chaque tir
+};
+```
+
+### ProjectileComponent
+
+```cpp
+#pragma once
+#include "../ecs/Types.hpp"
+
+struct ProjectileComponent {
+    float damage = 10.0f;
+    Entity owner = NULL_ENTITY;
+    float lifetime = 5.0f;
+    bool isPlayerBullet = true;
+};
+```
+
+### Checklist Components
+
+- [ ] Créer dossier `src/client/components/`
+- [ ] TransformComponent
+- [ ] VelocityComponent
+- [ ] SpriteComponent
+- [ ] ColliderComponent (avec les layers)
+- [ ] HealthComponent
+- [ ] PlayerComponent
+- [ ] ProjectileComponent
+
+---
+
+## 1.2 Systems de Base
+
+### Fichiers à créer
+
+```
+src/client/systems/
+├── ISystem.hpp
+├── MovementSystem.hpp/.cpp
+├── RenderSystem.hpp/.cpp
+├── CollisionSystem.hpp/.cpp
+├── PlayerInputSystem.hpp/.cpp
+├── HealthSystem.hpp/.cpp
+├── LifetimeSystem.hpp/.cpp
+└── CleanupSystem.hpp/.cpp
+```
+
+### ISystem Interface
+
+```cpp
+#pragma once
+
+class World;
+
+class ISystem {
+public:
+    virtual ~ISystem() = default;
+    virtual void update(World& world, float deltaTime) = 0;
+};
+```
+
+### MovementSystem
+
+```cpp
+#pragma once
+#include "ISystem.hpp"
+
+class MovementSystem : public ISystem {
+public:
+    void update(World& world, float deltaTime) override;
 };
 
-class InputSystem : public System {
-    void update(Registry& registry, const sf::Event& event) {
-        for (auto entity : registry.view<Player>()) {
-            auto& player = registry.getComponent<Player>(entity);
-            auto& velocity = registry.getComponent<Velocity>(entity);
+// Dans .cpp
+void MovementSystem::update(World& world, float deltaTime) {
+    auto& transforms = world.getPool<TransformComponent>();
+    auto& velocities = world.getPool<VelocityComponent>();
 
-            // Reset velocity
-            velocity.velocity = {0, 0};
+    for (Entity entity : velocities.entities()) {
+        if (!transforms.has(entity)) continue;
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z))
-                velocity.velocity.y = -player.speed;
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
-                velocity.velocity.y = player.speed;
-            // ... etc
+        auto& t = transforms.get(entity);
+        auto& v = velocities.get(entity);
+
+        t.x += v.vx * deltaTime;
+        t.y += v.vy * deltaTime;
+    }
+}
+```
+
+### RenderSystem
+
+```cpp
+#pragma once
+#include "ISystem.hpp"
+#include <memory>
+
+class IRenderer;
+
+class RenderSystem {
+public:
+    RenderSystem(std::shared_ptr<IRenderer> renderer);
+    void render(World& world);  // Pas update, c'est render
+
+private:
+    std::shared_ptr<IRenderer> _renderer;
+};
+
+// Dans .cpp
+void RenderSystem::render(World& world) {
+    auto& transforms = world.getPool<TransformComponent>();
+    auto& sprites = world.getPool<SpriteComponent>();
+
+    // Collecter et trier par zOrder
+    std::vector<Entity> renderList;
+    for (Entity e : sprites.entities()) {
+        if (transforms.has(e)) {
+            renderList.push_back(e);
         }
     }
-};
+
+    std::sort(renderList.begin(), renderList.end(), [&](Entity a, Entity b) {
+        return sprites.get(a).zOrder < sprites.get(b).zOrder;
+    });
+
+    // Dessiner
+    for (Entity e : renderList) {
+        auto& t = transforms.get(e);
+        auto& s = sprites.get(e);
+        _renderer->drawSprite(s.textureKey, t.x, t.y, s.srcX, s.srcY,
+                              s.srcWidth, s.srcHeight, t.rotation,
+                              t.scaleX, t.scaleY);
+    }
+}
 ```
 
-### 3.2 Système de Tir
-
-#### Tâches
-
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 3.2.1 | Créer ProjectileFactory | Factory pattern pour créer projectiles |
-| 3.2.2 | Projectile basique | Sprite, vitesse constante, damage |
-| 3.2.3 | Cooldown de tir | Délai entre chaque tir |
-| 3.2.4 | Charge shot (optionnel) | Maintenir pour charger, relâcher pour tirer |
-| 3.2.5 | Destruction hors écran | Remove entities hors bounds |
-
-#### Design Pattern: Factory pour Projectiles
+### PlayerInputSystem
 
 ```cpp
+#pragma once
+#include "ISystem.hpp"
+
+class InputManager;
+class ProjectileFactory;
+
+class PlayerInputSystem : public ISystem {
+public:
+    PlayerInputSystem(InputManager& input, ProjectileFactory& projectiles);
+    void update(World& world, float deltaTime) override;
+
+private:
+    InputManager& _input;
+    ProjectileFactory& _projectiles;
+};
+
+// Dans .cpp
+void PlayerInputSystem::update(World& world, float deltaTime) {
+    auto& players = world.getPool<PlayerComponent>();
+    auto& velocities = world.getPool<VelocityComponent>();
+    auto& transforms = world.getPool<TransformComponent>();
+
+    for (Entity entity : players.entities()) {
+        if (!velocities.has(entity)) continue;
+
+        auto& player = players.get(entity);
+        auto& vel = velocities.get(entity);
+
+        // Reset velocity
+        vel.vx = 0;
+        vel.vy = 0;
+
+        // Mouvement
+        if (_input.isPressed(InputAction::MoveUp))
+            vel.vy = -player.speed;
+        if (_input.isPressed(InputAction::MoveDown))
+            vel.vy = player.speed;
+        if (_input.isPressed(InputAction::MoveLeft))
+            vel.vx = -player.speed;
+        if (_input.isPressed(InputAction::MoveRight))
+            vel.vx = player.speed;
+
+        // Tir
+        player.fireCooldown -= deltaTime;
+        if (_input.isPressed(InputAction::Fire) && player.fireCooldown <= 0) {
+            auto& t = transforms.get(entity);
+            _projectiles.createPlayerBullet(world, t.x + 32, t.y + 16);
+            player.fireCooldown = player.fireRate;
+        }
+    }
+}
+```
+
+### CollisionSystem
+
+```cpp
+#pragma once
+#include "ISystem.hpp"
+#include <functional>
+#include <vector>
+
+struct CollisionEvent {
+    Entity a;
+    Entity b;
+};
+
+class CollisionSystem : public ISystem {
+public:
+    void update(World& world, float deltaTime) override;
+
+    // Callbacks pour réagir aux collisions
+    std::vector<CollisionEvent>& getCollisions() { return _collisions; }
+
+private:
+    std::vector<CollisionEvent> _collisions;
+
+    bool intersects(float ax, float ay, float aw, float ah,
+                    float bx, float by, float bw, float bh);
+};
+
+// Dans .cpp
+void CollisionSystem::update(World& world, float deltaTime) {
+    _collisions.clear();
+
+    auto& transforms = world.getPool<TransformComponent>();
+    auto& colliders = world.getPool<ColliderComponent>();
+
+    auto entities = colliders.entities();
+
+    for (size_t i = 0; i < entities.size(); ++i) {
+        Entity a = entities[i];
+        if (!transforms.has(a)) continue;
+
+        auto& ta = transforms.get(a);
+        auto& ca = colliders.get(a);
+
+        for (size_t j = i + 1; j < entities.size(); ++j) {
+            Entity b = entities[j];
+            if (!transforms.has(b)) continue;
+
+            auto& tb = transforms.get(b);
+            auto& cb = colliders.get(b);
+
+            // Check layer/mask
+            bool aCanHitB = (ca.layer & cb.mask) != 0;
+            bool bCanHitA = (cb.layer & ca.mask) != 0;
+            if (!aCanHitB && !bCanHitA) continue;
+
+            // AABB test
+            if (intersects(
+                ta.x + ca.offsetX, ta.y + ca.offsetY, ca.width, ca.height,
+                tb.x + cb.offsetX, tb.y + cb.offsetY, cb.width, cb.height
+            )) {
+                _collisions.push_back({a, b});
+            }
+        }
+    }
+}
+
+bool CollisionSystem::intersects(float ax, float ay, float aw, float ah,
+                                  float bx, float by, float bw, float bh) {
+    return ax < bx + bw && ax + aw > bx &&
+           ay < by + bh && ay + ah > by;
+}
+```
+
+### Checklist Systems
+
+- [ ] Créer dossier `src/client/systems/`
+- [ ] ISystem interface
+- [ ] MovementSystem
+- [ ] RenderSystem
+- [ ] PlayerInputSystem
+- [ ] CollisionSystem
+- [ ] HealthSystem
+- [ ] LifetimeSystem (pour projectiles)
+- [ ] CleanupSystem (supprime entités mortes)
+
+---
+
+## 1.3 Factories
+
+### Fichiers à créer
+
+```
+src/client/factories/
+├── PlayerFactory.hpp/.cpp
+└── ProjectileFactory.hpp/.cpp
+```
+
+### PlayerFactory
+
+```cpp
+#pragma once
+#include "../ecs/Types.hpp"
+
+class World;
+
+class PlayerFactory {
+public:
+    Entity create(World& world, int playerId, float x, float y);
+};
+
+// Dans .cpp
+Entity PlayerFactory::create(World& world, int playerId, float x, float y) {
+    Entity e = world.createEntity();
+
+    world.addComponent<TransformComponent>(e, x, y, 0.0f, 1.0f, 1.0f);
+    world.addComponent<VelocityComponent>(e, 0.0f, 0.0f, 300.0f);
+    world.addComponent<SpriteComponent>(e, "player", 0, 0, 32, 32, 10);
+    world.addComponent<ColliderComponent>(e, 4.0f, 4.0f, 24.0f, 24.0f,
+        CollisionLayer::PLAYER,
+        CollisionLayer::ENEMY | CollisionLayer::ENEMY_BULLET | CollisionLayer::POWERUP);
+    world.addComponent<HealthComponent>(e, 100.0f, 100.0f, 0.0f, 2.0f, false);
+    world.addComponent<PlayerComponent>(e, playerId, 0, 3, 300.0f, 0.0f, 0.15f);
+
+    return e;
+}
+```
+
+### ProjectileFactory
+
+```cpp
+#pragma once
+#include "../ecs/Types.hpp"
+
+class World;
+
 class ProjectileFactory {
 public:
-    Entity createPlayerBullet(Registry& registry, Vec2f position) {
-        Entity bullet = registry.createEntity();
-
-        registry.addComponent<Transform>(bullet, position, 0.0f, {1, 1});
-        registry.addComponent<Velocity>(bullet, {500.0f, 0.0f});
-        registry.addComponent<Sprite>(bullet, "bullet_player", {0, 0, 16, 8});
-        registry.addComponent<Collider>(bullet, {0, 0, 16, 8}, Layer::PlayerBullet, Layer::Enemy);
-        registry.addComponent<Projectile>(bullet, 10.0f, playerId, 5.0f);
-
-        return bullet;
-    }
-
-    Entity createEnemyBullet(Registry& registry, Vec2f position, Vec2f direction) {
-        // Similar but different layer/mask
-    }
+    Entity createPlayerBullet(World& world, float x, float y);
+    Entity createEnemyBullet(World& world, float x, float y, float vx, float vy);
 };
+
+// Dans .cpp
+Entity ProjectileFactory::createPlayerBullet(World& world, float x, float y) {
+    Entity e = world.createEntity();
+
+    world.addComponent<TransformComponent>(e, x, y);
+    world.addComponent<VelocityComponent>(e, 500.0f, 0.0f);  // Va vers la droite
+    world.addComponent<SpriteComponent>(e, "bullet_player", 0, 0, 16, 8, 5);
+    world.addComponent<ColliderComponent>(e, 0, 0, 16, 8,
+        CollisionLayer::PLAYER_BULLET,
+        CollisionLayer::ENEMY);
+    world.addComponent<ProjectileComponent>(e, 10.0f, NULL_ENTITY, 3.0f, true);
+
+    return e;
+}
 ```
 
-### 3.3 Ennemis et IA
+### Checklist Factories
 
-#### Types d'Ennemis R-Type Classiques
+- [ ] Créer dossier `src/client/factories/`
+- [ ] PlayerFactory
+- [ ] ProjectileFactory
 
-| Type | Comportement | Sprite | Points |
-|------|--------------|--------|--------|
-| `Basic` | Vol horizontal simple | Petit alien | 100 |
-| `Wave` | Mouvement sinusoïdal | Méduse | 150 |
-| `Shooter` | Tire vers le joueur | Tourelle | 200 |
-| `Charger` | Fonce vers le joueur | Kamikaze | 250 |
-| `Boss` | Patterns complexes | Grand sprite | 5000 |
+---
 
-#### Design Pattern: State Machine pour IA
+## 1.4 Intégration dans GameScene
+
+Modifier `GameScene` pour utiliser l'ECS :
 
 ```cpp
+class GameScene : public IScene {
+public:
+    GameScene(std::shared_ptr<IRenderer> renderer, InputManager& input);
+
+    void init();
+    void update(float deltaTime) override;
+    void render() override;
+
+private:
+    World _world;
+
+    // Systems
+    std::unique_ptr<PlayerInputSystem> _playerInput;
+    std::unique_ptr<MovementSystem> _movement;
+    std::unique_ptr<CollisionSystem> _collision;
+    std::unique_ptr<HealthSystem> _health;
+    std::unique_ptr<LifetimeSystem> _lifetime;
+    std::unique_ptr<CleanupSystem> _cleanup;
+    std::unique_ptr<RenderSystem> _render;
+
+    // Factories
+    PlayerFactory _playerFactory;
+    ProjectileFactory _projectileFactory;
+
+    // Autres
+    Entity _player;
+};
+
+void GameScene::init() {
+    // Créer le joueur
+    _player = _playerFactory.create(_world, 1, 100, 300);
+
+    // Initialiser systems
+    _playerInput = std::make_unique<PlayerInputSystem>(_input, _projectileFactory);
+    _movement = std::make_unique<MovementSystem>();
+    _collision = std::make_unique<CollisionSystem>();
+    // etc...
+}
+
+void GameScene::update(float deltaTime) {
+    // Ordre critique !
+    _playerInput->update(_world, deltaTime);
+    _movement->update(_world, deltaTime);
+    _collision->update(_world, deltaTime);
+    _health->update(_world, deltaTime);
+    _lifetime->update(_world, deltaTime);
+    _cleanup->update(_world, deltaTime);
+}
+
+void GameScene::render() {
+    _render->render(_world);
+}
+```
+
+### Checklist Intégration
+
+- [ ] Modifier GameScene pour avoir World
+- [ ] Instancier tous les systems
+- [ ] Créer le joueur au init
+- [ ] Appeler systems dans update() (bon ordre !)
+- [ ] Appeler render
+
+---
+
+## 1.5 Validation Priorité 1
+
+Avant de passer à la Priorité 2 :
+
+- [ ] Le joueur se déplace avec ZQSD
+- [ ] Le joueur tire avec Espace
+- [ ] Les projectiles avancent et disparaissent hors écran
+- [ ] Le joueur reste dans les limites de l'écran
+- [ ] Le système de collision détecte les collisions
+
+---
+
+# PRIORITÉ 2 : Gameplay Complet
+
+**⏱️ Durée estimée : 1-2 semaines**
+**🎯 Objectif : Un jeu solo complet avec ennemis, vagues, power-ups**
+
+> Prérequis : Priorité 1 complète
+
+---
+
+## 2.1 Ennemis
+
+### Nouveaux Components
+
+**EnemyComponent.hpp**
+```cpp
+#pragma once
+
+enum class EnemyType {
+    Basic,      // Vol horizontal
+    Wave,       // Mouvement sinusoïdal
+    Shooter,    // Tire vers le joueur
+    Charger     // Fonce vers le joueur
+};
+
 enum class AIState {
     Idle,
     Patrol,
     Chase,
-    Attack,
-    Retreat
+    Attack
 };
 
-class AISystem : public System {
-    void update(Registry& registry, float dt) {
-        for (auto entity : registry.view<Enemy, Transform, Velocity>()) {
-            auto& enemy = registry.getComponent<Enemy>(entity);
-
-            switch (enemy.state) {
-                case AIState::Patrol:
-                    handlePatrol(entity, registry, dt);
-                    break;
-                case AIState::Chase:
-                    handleChase(entity, registry, dt);
-                    break;
-                // ...
-            }
-        }
-    }
+struct EnemyComponent {
+    EnemyType type = EnemyType::Basic;
+    AIState state = AIState::Patrol;
+    float stateTimer = 0.0f;
+    int pointsValue = 100;
+    float fireRate = 1.0f;
+    float fireCooldown = 0.0f;
 };
 ```
 
-### 3.4 Système de Vagues (Wave System)
+### EnemyFactory
 
-#### Tâches
+```cpp
+class EnemyFactory {
+public:
+    Entity createBasic(World& world, float x, float y);
+    Entity createWave(World& world, float x, float y);
+    Entity createShooter(World& world, float x, float y);
+    Entity createCharger(World& world, float x, float y);
+};
+```
 
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 3.4.1 | Créer `WaveManager` | Gère la progression des vagues |
-| 3.4.2 | Format de définition de vague | JSON ou code |
-| 3.4.3 | Spawn patterns | Timing et positions des spawns |
-| 3.4.4 | Progression difficulté | Plus d'ennemis, plus rapides |
-| 3.4.5 | Condition de victoire | Toutes vagues complétées |
+### EnemyAISystem
 
-#### Structure de Vague
+Gère les patterns de mouvement et le comportement :
+- **Basic** : Déplacement horizontal vers la gauche
+- **Wave** : Mouvement sinusoïdal
+- **Shooter** : Tire périodiquement vers le joueur
+- **Charger** : Accélère vers le joueur
+
+### Checklist Ennemis
+
+- [ ] EnemyComponent avec types et états
+- [ ] EnemyFactory avec les 4 types
+- [ ] EnemyAISystem
+- [ ] Ennemis tirent (pour Shooter)
+- [ ] Collision enemy/player bullet → enemy meurt
+- [ ] Collision enemy/player → player prend des dégâts
+
+---
+
+## 2.2 Wave System
+
+### WaveManager
 
 ```cpp
 struct EnemySpawn {
     EnemyType type;
-    Vec2f position;
+    float x, y;
     float delay;  // Secondes après début de vague
 };
 
 struct Wave {
     std::vector<EnemySpawn> spawns;
-    float duration;  // Durée max avant prochaine vague
-    bool bossWave = false;
+    float duration;
 };
 
 class WaveManager {
+public:
+    void loadWaves(const std::string& filename);  // Ou hardcodé
+    void update(World& world, EnemyFactory& factory, float deltaTime);
+
+    int getCurrentWave() const;
+    bool isComplete() const;
+
+private:
     std::vector<Wave> _waves;
     int _currentWave = 0;
-    float _waveTimer = 0;
+    float _waveTimer = 0.0f;
     int _spawnIndex = 0;
-
-public:
-    void update(Registry& registry, float dt);
-    bool isWaveComplete() const;
-    void nextWave();
+    int _enemiesAlive = 0;
 };
 ```
 
-### 3.5 Power-ups
+### Checklist Waves
 
-#### Types de Power-ups
+- [ ] Structure Wave et EnemySpawn
+- [ ] WaveManager
+- [ ] Définir 3-5 vagues de test
+- [ ] Transition entre vagues
+- [ ] Afficher numéro de vague
 
-| Power-up | Effet | Durée |
-|----------|-------|-------|
-| `SpeedUp` | +50% vitesse | 10s |
-| `FireRate` | -50% cooldown tir | 15s |
-| `Shield` | Absorbe 1 hit | Jusqu'à hit |
-| `MultiShot` | 3 projectiles | 20s |
-| `Heal` | +25% HP | Instant |
+---
 
-#### Implémentation
+## 2.3 Power-ups
+
+### PowerUpComponent
 
 ```cpp
-struct PowerUp {
+enum class PowerUpType {
+    SpeedBoost,   // +50% vitesse
+    RapidFire,    // -50% cooldown
+    Shield,       // Absorbe 1 hit
+    MultiShot,    // 3 projectiles
+    Health        // +25% HP
+};
+
+struct PowerUpComponent {
     PowerUpType type;
-    float duration;  // -1 pour permanent/instant
-};
-
-class PowerUpSystem : public System {
-    void update(Registry& registry, float dt) {
-        // Check collisions player/powerup
-        // Apply effect
-        // Remove powerup entity
-    }
-
-    void applyPowerUp(Entity player, PowerUpType type, Registry& registry) {
-        switch (type) {
-            case PowerUpType::SpeedUp:
-                auto& vel = registry.getComponent<Velocity>(player);
-                vel.maxSpeed *= 1.5f;
-                // Schedule removal of buff
-                break;
-            // ...
-        }
-    }
+    float duration = 10.0f;  // -1 = permanent/instant
 };
 ```
 
-### 3.6 Tâches Phase 3
+### PowerUpSystem
 
-| ID | Tâche | Priorité |
-|----|-------|----------|
-| 3.1.x | Vaisseau joueur complet | Haute |
-| 3.2.x | Système de tir | Haute |
-| 3.3.1 | Ennemi Basic | Haute |
-| 3.3.2 | Ennemi Wave | Haute |
-| 3.3.3 | Ennemi Shooter | Moyenne |
-| 3.3.4 | IA State Machine | Moyenne |
-| 3.4.x | Wave Manager | Haute |
-| 3.5.x | Power-ups (minimum 3) | Moyenne |
-| 3.6.1 | Système de score | Basse |
-| 3.6.2 | Game Over screen | Moyenne |
-| 3.6.3 | Victory screen | Moyenne |
+- Détecte collision player/powerup
+- Applique l'effet
+- Gère la durée des effets temporaires
 
-### 3.7 Livrables Phase 3
+### Checklist Power-ups
 
-- [ ] Vaisseau joueur contrôlable
-- [ ] Système de tir fonctionnel
-- [ ] 3+ types d'ennemis
-- [ ] Wave system avec progression
-- [ ] 3+ power-ups
-- [ ] Écrans Game Over / Victory
+- [ ] PowerUpComponent
+- [ ] PowerUpFactory
+- [ ] PowerUpSystem
+- [ ] 3 types minimum fonctionnels
+- [ ] Ennemis drop power-ups (aléatoire)
 
 ---
 
-## Phase 4: Networking Gameplay avec Protocol Buffers
+## 2.4 Animation
 
-**Objectif:** Synchronisation multijoueur temps réel avec protobuf.
-
-### 4.1 Architecture Réseau
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         SERVEUR                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ TCP Server  │  │ UDP Server  │  │    Game Server      │  │
-│  │  (Protobuf) │  │  (Protobuf) │  │  ┌───────────────┐  │  │
-│  │  Auth/Chat  │  │  Gameplay   │  │  │   ECS World   │  │  │
-│  └──────┬──────┘  └──────┬──────┘  │  │ (Authoritative)│  │  │
-│         │                │         │  └───────────────┘  │  │
-│         │                │         └─────────────────────┘  │
-└─────────┼────────────────┼──────────────────────────────────┘
-          │                │
-          │   PROTOBUF     │
-          │   MESSAGES     │
-          │                │
-┌─────────┼────────────────┼──────────────────────────────────┐
-│         │                │           CLIENT                 │
-│  ┌──────┴──────┐  ┌──────┴──────┐  ┌─────────────────────┐  │
-│  │ TCP Client  │  │ UDP Client  │  │    Game Client      │  │
-│  │  (Protobuf) │  │  (Protobuf) │  │  ┌───────────────┐  │  │
-│  └─────────────┘  └─────────────┘  │  │  ECS World    │  │  │
-│                                    │  │  (Predicted)  │  │  │
-│                                    │  └───────────────┘  │  │
-│                                    └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 4.2 Fichier `proto/game.proto`
-
-```protobuf
-syntax = "proto3";
-
-package rtype.game;
-
-option cc_namespace = "rtype::proto::game";
-
-// ═══════════════════════════════════════════════════════════════
-// TYPES DE BASE
-// ═══════════════════════════════════════════════════════════════
-
-message Vec2 {
-    float x = 1;
-    float y = 2;
-}
-
-enum EntityType {
-    ENTITY_UNKNOWN = 0;
-    ENTITY_PLAYER = 1;
-    ENTITY_ENEMY_BASIC = 2;
-    ENTITY_ENEMY_WAVE = 3;
-    ENTITY_ENEMY_SHOOTER = 4;
-    ENTITY_ENEMY_CHARGER = 5;
-    ENTITY_BOSS = 6;
-    ENTITY_PROJECTILE_PLAYER = 7;
-    ENTITY_PROJECTILE_ENEMY = 8;
-    ENTITY_POWERUP = 9;
-}
-
-enum PowerUpType {
-    POWERUP_NONE = 0;
-    POWERUP_SPEED = 1;
-    POWERUP_FIRERATE = 2;
-    POWERUP_SHIELD = 3;
-    POWERUP_MULTISHOT = 4;
-    POWERUP_HEAL = 5;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// CLIENT → SERVEUR (UDP, envoyé à 60Hz)
-// ═══════════════════════════════════════════════════════════════
-
-message InputFlags {
-    bool move_up = 1;
-    bool move_down = 2;
-    bool move_left = 3;
-    bool move_right = 4;
-    bool fire = 5;
-    bool special = 6;  // Charge shot, bomb, etc.
-}
-
-message ClientInput {
-    uint32 sequence_number = 1;  // Pour réconciliation
-    uint32 client_tick = 2;      // Tick local du client
-    uint64 timestamp_ms = 3;     // Timestamp Unix ms
-    InputFlags input = 4;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// SERVEUR → CLIENT (UDP, envoyé à 20-30Hz)
-// ═══════════════════════════════════════════════════════════════
-
-message EntityState {
-    uint32 network_id = 1;       // ID unique réseau
-    EntityType type = 2;
-    Vec2 position = 3;
-    Vec2 velocity = 4;
-    float rotation = 5;
-    uint32 health = 6;           // 0-100
-    uint32 max_health = 7;
-
-    // Flags compactés
-    bool is_invincible = 8;
-    bool is_dead = 9;
-    bool is_firing = 10;
-
-    // Données spécifiques selon type
-    oneof extra_data {
-        PlayerData player_data = 20;
-        ProjectileData projectile_data = 21;
-        PowerUpData powerup_data = 22;
-    }
-}
-
-message PlayerData {
-    uint32 player_id = 1;        // ID du joueur (1-4)
-    string username = 2;
-    uint32 score = 3;
-    uint32 lives = 4;
-    repeated PowerUpType active_powerups = 5;
-}
-
-message ProjectileData {
-    uint32 owner_network_id = 1;
-    float damage = 2;
-}
-
-message PowerUpData {
-    PowerUpType powerup_type = 1;
-}
-
-message WorldSnapshot {
-    uint32 server_tick = 1;
-    uint64 timestamp_ms = 2;
-    uint32 last_processed_input = 3;  // Pour réconciliation client
-
-    repeated EntityState entities = 4;
-
-    // Événements survenus ce tick
-    repeated GameEvent events = 5;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// ÉVÉNEMENTS DE JEU
-// ═══════════════════════════════════════════════════════════════
-
-enum GameEventType {
-    EVENT_UNKNOWN = 0;
-    EVENT_ENTITY_SPAWNED = 1;
-    EVENT_ENTITY_DESTROYED = 2;
-    EVENT_PLAYER_HIT = 3;
-    EVENT_PLAYER_DIED = 4;
-    EVENT_ENEMY_KILLED = 5;
-    EVENT_POWERUP_COLLECTED = 6;
-    EVENT_WAVE_START = 7;
-    EVENT_WAVE_COMPLETE = 8;
-    EVENT_BOSS_SPAWN = 9;
-    EVENT_LEVEL_COMPLETE = 10;
-    EVENT_GAME_OVER = 11;
-}
-
-message GameEvent {
-    GameEventType type = 1;
-    uint32 entity_id = 2;        // Entité concernée
-    uint32 other_entity_id = 3;  // Autre entité (ex: killer)
-
-    oneof event_data {
-        SpawnEventData spawn = 10;
-        ScoreEventData score = 11;
-        WaveEventData wave = 12;
-    }
-}
-
-message SpawnEventData {
-    EntityType entity_type = 1;
-    Vec2 position = 2;
-}
-
-message ScoreEventData {
-    uint32 points = 1;
-    uint32 total_score = 2;
-}
-
-message WaveEventData {
-    uint32 wave_number = 1;
-    uint32 enemy_count = 2;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MESSAGES TCP (Lobby, Chat, etc.)
-// ═══════════════════════════════════════════════════════════════
-
-enum LobbyMessageType {
-    LOBBY_UNKNOWN = 0;
-    LOBBY_JOIN_REQUEST = 1;
-    LOBBY_JOIN_RESPONSE = 2;
-    LOBBY_LEAVE = 3;
-    LOBBY_PLAYER_LIST = 4;
-    LOBBY_READY = 5;
-    LOBBY_START_GAME = 6;
-    LOBBY_CHAT = 7;
-}
-
-message LobbyPlayer {
-    uint32 player_id = 1;
-    string username = 2;
-    bool is_ready = 3;
-    bool is_host = 4;
-}
-
-message LobbyJoinRequest {
-    string session_token = 1;
-    string room_code = 2;        // Optionnel, pour rejoindre une room spécifique
-}
-
-message LobbyJoinResponse {
-    bool success = 1;
-    string error_message = 2;
-    string room_code = 3;
-    uint32 your_player_id = 4;
-    repeated LobbyPlayer players = 5;
-}
-
-message LobbyPlayerList {
-    repeated LobbyPlayer players = 1;
-}
-
-message LobbyReadyMessage {
-    bool is_ready = 1;
-}
-
-message LobbyChatMessage {
-    uint32 player_id = 1;
-    string username = 2;
-    string message = 3;
-    uint64 timestamp = 4;
-}
-
-message LobbyMessage {
-    LobbyMessageType type = 1;
-
-    oneof payload {
-        LobbyJoinRequest join_request = 2;
-        LobbyJoinResponse join_response = 3;
-        LobbyPlayerList player_list = 4;
-        LobbyReadyMessage ready = 5;
-        LobbyChatMessage chat = 6;
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// WRAPPER PRINCIPAL
-// ═══════════════════════════════════════════════════════════════
-
-enum GameMessageType {
-    MSG_UNKNOWN = 0;
-    MSG_CLIENT_INPUT = 1;        // UDP: Client → Server
-    MSG_WORLD_SNAPSHOT = 2;      // UDP: Server → Client
-    MSG_LOBBY = 3;               // TCP: Bidirectionnel
-}
-
-message GameMessage {
-    GameMessageType type = 1;
-
-    oneof payload {
-        ClientInput client_input = 2;
-        WorldSnapshot world_snapshot = 3;
-        LobbyMessage lobby = 4;
-    }
-}
-```
-
-### 4.3 Structure des Fichiers Proto
-
-```
-proto/
-├── auth.proto          # Authentification (TCP)
-├── game.proto          # Gameplay et Lobby
-└── CMakeLists.txt      # Compilation protobuf
-
-# Génère dans:
-build/proto/
-├── auth.pb.h
-├── auth.pb.cc
-├── game.pb.h
-└── game.pb.cc
-```
-
-### 4.4 Configuration CMake pour Protobuf
-
-```cmake
-# Dans CMakeLists.txt racine
-find_package(Protobuf REQUIRED)
-
-# Compiler les fichiers .proto
-file(GLOB PROTO_FILES "${CMAKE_SOURCE_DIR}/proto/*.proto")
-
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
-
-# Créer une librairie
-add_library(rtype_proto STATIC ${PROTO_SRCS} ${PROTO_HDRS})
-target_link_libraries(rtype_proto PUBLIC protobuf::libprotobuf)
-target_include_directories(rtype_proto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-
-# Linker avec client et serveur
-target_link_libraries(rtype_client PRIVATE rtype_proto)
-target_link_libraries(rtype_server PRIVATE rtype_proto)
-```
-
-### 4.3 Techniques de Synchronisation
-
-#### Client-Side Prediction
-
-Le client prédit localement le résultat de ses inputs sans attendre le serveur.
+### AnimationComponent
 
 ```cpp
-class ClientPrediction {
-    std::deque<PredictedState> _history;
+struct AnimationFrame {
+    int srcX, srcY, srcW, srcH;
+};
 
-    void processInput(InputState input) {
-        // 1. Appliquer localement
-        applyInput(input, _localPlayer);
+struct AnimationComponent {
+    std::vector<AnimationFrame> frames;
+    int currentFrame = 0;
+    float frameTime = 0.1f;  // Secondes par frame
+    float timer = 0.0f;
+    bool loop = true;
+    bool playing = true;
+};
+```
 
-        // 2. Sauvegarder pour réconciliation
-        _history.push_back({_sequenceNumber++, input, _localPlayer.state});
+### AnimationSystem
 
-        // 3. Envoyer au serveur
-        sendToServer(input);
-    }
+```cpp
+void AnimationSystem::update(World& world, float deltaTime) {
+    auto& animations = world.getPool<AnimationComponent>();
+    auto& sprites = world.getPool<SpriteComponent>();
 
-    void reconcile(uint32_t lastProcessedSeq, EntityState serverState) {
-        // 1. Supprimer les états confirmés
-        while (!_history.empty() && _history.front().seq <= lastProcessedSeq) {
-            _history.pop_front();
-        }
+    for (Entity e : animations.entities()) {
+        if (!sprites.has(e)) continue;
 
-        // 2. Si divergence, corriger et rejouer
-        if (serverState != _localPlayer.state) {
-            _localPlayer.state = serverState;
-            for (auto& pred : _history) {
-                applyInput(pred.input, _localPlayer);
+        auto& anim = animations.get(e);
+        if (!anim.playing || anim.frames.empty()) continue;
+
+        anim.timer += deltaTime;
+        if (anim.timer >= anim.frameTime) {
+            anim.timer = 0;
+            anim.currentFrame++;
+
+            if (anim.currentFrame >= anim.frames.size()) {
+                if (anim.loop) anim.currentFrame = 0;
+                else {
+                    anim.currentFrame = anim.frames.size() - 1;
+                    anim.playing = false;
+                }
             }
+
+            // Update sprite
+            auto& frame = anim.frames[anim.currentFrame];
+            auto& sprite = sprites.get(e);
+            sprite.srcX = frame.srcX;
+            sprite.srcY = frame.srcY;
+            sprite.srcWidth = frame.srcW;
+            sprite.srcHeight = frame.srcH;
         }
     }
-};
+}
 ```
 
-#### Entity Interpolation
+### Checklist Animation
 
-Pour les autres joueurs/entités, interpoler entre deux états reçus.
+- [ ] AnimationComponent
+- [ ] AnimationSystem
+- [ ] Animation joueur (idle, haut, bas)
+- [ ] Animation ennemis
+- [ ] Animation explosions
 
-```cpp
-class EntityInterpolation {
-    std::deque<TimestampedState> _buffer;
-    float _interpolationDelay = 0.1f;  // 100ms
+---
 
-    EntityState getInterpolatedState(float currentTime) {
-        float renderTime = currentTime - _interpolationDelay;
+## 2.5 Score et Game Over
 
-        // Trouver les deux états encadrant renderTime
-        auto it = std::lower_bound(_buffer.begin(), _buffer.end(), renderTime);
-
-        if (it == _buffer.begin() || it == _buffer.end()) {
-            return _buffer.back().state;  // Extrapolation ou dernier état
-        }
-
-        auto& newer = *it;
-        auto& older = *(it - 1);
-
-        float t = (renderTime - older.time) / (newer.time - older.time);
-        return lerp(older.state, newer.state, t);
-    }
-};
-```
-
-### 4.6 Utilisation Protobuf
-
-#### Envoi d'Input (Client)
+### ScoreManager
 
 ```cpp
-#include "proto/game.pb.h"
-
-class NetworkManager {
+class ScoreManager {
 public:
-    void sendInput(const InputState& input) {
-        rtype::proto::game::GameMessage msg;
-        msg.set_type(rtype::proto::game::MSG_CLIENT_INPUT);
+    void addScore(int points);
+    int getScore() const;
+    int getHighScore() const;
+    void reset();
 
-        auto* clientInput = msg.mutable_client_input();
-        clientInput->set_sequence_number(_sequenceNumber++);
-        clientInput->set_client_tick(_localTick);
-        clientInput->set_timestamp_ms(getCurrentTimeMs());
-
-        auto* flags = clientInput->mutable_input();
-        flags->set_move_up(input.moveUp);
-        flags->set_move_down(input.moveDown);
-        flags->set_move_left(input.moveLeft);
-        flags->set_move_right(input.moveRight);
-        flags->set_fire(input.fire);
-
-        // Sérialiser et envoyer via UDP
-        std::string data;
-        msg.SerializeToString(&data);
-        _udpClient->send(data);
-    }
+private:
+    int _score = 0;
+    int _highScore = 0;
 };
 ```
 
-#### Réception WorldSnapshot (Client)
+### Game Over Logic
 
+Dans GameScene :
 ```cpp
-void NetworkManager::handleUDPMessage(const std::string& data) {
-    rtype::proto::game::GameMessage msg;
-    if (!msg.ParseFromString(data)) {
-        _logger->error("Failed to parse protobuf message");
-        return;
-    }
+void GameScene::update(float deltaTime) {
+    // ... systems ...
 
-    if (msg.type() == rtype::proto::game::MSG_WORLD_SNAPSHOT) {
-        const auto& snapshot = msg.world_snapshot();
-
-        // Réconciliation
-        _prediction.reconcile(snapshot.last_processed_input());
-
-        // Mettre à jour les entités
-        for (const auto& entityState : snapshot.entities()) {
-            updateEntity(entityState);
+    // Check game over
+    if (!_world.hasComponent<PlayerComponent>(_player) ||
+        _world.getComponent<HealthComponent>(_player).isDead) {
+        if (_world.getComponent<PlayerComponent>(_player).lives <= 0) {
+            _sceneManager->changeScene<GameOverScene>(_scoreManager.getScore());
+        } else {
+            // Respawn
+            respawnPlayer();
         }
-
-        // Traiter les événements
-        for (const auto& event : snapshot.events()) {
-            handleGameEvent(event);
-        }
-    }
-}
-
-void NetworkManager::updateEntity(const rtype::proto::game::EntityState& state) {
-    uint32_t netId = state.network_id();
-
-    if (state.is_dead()) {
-        _registry.destroyEntity(netId);
-        return;
-    }
-
-    // Créer ou mettre à jour
-    Entity entity = getOrCreateEntity(netId, state.type());
-
-    auto& transform = _registry.getComponent<Transform>(entity);
-    transform.position = {state.position().x(), state.position().y()};
-
-    auto& velocity = _registry.getComponent<Velocity>(entity);
-    velocity.velocity = {state.velocity().x(), state.velocity().y()};
-
-    if (_registry.hasComponent<Health>(entity)) {
-        auto& health = _registry.getComponent<Health>(entity);
-        health.current = state.health();
-        health.max = state.max_health();
     }
 }
 ```
 
-### 4.7 Tâches Phase 4
+### Checklist Score/Game Over
 
-| ID | Tâche | Priorité |
-|----|-------|----------|
-| **Protobuf Setup** |||
-| 4.0.1 | Créer `proto/auth.proto` | Haute |
-| 4.0.2 | Créer `proto/game.proto` | Haute |
-| 4.0.3 | Configurer CMake pour protobuf | Haute |
-| 4.0.4 | Tester compilation proto → C++ | Haute |
-| **UDP Communication** |||
-| 4.1.1 | Implémenter UDPClient (Boost.Asio) | Haute |
-| 4.1.2 | Implémenter UDPServer game loop | Haute |
-| 4.1.3 | Intégrer protobuf dans UDP send/receive | Haute |
-| **Sérialisation** |||
-| 4.2.1 | Helper serialize/deserialize GameMessage | Haute |
-| 4.2.2 | Length-prefix framing pour TCP | Haute |
-| 4.2.3 | Tests unitaires sérialisation | Moyenne |
-| **Synchronisation** |||
-| 4.3.1 | Client-side prediction (InputHistory) | Haute |
-| 4.3.2 | Server reconciliation | Haute |
-| 4.3.3 | Entity interpolation (autres joueurs) | Moyenne |
-| **ECS Network** |||
-| 4.4.1 | NetworkSyncSystem client | Haute |
-| 4.4.2 | NetworkSyncSystem serveur | Haute |
-| 4.4.3 | NetworkId component | Haute |
-| **Lobby** |||
-| 4.5.1 | LobbyScene client | Moyenne |
-| 4.5.2 | Lobby management serveur | Moyenne |
-| 4.5.3 | Chat en jeu | Basse |
-| **Robustesse** |||
-| 4.6.1 | Gestion déconnexion/reconnexion | Moyenne |
-| 4.6.2 | Timeout et heartbeat | Moyenne |
-| 4.6.3 | Latency compensation (optionnel) | Basse |
-
-### 4.8 Livrables Phase 4
-
-- [ ] Fichiers `.proto` complets (auth + game)
-- [ ] Compilation protobuf intégrée au build
-- [ ] Communication UDP client-serveur avec protobuf
-- [ ] Sérialisation/Désérialisation fonctionnelle
-- [ ] Client-side prediction
-- [ ] Entity interpolation
-- [ ] Lobby basique
-- [ ] 2+ joueurs simultanés fonctionnels
+- [ ] ScoreManager
+- [ ] HUD affiche score et vies
+- [ ] Game Over quand vies = 0
+- [ ] GameOverScene avec score final
+- [ ] Option restart
 
 ---
 
-## Phase 5: Contenu et Polish
+## 2.6 Validation Priorité 2
 
-**Objectif:** Enrichir le jeu avec du contenu et améliorer l'expérience.
+Avant de passer à la Priorité 3 :
 
-### 5.1 Niveaux et Progression
+- [ ] Ennemis spawn en vagues
+- [ ] 4 types d'ennemis différents
+- [ ] Ennemis tireurs fonctionnent
+- [ ] Power-ups drop et fonctionnent
+- [ ] Animations fluides
+- [ ] Score augmente quand ennemi tué
+- [ ] Game over quand plus de vies
+- [ ] **Le jeu est jouable en solo !**
 
-#### Tâches
+---
 
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 5.1.1 | Level Manager | Gestion des niveaux |
-| 5.1.2 | Background scrolling | Parallax multi-couche |
-| 5.1.3 | 3 niveaux différents | Thèmes visuels distincts |
-| 5.1.4 | Boss de fin de niveau | 1 boss par niveau |
-| 5.1.5 | Transition entre niveaux | Animation et stats |
+# PRIORITÉ 3 : Multijoueur
 
-#### Parallax Scrolling
+**⏱️ Durée estimée : 2 semaines**
+**🎯 Objectif : 2-4 joueurs simultanés**
 
-```cpp
-struct ParallaxLayer {
-    std::string textureKey;
-    float scrollSpeed;  // Relatif à la caméra
-    Vec2f offset;
-};
+> Prérequis : Priorité 2 complète
 
-class BackgroundSystem : public System {
-    std::vector<ParallaxLayer> _layers;
+---
 
-    void update(float dt, float cameraX) {
-        for (auto& layer : _layers) {
-            layer.offset.x -= layer.scrollSpeed * dt;
-
-            // Wrap around
-            if (layer.offset.x < -textureWidth) {
-                layer.offset.x += textureWidth;
-            }
-        }
-    }
-
-    void render(IWindow& window) {
-        for (auto& layer : _layers) {
-            // Draw twice for seamless scrolling
-            window.draw(layer.sprite, layer.offset);
-            window.draw(layer.sprite, layer.offset + Vec2f{textureWidth, 0});
-        }
-    }
-};
-```
-
-### 5.2 Interface Utilisateur Complète
-
-#### Tâches
-
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 5.2.1 | Menu principal | Play, Settings, Quit |
-| 5.2.2 | Menu pause | Resume, Settings, Quit to Menu |
-| 5.2.3 | Lobby multijoueur | Liste joueurs, Ready, Start |
-| 5.2.4 | Écran de fin | Score, Stats, Replay |
-| 5.2.5 | HUD en jeu | Vie, Score, Power-ups actifs |
-
-#### Design du HUD
+## 3.1 Architecture Réseau
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│ [♥♥♥♡♡]  Score: 12,500  │ LEVEL 2 │  [🔥 5s] [🛡️]  │ P2: Ready │
-└────────────────────────────────────────────────────────────────┘
-│                                                                 │
-│                                                                 │
-│                        GAME AREA                                │
-│                                                                 │
-│                                                                 │
+┌─────────────────────────────────────────────────────────────────┐
+│                      ARCHITECTURE                                │
+│                                                                  │
+│  CLIENT                              SERVEUR                     │
+│  ┌─────────────┐                    ┌─────────────┐             │
+│  │   World     │                    │   World     │             │
+│  │  (prédit)   │◀──── UDP ────────▶│(authoritative)│             │
+│  └─────────────┘                    └─────────────┘             │
+│        │                                   │                     │
+│        │ TCP                         TCP   │                     │
+│        │ (Auth, Lobby)              (Auth, Lobby)                │
+│        ▼                                   ▼                     │
+│  ┌─────────────┐                    ┌─────────────┐             │
+│  │  Lobby UI   │◀──────────────────▶│LobbyManager │             │
+│  └─────────────┘                    └─────────────┘             │
+│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.3 Assets Graphiques
+### Protocole
 
-#### Tâches
+- **TCP** : Authentification, Lobby, Chat
+- **UDP** : Gameplay temps réel (inputs, world snapshots)
 
-| ID | Tâche | Description |
-|----|-------|-------------|
-| 5.3.1 | Spritesheet joueur | 8+ frames animation |
-| 5.3.2 | Spritesheets ennemis | 3+ types, animations |
-| 5.3.3 | Projectiles | Joueur et ennemis |
-| 5.3.4 | Power-ups | Icônes distinctes |
-| 5.3.5 | Backgrounds | 3 thèmes (espace, planète, station) |
-| 5.3.6 | UI assets | Boutons, panneaux, fonts |
+### Messages Protobuf (déjà créés)
 
-### 5.4 Livrables Phase 5
-
-- [ ] 3 niveaux jouables
-- [ ] Background parallax
-- [ ] Menu principal et pause
-- [ ] Lobby multijoueur
-- [ ] HUD complet
-- [ ] Assets graphiques cohérents
+- `proto/auth.proto` : Authentification
+- `proto/game.proto` : Gameplay + Lobby
 
 ---
 
-## Phase 6: Audio et Effets
+## 3.2 NetworkSyncComponent
 
-**Objectif:** Ajouter la dimension sonore et les effets visuels.
+```cpp
+struct NetworkSyncComponent {
+    uint32_t networkId = 0;     // ID unique réseau
+    bool isLocalPlayer = false; // Ce client contrôle cette entité
+    bool isDirty = false;       // A changé depuis dernier envoi
+    uint32_t lastUpdateTick = 0;
+};
+```
 
-### 6.1 Système Audio
+---
 
-#### Architecture
+## 3.3 Client-Side Prediction
+
+Le client prédit le résultat de ses inputs sans attendre le serveur :
+
+1. Client envoie input au serveur
+2. Client applique input localement immédiatement
+3. Client sauvegarde l'état dans un historique
+4. Serveur renvoie l'état confirmé
+5. Si différence, client corrige et rejoue les inputs non confirmés
+
+---
+
+## 3.4 Entity Interpolation
+
+Pour les autres joueurs/entités (non locales) :
+
+1. Client reçoit snapshots du serveur
+2. Client stocke les derniers snapshots dans un buffer
+3. Client affiche avec un délai (ex: 100ms)
+4. Client interpole entre deux snapshots pour fluidité
+
+---
+
+## 3.5 Checklist Multijoueur
+
+- [ ] NetworkSyncComponent
+- [ ] UDPClient pour gameplay
+- [ ] Sérialisation Protobuf
+- [ ] Client envoie inputs
+- [ ] Client reçoit world snapshots
+- [ ] Client-side prediction
+- [ ] Entity interpolation
+- [ ] Lobby (TCP)
+- [ ] 2-4 joueurs simultanés
+
+---
+
+# PRIORITÉ 4 : Polish
+
+**⏱️ Durée estimée : 1-2 semaines**
+**🎯 Objectif : Jeu fini et présentable**
+
+> Prérequis : Priorité 3 complète (ou 2 si solo uniquement)
+
+---
+
+## 4.1 Audio
+
+### AudioManager
 
 ```cpp
 class AudioManager {
 public:
-    // Musique (streaming)
-    void playMusic(const std::string& key, bool loop = true);
-    void stopMusic();
-    void setMusicVolume(float volume);  // 0.0 - 1.0
-
-    // Effets sonores (buffered)
-    void playSound(const std::string& key);
-    void playSound(const std::string& key, Vec2f position);  // Spatial
-    void setSoundVolume(float volume);
-
-    // Preloading
     void loadSound(const std::string& key, const std::string& file);
     void loadMusic(const std::string& key, const std::string& file);
 
-private:
-    std::unordered_map<std::string, sf::SoundBuffer> _buffers;
-    std::vector<sf::Sound> _activeSounds;  // Pool de sons
-    sf::Music _music;
+    void playSound(const std::string& key);
+    void playMusic(const std::string& key, bool loop = true);
+    void stopMusic();
+
+    void setMasterVolume(float volume);
+    void setSoundVolume(float volume);
+    void setMusicVolume(float volume);
 };
 ```
 
-#### Sons Nécessaires
+### Sons à créer/trouver
 
 | Catégorie | Sons |
 |-----------|------|
-| **Joueur** | tir, hit, mort, power-up pickup |
-| **Ennemis** | tir, explosion, spawn |
-| **UI** | click, hover, transition |
-| **Ambiance** | musique niveau, musique boss, game over, victory |
+| Joueur | tir, hit, mort, power-up |
+| Ennemis | tir, explosion |
+| UI | click, hover |
+| Musique | menu, gameplay, boss, game over |
 
-### 6.2 Effets Visuels
+### Checklist Audio
 
-#### Système de Particules
+- [ ] AudioManager
+- [ ] Sons gameplay
+- [ ] Musique de fond
+- [ ] Options volume
+
+---
+
+## 4.2 Particules
+
+### ParticleSystem
 
 ```cpp
 struct Particle {
-    Vec2f position;
-    Vec2f velocity;
+    float x, y;
+    float vx, vy;
     float lifetime;
     float maxLifetime;
-    sf::Color color;
     float size;
+    uint8_t r, g, b, a;
 };
 
-class ParticleSystem : public System {
-    std::vector<Particle> _particles;
-
+class ParticleSystem {
 public:
-    void emit(Vec2f position, ParticleConfig config, int count);
-    void update(float dt);
-    void render(IWindow& window);
-};
+    void emit(float x, float y, const ParticleConfig& config, int count);
+    void update(float deltaTime);
+    void render(IRenderer& renderer);
 
-// Configs prédéfinies
-ParticleConfig explosionConfig = {
-    .velocityRange = {-100, 100},
-    .lifetimeRange = {0.5f, 1.5f},
-    .colorStart = sf::Color::Yellow,
-    .colorEnd = sf::Color::Red,
-    .sizeRange = {2, 8}
+private:
+    std::vector<Particle> _particles;
 };
 ```
 
-### 6.3 Tâches Phase 6
+### Effets à créer
 
-| ID | Tâche | Priorité |
-|----|-------|----------|
-| 6.1.1 | Implémenter AudioManager | Moyenne |
-| 6.1.2 | Intégrer SFML Audio | Moyenne |
-| 6.1.3 | Sons gameplay | Moyenne |
-| 6.1.4 | Musiques (3 tracks) | Basse |
-| 6.2.1 | Système de particules | Basse |
-| 6.2.2 | Effet explosion | Basse |
-| 6.2.3 | Screen shake | Basse |
-| 6.2.4 | Flash on hit | Basse |
+- Explosion ennemi
+- Explosion joueur
+- Collecte power-up
+- Trail projectile
 
-### 6.4 Livrables Phase 6
+### Checklist Particules
 
-- [ ] AudioManager fonctionnel
-- [ ] Sons pour toutes les actions
-- [ ] 3+ musiques
-- [ ] Système de particules
-- [ ] Effets visuels (explosions, flash)
+- [ ] ParticleSystem basique
+- [ ] Effet explosion
+- [ ] Effet power-up
 
 ---
 
-## Annexes
+## 4.3 Menus et UI
 
-### A. Design Patterns Utilisés
+### Scènes à créer
 
-| Pattern | Usage | Fichiers |
-|---------|-------|----------|
-| **ECS** | Architecture gameplay | `ECS/*` |
-| **Factory** | Création entités | `ProjectileFactory`, `EnemyFactory` |
-| **Observer** | Events UI, réseau | `Button`, `TCPClient` |
-| **State** | IA ennemis, scènes | `AISystem`, `SceneManager` |
-| **Strategy** | Comportements IA | `AIBehavior` |
-| **Singleton** | Managers | `AudioManager`, `Logger` |
-| **Facade** | Simplification API | `UIManager`, `NetworkManager` |
-| **Composite** | UI containers | `Panel` |
-| **Command** | Input, undo | `InputCommand` |
-| **Object Pool** | Particules, sons | `ParticleSystem`, `AudioManager` |
+- MainMenuScene
+- PauseScene (overlay)
+- SettingsScene
+- LobbyScene (si multi)
+- GameOverScene (améliorer)
+- VictoryScene
 
-### B. Ressources Recommandées
+### Checklist Menus
 
-#### Livres
-- *Game Programming Patterns* - Robert Nystrom
-- *Multiplayer Game Programming* - Joshua Glazer
-
-#### Articles
-- [Fix Your Timestep!](https://gafferongames.com/post/fix_your_timestep/)
-- [Networked Physics](https://gafferongames.com/categories/networked-physics/)
-- [ECS FAQ](https://github.com/SanderMertens/ecs-faq)
-
-#### Assets Gratuits
-- [OpenGameArt.org](https://opengameart.org/)
-- [itch.io Free Game Assets](https://itch.io/game-assets/free)
-- [Kenney.nl](https://kenney.nl/assets)
-
-### C. Guide Protocol Buffers
-
-#### Installation
-
-```bash
-# Via vcpkg
-./vcpkg install protobuf
-
-# Ou système (Linux)
-sudo apt install protobuf-compiler libprotobuf-dev
-```
-
-#### Compilation des fichiers .proto
-
-```bash
-# Manuelle
-protoc --cpp_out=build/proto proto/auth.proto proto/game.proto
-
-# Via CMake (automatique avec la config fournie en Phase 4)
-cmake -B build && cmake --build build
-```
-
-#### Structure recommandée
-
-```
-proto/
-├── auth.proto      # Messages authentification (TCP)
-├── game.proto      # Messages gameplay (UDP) + Lobby (TCP)
-└── CMakeLists.txt  # Config compilation
-
-# Après compilation:
-build/proto/
-├── auth.pb.h       # Header C++ généré
-├── auth.pb.cc      # Implémentation C++ générée
-├── game.pb.h
-└── game.pb.cc
-```
-
-#### Bonnes pratiques Protobuf
-
-1. **Toujours utiliser `oneof`** pour les payloads variables (évite les fields optionnels multiples)
-2. **Numéroter les fields** de manière stable (ne jamais réutiliser un numéro supprimé)
-3. **Utiliser des enums** pour les types de messages
-4. **Préfixer les enums** avec le nom du type (`AUTH_`, `MSG_`, etc.)
-5. **Length-prefix** pour TCP (4 bytes big-endian avant chaque message)
-
-#### Exemple complet
-
-```cpp
-// Envoi
-rtype::proto::game::GameMessage msg;
-msg.set_type(rtype::proto::game::MSG_CLIENT_INPUT);
-// ... set payload ...
-
-std::string buffer;
-msg.SerializeToString(&buffer);
-
-// Pour TCP: ajouter length prefix
-uint32_t length = htonl(buffer.size());
-send(&length, 4);
-send(buffer.data(), buffer.size());
-
-// Réception
-rtype::proto::game::GameMessage received;
-if (received.ParseFromString(data)) {
-    switch (received.type()) {
-        case rtype::proto::game::MSG_WORLD_SNAPSHOT:
-            handleSnapshot(received.world_snapshot());
-            break;
-        // ...
-    }
-}
-```
-
-### D. Checklist Finale
-
-```
-□ PHASE 1: UI & Auth
-  □ Button, TextField, Label, Panel
-  □ LoginScene fonctionnelle
-  □ RegisterScene
-  □ Communication auth client-serveur (protobuf)
-
-□ PHASE 2: ECS
-  □ Registry avec ComponentPools
-  □ 8+ Composants
-  □ 4+ Systèmes (Movement, Render, Collision, Input)
-  □ Intégration GameScene
-
-□ PHASE 3: Gameplay
-  □ Vaisseau joueur
-  □ Système de tir
-  □ 3+ types d'ennemis
-  □ Wave system
-  □ 3+ power-ups
-
-□ PHASE 4: Networking
-  □ Fichiers .proto (auth.proto, game.proto)
-  □ Compilation protobuf intégrée CMake
-  □ UDP client-serveur avec protobuf
-  □ Client-side prediction
-  □ Entity interpolation
-  □ 2+ joueurs fonctionnels
-
-□ PHASE 5: Content
-  □ 3 niveaux
-  □ Parallax backgrounds
-  □ Menus (main, pause, lobby)
-  □ HUD complet
-
-□ PHASE 6: Audio & FX
-  □ AudioManager
-  □ Sons gameplay
-  □ Musiques
-  □ Particules et effets
-```
+- [ ] Menu principal
+- [ ] Menu pause
+- [ ] Paramètres (volume, contrôles)
+- [ ] Transitions fluides
 
 ---
 
-**Bon courage pour la suite du développement !**
+## 4.4 Contenu
 
-*Document créé le 25/11/2025*
+### Niveaux
+
+- 3 niveaux minimum
+- Backgrounds parallax
+- Boss de fin de niveau
+
+### Checklist Contenu
+
+- [ ] 3 niveaux
+- [ ] Backgrounds
+- [ ] 3 boss
+- [ ] Progression difficulté
+
+---
+
+## 4.5 Polish Final
+
+- [ ] Bugfix général
+- [ ] Performance
+- [ ] Équilibrage difficulté
+- [ ] Feedback utilisateur (screen shake, flash)
+- [ ] Instructions/tutoriel
+
+---
+
+# Annexes
+
+## A. Structure Complète des Fichiers (avec Plugins)
+
+```
+src/client/
+├── main.cpp
+├── main.hpp
+│
+├── core/
+│   ├── Engine.hpp/.cpp           # Charge le plugin, gère le cycle de vie
+│   ├── GameLoop.hpp/.cpp         # Boucle principale avec delta time
+│   ├── PluginLoader.hpp/.cpp     # dlopen/LoadLibrary
+│   └── Logger.hpp/.cpp
+│
+├── graphics/
+│   ├── IWindow.hpp               # Interface abstraite (AUCUN SFML)
+│   ├── IRenderer.hpp             # Interface abstraite (AUCUN SFML)
+│   └── IGraphicsPlugin.hpp       # Interface plugin
+│
+├── input/
+│   ├── InputAction.hpp           # Enum des actions
+│   ├── IInput.hpp                # Interface abstraite (AUCUN SFML)
+│   └── InputManager.hpp/.cpp     # Wrapper optionnel
+│
+├── ecs/
+│   ├── Types.hpp
+│   ├── Entity.hpp
+│   ├── ComponentPool.hpp
+│   ├── EntityManager.hpp/.cpp
+│   └── World.hpp/.cpp
+│
+├── components/
+│   ├── TransformComponent.hpp
+│   ├── VelocityComponent.hpp
+│   ├── SpriteComponent.hpp
+│   ├── AnimationComponent.hpp
+│   ├── ColliderComponent.hpp
+│   ├── HealthComponent.hpp
+│   ├── PlayerComponent.hpp
+│   ├── EnemyComponent.hpp
+│   ├── ProjectileComponent.hpp
+│   ├── PowerUpComponent.hpp
+│   └── NetworkSyncComponent.hpp
+│
+├── systems/
+│   ├── ISystem.hpp
+│   ├── MovementSystem.hpp/.cpp
+│   ├── RenderSystem.hpp/.cpp
+│   ├── AnimationSystem.hpp/.cpp
+│   ├── CollisionSystem.hpp/.cpp
+│   ├── PlayerInputSystem.hpp/.cpp
+│   ├── EnemyAISystem.hpp/.cpp
+│   ├── HealthSystem.hpp/.cpp
+│   ├── PowerUpSystem.hpp/.cpp
+│   ├── LifetimeSystem.hpp/.cpp
+│   ├── CleanupSystem.hpp/.cpp
+│   └── NetworkSyncSystem.hpp/.cpp
+│
+├── factories/
+│   ├── PlayerFactory.hpp/.cpp
+│   ├── EnemyFactory.hpp/.cpp
+│   ├── ProjectileFactory.hpp/.cpp
+│   └── PowerUpFactory.hpp/.cpp
+│
+├── scenes/
+│   ├── IScene.hpp                # PLUS de sf::Event ! Utilise IInput
+│   ├── SceneManager.hpp/.cpp
+│   ├── MainMenuScene.hpp/.cpp
+│   ├── LoginScene.hpp/.cpp
+│   ├── LobbyScene.hpp/.cpp
+│   ├── GameScene.hpp/.cpp
+│   ├── PauseScene.hpp/.cpp
+│   └── GameOverScene.hpp/.cpp
+│
+├── ui/
+│   └── ...
+│
+├── network/
+│   ├── TCPClient.hpp/.cpp
+│   ├── UDPClient.hpp/.cpp
+│   └── NetworkManager.hpp/.cpp
+│
+├── audio/
+│   └── AudioManager.hpp/.cpp
+│
+├── utils/
+│   ├── Vecs.hpp
+│   └── ...
+│
+└── plugins/                      # PLUGINS (libs dynamiques)
+    └── sfml/                     # Plugin SFML
+        ├── CMakeLists.txt        # Compile en libsfml_plugin.so/.dll
+        ├── SFMLPlugin.hpp/.cpp   # Implémente IGraphicsPlugin
+        ├── SFMLWindow.hpp/.cpp   # Implémente IWindow
+        ├── SFMLRenderer.hpp/.cpp # Implémente IRenderer
+        ├── SFMLInput.hpp/.cpp    # Implémente IInput
+        └── SFMLAssetManager.hpp/.cpp
+
+# Output après compilation
+artifacts/
+├── r-type_client               # Exécutable principal
+└── plugins/
+    └── libsfml_plugin.so       # Plugin SFML (.dll sur Windows)
+```
+
+### Séparation des Responsabilités
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         CE QUI VA OÙ                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  CORE ENGINE (src/client/)          PLUGINS (src/client/plugins/)   │
+│  ────────────────────────           ─────────────────────────────   │
+│  • Interfaces abstraites             • Implémentations concrètes    │
+│    (IWindow, IRenderer, IInput)        (SFMLWindow, SFMLRenderer)   │
+│  • ECS (World, Components)           • Dépendances graphiques       │
+│  • Scènes (IScene, GameScene)          (SFML, SDL, Raylib...)       │
+│  • Systems (Movement, Collision)     • Code spécifique plateforme   │
+│  • Factories                                                         │
+│  • Network (TCP, UDP)                                               │
+│  • Audio (interface)                                                │
+│                                                                      │
+│  ⚠️  AUCUN #include <SFML/...>       ✅ #include <SFML/...> OK      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## B. Ordre d'Exécution des Systems
+
+```
+1. PlayerInputSystem     (lit inputs → modifie velocity)
+2. EnemyAISystem         (IA → modifie velocity)
+3. MovementSystem        (velocity → position)
+4. BoundsSystem          (clamp aux bords)
+5. CollisionSystem       (détecte collisions)
+6. HealthSystem          (applique dégâts)
+7. PowerUpSystem         (applique effets)
+8. LifetimeSystem        (décrémente lifetime)
+9. CleanupSystem         (supprime entités mortes)
+10. AnimationSystem      (update frames)
+11. RenderSystem         (dessine - séparé de update)
+```
+
+## C. Ressources
+
+- [Game Programming Patterns](https://gameprogrammingpatterns.com/) - Livre gratuit
+- [Fix Your Timestep](https://gafferongames.com/post/fix_your_timestep/) - Delta time
+- [ECS FAQ](https://github.com/SanderMertens/ecs-faq) - Guide ECS
+- [Networked Physics](https://gafferongames.com/categories/networked-physics/) - Réseau jeu
+
+---
+
+**Bon courage !**
+
+*Document mis à jour le 25/11/2025 - v2.1 (ajout architecture plugins)*

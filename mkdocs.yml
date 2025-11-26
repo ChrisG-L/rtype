@@ -180,8 +180,31 @@ nav:
       - Cross-Compilation Windows: development/cross-compilation.md
       - Changelog: development/changelog.md
 
-  - Ruche d'Agents IA:
+  - Army2077:
       - Introduction: hive/introduction.md
+      - Architecture: hive/architecture.md
+      - Workflows: hive/workflows.md
+      - Référence Rapide: hive/quick-reference.md
+      - Agents:
+          - Vue d'ensemble: hive/agents/index.md
+          - Général: hive/agents/general.md
+          - Commandants:
+              - Documentation: hive/agents/commander-documentation.md
+              - Git: hive/agents/commander-git.md
+              - Qualité: hive/agents/commander-quality.md
+              - Sécurité: hive/agents/commander-security.md
+              - Tests: hive/agents/commander-tests.md
+          - Soldats:
+              - Architecte: hive/agents/soldier-architecture.md
+              - Code Review: hive/agents/soldier-code-review.md
+              - Mentor: hive/agents/soldier-learning-advisor.md
+
+  - Centre d'Apprentissage:
+      - learning/index.md
+      - Analyses de Code: learning/analyses/index.md
+      - Concepts Techniques: learning/concepts/index.md
+      - Bonnes Pratiques: learning/best-practices/index.md
+      - Parcours d'Apprentissage: learning/roadmaps/index.md
 
   - Référence:
       - FAQ: reference/faq.md

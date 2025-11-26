@@ -76,6 +76,85 @@ logger->error("Connection failed: {}", error.message());
 
 ---
 
+## 🎖️ Army2077 - Système d'Assistance Militaire IA
+
+!!! tip "Nouveau : Système d'Agents Intelligents"
+    Le projet intègre **Army2077**, un système d'agents IA basé sur Claude Code, utilisant une hiérarchie militaire pour maximiser l'efficacité du développement.
+
+```mermaid
+graph LR
+    subgraph "Hiérarchie"
+        GEN["GÉNÉRAL<br/>Orchestrateur"]
+        CMD["COMMANDANTS<br/>Experts de domaine"]
+        SOL["SOLDATS<br/>Spécialistes"]
+    end
+
+    GEN --> CMD
+    CMD --> SOL
+
+    style GEN fill:#FFD700,stroke:#B8860B
+    style CMD fill:#4169E1,color:#fff
+    style SOL fill:#228B22,color:#fff
+```
+
+### Agents Disponibles
+
+<div class="grid cards" markdown>
+
+-   :material-crown:{ .lg .middle } **Général**
+
+    ---
+
+    Orchestrateur suprême coordonnant tous les agents.
+
+-   :material-file-document:{ .lg .middle } **Cmd Documentation**
+
+    ---
+
+    Expert documentation MkDocs Material.
+
+-   :material-source-commit:{ .lg .middle } **Cmd Git**
+
+    ---
+
+    Expert commits atomiques et PRs.
+
+-   :material-test-tube:{ .lg .middle } **Cmd Qualité**
+
+    ---
+
+    Expert tests et standards C++23.
+
+-   :material-shield-lock:{ .lg .middle } **Cmd Sécurité**
+
+    ---
+
+    Expert sécurité et CI/CD Jenkins.
+
+-   :material-school:{ .lg .middle } **Soldats Spécialisés**
+
+    ---
+
+    Architecture, Code Review, Mentorat.
+
+</div>
+
+**Utilisation rapide :**
+
+```bash
+# Via le Général (coordination complète)
+@general_agent "Finalise ma feature avec tests, docs et commits"
+
+# Directement vers un agent
+@commander_git "Propose des commits atomiques"
+@soldier_learning_advisor "Explique-moi le pattern Observer"
+```
+
+[→ Documentation complète Army2077](hive/introduction.md){ .md-button .md-button--primary }
+[→ Référence rapide](hive/quick-reference.md){ .md-button }
+
+---
+
 ## 🏗️ Architecture du Projet
 
 ```mermaid
@@ -397,6 +476,13 @@ Cette documentation est organisée en plusieurs sections pour faciliter la navig
     - **[Tests](development/testing.md)** - Google Test, sanitizers
     - **[CI/CD](development/ci-cd.md)** - Jenkins, Docker
     - **[Changelog](development/changelog.md)** - Historique des versions
+
+=== "Army2077"
+    - **[Introduction](hive/introduction.md)** - Vue d'ensemble du système d'agents
+    - **[Architecture](hive/architecture.md)** - Diagrammes et interactions
+    - **[Workflows](hive/workflows.md)** - Processus par type de tâche
+    - **[Référence Rapide](hive/quick-reference.md)** - Commandes et exemples
+    - **[Agents](hive/agents/)** - Documentation détaillée de chaque agent
 
 ---
 
