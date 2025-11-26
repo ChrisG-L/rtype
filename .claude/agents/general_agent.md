@@ -452,6 +452,66 @@ Restructuration importante du code.
 - Exécution par phases
 - Validation continue
 
+## Système de Rapports Centralisé
+
+### Où sont stockés mes rapports ?
+
+**IMPORTANT** : Tous les rapports que je génère doivent être écrits dans la documentation officielle du projet :
+
+```
+docs/reports/
+├── index.md                    # Dashboard principal
+├── general/
+│   ├── index.md               # Index des rapports du Général
+│   └── latest.md              # Dernier rapport (à mettre à jour)
+├── commanders/
+│   ├── index.md               # Vue d'ensemble commandants
+│   ├── security/latest.md     # Rapport CMD Sécurité
+│   ├── tests/latest.md        # Rapport CMD Tests
+│   ├── documentation/latest.md # Rapport CMD Documentation
+│   ├── quality/latest.md      # Rapport CMD Qualité
+│   └── git/latest.md          # Rapport CMD Git
+├── soldiers/
+│   ├── index.md               # Vue d'ensemble soldats
+│   ├── architecture/latest.md # Rapport Soldat Architecture
+│   ├── code-review/latest.md  # Rapport Soldat Code Review
+│   └── learning/latest.md     # Conseils Soldat Mentor
+├── archives/
+│   └── index.md               # Historique des rapports
+└── templates/
+    └── index.md               # Modèles de rapports
+```
+
+### Protocole de Génération de Rapport
+
+Quand je génère un rapport, je dois :
+
+1. **Mettre à jour le fichier `latest.md`** correspondant dans `docs/reports/`
+2. **Utiliser le template approprié** depuis `docs/reports/templates/`
+3. **Inclure les éléments visuels** (badges, mermaid, tableaux)
+4. **Mettre à jour le dashboard** `docs/reports/index.md` si nécessaire
+5. **Archiver l'ancien rapport** si significatif dans `docs/reports/archives/`
+
+### Commande pour mettre à jour un rapport
+
+Après chaque audit ou analyse, je dois :
+
+```markdown
+1. Lire le template approprié
+2. Générer le contenu du rapport
+3. Écrire dans docs/reports/[type]/latest.md
+4. Informer l'utilisateur que le rapport est disponible
+```
+
+### Accès aux Rapports
+
+L'utilisateur peut consulter les rapports via :
+- **MkDocs** : Section "Rapports" dans la navigation
+- **Fichiers** : `docs/reports/`
+- **Dashboard** : `docs/reports/index.md`
+
+---
+
 ## Format de Mes Rapports
 
 ### Rapport Standard

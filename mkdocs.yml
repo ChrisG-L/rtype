@@ -180,6 +180,26 @@ nav:
       - Cross-Compilation Windows: development/cross-compilation.md
       - Changelog: development/changelog.md
 
+  - Rapports:
+      - reports/index.md
+      - Général:
+          - reports/general/index.md
+          - Dernier Rapport: reports/general/latest.md
+      - Commandants:
+          - reports/commanders/index.md
+          - Sécurité: reports/commanders/security/latest.md
+          - Tests: reports/commanders/tests/latest.md
+          - Documentation: reports/commanders/documentation/latest.md
+          - Qualité: reports/commanders/quality/latest.md
+          - Git: reports/commanders/git/latest.md
+      - Soldats:
+          - reports/soldiers/index.md
+          - Architecture: reports/soldiers/architecture/latest.md
+          - Code Review: reports/soldiers/code-review/latest.md
+          - Mentor: reports/soldiers/learning/latest.md
+      - Archives: reports/archives/index.md
+      - Templates: reports/templates/index.md
+
   - Army2077:
       - Introduction: hive/introduction.md
       - Architecture: hive/architecture.md
