@@ -34,6 +34,7 @@ RUN apt-get update && \
         pkg-config \
         python3 \
         rsync \
+        clang \
         # Outils de cross-compilation Windows
         mingw-w64 \
         g++-mingw-w64-x86-64 \

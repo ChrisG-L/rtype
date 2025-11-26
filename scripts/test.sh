@@ -27,8 +27,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
+DIM='\033[2m'
 
 # Répertoires
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,9 +52,10 @@ PARALLEL_JOBS=$(nproc 2>/dev/null || echo 4)
 #===============================================================================
 
 print_header() {
-    echo -e "\n${BLUE}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${BOLD}${CYAN}  $1${NC}"
-    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}\n"
+    echo ""
+    echo -e "${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}${BOLD}  $1${NC}"
+    echo -e "${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 }
 
 print_success() {
@@ -67,7 +71,63 @@ print_warning() {
 }
 
 print_info() {
-    echo -e "${CYAN}ℹ${NC} $1"
+    echo -e "${CYAN}→${NC} $1"
+}
+
+print_step() {
+    echo -e "${MAGENTA}${BOLD}▶${NC} ${WHITE}$1${NC}"
+}
+
+#===============================================================================
+# Filtrage de la sortie GTest pour une meilleure lisibilite
+#===============================================================================
+filter_gtest_output() {
+    local passed=0
+    local failed=0
+
+    while IFS= read -r line; do
+        # Tests qui passent
+        if echo "$line" | grep -qE "^\[       OK \]"; then
+            passed=$((passed + 1))
+            echo -e "${GREEN}$line${NC}"
+        # Tests qui echouent
+        elif echo "$line" | grep -qE "^\[  FAILED  \]"; then
+            failed=$((failed + 1))
+            echo -e "${RED}${BOLD}$line${NC}"
+        # En cours d'execution
+        elif echo "$line" | grep -qE "^\[ RUN      \]"; then
+            echo -e "${CYAN}$line${NC}"
+        # Separateurs
+        elif echo "$line" | grep -qE "^\[==========\]"; then
+            echo -e "${BLUE}${BOLD}$line${NC}"
+        elif echo "$line" | grep -qE "^\[----------\]"; then
+            echo -e "${DIM}$line${NC}"
+        # Resume passes
+        elif echo "$line" | grep -qE "^\[  PASSED  \]"; then
+            echo -e "${GREEN}${BOLD}$line${NC}"
+        # Erreurs d'assertion
+        elif echo "$line" | grep -qE "Failure$|FAILED"; then
+            echo -e "${RED}${BOLD}$line${NC}"
+        # Expected/Actual values
+        elif echo "$line" | grep -qE "^\s*(Expected|Actual|Value of|Which is):"; then
+            echo -e "${YELLOW}$line${NC}"
+        # Lignes de code source avec erreur
+        elif echo "$line" | grep -qE "^.*:\d+:"; then
+            echo -e "${RED}$line${NC}"
+        # Global test environment
+        elif echo "$line" | grep -qE "Global test environment"; then
+            echo -e "${DIM}$line${NC}"
+        # Autres lignes
+        else
+            echo "$line"
+        fi
+    done
+
+    # Retourner le statut
+    if [[ $failed -gt 0 ]]; then
+        return 1
+    fi
+    return 0
 }
 
 show_help() {
@@ -284,33 +344,53 @@ run_tests() {
 
     # Tests Serveur
     if [[ "$RUN_SERVER_TESTS" == true ]]; then
-        echo -e "\n${BOLD}${CYAN}▶ Tests Serveur${NC}\n"
+        print_header "TESTS SERVEUR"
+        echo ""
 
         if [[ -f "${TESTS_OUTPUT_DIR}/server_tests" ]]; then
-            if "${TESTS_OUTPUT_DIR}/server_tests" "${gtest_args[@]}" --gtest_color=yes; then
-                print_success "Tests serveur réussis"
+            if [[ "$VERBOSE" == true ]]; then
+                if "${TESTS_OUTPUT_DIR}/server_tests" "${gtest_args[@]}" --gtest_color=yes; then
+                    print_success "Tests serveur reussis"
+                else
+                    print_error "Certains tests serveur ont echoue"
+                    total_failed=$((total_failed + 1))
+                fi
             else
-                print_error "Certains tests serveur ont échoué"
-                total_failed=$((total_failed + 1))
+                if "${TESTS_OUTPUT_DIR}/server_tests" "${gtest_args[@]}" --gtest_color=no 2>&1 | filter_gtest_output; then
+                    print_success "Tests serveur reussis"
+                else
+                    print_error "Certains tests serveur ont echoue"
+                    total_failed=$((total_failed + 1))
+                fi
             fi
         else
-            print_warning "server_tests non trouvé"
+            print_warning "server_tests non trouve - compilation requise"
         fi
     fi
 
     # Tests Client
     if [[ "$RUN_CLIENT_TESTS" == true ]]; then
-        echo -e "\n${BOLD}${CYAN}▶ Tests Client${NC}\n"
+        print_header "TESTS CLIENT"
+        echo ""
 
         if [[ -f "${TESTS_OUTPUT_DIR}/client_tests" ]]; then
-            if "${TESTS_OUTPUT_DIR}/client_tests" "${gtest_args[@]}" --gtest_color=yes; then
-                print_success "Tests client réussis"
+            if [[ "$VERBOSE" == true ]]; then
+                if "${TESTS_OUTPUT_DIR}/client_tests" "${gtest_args[@]}" --gtest_color=yes; then
+                    print_success "Tests client reussis"
+                else
+                    print_error "Certains tests client ont echoue"
+                    total_failed=$((total_failed + 1))
+                fi
             else
-                print_error "Certains tests client ont échoué"
-                total_failed=$((total_failed + 1))
+                if "${TESTS_OUTPUT_DIR}/client_tests" "${gtest_args[@]}" --gtest_color=no 2>&1 | filter_gtest_output; then
+                    print_success "Tests client reussis"
+                else
+                    print_error "Certains tests client ont echoue"
+                    total_failed=$((total_failed + 1))
+                fi
             fi
         else
-            print_warning "client_tests non trouvé"
+            print_warning "client_tests non trouve - compilation requise"
         fi
     fi
 

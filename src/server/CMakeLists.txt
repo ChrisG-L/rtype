@@ -95,7 +95,7 @@ target_include_directories(rtype_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(rtype_server PRIVATE
-    rtype_proto
+    # rtype_proto
     Boost::system
     OpenSSL::SSL
     OpenSSL::Crypto

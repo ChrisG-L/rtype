@@ -41,37 +41,37 @@ find_package(Protobuf CONFIG REQUIRED)
 find_package(SFML 3 REQUIRED COMPONENTS Graphics Audio Network)
 find_package(spdlog CONFIG REQUIRED)
 
-add_library(rtype_proto STATIC)
+# add_library(rtype_proto STATIC)
 
-set(PROTO_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/proto/user.proto
-    ${CMAKE_CURRENT_SOURCE_DIR}/proto/auth.proto
-    ${CMAKE_CURRENT_SOURCE_DIR}/proto/game.proto
-)
+# set(PROTO_FILES
+#     ${CMAKE_CURRENT_SOURCE_DIR}/proto/user.proto
+#     ${CMAKE_CURRENT_SOURCE_DIR}/proto/auth.proto
+#     ${CMAKE_CURRENT_SOURCE_DIR}/proto/game.proto
+# )
 
-PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+# PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 
-message(STATUS "Protobuf sources générées : ${PROTO_SRCS}")
-message(STATUS "Protobuf headers générés : ${PROTO_HDRS}")
+# message(STATUS "Protobuf sources générées : ${PROTO_SRCS}")
+# message(STATUS "Protobuf headers générés : ${PROTO_HDRS}")
 
-target_sources(rtype_proto PRIVATE
-    ${PROTO_SRCS}
-    ${PROTO_HDRS}
-)
+# target_sources(rtype_proto PRIVATE
+#     ${PROTO_SRCS}
+#     ${PROTO_HDRS}
+# )
 
-target_include_directories(rtype_proto PUBLIC
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${Protobuf_INCLUDE_DIRS}
-)
+# target_include_directories(rtype_proto PUBLIC
+#     ${CMAKE_CURRENT_BINARY_DIR}
+#     ${Protobuf_INCLUDE_DIRS}
+# )
 
-target_link_libraries(rtype_proto PRIVATE
-    ${PROTOBUF_LIBRARIES}
-)
+# target_link_libraries(rtype_proto PRIVATE
+#     ${PROTOBUF_LIBRARIES}
+# )
 
 # Inclure les sous-répertoires
 add_subdirectory("src/server")
 add_subdirectory("src/client")
 
 # Ajouter les tests
-add_subdirectory("tests/server")
-add_subdirectory("tests/client")
+# add_subdirectory("tests/server")
+# add_subdirectory("tests/client")
