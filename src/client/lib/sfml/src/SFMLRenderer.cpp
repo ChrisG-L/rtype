@@ -28,7 +28,8 @@ void SFMLRenderer::update(float deltatime)
 
 void SFMLRenderer::render()
 {
-    mAsset->drawAll(_window);
+    auto* renderWindow = static_cast<sf::RenderWindow*>(_window->getNativeHandle());
+    mAsset->drawAll(renderWindow);
 }
 
 void SFMLRenderer::initGraphicTexture(const graphic::GraphicTexture& textureAsset) {

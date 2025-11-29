@@ -24,7 +24,7 @@ class AssetManager {
         bool registerTexture(const std::string& file);
         void removeTexture(const std::string& file);
         void addSprite(const std::string& key, const sf::Sprite& sprite);
-        void drawAll(std::shared_ptr<graphics::IWindow> window);
+        void drawAll(sf::RenderWindow* window);
 
     private:
         std::unordered_map<std::string, sf::Texture> textures;

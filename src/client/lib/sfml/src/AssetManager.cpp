@@ -6,6 +6,7 @@
 */
 
 #include "utils/AssetManager.hpp"
+#include <SFML/Graphics/RenderWindow.hpp>
 
 AssetManager::AssetManager()
 {
@@ -55,11 +56,11 @@ void AssetManager::addSprite(const std::string& key, const sf::Sprite& sprite)
     spritePools[key].push_back(sprite);
 }
 
-void AssetManager::drawAll(std::shared_ptr<graphics::IWindow> window)
+void AssetManager::drawAll(sf::RenderWindow* window)
 {
     for (auto const& [key, sprites]: spritePools) {
         for (const auto& sprite: sprites) {
-            // window->draw(sprite);
+            window->draw(sprite);
         }
     }
 }

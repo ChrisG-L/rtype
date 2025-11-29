@@ -11,24 +11,29 @@
 #include <memory>
 
 #include "graphics/IGraphicPlugin.hpp"
-#include "graphics/IWindow.hpp"
 #include "../SFMLWindow.hpp"
+#include "../SFMLRenderer.hpp"
 
-// namespace sfml {
-//     class SFMLPlugin: public graphics::IGraphicPlugin {
-//         public:
-//             SFMLPlugin();
 
-//             const char* getName() const override;
+namespace sfml {
+    class SFMLPlugin: public graphics::IGraphicPlugin {
+        public:
+            SFMLPlugin();
 
-//             std::unique_ptr<graphics::IWindow> createWindow(
-//                 Vec2u winSize,
-//                 const std::string& name
-//             ) override;
+            const char* getName() const override;
 
-//         protected:
-//         private:
-//     };
-// }
+            std::shared_ptr<graphics::IWindow> createWindow(
+                Vec2u winSize,
+                const std::string& name
+            ) override;
+
+            std::shared_ptr<core::IRenderer> createRenderer(
+                std::shared_ptr<graphics::IWindow> window
+            ) override;
+
+        protected:
+        private:
+    };
+}
 
 #endif /* !SFMLPLUGIN_HPP_ */

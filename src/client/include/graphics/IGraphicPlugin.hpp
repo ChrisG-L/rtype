@@ -11,7 +11,7 @@
 #include <memory>
 
 #include "IWindow.hpp"
-
+#include "core/IRenderer.hpp"
 #include "utils/Vecs.hpp"
 
 
@@ -22,19 +22,18 @@ namespace graphics {
 
             virtual const char* getName() const = 0;
             
-            virtual std::unique_ptr<IWindow> createWindow(
+            virtual std::shared_ptr<IWindow> createWindow(
                 Vec2u winSize,
                 const std::string& name
+            ) = 0;
+
+            virtual std::shared_ptr<core::IRenderer> createRenderer(
+                std::shared_ptr<graphics::IWindow> window
             ) = 0;
     };
 }
 
-extern "C" {
-    graphics::IGraphicPlugin* createGraphPlugin();
-
-    // Add destroy plugin
-    const char* getPluginName();
-    const char* getPluginVersion();
-}
+typedef graphics::IGraphicPlugin* (*create_t)();
+typedef void (*destroy_t)(graphics::IGraphicPlugin*);
 
 #endif /* !IGRAPHICPLUGIN_HPP_ */
