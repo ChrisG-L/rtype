@@ -8,11 +8,13 @@
 #ifndef ENGINE_HPP_
 #define ENGINE_HPP_
 
+#include <dlfcn.h>
 #include <memory>
 
 #include "IEngine.hpp"
 #include "GameLoop.hpp"
 #include "IRenderer.hpp"
+#include "DynamicLib.hpp"
 #include "../graphics/IWindow.hpp"
 #include "../network/TCPClient.hpp"
 
@@ -31,7 +33,9 @@ namespace core {
         private:
             std::shared_ptr<graphics::IWindow>  _window;
             std::unique_ptr<GameLoop> _gameLoop;
+            std::unique_ptr<DynamicLib> _dynamicLib;
             std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
+            graphics::IGraphicPlugin* _graphicPlugin = nullptr;
     };
 }
 

@@ -19,9 +19,8 @@ class SceneManager
         SceneManager();
         ~SceneManager();
         void changeScene(std::unique_ptr<IScene> newScene);
-        void handleEvent(const sf::Event &event);
         void update(float deltatime);
-        void render(std::shared_ptr<graphics::IWindow>  window);
+        void render();
 
         void setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient);
 

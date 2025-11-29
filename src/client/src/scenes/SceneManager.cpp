@@ -30,12 +30,6 @@ void SceneManager::setTCPClient(std::shared_ptr<client::network::TCPClient> tcpC
     _tcpClient = tcpClient;
 }
 
-void SceneManager::handleEvent(const sf::Event &event)
-{
-    if (_currentScene)
-        _currentScene->handleEvent(event);
-}
-
 void SceneManager::update(float _deltatime)
 {
     if (_currentScene) {
@@ -43,7 +37,7 @@ void SceneManager::update(float _deltatime)
     }
 }
 
-void SceneManager::render(std::shared_ptr<graphics::IWindow>  window)
+void SceneManager::render()
 {
     if (_currentScene)
         _currentScene->render();

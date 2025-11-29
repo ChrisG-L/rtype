@@ -18,13 +18,17 @@
 #include "IGameLoop.hpp"
 #include "core/IRenderer.hpp"
 #include "events/Event.hpp"
+#include "events/Signal.hpp"
 #include "scenes/LoginScene.hpp"
+#include "../graphics/Graphics.hpp"
+#include "graphics/IGraphicPlugin.hpp"
 
 namespace core {
     class GameLoop: public IGameLoop {
         public:
             GameLoop(
                 std::shared_ptr<graphics::IWindow> window,
+                graphics::IGraphicPlugin* _graphicPlugin,
                 std::shared_ptr<client::network::TCPClient> tcpClient = nullptr);
             ~GameLoop();
 

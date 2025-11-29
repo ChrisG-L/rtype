@@ -6,18 +6,21 @@
 */
 
 #include "core/GameLoop.hpp"
+#include "events/Event.hpp"
+#include <variant>
 
 namespace core {
     GameLoop::GameLoop(
         std::shared_ptr<graphics::IWindow> window,
+        graphics::IGraphicPlugin* _graphicPlugin,
         std::shared_ptr<client::network::TCPClient> tcpClient
     ): _deltatime(0.0f), _window(window), _renderer{}, _tcpClient(tcpClient)
     {
-        // _renderer = std::make_shared<SFMLRenderer>(_window); // DLOpe
+        _renderer = _graphicPlugin->createRenderer(_window); // DLOpe
         
         _sceneManager = std::make_unique<SceneManager>();
         _sceneManager->setTCPClient(_tcpClient);
-        // _sceneManager->changeScene(std::make_unique<LoginScene>(_renderer)); // avec le DLOpen
+        _sceneManager->changeScene(std::make_unique<LoginScene>(_renderer)); // avec le DLOpen
     }
 
     GameLoop::~GameLoop()
@@ -26,19 +29,23 @@ namespace core {
 
     void GameLoop::run()
     {
-    
+        Signal<events::Event> _onEvent;
+        // signal.connect([](const Event& event) {
+        //     std::visit(overloaded {
+        //         [](const KeyPressed& e) { /* handle key */ },
+        //         [](auto&) { /* ignore others */ }
+        //     }, event);
+        // });
+
         while (_window->isOpen()) {
             _deltatime = 0.0;
             if (_deltatime > 0.1f) _deltatime = 0.1f;
-            while (auto pEvent = _window->pollEvent()) {
-                // if (pEvent->is<Closed>()) {
-                    // std::cout << "closed!" << std::endl;
-                // }
-                // if (pEvent->is<evt::Event::>()) {
-                //     _window->close();
-                //     return;
-                // }
-                // _sceneManager->handleEvent(*pEvent.value());
+            events::Event event = _window->pollEvent();
+            if (std::holds_alternative<events::KeyPressed>(event)) {
+                auto& key = std::get<events::KeyPressed>(event);
+                if (key.key == events::Key::B) {
+                    std::cout << "key: " << std::endl;
+                }
             }
 
             // Update
@@ -46,7 +53,7 @@ namespace core {
 
             // Render
             clear();
-            _sceneManager->render(_window);
+            _sceneManager->render();
             display();
         }
     }
