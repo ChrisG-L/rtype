@@ -39,6 +39,14 @@
 
     [:octicons-arrow-right-24: Derniers conseils](learning/latest.md)
 
+-   :material-transit-connection-variant:{ .lg .middle } **Soldat Event Flow**
+
+    ---
+
+    Analyse le flux des événements et la communication client-serveur.
+
+    [:octicons-arrow-right-24: Dernier rapport](event-flow/latest.md)
+
 </div>
 
 ---
@@ -50,6 +58,7 @@
 | :material-sitemap: Architecture | Analyse structure, patterns, anti-patterns | :material-close: Non |
 | :material-code-review: Code Review | Review approfondie, suggestions | :material-close: Non |
 | :material-school: Mentor | Guide pédagogique, explications | :material-close: **Jamais** |
+| :material-transit-connection-variant: Event Flow | Analyse flux événements, communication réseau | :material-close: Non |
 
 ---
 
