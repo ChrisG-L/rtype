@@ -5,23 +5,22 @@ Bienvenue dans le système d'agents hiérarchique du projet R-Type ! Ce système
 ## 🏛️ Hiérarchie Militaire
 
 ```
-                    ⭐ GÉNÉRAL ⭐
-                  (general_agent.md)
-            Orchestrateur Suprême du Projet
-                          │
-      ┌───────────────────┼───────────────────┬──────────────┐
-      │                   │                   │              │
- 🎖️ CMD DOC         🎖️ CMD QUALITÉ    🎖️ CMD SÉCURITÉ  🎖️ CMD GIT
-(commander_         (commander_        (commander_       (commander_
-documentation.md)   quality.md)        security.md)      git.md)
-      │                   │                   │              │
-      └───────────┬───────┴───────┬───────────┴──────────────┘
-                  │               │
-            🎯 SOLDATS      🎯 SOLDATS
-             ADVISOR         REVIEW
-                  │               │
-            🎯 SOLDAT
-          ARCHITECTURE
+                         ⭐ GÉNÉRAL ⭐
+                       (general_agent.md)
+                 Orchestrateur Suprême du Projet
+                               │
+      ┌────────────┬───────────┼───────────┬────────────┬────────────┐
+      │            │           │           │            │            │
+ 🎖️ CMD DOC   🎖️ CMD      🎖️ CMD     🎖️ CMD      🎖️ CMD      🎖️ CMD
+(commander_   QUALITÉ     SÉCURITÉ    GIT         JIRA
+documentation)(quality)   (security)  (git)       (jira)
+      │            │           │           │            │
+      └────────────┴─────┬─────┴───────────┴────────────┘
+                         │
+                   🎯 SOLDATS
+            ┌────────────┼────────────┐
+            │            │            │
+        ADVISOR      REVIEW     ARCHITECTURE
 ```
 
 ## 📋 Agents Disponibles
@@ -135,6 +134,39 @@ documentation.md)   quality.md)        security.md)      git.md)
 - FEAT, FIX, DOCS, STYLE, REFACTOR, TEST, BUILD, PERF, CI, CHORE
 - Messages en français
 - Commits atomiques 100%
+
+---
+
+### 🎖️ Commandant Jira
+
+**Fichier** : `commander_jira.md`
+
+**Rôle** : Maître du Backlog et Orchestrateur Agile, responsable de la synchronisation Code ↔ Jira.
+
+**Responsabilités** :
+- Gestion complète du backlog Jira
+- Synchronisation code source ↔ tickets
+- Création/mise à jour des Epics, Stories, Tasks
+- Suivi Agile (vélocité, burndown, sprints)
+- Audit et traçabilité des tickets
+- Métriques et KPIs projet
+
+**Philosophie** : "Un ticket bien géré est un ticket qui se ferme"
+
+**Capacités** :
+- Audit complet docs/ vs src/ → Jira sync
+- Tickets rétroactifs (Done) et backlog (To Do)
+- Templates professionnels (User Story, AC, fichiers)
+- Requêtes JQL avancées
+- Intégration avec tous les Commandants
+
+**Configuration Jira** :
+```yaml
+Projet: KAN (My Software Team)
+Cloud: epitech-team-w5qkn5hj.atlassian.net
+Epics: KAN-5 à KAN-14 (10 domaines)
+Tickets: 79 tickets synchronisés
+```
 
 ---
 
@@ -279,11 +311,31 @@ documentation.md)   quality.md)        security.md)      git.md)
    - CMD Qualité : Métriques qualité
    - CMD Sécurité : Audit sécurité
    - CMD Git : Analyse historique
+   - CMD Jira : Sync tickets ↔ code
    - Soldat Architecture : État architecture
 
 3. Général compile rapport global
 
 4. Actions prioritaires identifiées
+```
+
+### Scénario 5 : Synchronisation Jira
+
+```
+1. "Commandant Jira, audit complet docs vs src"
+   └─> Analyse documentation planifiée vs code implémenté
+
+2. CMD Jira identifie les écarts :
+   - Fonctionnalités terminées sans ticket
+   - Tickets sans code correspondant
+   - Features planifiées non implémentées
+
+3. CMD Jira synchronise :
+   - Crée tickets rétroactifs (→ Done)
+   - Crée tickets backlog (→ To Do)
+   - Met à jour les Epics
+
+4. Rapport de synchronisation complet
 ```
 
 ---
@@ -301,6 +353,9 @@ documentation.md)   quality.md)        security.md)      git.md)
 - "Commandant Qualité, analyse qualité du code"
 - "Commandant Sécurité, audit sécurité"
 - "Commandant Git, analyse mes changements"
+- "Commandant Jira, audit et sync Jira"
+- "Commandant Jira, crée un ticket pour [feature]"
+- "Commandant Jira, rapport de vélocité sprint"
 
 ### Soldats
 - "Soldat Advisor, analyse [fichier/module] et recommande améliorations"
@@ -385,6 +440,8 @@ Documentation toujours synchronisée avec le code via Commandant Documentation.
 
 **CMD Git** : "Clarté, Atomicité, Histoire"
 
+**CMD Jira** : "Un ticket bien géré est un ticket qui se ferme"
+
 **Soldat Advisor** : "Guide, N'impose Pas. Explique, Ne Code Pas."
 
 **Soldat Code Review** : "Critique Constructive, Jamais Destructive"
@@ -402,6 +459,7 @@ Le système est un succès si :
 - ✅ **Documentation** : > 90% modules documentés
 - ✅ **Sécurité** : 0 vulnérabilité critique
 - ✅ **Git** : 100% commits atomiques convention AREA
+- ✅ **Jira** : 100% tickets synchronisés avec le code
 - ✅ **Apprentissage** : Développeur autonome et compétent
 
 ---
