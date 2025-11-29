@@ -36,6 +36,7 @@ add_executable(rtype_client
     src/core/Engine.cpp
     src/core/GameLoop.cpp
     src/core/Logger.cpp
+    src/core/DynamicLib.cpp
     src/graphics/Graphics.cpp
     src/network/TCPClient.cpp
     src/scenes/SceneManager.cpp
