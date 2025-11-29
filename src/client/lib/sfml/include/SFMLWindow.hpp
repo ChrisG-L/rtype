@@ -24,12 +24,15 @@ class SFMLWindow: public graphics::IWindow {
         Vec2u getSize() const override;
         bool isOpen() override;
         void close() override;
-        bool pollEvent() override;
+        events::Event pollEvent() override;
 
         void draw(const graphics::IDrawable& drawable) override;
+        void draw(sf::Sprite& sprite);
         void drawRect(float x, float y, float width, float height, rgba color) override;
         void drawImg(graphics::IDrawable, float x, float y, float scaleX, float scaleY) override;
-
+    
+        void* getNativeHandle() override;
+    
         void clear() override;
         void display() override;
 

@@ -24,11 +24,14 @@ namespace graphics {
             virtual Vec2u getSize() const = 0;
             virtual bool isOpen() = 0;
             virtual void close() = 0;
-            virtual bool pollEvent() = 0;
+            virtual events::Event pollEvent() = 0;
 
             virtual void draw(const IDrawable& drawable) = 0;
             virtual void drawRect(float x, float y, float width, float height, rgba color) = 0;
             virtual void drawImg(graphics::IDrawable, float x, float y, float scaleX, float scaleY) = 0;
+
+            virtual void* getNativeHandle() = 0;
+ 
             virtual void clear() = 0;
             virtual void display() = 0;
 
