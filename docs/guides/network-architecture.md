@@ -1,8 +1,8 @@
 # Architecture Réseau R-Type
 
-**État:** ✅ Implémenté - Fondations UDP/TCP prêtes
-**Version:** 0.2.0
-**Dernière mise à jour:** 11 janvier 2025
+**État:** ✅ Implémenté - Protocole binaire TCP opérationnel
+**Version:** 0.3.0
+**Dernière mise à jour:** 30 novembre 2025
 
 ---
 
@@ -256,28 +256,70 @@ void Session::do_read() {
 }
 ```
 
-### Format des Messages TCP (Planifié)
+### Format des Messages TCP (Implémenté)
 
-```json
-{
-  "type": "LOGIN",
-  "data": {
-    "username": "player1",
-    "password": "hashed_password"
-  }
-}
+Le protocole TCP utilise un format **binaire** avec header + payload, défini dans `src/common/protocol/Protocol.hpp`:
+
+#### Structure Header (6 bytes)
+
+```
+┌─────────────────────────────────────┐
+│ Header (6 bytes)                     │
+├─────────────────────────────────────┤
+│ Type (2 bytes)   │ uint16_t (big-endian) │
+├──────────────────┼────────────────────────┤
+│ PayloadSize (4B) │ uint32_t (big-endian) │
+└─────────────────────────────────────┘
 ```
 
-**Réponse:**
-```json
-{
-  "type": "LOGIN_RESPONSE",
-  "status": "OK",
-  "data": {
-    "token": "jwt_token_here",
-    "userId": "507f1f77bcf86cd799439011"
-  }
-}
+#### Types de Messages
+
+| Type | Code | Description |
+|------|------|-------------|
+| HeartBeat | 0x0001 | Ping/pong |
+| Login | 0x0010 | Demande de login |
+| LoginAck | 0x0011 | Réponse login |
+| Register | 0x0020 | Demande d'inscription |
+| RegisterAck | 0x0021 | Réponse inscription |
+
+#### LoginMessage (287 bytes)
+
+```
+┌─────────────────────────────────────┐
+│ LoginMessage (287 bytes)             │
+├─────────────────────────────────────┤
+│ username (32 bytes) │ char[32]       │
+├─────────────────────┼────────────────┤
+│ password (255 bytes)│ char[255]      │
+└─────────────────────────────────────┘
+```
+
+#### RegisterMessage (542 bytes)
+
+```
+┌─────────────────────────────────────┐
+│ RegisterMessage (542 bytes)          │
+├─────────────────────────────────────┤
+│ username (32 bytes) │ char[32]       │
+├─────────────────────┼────────────────┤
+│ email (255 bytes)   │ char[255]      │
+├─────────────────────┼────────────────┤
+│ password (255 bytes)│ char[255]      │
+└─────────────────────────────────────┘
+```
+
+#### Exemple de Flux
+
+```cpp
+// Envoi d'un LoginMessage
+Header head = {.type = 0x0011, .payload_size = 287};
+LoginMessage login = {.username = "player1", .password = "secret"};
+
+// Sérialisation (network byte order)
+head.to_bytes(buffer);
+login.to_bytes(buffer + 6);
+
+// Envoi: 6 bytes header + 287 bytes payload = 293 bytes total
 ```
 
 ---
@@ -537,16 +579,17 @@ telnet localhost 4123
 
 ## 📝 Notes
 
-> ⚠️ **État Actuel:**
+> ✅ **État Actuel:**
 >
-> L'infrastructure réseau est **fonctionnelle mais basique**:
+> L'infrastructure réseau TCP est **opérationnelle avec protocole binaire**:
 > - ✅ UDPServer écoute et reçoit paquets
 > - ✅ TCPServer accepte connexions et crée sessions
-> - ❌ Pas de protocole défini (juste echo)
-> - ❌ Pas d'intégration avec Use Cases (direct)
-> - ❌ Pas de gestion des sessions
+> - ✅ Protocole binaire implémenté (Header + Payload)
+> - ✅ Messages Login/Register avec sérialisation
+> - ✅ Intégration avec Use Cases (Login, Register)
+> - ⏳ Gestion des sessions (en cours)
 >
-> **Prochaine itération:** Implémenter le protocole réseau R-Type complet
+> **Prochaine itération:** Implémenter HeartBeat et gestion sessions
 
 > 💡 **Design Decision - Pourquoi même port pour UDP/TCP?**
 >
@@ -560,6 +603,6 @@ telnet localhost 4123
 
 ---
 
-**Dernière révision:** 11/01/2025
-**Auteur:** Agent Documentation + Reine des Abeilles 👑
-**Statut:** ✅ À jour avec le code (v0.2.0)
+**Dernière révision:** 30/11/2025
+**Auteur:** Agent Documentation + Claude Code
+**Statut:** ✅ À jour avec le code (v0.3.0)

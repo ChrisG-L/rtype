@@ -6,10 +6,10 @@
 
     | Attribut | Valeur |
     |:---------|:-------|
-    | **Date** | 2025-11-26 |
+    | **Date** | 2025-11-30 |
     | **Type** | Audit Multi-Niveaux Complet |
     | **Statut** | :material-alert-circle:{ .status-warning } Action Requise |
-    | **Score Global** | **5.5/10** |
+    | **Score Global** | **6.0/10** (+0.5 protocole binaire, fix Register) |
 
 </div>
 
@@ -67,7 +67,7 @@
 
 ### :material-shield-alert: Vulnérabilités de Sécurité
 
-!!! danger "5 VULNÉRABILITÉS CRITIQUES DÉTECTÉES"
+!!! danger "4 VULNÉRABILITÉS CRITIQUES RESTANTES (1 corrigée)"
 
     Ces vulnérabilités **bloquent tout déploiement en production**.
 
@@ -76,7 +76,7 @@
 | 1 | **MongoDB credentials en dur** | `GameBootstrap.hpp:30` | Accès BD complet | :material-alert-decagram:{ .status-critical } P0 |
 | 2 | **Hachage sans salt** | `PasswordUtils.cpp` | Compromission massive | :material-alert-decagram:{ .status-critical } P0 |
 | 3 | **Passwords dans logs** | `Login.cpp:21` | Exposition credentials | :material-alert-decagram:{ .status-critical } P0 |
-| 4 | **Logique Register inversée** | `Register.cpp` | Bypass unicité | :material-alert-decagram:{ .status-critical } P0 |
+| ~~4~~ | ~~**Logique Register inversée**~~ | ~~`Register.cpp`~~ | ~~Bypass unicité~~ | :material-check-circle:{ .status-ok } CORRIGÉ |
 | 5 | **Password::verify() cassée** | `Password.cpp:26` | Auth non fonctionnelle | :material-alert-decagram:{ .status-critical } P0 |
 
 ??? danger "Détails - MongoDB Credentials"
@@ -234,7 +234,7 @@ pie showData
     - [ ] `SÉCURITÉ`: Migrer MongoDB URI vers variable d'environnement
     - [ ] `SÉCURITÉ`: Implémenter salt dans PasswordUtils (Argon2/bcrypt)
     - [ ] `SÉCURITÉ`: Supprimer `std::cout << password`
-    - [ ] `SÉCURITÉ`: Corriger Register.cpp (`!has_value()` → `has_value()`)
+    - [x] `SÉCURITÉ`: ~~Corriger Register.cpp~~ (`!has_value()` → `has_value()`) **FAIT**
     - [ ] `SÉCURITÉ`: Corriger Password::verify() (comparer avec `_passwordHash`)
 
 ### Phase 2 - BLOCKERS :material-alert:{ .status-warning }

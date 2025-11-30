@@ -7,6 +7,67 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [0.4.0] - 2025-11-30 {#040---2025-11-30}
+
+### ✨ Ajouté
+
+#### Protocole Binaire Client-Serveur
+- **Protocol.hpp** - Nouveau module partagé (`src/common/protocol/`)
+  - Énumération `MessageType` (HeartBeat, Login, Register, Ack)
+  - Structure `Header` (6 bytes: type uint16 + payload_size uint32)
+  - Sérialisation network byte order (bswap16/32)
+  - Fichier : `src/common/protocol/Protocol.hpp`
+
+- **Messages d'Authentification Binaires**
+  - `LoginMessage` (287 bytes: username[32] + password[255])
+  - `RegisterMessage` (542 bytes: username[32] + email[255] + password[255])
+  - Méthodes `to_bytes()` et `from_bytes()` pour chaque message
+
+#### Client TCP avec Protocole Binaire
+- **TCPClient** refactorisé pour protocole binaire
+  - Accumulator pour buffering des messages partiels
+  - Méthodes `sendLoginData()` et `sendRegisterData()` avec paramètres
+  - Setters `setLoginCredentials()` et `setRegisterCredentials()`
+  - Parsing header et routing par `MessageType`
+  - Fichiers : `src/client/include/network/TCPClient.hpp`, `src/client/src/network/TCPClient.cpp`
+
+### 🐛 Corrigé
+
+#### Sécurité (P0)
+- **Register.cpp** - Correction logique détection doublons
+  - `!playerOptByName.has_value()` → `playerOptByName.has_value()`
+  - `!playerOptByEmail.has_value()` → `playerOptByEmail.has_value()`
+  - Prévient les registrations dupliquées
+
+### 🔄 Modifié
+
+#### Serveur TCP Binaire
+- **Command struct** refactorisée
+  - `type` : `string` → `uint16_t`
+  - `args` : `vector<string>` → `buf` : `vector<uint8_t>`
+- **TCPServer** avec accumulator et sérialisation binaire
+- **ExecuteAuth** désérialise `LoginMessage`/`RegisterMessage`
+
+#### Use Case Login
+- Paramètre `email` → `username` pour correspondre au protocole
+
+### 🔧 Build & Environnement
+
+- **CMakeLists.txt** : Include path `src/common/protocol` (client + serveur)
+- **flake.nix** : Fix clang-tools (`llvmPackages.clang-tools`)
+- **Environment X11/Wayland** : `XLIB_SKIP_ARGB_VISUALS=1`
+- **OpenGL NVIDIA** : LD_LIBRARY_PATH dans `.envrc`
+- **vcpkg** : Mise à jour sous-module
+
+### 📚 Documentation
+
+- **Architecture Réseau** (`docs/guides/network-architecture.md`)
+  - Format messages TCP : JSON planifié → Binaire implémenté
+  - Documentation Header/LoginMessage/RegisterMessage
+  - Mise à jour statut et version (v0.3.0)
+
+---
+
 ## [0.3.0] - 2025-01-17 {#030---2025-01-17}
 
 ### ✨ Ajouté
