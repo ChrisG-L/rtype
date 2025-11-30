@@ -28,10 +28,10 @@ void Boot::core()
         logger->info("Disconnected from server");
     });
     tcpClient->connect("127.0.0.1", 4123); // TODO: A voir si on laisse hardcoder l'ip et le port
-
+    while(1) {}
     // Le moteur démarre sans attendre la connexion
-    engine->initialize(tcpClient);
-    engine->run();
+    // engine->initialize(tcpClient);
+    // engine->run();
 
     logger->info("R-Type client shutting down...");
 }

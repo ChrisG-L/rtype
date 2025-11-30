@@ -28,7 +28,7 @@ namespace infrastructure::adapters::in::network {
 
         public:
             explicit UDPServer(boost::asio::io_context& io_ctx);
-            void start(boost::asio::io_context& io_ctx);
+            void start();
             void run();
             void stop();
     };

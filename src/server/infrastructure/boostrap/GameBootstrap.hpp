@@ -39,27 +39,19 @@ namespace infrastructure::boostrap {
 
                 auto userRepository = std::make_shared<MongoDBUserRepository>(_mongoDB);
 
-                // 1. Créer le contexte IO (boucle événementielle Boost.Asio)
                 boost::asio::io_context io_ctx;
 
                 TCPServer tcpServer(io_ctx, userRepository);
+                UDPServer udpServer(io_ctx);
 
                 tcpServer.start();
+                udpServer.start();
 
-                std::cout << "Serveur prêt. En attente de connexions..." << std::endl;
-
+                std::cout << "Serveur UDP prêt. En attente de connexions..." << std::endl;
+                std::cout << "Serveur TCP prêt. En attente de connexions..." << std::endl;
+                
                 tcpServer.run();
-
-                // // 2. Créer le serveur UDP
-                // UDPServer udpServer(io_ctx);
-
-                // // 3. Démarrer l'écoute
-                // udpServer.start(io_ctx);
-
-                // std::cout << "Serveur prêt. En attente de connexions..." << std::endl;
-
-                // // 4. Lancer la boucle événementielle (bloquant)
-                // udpServer.run();
+                udpServer.run();
             }
 
         public:

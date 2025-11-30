@@ -25,6 +25,7 @@ enum class MessageType: uint16_t {
     RegisterAck = 0x0021,
     Basic = 0x0030,
     BasicAck = 0x0031,
+    MovePlayer = 0x0040,
 };
 
 struct Header {
@@ -49,6 +50,32 @@ struct Header {
         std::memcpy(&net_size, buf + 2, 4);
         head.type = swap16(net_type),
         head.payload_size = swap32(net_size);
+        return head;
+    }
+};
+
+struct UDPHeader {
+    uint16_t type;
+    uint16_t sequence_num;
+
+    static constexpr size_t WIRE_SIZE = 4;
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_type = swap16(static_cast<uint16_t>(type));
+        uint32_t net_sequence_num = swap16(static_cast<uint16_t>(sequence_num));
+    
+        std::memcpy(buf, &net_type, 2);
+        std::memcpy(buf + 2, &net_sequence_num, 2);
+    }
+
+    static UDPHeader from_bytes(const uint8_t* buf) {
+        UDPHeader head;
+        uint16_t net_type;
+        uint32_t net_sequence_num;
+        std::memcpy(&net_type, buf, 2);
+        std::memcpy(&net_sequence_num, buf + 2, 2);
+        head.type = swap16(net_type),
+        head.sequence_num = swap16(net_sequence_num);
         return head;
     }
 };

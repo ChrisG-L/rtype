@@ -9,11 +9,11 @@
 
 namespace infrastructure::adapters::in::network {
     UDPServer::UDPServer(boost::asio::io_context& io_ctx)
-        : _io_ctx(io_ctx), _socket(io_ctx, udp::endpoint(udp::v4(), 4123)) {
-        std::cout << "Serveur UDP démarré sur le port 4123\n";
+        : _io_ctx(io_ctx), _socket(io_ctx, udp::endpoint(udp::v4(), 4124)) {
+        std::cout << "Serveur UDP démarré sur le port 4124\n";
     }
 
-    void UDPServer::start(boost::asio::io_context& io_ctx) {
+    void UDPServer::start() {
         start_receive();
     }
 
