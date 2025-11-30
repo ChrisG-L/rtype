@@ -92,7 +92,9 @@ endif()
 
 target_include_directories(rtype_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/src/common/protocol
+    )
 
 target_link_libraries(rtype_server PRIVATE
     # rtype_proto
