@@ -11,7 +11,6 @@
 #include <boost/asio.hpp>
 #include <string>
 #include <cstdint>
-#include <iostream>
 #include <thread>
 #include <mutex>
 #include <queue>
