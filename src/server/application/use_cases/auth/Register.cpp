@@ -15,14 +15,14 @@ namespace application::use_cases::auth {
         const std::string& email,
         const std::string& unHashedPassword
     ) {
-        auto playerOptByName = _userRepository->findByName(email);
-        if (!playerOptByName.has_value()) {
+        auto playerOptByName = _userRepository->findByName(username);
+        if (playerOptByName.has_value()) {
             std::cout << "Name already exist" << std::endl; 
             return;
         }
 
         auto playerOptByEmail = _userRepository->findByEmail(email);
-        if (!playerOptByEmail.has_value()) {
+        if (playerOptByEmail.has_value()) {
             std::cout << "Email already exist" << std::endl; 
             return;
         }

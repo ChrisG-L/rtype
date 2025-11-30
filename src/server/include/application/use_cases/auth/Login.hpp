@@ -23,7 +23,7 @@ namespace application::use_cases::auth {
 
         public:
             explicit Login(std::shared_ptr<IUserRespository> userRepository);
-            void execute(const std::string& email, const std::string& password);
+            void execute(const std::string& username, const std::string& password);
     };
 }
 #endif /* !LOGIN_HPP_ */
