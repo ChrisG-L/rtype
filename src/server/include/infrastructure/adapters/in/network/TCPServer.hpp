@@ -14,6 +14,7 @@
 #include <memory>
 
 #include "protocol/CommandParser.hpp"
+#include "Protocol.hpp"
 
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
 #include "infrastructure/adapters/in/network/execute/Execute.hpp"
@@ -25,12 +26,12 @@ namespace infrastructure::adapters::in::network {
     class Session: public std::enable_shared_from_this<Session> {
         private:
             tcp::socket _socket;
-            static constexpr std::size_t max_length = 1024;
-            char _data[max_length];
+            char _readBuffer[BUFFER_SIZE];
 
             void do_read();
-            void do_write(std::size_t length);
-            void handle_command(std::size_t length);
+            void do_write(const std::string& message, const MessageType&);
+            void handle_command(const Header&);
+            std::vector<uint8_t> _accumulator;
 
         public:
             Session(tcp::socket socket, std::shared_ptr<MongoDBUserRepository> userRepository);

@@ -10,10 +10,11 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 struct Command {
-    std::string type;
-    std::vector<std::string> args;
+    uint16_t type;
+    std::vector<uint8_t> buf;
 };
 
 #endif /* !COMMAND_HPP_ */

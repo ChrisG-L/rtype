@@ -6,6 +6,8 @@
 */
 
 #include "infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp"
+#include "Protocol.hpp"
+#include "application/use_cases/auth/Login.hpp"
 
 namespace infrastructure::adapters::in::network::execute::auth {
     ExecuteAuth::ExecuteAuth(
@@ -14,9 +16,9 @@ namespace infrastructure::adapters::in::network::execute::auth {
         std::shared_ptr<Register> registerUser
     ): _cmd(cmd), _login(loginUser), _register(registerUser)
     {
-        if (_cmd.type == "LOGIN") {
+        if (_cmd.type == static_cast<uint16_t>(MessageType::LoginAck)) {
             login();
-        } else if (_cmd.type == "REGISTER") {
+        } else if (_cmd.type == static_cast<uint16_t>(MessageType::RegisterAck)) {
             signupUser();
         } else {
             std::cout << "COMMAND NOT FOUND!" << std::endl;
@@ -24,23 +26,13 @@ namespace infrastructure::adapters::in::network::execute::auth {
     }
 
     void ExecuteAuth::login() {
-        // Non implementé pour le moment
+        LoginMessage login = LoginMessage::from_bytes(_cmd.buf.data());
+        _login->execute(login.username, login.password);
     }
 
     void ExecuteAuth::signupUser() {
-        std::string username;
-        std::string email;
-        std::string unHashedPassword;
-        auto it = _cmd.args;
-        for (size_t i = 0; i < it.size(); i++) {
-            if (i == 1)
-                username = it[i];
-            else if (i == 2)
-                email = it[i];
-            else if (i == 3)
-                unHashedPassword = it[i];
-        }
-        _register->execute(username, email, unHashedPassword);
+        RegisterMessage registerUser = RegisterMessage::from_bytes(_cmd.buf.data());
+        _register->execute(registerUser.username, registerUser.email, registerUser.password);
     }
 }
 

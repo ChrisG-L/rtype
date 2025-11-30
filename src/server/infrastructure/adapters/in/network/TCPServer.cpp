@@ -6,7 +6,11 @@
 */
 
 #include "infrastructure/adapters/in/network/TCPServer.hpp"
+#include "Protocol.hpp"
+#include "infrastructure/adapters/in/network/protocol/Command.hpp"
 #include "infrastructure/logging/Logger.hpp"
+#include <cstring>
+#include <vector>
 
 namespace infrastructure::adapters::in::network {
     // Session implementation
@@ -21,38 +25,48 @@ namespace infrastructure::adapters::in::network {
         auto self = shared_from_this();
         auto logger = server::logging::Logger::getNetworkLogger();
 
-        // changer _data en fonction de la réponse
         _socket.async_read_some(
-            boost::asio::buffer(_data, max_length),
-            [this, self, logger](boost::system::error_code ec, std::size_t length) {
+            boost::asio::buffer(_readBuffer, BUFFER_SIZE),
+            [this, self, logger](boost::system::error_code ec, std::size_t bytes) {
                 if (!ec) {
-                    logger->debug("Received: {}", std::string(_data, length));
-                    // do_write(length);
-                    handle_command(length);
+                    _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
+                    if (_accumulator.size() >= Header::WIRE_SIZE) {
+                        Header head = Header::from_bytes(_accumulator.data());
+                        handle_command(head);
+                    }
+                    logger->debug("Received: {} bytes", bytes);
                     do_read();
                 }
             }
         );
     }
 
-    void Session::do_write(std::size_t length) {
+    void Session::do_write(const std::string& message, const MessageType& msgType) {
+        struct Header head = {
+            .type = static_cast<uint16_t>(msgType),
+            .payload_size = static_cast<uint32_t>(message.length())
+        };
+        const size_t totalSize = Header::WIRE_SIZE + message.length();
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+        head.to_bytes(buf->data());
+        memcpy(buf->data() + Header::WIRE_SIZE, message.c_str(), message.length());
+
         auto self = shared_from_this();
         boost::asio::async_write(
             _socket,
-            boost::asio::buffer(_data, length),
-            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+            boost::asio::buffer(buf->data(), totalSize),
+            [this, self, buf](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
-                    do_read();
+                    // do_read();
                 }
             });
     }
 
-    void Session::handle_command(std::size_t length) {
+    void Session::handle_command(const Header& head) {
         using infrastructure::adapters::in::network::execute::Execute;
 
-        infrastructure::adapters::in::network::protocol::CommandParser cmdParser;
-        Command cmd = cmdParser.parse(std::string(_data, length));
-        std::vector<std::string> args = {"LOGIN", "killian", "PLUENET"};
+        Command cmd = {.type = head.type, .buf = std::vector<uint8_t>(_accumulator.begin() + Header::WIRE_SIZE, _accumulator.end())};
         Execute execute(cmd, _userRepository);
     }
 

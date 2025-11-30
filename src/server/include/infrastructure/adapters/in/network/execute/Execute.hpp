@@ -10,6 +10,7 @@
 
 #include "../protocol/Command.hpp"
 #include "auth/ExecuteAuth.hpp"
+#include "Protocol.hpp"
 
 namespace infrastructure::adapters::in::network::execute {
     using application::use_cases::auth::Login;

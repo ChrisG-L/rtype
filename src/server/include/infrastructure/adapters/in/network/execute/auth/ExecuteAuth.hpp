@@ -9,13 +9,14 @@
 #define EXECUTEAUTH_HPP_
 
 #include <iostream>
+#include <memory>
 
 #include "../../protocol/Command.hpp"
 #include "application/use_cases/auth/Login.hpp"
 #include "application/use_cases/auth/Register.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
+#include "Protocol.hpp"
 
-#include <memory>
 
 
 namespace infrastructure::adapters::in::network::execute::auth {

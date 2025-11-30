@@ -86,6 +86,7 @@ namespace infrastructure::adapters::out::persistence {
 
     std::optional<User> MongoDBUserRepository::findByName(const std::string& username) {
         std::optional<User> user;
+        std::cout << "username: " << username << std::endl;
         auto result = _collection->find_one(make_document(kvp("username", username)));
         if (result.has_value())
             user = documentToUser(result->view());
