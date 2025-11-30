@@ -16,7 +16,8 @@
         devShells.default = pkgs.mkShell.override { inherit stdenv; } {
           
           nativeBuildInputs = with pkgs; [
-            cmake ninja pkg-config git unzip zip vcpkg clang-tools
+            cmake ninja pkg-config git unzip zip vcpkg
+            llvmPackages.clang-tools
           ];
 
           buildInputs = with pkgs; [
@@ -26,6 +27,7 @@
             gcc.cc.lib cacert openssl
           ];
           hardeningDisable = [ "fortify" ];
+          
           shellHook = ''
             # --- FIX SSL (MongoDB) ---
             export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -34,26 +36,29 @@
             # --- FIX VCPKG ---
             export VCPKG_FORCE_SYSTEM_BINARIES=1
 
-            # --- FIX GRAPHIQUE & EXECUTION (BadMatch / libstdc++) ---
-            # 1. On ajoute les drivers OpenGL du système (/run/opengl-driver/lib)
-            # 2. On ajoute toutes les libs X11 et GL au LD_LIBRARY_PATH
-            # 3. On garde gcc.cc pour vcpkg
-            export LD_LIBRARY_PATH="/run/opengl-driver/lib:$LD_LIBRARY_PATH"
-            
-            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
+            # --- FIX CRITIQUE POUR HYPRLAND / SFML ---
+            # C'est cette ligne qui corrige l'erreur BadMatch (Major opcode 78)
+            # Elle force X11 à ne pas utiliser de visuels transparents complexes
+            export XLIB_SKIP_ARGB_VISUALS=1
+
+            # --- FIX GRAPHIQUE & LD_LIBRARY_PATH ---
+            # On combine tout en une seule étape propre
+            export LD_LIBRARY_PATH="/run/opengl-driver/lib:${pkgs.lib.makeLibraryPath [
               pkgs.libGL
               pkgs.libGLU
               pkgs.xorg.libX11
               pkgs.xorg.libXcursor
               pkgs.xorg.libXrandr
               pkgs.xorg.libXi
-              pkgs.gcc.cc        # Pour le C++ standard
-              pkgs.systemd       # Pour libudev
+              pkgs.xorg.libXext    # Ajouté par sécurité
+              pkgs.xorg.libXinerama # Ajouté par sécurité
+              pkgs.gcc.cc
+              pkgs.systemd
             ]}:$LD_LIBRARY_PATH"
 
             echo "🚀 Environnement Clang (Flake) chargé !"
             echo "   Compilateur : $(clang++ --version | head -n1)"
-            echo "   Fix Graphique : Appliqué (/run/opengl-driver/lib)"
+            echo "   Fix Hyprland : XLIB_SKIP_ARGB_VISUALS=1 appliqué"
           '';
         };
       }

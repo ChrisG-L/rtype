@@ -33,3 +33,4 @@ log.txt
 compile_commands.json
 logs/server.log
 output.txt
+.direnv/flake-profile-2-link
