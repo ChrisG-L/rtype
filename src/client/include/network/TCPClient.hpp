@@ -17,10 +17,11 @@
 #include <queue>
 #include <functional>
 
+#include "Protocol.hpp"
+
 namespace client::network
 {
     using boost::asio::ip::tcp;
-    static constexpr std::size_t BUFFER_SIZE = 4096;
 
     class TCPClient
     {
@@ -46,6 +47,13 @@ namespace client::network
         void setOnDisconnected(const OnDisconnectedCallback& callback);
         void setOnReceive(const OnReceiveCallback& callback);
         void setOnError(const OnErrorCallback& callback);
+
+        void sendLoginData(const std::string& username, const std::string& password);
+        void sendRegisterData(const std::string& username, const std::string& email, const std::string& password);
+
+        // Setters pour credentials en attente (utilisés lors de la réponse serveur)
+        void setLoginCredentials(const std::string& username, const std::string& password);
+        void setRegisterCredentials(const std::string& username, const std::string& email, const std::string& password);
 
     private:
         // Méthodes async
@@ -73,12 +81,18 @@ namespace client::network
 
         // Buffer de réception
         char _readBuffer[BUFFER_SIZE];
+        std::vector<uint8_t> _accumulator;
 
         // Callbacks
         OnConnectedCallback _onConnected;
         OnDisconnectedCallback _onDisconnected;
         OnReceiveCallback _onReceive;
         OnErrorCallback _onError;
+
+        // Credentials en attente pour authentification
+        std::string _pendingUsername;
+        std::string _pendingPassword;
+        std::string _pendingEmail;
     };
 
 }

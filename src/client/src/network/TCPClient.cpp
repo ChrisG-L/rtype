@@ -6,7 +6,12 @@
 */
 
 #include "network/TCPClient.hpp"
+#include "Protocol.hpp"
 #include "core/Logger.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
+#include <unistd.h>
 
 namespace client::network
 {
@@ -205,16 +210,18 @@ namespace client::network
     void TCPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
-
         if (!error) {
-            std::string message(_readBuffer, bytes);
-
-            logger->debug("Received {} bytes", bytes);
-
-            if (_onReceive) {
-                _onReceive(message);
+            
+            _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
+            if (_accumulator.size() >= Header::WIRE_SIZE) {
+              Header head = Header::from_bytes(_accumulator.data());
+              std::cout << "type: " << head.type << ", size: " << head.payload_size << std::endl;
+            if (head.type == static_cast<uint16_t>(MessageType::Login))
+                sendLoginData(_pendingUsername, _pendingPassword);
+            else if (head.type == static_cast<uint16_t>(MessageType::Register)) {
+                sendRegisterData(_pendingUsername, _pendingEmail, _pendingPassword);
             }
-
+          }
             asyncRead();
         } else {
             if (error == boost::asio::error::eof) {
@@ -254,6 +261,71 @@ namespace client::network
             _isWriting = false;
             disconnect();
         }
+    }
+
+    void TCPClient::setLoginCredentials(const std::string& username, const std::string& password) {
+        std::scoped_lock lock(_mutex);
+        _pendingUsername = username;
+        _pendingPassword = password;
+    }
+
+    void TCPClient::setRegisterCredentials(const std::string& username, const std::string& email, const std::string& password) {
+        std::scoped_lock lock(_mutex);
+        _pendingUsername = username;
+        _pendingEmail = email;
+        _pendingPassword = password;
+    }
+
+    void TCPClient::sendLoginData(const std::string& username, const std::string& password) {
+        LoginMessage login;
+        std::strncpy(login.username, username.c_str(), sizeof(login.username) - 1);
+        login.username[sizeof(login.username) - 1] = '\0';
+        std::strncpy(login.password, password.c_str(), sizeof(login.password) - 1);
+        login.password[sizeof(login.password) - 1] = '\0';
+
+        Header head = {.type = static_cast<uint16_t>(MessageType::LoginAck), .payload_size = sizeof(login)};
+
+        const size_t totalSize = Header::WIRE_SIZE + sizeof(login);
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+        head.to_bytes(buf->data());
+        login.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), totalSize),
+            [this, buf](const boost::system::error_code &error, std::size_t) {
+                handleWrite(error);
+            }
+        );
+    }
+
+    void TCPClient::sendRegisterData(const std::string& username, const std::string& email, const std::string& password) {
+        RegisterMessage registerUser;
+        std::strncpy(registerUser.username, username.c_str(), sizeof(registerUser.username) - 1);
+        registerUser.username[sizeof(registerUser.username) - 1] = '\0';
+        std::strncpy(registerUser.email, email.c_str(), sizeof(registerUser.email) - 1);
+        registerUser.email[sizeof(registerUser.email) - 1] = '\0';
+        std::strncpy(registerUser.password, password.c_str(), sizeof(registerUser.password) - 1);
+        registerUser.password[sizeof(registerUser.password) - 1] = '\0';
+
+        Header head = {.type = static_cast<uint16_t>(MessageType::RegisterAck), .payload_size = sizeof(registerUser)};
+
+        const size_t totalSize = Header::WIRE_SIZE + sizeof(registerUser);
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+        head.to_bytes(buf->data());
+        registerUser.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), totalSize),
+            [this, buf](const boost::system::error_code &error, std::size_t) {
+                handleWrite(error);
+            }
+        );
     }
 
 }
