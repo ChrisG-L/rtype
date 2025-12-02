@@ -21,7 +21,7 @@ namespace domain::value_objects::user {
         public:
             explicit Password(const std::string& password);
             std::string value() const;
-            bool verify(std::string password);
+            bool verify(const std::string& hashedPassword, const std::string& password);
             bool operator==(const Password& other) const;
             bool operator!=(const Password& other) const;
     };

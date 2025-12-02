@@ -42,8 +42,8 @@ namespace domain::entities {
         return _lastLogin;
     }
 
-    bool User::verifyPassword(const std::string& password) {
-        return _passwordHash.verify(password);
+    bool User::verifyPassword(const std::string& hashPassword, const std::string& password) {
+        return _passwordHash.verify(hashPassword, password);
     }
 
     void User::updateLastLogin() {

@@ -6,6 +6,7 @@
 */
 
 #include "domain/value_objects/user/Password.hpp"
+#include <iostream>
 
 namespace domain::value_objects::user {
     void Password::validate(const std::string &password) {
@@ -22,8 +23,9 @@ namespace domain::value_objects::user {
         return _passwordHash;
     }
 
-    bool Password::verify(std::string password) {
-        if (utils::hashPassword(password) == password)
+    bool Password::verify(const std::string& hashedPassword, const std::string& password) {
+        std::string value = utils::hashPassword(password);
+        if (utils::hashPassword(password) == hashedPassword)
             return true;
         return false;
     }
