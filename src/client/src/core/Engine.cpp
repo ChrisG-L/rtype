@@ -13,6 +13,7 @@
 #include "core/DynamicLib.hpp"
 #include "graphics/Graphics.hpp"
 #include "graphics/IGraphicPlugin.hpp"
+#include "network/UDPClient.hpp"
 
 namespace core {
     Engine::Engine(): _dynamicLib(std::make_unique<DynamicLib>())
@@ -28,21 +29,25 @@ namespace core {
 
     void Engine::initialize()
     {
-        initialize(nullptr);
+        initialize(nullptr, nullptr);
     }
 
-    void Engine::initialize(std::shared_ptr<client::network::TCPClient> tcpClient)
+    void Engine::initialize(
+        std::shared_ptr<client::network::TCPClient> tcpClient,
+        std::shared_ptr<client::network::UDPClient> udpClient
+    )
     {
         _tcpClient = tcpClient;
+        _udpClient = udpClient;
 
         _graphicPlugin = _dynamicLib->openGraphicLib("librtype_sfml.so");
-        std::cout << _graphicPlugin->getName() << std::endl;
         _window = _graphicPlugin->createWindow({.x = 1920, .y = 1080}, "rtype");
-        _gameLoop = std::make_unique<GameLoop>(_window, _graphicPlugin, _tcpClient);
+        _gameLoop = std::make_unique<GameLoop>(_window, _graphicPlugin, _tcpClient, _udpClient);
     }
 
     void Engine::run()
     {
+        std::cout << "Inside engine run" << std::endl;
         _gameLoop->run();
     }
 }

@@ -13,8 +13,9 @@ namespace core {
     GameLoop::GameLoop(
         std::shared_ptr<graphics::IWindow> window,
         graphics::IGraphicPlugin* _graphicPlugin,
-        std::shared_ptr<client::network::TCPClient> tcpClient
-    ): _deltatime(0.0f), _window(window), _renderer{}, _tcpClient(tcpClient)
+        std::shared_ptr<client::network::TCPClient> tcpClient,
+        std::shared_ptr<client::network::UDPClient> udpClient
+    ): _deltatime(0.0f), _window(window), _renderer{}, _tcpClient(tcpClient), _udpClient(udpClient)
     {
         _renderer = _graphicPlugin->createRenderer(_window); // DLOpe
         
@@ -29,22 +30,24 @@ namespace core {
 
     void GameLoop::run()
     {
-        Signal<events::Event> _onEvent;
+        events::Event event;
         // signal.connect([](const Event& event) {
         //     std::visit(overloaded {
         //         [](const KeyPressed& e) { /* handle key */ },
         //         [](auto&) { /* ignore others */ }
         //     }, event);
         // });
+        std::cout << "inside RUN " << std::endl;
 
         while (_window->isOpen()) {
             _deltatime = 0.0;
             if (_deltatime > 0.1f) _deltatime = 0.1f;
-            events::Event event = _window->pollEvent();
+            event = _window->pollEvent();
             if (std::holds_alternative<events::KeyPressed>(event)) {
                 auto& key = std::get<events::KeyPressed>(event);
                 if (key.key == events::Key::B) {
                     std::cout << "key: " << std::endl;
+                    _udpClient->movePlayer(10, 15);
                 }
             }
 

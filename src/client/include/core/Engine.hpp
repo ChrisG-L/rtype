@@ -17,6 +17,7 @@
 #include "DynamicLib.hpp"
 #include "../graphics/IWindow.hpp"
 #include "../network/TCPClient.hpp"
+#include "../network/UDPClient.hpp"
 
 
 namespace core {
@@ -26,7 +27,10 @@ namespace core {
             ~Engine();
 
             void initialize() override;
-            void initialize(std::shared_ptr<client::network::TCPClient> tcpClient);
+            void initialize(
+                std::shared_ptr<client::network::TCPClient> tcpClient,
+                std::shared_ptr<client::network::UDPClient> udpClient
+            );
             void run() override;
 
         protected:
@@ -35,6 +39,7 @@ namespace core {
             std::unique_ptr<GameLoop> _gameLoop;
             std::unique_ptr<DynamicLib> _dynamicLib;
             std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
+            std::shared_ptr<client::network::UDPClient> _udpClient = nullptr;
             graphics::IGraphicPlugin* _graphicPlugin = nullptr;
     };
 }

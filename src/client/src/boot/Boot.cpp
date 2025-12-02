@@ -10,6 +10,7 @@
 
 Boot::Boot():
     tcpClient(std::make_unique<client::network::TCPClient>()),
+    udpClient(std::make_unique<client::network::UDPClient>()),
     engine(std::make_unique<core::Engine>())
 {
 }
@@ -20,18 +21,25 @@ void Boot::core()
 
     logger->info("R-Type client starting...");
 
-    // Configuration des callbacks réseau
     tcpClient->setOnConnected([logger]() {
-        logger->info("Connected to server!");
+        logger->info("Connected to server TCP!");
     });
     tcpClient->setOnDisconnected([logger]() {
-        logger->info("Disconnected from server");
+        logger->info("Disconnected from server TCP!");
     });
-    tcpClient->connect("127.0.0.1", 4123); // TODO: A voir si on laisse hardcoder l'ip et le port
-    while(1) {}
-    // Le moteur démarre sans attendre la connexion
-    // engine->initialize(tcpClient);
-    // engine->run();
+    tcpClient->connect("127.0.0.1", 4123);
+
+    udpClient->setOnConnected([logger]() {
+        logger->info("Connected to server UDP!");
+    });
+    udpClient->setOnDisconnected([logger]() {
+        logger->info("Disconnected from server UDP");
+    });
+
+    udpClient->connect(tcpClient, "127.0.0.1", 4124);
+
+    engine->initialize(tcpClient, udpClient);
+    engine->run();
 
     logger->info("R-Type client shutting down...");
 }
