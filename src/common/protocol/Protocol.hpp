@@ -11,7 +11,9 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <chrono>
 
+inline uint32_t swap64(uint32_t v) { return __builtin_bswap64(v); }
 inline uint32_t swap32(uint32_t v) { return __builtin_bswap32(v); }
 inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
 
@@ -25,29 +27,37 @@ enum class MessageType: uint16_t {
     RegisterAck = 0x0021,
     Basic = 0x0030,
     BasicAck = 0x0031,
-    MovePlayer = 0x0040,
+    Snapshop = 0x0040,
+    Player = 0x0050,
+    MovePlayer = 0x0060,
 };
 
 struct Header {
+    uint8_t isAuthenticated;
     uint16_t type;
     uint32_t payload_size;
 
-    static constexpr size_t WIRE_SIZE = 6;
+    static constexpr size_t WIRE_SIZE = 7;
 
     void to_bytes(uint8_t* buf) const {
+        uint8_t net_isAuthenticated = isAuthenticated;
         uint16_t net_type = swap16(static_cast<uint16_t>(type));
         uint32_t net_size = swap32(static_cast<uint32_t>(payload_size));
     
-        std::memcpy(buf, &net_type, 2);
-        std::memcpy(buf + 2, &net_size, 4);
+        std::memcpy(buf, &net_isAuthenticated, 1);
+        std::memcpy(buf + 1, &net_type, 2);
+        std::memcpy(buf + 2 + 1, &net_size, 4);
     }
 
     static Header from_bytes(const uint8_t* buf) {
         Header head;
+        uint8_t net_isAuthenticated;
         uint16_t net_type;
         uint32_t net_size;
-        std::memcpy(&net_type, buf, 2);
-        std::memcpy(&net_size, buf + 2, 4);
+        std::memcpy(&net_isAuthenticated, buf, 1);
+        std::memcpy(&net_type, buf + 1, 2);
+        std::memcpy(&net_size, buf + 2 + 1, 4);
+        head.isAuthenticated = net_isAuthenticated;
         head.type = swap16(net_type),
         head.payload_size = swap32(net_size);
         return head;
@@ -57,28 +67,50 @@ struct Header {
 struct UDPHeader {
     uint16_t type;
     uint16_t sequence_num;
+    uint64_t timestamp;
 
-    static constexpr size_t WIRE_SIZE = 4;
+    static constexpr size_t WIRE_SIZE = 12;
 
-    void to_bytes(uint8_t* buf) const {
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
         uint16_t net_type = swap16(static_cast<uint16_t>(type));
-        uint32_t net_sequence_num = swap16(static_cast<uint16_t>(sequence_num));
+        uint16_t net_sequence_num = swap16(static_cast<uint16_t>(sequence_num));
+        uint64_t net_timestamp = swap64(static_cast<uint64_t>(timestamp));
     
-        std::memcpy(buf, &net_type, 2);
-        std::memcpy(buf + 2, &net_sequence_num, 2);
+        std::memcpy(ptr, &net_type, 2);
+        std::memcpy(ptr + 2, &net_sequence_num, 2);
+        std::memcpy(ptr + 2 + 2, &net_timestamp, 8);
     }
 
-    static UDPHeader from_bytes(const uint8_t* buf) {
+    static UDPHeader from_bytes(const void* buf) {
+        auto* ptr = static_cast<const uint8_t*>(buf);
         UDPHeader head;
         uint16_t net_type;
-        uint32_t net_sequence_num;
-        std::memcpy(&net_type, buf, 2);
-        std::memcpy(&net_sequence_num, buf + 2, 2);
+        uint16_t net_sequence_num;
+        uint64_t net_timestamp;
+
+        std::memcpy(&net_type, ptr, 2);
+        std::memcpy(&net_sequence_num, ptr + 2, 2);
+        std::memcpy(&net_timestamp, ptr + 2 + 8, 8);
+
         head.type = swap16(net_type),
         head.sequence_num = swap16(net_sequence_num);
+        head.timestamp = swap64(net_timestamp);
         return head;
     }
+
+    static uint64_t getTimestamp() {
+        auto now = std::chrono::system_clock::now();
+    
+        auto duration = now.time_since_epoch();
+
+        uint64_t milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+                duration)
+                .count();
+        return milliseconds;
+    }
 };
+
 
 struct LoginMessage {
     char username[32];
@@ -116,5 +148,35 @@ struct RegisterMessage {
         return registerUser;
     }
 };
+
+struct MovePlayer {
+    uint16_t x;
+    uint16_t y;
+    static constexpr size_t WIRE_SIZE = 4;
+
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t x_pos = swap16(static_cast<uint16_t>(x));
+        uint16_t y_pos = swap16(static_cast<uint16_t>(y));
+    
+        std::memcpy(buf, &x_pos, 2);
+        std::memcpy(buf + 2, &y_pos, 2);
+    }
+
+    static MovePlayer from_bytes(const void* buf) {
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        MovePlayer movePlayer;
+        uint16_t x_pos;
+        uint16_t y_pos;
+    
+        memcpy(&x_pos, ptr, 2);
+        memcpy(&y_pos, ptr + 2, 2);
+
+        movePlayer.x = swap16(x_pos);
+        movePlayer.y = swap16(y_pos);
+        return movePlayer;
+    }
+};
+
 
 #endif /* !PROTOCOL_HPP_ */
