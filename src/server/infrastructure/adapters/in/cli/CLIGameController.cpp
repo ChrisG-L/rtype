@@ -9,6 +9,6 @@
 
 namespace infrastructure::adapters::in::cli {
     void CLIGameController::movePlayer(const std::string& playerId, float dx, float dy, float dz) {
-        movePlayerUseCase.execute(PlayerId(playerId), dx, dy, dz);
+        move.execute(PlayerId(playerId), dx, dy, dz);
     }
 }

@@ -10,7 +10,7 @@
 
 #include "domain/value_objects/player/PlayerId.hpp"
 #include "application/ports/in/IGameCommands.hpp"
-#include "application/use_cases/MovePlayerUseCase.hpp"
+#include "application/use_cases/player/Move.hpp"
 
 
 namespace infrastructure::adapters::in::cli {
@@ -19,7 +19,7 @@ namespace infrastructure::adapters::in::cli {
 
     class CLIGameController: public IGameCommands {
         private:
-            application::use_cases::MovePlayerUseCase movePlayerUseCase;
+            application::use_cases::player::Move move;
 
         public:
             void movePlayer(const std::string& playerId, float dx, float dy, float dz = 0.0) override;

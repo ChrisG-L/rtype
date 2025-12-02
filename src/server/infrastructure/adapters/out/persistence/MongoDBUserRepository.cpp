@@ -55,7 +55,6 @@ namespace infrastructure::adapters::out::persistence {
     void MongoDBUserRepository::save(const User& user) const {
         auto isUserExist = _collection->find_one(make_document(kvp("username", user.getUsername().value())));
         if (isUserExist.has_value()) {
-            std::cout << "USERNAME ALREADY EXIST!" << std::endl;
             return;
         }
         auto isEmailExist = _collection->find_one(make_document(kvp("email", user.getEmail().value())));
@@ -86,7 +85,6 @@ namespace infrastructure::adapters::out::persistence {
 
     std::optional<User> MongoDBUserRepository::findByName(const std::string& username) {
         std::optional<User> user;
-        std::cout << "username: " << username << std::endl;
         auto result = _collection->find_one(make_document(kvp("username", username)));
         if (result.has_value())
             user = documentToUser(result->view());
