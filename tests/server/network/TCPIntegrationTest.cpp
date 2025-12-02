@@ -232,7 +232,7 @@ public:
         return msg;
     }
 
-    bool isConnected() const { return _connected; }
+    bool isAuthenticated() const { return _connected; }
 
 private:
     void startRead() {
@@ -299,7 +299,7 @@ TEST_F(TCPConnectionTest, BasicConnectionSuccess) {
     bool connected = client.connect("127.0.0.1", 19876);
 
     EXPECT_TRUE(connected);
-    EXPECT_TRUE(client.isConnected());
+    EXPECT_TRUE(client.isAuthenticated());
 
     client.disconnect();
     server.stop();
@@ -314,7 +314,7 @@ TEST_F(TCPConnectionTest, ConnectionToClosedPortFails) {
     bool connected = client.connect("127.0.0.1", 59999, 500);
 
     EXPECT_FALSE(connected);
-    EXPECT_FALSE(client.isConnected());
+    EXPECT_FALSE(client.isAuthenticated());
 }
 
 /**
@@ -326,10 +326,10 @@ TEST_F(TCPConnectionTest, CleanDisconnect) {
 
     TestTCPClient client;
     ASSERT_TRUE(client.connect("127.0.0.1", 19877));
-    EXPECT_TRUE(client.isConnected());
+    EXPECT_TRUE(client.isAuthenticated());
 
     client.disconnect();
-    EXPECT_FALSE(client.isConnected());
+    EXPECT_FALSE(client.isAuthenticated());
 
     server.stop();
 }
@@ -475,7 +475,7 @@ TEST_F(TCPRobustnessTest, MultipleSequentialConnections) {
     for (int i = 0; i < 3; i++) {
         TestTCPClient client;
         ASSERT_TRUE(client.connect("127.0.0.1", 19880));
-        EXPECT_TRUE(client.isConnected());
+        EXPECT_TRUE(client.isAuthenticated());
 
         std::string msg = "Connection " + std::to_string(i);
         ASSERT_TRUE(client.send(msg));
