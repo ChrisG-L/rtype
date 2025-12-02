@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <memory>
+#include <optional>
 
 #include "../../protocol/Command.hpp"
 #include "application/use_cases/auth/Login.hpp"
@@ -23,6 +24,7 @@ namespace infrastructure::adapters::in::network::execute::auth {
     using infrastructure::adapters::out::persistence::MongoDBUserRepository;
     using application::use_cases::auth::Login;
     using application::use_cases::auth::Register;
+    using domain::entities::User;
 
     class ExecuteAuth {
         public:
@@ -32,6 +34,8 @@ namespace infrastructure::adapters::in::network::execute::auth {
                 std::shared_ptr<Register> registerUser
             );
 
+            std::optional<User> getUser() const;
+
         private:
             Command _cmd;
             std::shared_ptr<Login> _login;
@@ -39,6 +43,7 @@ namespace infrastructure::adapters::in::network::execute::auth {
 
             void login();
             void signupUser();
+            std::optional<User> _user;
     };
 }
 

@@ -9,15 +9,27 @@
 #include "Protocol.hpp"
 #include "infrastructure/adapters/in/network/protocol/Command.hpp"
 #include "infrastructure/logging/Logger.hpp"
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <unordered_map>
 #include <vector>
 
 namespace infrastructure::adapters::in::network {
     // Session implementation
-    Session::Session(tcp::socket socket, std::shared_ptr<MongoDBUserRepository> userRepository)
-    : _socket(std::move(socket)), _userRepository(userRepository) {}
+    Session::Session(
+        tcp::socket socket,
+        std::shared_ptr<MongoDBUserRepository> userRepository,
+        std::unordered_map<std::string, User>& users)
+    : _socket(std::move(socket)), _users(users), _isAuthenticated(false), _userRepository(userRepository)
+    {
+        _onAuthSuccess = [this](const User& user) { onLoginSuccess(user); };
+    }
 
-    void Session::start() {
+    void Session::start() 
+    {
+        std::cout << "Je suis dans le start ! " << std::endl;
+        do_write(MessageType::Login, "");
         do_read();
     }
 
@@ -30,10 +42,20 @@ namespace infrastructure::adapters::in::network {
             [this, self, logger](boost::system::error_code ec, std::size_t bytes) {
                 if (!ec) {
                     _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
-                    if (_accumulator.size() >= Header::WIRE_SIZE) {
+
+                    while (_accumulator.size() >= Header::WIRE_SIZE) {
                         Header head = Header::from_bytes(_accumulator.data());
+                        size_t totalSize = Header::WIRE_SIZE + head.payload_size;
+
+                        if (_accumulator.size() < totalSize) {
+                            break;
+                        }
+
                         handle_command(head);
+
+                        _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
                     }
+
                     logger->debug("Received: {} bytes", bytes);
                     do_read();
                 }
@@ -41,11 +63,21 @@ namespace infrastructure::adapters::in::network {
         );
     }
 
-    void Session::do_write(const std::string& message, const MessageType& msgType) {
+    void Session::onLoginSuccess(const User& user) {
+        _isAuthenticated = true;
+        _user = user;
+    }
+
+    void Session::do_write(const MessageType& msgType, const std::string& message) {
+
+        std::cout << "server is connected: " << static_cast<bool>(_isAuthenticated) << std::endl;
         struct Header head = {
+            .isAuthenticated = _isAuthenticated,
             .type = static_cast<uint16_t>(msgType),
             .payload_size = static_cast<uint32_t>(message.length())
         };
+        if (msgType == MessageType::HeartBeat)
+            std::cout << "heartbeat" << std::endl;
         const size_t totalSize = Header::WIRE_SIZE + message.length();
         auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
 
@@ -67,12 +99,14 @@ namespace infrastructure::adapters::in::network {
         using infrastructure::adapters::in::network::execute::Execute;
 
         Command cmd = {.type = head.type, .buf = std::vector<uint8_t>(_accumulator.begin() + Header::WIRE_SIZE, _accumulator.end())};
-        Execute execute(cmd, _userRepository);
+        Execute execute(cmd, _userRepository, _users, _onAuthSuccess);
+        do_write(MessageType::HeartBeat, "");
     }
 
     // TCPServer implementation
     TCPServer::TCPServer(boost::asio::io_context& io_ctx, std::shared_ptr<MongoDBUserRepository> userRepository)
-        : _io_ctx(io_ctx), _userRepository(userRepository) , _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4123)) {
+        : _io_ctx(io_ctx), _userRepository(userRepository) ,
+        _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4123)) {
         auto logger = server::logging::Logger::getNetworkLogger();
         logger->info("TCP Server started on port 4123");
     }
@@ -91,8 +125,8 @@ namespace infrastructure::adapters::in::network {
         _acceptor.async_accept(
             [this, logger](boost::system::error_code ec, tcp::socket socket) {
                 if (!ec) {
-                    logger->info("New connection accepted!");
-                    std::make_shared<Session>(std::move(socket), _userRepository)->start();
+                    logger->info("TCP New connection accepted!");
+                    std::make_shared<Session>(std::move(socket), _userRepository, users)->start();
                 }
                 start_accept();
             }

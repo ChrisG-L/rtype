@@ -11,6 +11,8 @@
 #include <array>
 #include <iostream>
 #include <boost/asio.hpp>
+#include "Protocol.hpp"
+#include <memory>
 
 
 namespace infrastructure::adapters::in::network {
@@ -21,9 +23,12 @@ namespace infrastructure::adapters::in::network {
             boost::asio::io_context& _io_ctx;
             udp::socket _socket;
             udp::endpoint _remote_endpoint;
-            std::array<char, 1024> _recv_buffer;
+            std::unordered_map<std::string, udp::endpoint> _clients;
 
-            void start_receive();
+            char _readBuffer[BUFFER_SIZE];
+
+            void do_write(const MessageType& msgType, const std::string& message);
+            void do_read();
             void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred);
 
         public:

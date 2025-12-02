@@ -9,9 +9,12 @@
 #define TCPSERVER_HPP_
 
 #include <array>
+#include <cstdint>
 #include <iostream>
 #include <boost/asio.hpp>
 #include <memory>
+#include <optional>
+#include <functional>
 
 #include "protocol/CommandParser.hpp"
 #include "Protocol.hpp"
@@ -22,34 +25,44 @@
 namespace infrastructure::adapters::in::network {
     using boost::asio::ip::tcp;
     using infrastructure::adapters::out::persistence::MongoDBUserRepository;
+    using domain::entities::User;
 
     class Session: public std::enable_shared_from_this<Session> {
         private:
             tcp::socket _socket;
             char _readBuffer[BUFFER_SIZE];
+            std::vector<uint8_t> _accumulator;
+            std::unordered_map<std::string, User>& _users;
+            std::optional<User> _user;
+            bool _isAuthenticated = false;
+            std::function<void(const User&)> _onAuthSuccess;
 
             void do_read();
-            void do_write(const std::string& message, const MessageType&);
+            void do_write(const MessageType&, const std::string& message);
             void handle_command(const Header&);
-            std::vector<uint8_t> _accumulator;
+            void onLoginSuccess(const User& user);
 
-        public:
-            Session(tcp::socket socket, std::shared_ptr<MongoDBUserRepository> userRepository);
-            std::shared_ptr<MongoDBUserRepository> _userRepository;
-            void start();
-    };
+            public:
+                Session(tcp::socket socket,
+                    std::shared_ptr<MongoDBUserRepository> userRepository,
+                    std::unordered_map<std::string, User>&);
 
+                std::shared_ptr<MongoDBUserRepository> _userRepository;
+                void start();
+        };
+        
     class TCPServer {
-        private:
-            boost::asio::io_context& _io_ctx;
-            std::shared_ptr<MongoDBUserRepository> _userRepository;
-            tcp::acceptor _acceptor;
-            void start_accept();
+            private:
+                boost::asio::io_context& _io_ctx;
+                std::shared_ptr<MongoDBUserRepository> _userRepository;
+                tcp::acceptor _acceptor;
+                std::unordered_map<std::string, User> users; 
+                void start_accept();
 
         public:
             TCPServer(boost::asio::io_context& io_ctx, std::shared_ptr<MongoDBUserRepository> userRepository);
             void start();
             void run();
-    };
+        };
 }
 #endif /* !TCPSERVER_HPP_ */

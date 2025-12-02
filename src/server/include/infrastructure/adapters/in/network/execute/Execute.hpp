@@ -8,22 +8,39 @@
 #ifndef EXECUTE_HPP_
 #define EXECUTE_HPP_
 
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <boost/asio.hpp>
+
 #include "../protocol/Command.hpp"
 #include "auth/ExecuteAuth.hpp"
 #include "Protocol.hpp"
+#include "domain/entities/User.hpp"
 
 namespace infrastructure::adapters::in::network::execute {
     using application::use_cases::auth::Login;
     using application::use_cases::auth::Register;
     using infrastructure::adapters::out::persistence::MongoDBUserRepository;
+    using domain::entities::User;
+    using boost::asio::ip::tcp;
 
     class Execute {
         public:
-            Execute(const Command& cmd, std::shared_ptr<MongoDBUserRepository> UserRepository);
-
+            Execute(
+                const Command& cmd, 
+                std::shared_ptr<MongoDBUserRepository> UserRepository,
+                std::unordered_map<std::string, User>& users,
+                std::function<void(const User& user)> onLoginSuccess
+            );
+            
         protected:
         private:
             Command _cmd;
+            std::unique_ptr<auth::ExecuteAuth> _executeAuth;
     };
 }
 

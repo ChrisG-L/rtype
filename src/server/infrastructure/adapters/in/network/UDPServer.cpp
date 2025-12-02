@@ -6,6 +6,9 @@
 */
 
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
+#include "Protocol.hpp"
+#include <chrono>
+#include <cstdint>
 
 namespace infrastructure::adapters::in::network {
     UDPServer::UDPServer(boost::asio::io_context& io_ctx)
@@ -14,7 +17,7 @@ namespace infrastructure::adapters::in::network {
     }
 
     void UDPServer::start() {
-        start_receive();
+        do_read();
     }
 
     void UDPServer::run() {
@@ -25,25 +28,64 @@ namespace infrastructure::adapters::in::network {
         _socket.close();
     }
 
-    void UDPServer::start_receive() {
+    void UDPServer::do_write(const MessageType& msgType, const std::string& message) {
+
+        struct UDPHeader head = {
+            .type = static_cast<uint16_t>(msgType),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        const size_t totalSize = UDPHeader::WIRE_SIZE + message.length();
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+        head.to_bytes(buf->data());
+        memcpy(buf->data() + Header::WIRE_SIZE, message.c_str(), message.length());
+
+        _socket.async_send_to(
+            boost::asio::buffer(buf->data(), totalSize),
+            _remote_endpoint,
+            [this, buf](boost::system::error_code ec, std::size_t /*length*/) {
+                if (!ec) {
+                    do_read();
+                } else {
+                    std::cout << "UDPSERVER ERROR SEND!: " << ec << std::endl;
+                }
+            });
+    }
+
+
+    void UDPServer::do_read() {
         _socket.async_receive_from(
-            boost::asio::buffer(_recv_buffer), _remote_endpoint,
+            boost::asio::buffer(_readBuffer, BUFFER_SIZE),
+            _remote_endpoint,
             [this](const boost::system::error_code& error, std::size_t bytes) {
+                std::cout << "readPort: " << _remote_endpoint.port() << std::endl;
                 handle_receive(error, bytes);
             }
         );
     }
 
     void UDPServer::handle_receive(const boost::system::error_code& error,
-        std::size_t bytes_transferred) {
-        if (!error && bytes_transferred > 0) {
-            std::string received(_recv_buffer.data(), bytes_transferred);
-            std::cout << "Reçu de " << _remote_endpoint.port() << ": "
-                    << received << std::endl;
+        std::size_t bytes) {
+        if (!error && bytes > 0) {
+            std::cout << _remote_endpoint.data() << std::endl;
+            if (bytes >= UDPHeader::WIRE_SIZE) {
+                UDPHeader head = UDPHeader::from_bytes(_readBuffer);
+                size_t actual_payload = bytes - UDPHeader::WIRE_SIZE;
+                if (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {
+                    if (bytes >= UDPHeader::WIRE_SIZE + MovePlayer::WIRE_SIZE) {
+                        MovePlayer movePlayer = MovePlayer::from_bytes(
+                            _readBuffer + UDPHeader::WIRE_SIZE
+                        );
+                        std::cout << "movePlayer.x: " << movePlayer.x << std::endl;
+                        std::cout << "movePlayer.y: " << movePlayer.y << std::endl;
+                    }
+                }
+            }
         } else if (error) {
             std::cerr << "Erreur réception: " << error.message() << std::endl;
         }
-
-        start_receive();
+        do_write(MessageType::Snapshop, "");
+        do_read();
     }
 }

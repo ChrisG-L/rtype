@@ -27,7 +27,10 @@ add_executable(rtype_server
     domain/entities/User.cpp
 
     # Application - Use Cases
-    application/use_cases/MovePlayerUseCase.cpp
+
+    #Player
+    application/use_cases/player/Move.cpp
+    #User
     application/use_cases/auth/Login.cpp
     application/use_cases/auth/Register.cpp
 
