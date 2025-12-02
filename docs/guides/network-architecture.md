@@ -1,36 +1,39 @@
-# Architecture Réseau R-Type
+# Architecture Reseau R-Type
 
-**État:** ✅ Implémenté - Protocole binaire TCP opérationnel
-**Version:** 0.3.0
-**Dernière mise à jour:** 30 novembre 2025
+**Etat:** Implemente - Protocole binaire TCP/UDP operationnel
+**Version:** 0.5.0
+**Derniere mise a jour:** 02 decembre 2025
 
 ---
 
-## 📋 Vue d'Ensemble
+## Vue d'Ensemble
 
-Le serveur R-Type utilise une architecture réseau **hybride UDP/TCP** avec Boost.Asio pour gérer les communications client-serveur. Cette architecture sépare les préoccupations entre données temps réel (UDP) et communications fiables (TCP).
+Le serveur R-Type utilise une architecture reseau **hybride UDP/TCP** avec Boost.Asio pour gerer les communications client-serveur. Cette architecture separe les preoccupations entre donnees temps reel (UDP) et communications fiables (TCP).
 
 ### Justification Architecturale
 
-| Protocole | Utilisation | Raison |
-|-----------|-------------|--------|
-| **UDP** | Positions, mouvements, actions de jeu | **Vitesse** - Pas besoin de fiabilité, les anciennes données sont obsolètes |
-| **TCP** | Authentification, chat, synchronisation état | **Fiabilité** - Les données doivent arriver dans l'ordre |
+| Protocole | Port | Utilisation | Raison |
+|-----------|------|-------------|--------|
+| **TCP** | 4123 | Authentification (Login/Register) | **Fiabilite** - Les donnees doivent arriver dans l'ordre |
+| **UDP** | 4124 | Positions, mouvements, actions de jeu | **Vitesse** - Pas besoin de fiabilite, les anciennes donnees sont obsoletes |
 
 ---
 
-## 🏗️ Architecture Globale
+## Architecture Globale
 
 ```mermaid
 graph TB
     subgraph "Client R-Type"
-        CU[Client UDP<br/>Port 4123]
-        CT[Client TCP<br/>Port 4123]
+        CT[TCPClient<br/>Port 4123]
+        CU[UDPClient<br/>Port 4124]
     end
 
     subgraph "Serveur R-Type"
-        UDP[UDPServer<br/>infrastructure/adapters/in/network]
         TCP[TCPServer + Session<br/>infrastructure/adapters/in/network]
+        UDP[UDPServer<br/>infrastructure/adapters/in/network]
+        EX[Execute Dispatcher<br/>execute/]
+        EA[ExecuteAuth<br/>Login/Register]
+        EP[ExecutePlayer<br/>Move]
         UC[Use Cases<br/>application/use_cases]
         DOM[Domain Entities<br/>domain/entities]
     end
@@ -39,570 +42,412 @@ graph TB
         MONGO[(MongoDB)]
     end
 
+    CT -->|Auth Data| TCP
     CU -->|Gameplay Data| UDP
-    CT -->|Auth/Sync Data| TCP
-    UDP --> UC
-    TCP --> UC
+    TCP --> EX
+    UDP --> EX
+    EX --> EA
+    EX --> EP
+    EA --> UC
+    EP --> UC
     UC --> DOM
     UC --> MONGO
 
-    style UDP fill:#90EE90
     style TCP fill:#87CEEB
-    style UC fill:#FFD700
-    style DOM fill:#FFA500
+    style UDP fill:#90EE90
+    style EX fill:#FFD700
+    style UC fill:#FFA500
+    style DOM fill:#FF6B6B
 ```
 
 ---
 
-## 📡 UDPServer - Serveur Temps Réel
+## Protocole Binaire v0.5.0
 
-### Caractéristiques
+### Header TCP (7 bytes)
 
-- **Port:** 4123
-- **Type:** Asynchrone (Boost.Asio)
-- **Buffer:** 1024 bytes
-- **Pattern:** Async receive loop
+```
+Offset  Type       Taille  Endianness  Description
+------  ---------  ------  ----------  -----------
+0       uint8_t    1       -           isAuthenticated (0=false, 1=true)
+1       uint16_t   2       Big-endian  type (MessageType enum)
+3       uint32_t   4       Big-endian  payload_size (taille du payload)
 
-### Architecture
+Total: 7 bytes (WIRE_SIZE)
+```
+
+### Header UDP (12 bytes)
+
+```
+Offset  Type       Taille  Endianness  Description
+------  ---------  ------  ----------  -----------
+0       uint16_t   2       Big-endian  type (MessageType)
+2       uint16_t   2       Big-endian  sequence_num
+4       uint64_t   8       Big-endian  timestamp (millisecondes)
+
+Total: 12 bytes (WIRE_SIZE)
+```
+
+### Types de Messages (MessageType enum)
+
+| Type | Code | Direction | Description |
+|------|------|-----------|-------------|
+| HeartBeat | 0x0001 | Bidirectionnel | Keep-alive |
+| Login | 0x0010 | Server -> Client | Demande de login |
+| LoginAck | 0x0011 | Client -> Server | Reponse login avec credentials |
+| Register | 0x0020 | Server -> Client | Demande d'inscription |
+| RegisterAck | 0x0021 | Client -> Server | Reponse inscription |
+| Basic | 0x0030 | - | Reserve |
+| BasicAck | 0x0031 | - | Reserve |
+| Snapshot | 0x0040 | Server -> Client | Etat du jeu (UDP) |
+| Player | 0x0050 | - | Reserve |
+| MovePlayer | 0x0060 | Client -> Server | Mouvement joueur (UDP) |
+
+### Structures de Messages
+
+#### LoginMessage (287 bytes)
 
 ```cpp
-// Fichiers: infrastructure/adapters/in/network/UDPServer.hpp/.cpp
-
-namespace infrastructure::adapters::in::network {
-    class UDPServer {
-        private:
-            udp::socket _socket;
-            boost::asio::io_context& _io_ctx;
-            udp::endpoint _remote_endpoint;
-            std::array<char, 1024> _recv_buffer;
-
-            void start_receive();
-            void handle_receive(const boost::system::error_code& error,
-                              std::size_t bytes_transferred);
-
-        public:
-            UDPServer(boost::asio::io_context& io_ctx);
-            void start(boost::asio::io_context& io_ctx);
-            void run();
-            void stop();
-    };
-}
+struct LoginMessage {
+    char username[32];   // 32 bytes
+    char password[255];  // 255 bytes
+};
 ```
 
-### Flux de Données UDP
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant U as UDPServer
-    participant H as handle_receive
-    participant UC as Use Cases
-
-    Note over U: Écoute sur port 4123
-    U->>U: async_receive_from()
-
-    C->>U: Paquet UDP (position)
-
-    U->>H: Callback avec données
-    H->>H: Parse message
-    H->>UC: Traiter action
-    UC-->>H: OK
-    H->>U: start_receive() (boucle)
-```
-
-### Exemple d'Utilisation
+#### RegisterMessage (542 bytes)
 
 ```cpp
-// main.cpp - Point d'entrée actuel
-
-int main() {
-    boost::asio::io_context io_ctx;
-
-    // Créer serveur UDP
-    UDPServer udpServer(io_ctx);
-
-    // Démarrer l'écoute
-    udpServer.start(io_ctx);
-
-    std::cout << "Serveur UDP prêt sur port 4123" << std::endl;
-
-    // Lancer boucle événementielle (bloquant)
-    udpServer.run();
-
-    return 0;
-}
+struct RegisterMessage {
+    char username[32];   // 32 bytes
+    char email[255];     // 255 bytes
+    char password[255];  // 255 bytes
+};
 ```
 
-### Format des Messages UDP (Planifié)
+#### MovePlayer (4 bytes)
 
-```
-┌─────────────────────────────────────┐
-│ Message UDP R-Type (32 bytes)       │
-├─────────────────────────────────────┤
-│ Type (1 byte)     │ 0x01 = MOVE     │
-│                   │ 0x02 = SHOOT    │
-│                   │ 0x03 = POSITION │
-├───────────────────┼─────────────────┤
-│ PlayerId (16B)    │ UUID            │
-├───────────────────┼─────────────────┤
-│ Data (15 bytes)   │ Spécifique type │
-└─────────────────────────────────────┘
-```
-
-**Exemple MOVE:**
-```
-Type: 0x01
-PlayerId: "507f1f77bcf86cd799439011"
-Data:
-  - dx (float, 4 bytes)
-  - dy (float, 4 bytes)
-  - dz (float, 4 bytes)
-  - timestamp (uint32, 3 bytes restants)
+```cpp
+struct MovePlayer {
+    uint16_t x;  // 2 bytes, Big-endian
+    uint16_t y;  // 2 bytes, Big-endian
+};
 ```
 
 ---
 
-## 🔐 TCPServer - Serveur Fiable
+## TCPServer - Authentification
 
-### Caractéristiques
-
-- **Port:** 4123 (même port, protocoles différents)
-- **Type:** Asynchrone avec sessions
-- **Pattern:** Acceptor + Session par connexion
-- **Gestion:** shared_ptr pour lifecycle
-
-### Architecture
+### Architecture Session
 
 ```cpp
-// Fichiers: infrastructure/adapters/in/network/TCPServer.hpp/.cpp
+class Session : public std::enable_shared_from_this<Session> {
+private:
+    tcp::socket _socket;
+    char _readBuffer[BUFFER_SIZE];
+    std::vector<uint8_t> _accumulator;  // Buffer messages fragmentes
+    bool _isAuthenticated = false;       // Etat authentification
+    std::optional<User> _user;           // User apres login
+    std::function<void(const User&)> _onAuthSuccess;  // Callback
 
-namespace infrastructure::adapters::in::network {
-    // Session = une connexion client
-    class Session: public std::enable_shared_from_this<Session> {
-        private:
-            tcp::socket _socket;
-            static constexpr std::size_t max_length = 1024;
-            char _data[max_length];
-
-            void do_read();
-            void do_write(std::size_t length);
-
-        public:
-            Session(tcp::socket socket);
-            void start();
-    };
-
-    // Serveur TCP = accepte connexions
-    class TCPServer {
-        private:
-            tcp::acceptor _acceptor;
-            boost::asio::io_context& _io_ctx;
-
-            void start_accept();
-
-        public:
-            TCPServer(boost::asio::io_context& io_ctx);
-            void start(boost::asio::io_context& io_ctx);
-            void run();
-    };
-}
+    void do_read();
+    void do_write(const MessageType&, const std::string&);
+    void handle_command(const Header&);
+    void onLoginSuccess(const User& user);
+};
 ```
 
-### Flux de Données TCP
+### Flux d'Authentification
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant A as TCPServer (Acceptor)
+    participant C as Client TCP
     participant S as Session
-    participant UC as Use Cases (Auth)
+    participant E as Execute
+    participant EA as ExecuteAuth
+    participant L as Login UseCase
     participant DB as MongoDB
 
-    Note over A: Écoute port 4123
+    C->>S: Connexion TCP
+    S->>C: Header(type=Login, isAuth=0)
 
-    C->>A: Connexion TCP
-    A->>S: Créer Session
-    S->>S: async_read_some()
-
-    C->>S: LOGIN: username + password
-    S->>UC: LoginUserUseCase
-    UC->>DB: Vérifier credentials
-    DB-->>UC: User trouvé
-    UC-->>S: Token JWT
-    S->>C: OK + Token
-
-    Note over S: Session reste ouverte
-    S->>S: async_read_some() (boucle)
+    C->>S: Header(type=LoginAck) + LoginMessage
+    S->>S: _accumulator.insert(bytes)
+    S->>S: handle_command(header)
+    S->>E: Execute(cmd, onAuthSuccess)
+    E->>EA: ExecuteAuth::login()
+    EA->>L: Login::execute(username, password)
+    L->>DB: findByName(username)
+    DB-->>L: User
+    L->>L: user.verifyPassword()
+    L->>L: user.updateLastLogin()
+    L-->>EA: std::optional<User>
+    EA-->>E: User
+    E->>S: onAuthSuccess(user)
+    S->>S: _isAuthenticated = true
+    S->>C: Header(type=HeartBeat, isAuth=1)
 ```
 
-### Pattern Session
-
-Le pattern `shared_from_this()` garantit que la Session reste en vie pendant les opérations asynchrones:
+### Gestion Accumulator (Fix Boucle Infinie)
 
 ```cpp
 void Session::do_read() {
-    auto self = shared_from_this();  // Garde la session vivante
-
     _socket.async_read_some(
-        boost::asio::buffer(_data, max_length),
-        [this, self](boost::system::error_code ec, std::size_t length) {
+        boost::asio::buffer(_readBuffer, BUFFER_SIZE),
+        [this, self](error_code ec, size_t bytes) {
             if (!ec) {
-                // Traiter données
-                do_write(length);  // Echo pour test
+                _accumulator.insert(_accumulator.end(),
+                                   _readBuffer, _readBuffer + bytes);
+
+                // Traiter TOUS les messages complets
+                while (_accumulator.size() >= Header::WIRE_SIZE) {
+                    Header head = Header::from_bytes(_accumulator.data());
+                    size_t totalSize = Header::WIRE_SIZE + head.payload_size;
+
+                    // Attendre message complet
+                    if (_accumulator.size() < totalSize) break;
+
+                    handle_command(head);
+
+                    // IMPORTANT: Retirer donnees traitees
+                    _accumulator.erase(_accumulator.begin(),
+                                      _accumulator.begin() + totalSize);
+                }
+                do_read();
             }
-            // Si ec, la session se détruit automatiquement
         }
     );
 }
 ```
 
-### Format des Messages TCP (Implémenté)
-
-Le protocole TCP utilise un format **binaire** avec header + payload, défini dans `src/common/protocol/Protocol.hpp`:
-
-#### Structure Header (6 bytes)
-
-```
-┌─────────────────────────────────────┐
-│ Header (6 bytes)                     │
-├─────────────────────────────────────┤
-│ Type (2 bytes)   │ uint16_t (big-endian) │
-├──────────────────┼────────────────────────┤
-│ PayloadSize (4B) │ uint32_t (big-endian) │
-└─────────────────────────────────────┘
-```
-
-#### Types de Messages
-
-| Type | Code | Description |
-|------|------|-------------|
-| HeartBeat | 0x0001 | Ping/pong |
-| Login | 0x0010 | Demande de login |
-| LoginAck | 0x0011 | Réponse login |
-| Register | 0x0020 | Demande d'inscription |
-| RegisterAck | 0x0021 | Réponse inscription |
-
-#### LoginMessage (287 bytes)
-
-```
-┌─────────────────────────────────────┐
-│ LoginMessage (287 bytes)             │
-├─────────────────────────────────────┤
-│ username (32 bytes) │ char[32]       │
-├─────────────────────┼────────────────┤
-│ password (255 bytes)│ char[255]      │
-└─────────────────────────────────────┘
-```
-
-#### RegisterMessage (542 bytes)
-
-```
-┌─────────────────────────────────────┐
-│ RegisterMessage (542 bytes)          │
-├─────────────────────────────────────┤
-│ username (32 bytes) │ char[32]       │
-├─────────────────────┼────────────────┤
-│ email (255 bytes)   │ char[255]      │
-├─────────────────────┼────────────────┤
-│ password (255 bytes)│ char[255]      │
-└─────────────────────────────────────┘
-```
-
-#### Exemple de Flux
-
-```cpp
-// Envoi d'un LoginMessage
-Header head = {.type = 0x0011, .payload_size = 287};
-LoginMessage login = {.username = "player1", .password = "secret"};
-
-// Sérialisation (network byte order)
-head.to_bytes(buffer);
-login.to_bytes(buffer + 6);
-
-// Envoi: 6 bytes header + 287 bytes payload = 293 bytes total
-```
-
 ---
 
-## 🔄 io_context - Cœur de Boost.Asio
-
-### Qu'est-ce que io_context?
-
-`boost::asio::io_context` est le **moteur événementiel** qui gère toutes les opérations asynchrones:
-
-```cpp
-boost::asio::io_context io_ctx;
-
-// Enregistrer opérations asynchrones
-UDPServer udp(io_ctx);    // Enregistre async_receive_from
-TCPServer tcp(io_ctx);    // Enregistre async_accept
-
-udp.start(io_ctx);
-tcp.start(io_ctx);
-
-// Lancer la boucle événementielle
-io_ctx.run();  // BLOQUE et traite les événements
-```
-
-### Diagramme de Fonctionnement
-
-```mermaid
-graph LR
-    A[io_context.run] --> B{Événement réseau?}
-    B -->|Paquet UDP| C[Callback UDP]
-    B -->|Connexion TCP| D[Callback TCP]
-    B -->|Timer| E[Callback Timer]
-    C --> A
-    D --> A
-    E --> A
-    B -->|Aucun| F[Bloque en attente]
-    F --> B
-```
-
----
-
-## 🎮 Intégration avec Architecture Hexagonale
-
-### Position dans les Couches
-
-```
-┌─────────────────────────────────────────────┐
-│         Infrastructure Layer                 │
-│  (Adapters IN - Réseau)                     │
-│                                              │
-│  ┌──────────────┐      ┌──────────────┐    │
-│  │  UDPServer   │      │  TCPServer   │    │
-│  │  Port 4123   │      │  Port 4123   │    │
-│  └──────┬───────┘      └──────┬───────┘    │
-└─────────┼──────────────────────┼────────────┘
-          │                      │
-          ▼                      ▼
-┌─────────────────────────────────────────────┐
-│         Application Layer                    │
-│  (Use Cases - Logique Métier)               │
-│                                              │
-│  MovePlayerUseCase    LoginUserUseCase      │
-│  ShootUseCase         RegisterUserUseCase   │
-└─────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────┐
-│         Domain Layer                         │
-│  (Entités Métier)                           │
-│                                              │
-│  Player, User, Position, Health...          │
-└─────────────────────────────────────────────┘
-```
-
-### Exemple Complet de Flux
-
-**Scénario:** Client envoie position du joueur
-
-1. **Client UDP** → Envoie paquet (type=MOVE, playerId, dx, dy, dz)
-2. **UDPServer** → `handle_receive()` reçoit paquet
-3. **Parse** → Extraction des données du buffer
-4. **Adapter** → Appelle `MovePlayerUseCase.execute(playerId, dx, dy, dz)`
-5. **Use Case** → Charge Player depuis repository
-6. **Domain** → `player.move(dx, dy, dz)` avec validation Position
-7. **Repository** → Sauvegarde nouveau state
-8. **Broadcast** → (À impl.) Envoie nouvelles positions à tous les clients
-
----
-
-## 🚀 Évolutions Futures
-
-### Prochaines Étapes (Par Priorité)
-
-#### 1. Protocole Réseau Complet 🔴 Urgent
-
-**À implémenter:**
-- Format de sérialisation (JSON? Binaire?)
-- Types de messages (MOVE, SHOOT, SPAWN, etc.)
-- Gestion des séquences et timestamps
-- Compression des données
-
-**Fichiers à créer:**
-```
-infrastructure/network/
-├── protocol/
-│   ├── MessageType.hpp
-│   ├── MessageSerializer.hpp/.cpp
-│   └── MessageDeserializer.hpp/.cpp
-└── handlers/
-    ├── GameplayHandler.hpp/.cpp
-    └── AuthHandler.hpp/.cpp
-```
-
-#### 2. Gestion des Sessions 🟠 Important
-
-**À implémenter:**
-- SessionManager pour tracker clients connectés
-- Heartbeat (ping/pong) pour détecter déconnexions
-- Reconnexion automatique
-- Timeouts
-
-#### 3. Broadcast et Multicast 🟠 Important
-
-**Pour le gameplay multijoueur:**
-- Envoyer positions de tous les joueurs à tous les clients
-- Optimisation: ne pas renvoyer à l'émetteur
-- Rate limiting (ex: 60 updates/seconde max)
-
-#### 4. Sécurité 🟡 Moyen Terme
-
-**À implémenter:**
-- Validation des paquets (taille, format)
-- Rate limiting anti-DDoS
-- Chiffrement TLS pour TCP (auth)
-- Signature des paquets UDP
-
-#### 5. Monitoring 🟢 Nice-to-Have
-
-**Métriques à tracker:**
-- Latence moyenne par client
-- Paquets perdus (UDP)
-- Bande passante utilisée
-- Nombre de connexions actives
-
----
-
-## 📊 Performances Attendues
-
-### Objectifs
-
-| Métrique | Cible | Actuel | Statut |
-|----------|-------|--------|--------|
-| **Latence moyenne** | < 50ms | N/A | À mesurer |
-| **Clients simultanés** | 100+ | N/A | À tester |
-| **Updates/sec** | 60 | N/A | À implémenter |
-| **Packet loss** | < 5% | N/A | À mesurer |
-
-### Optimisations Prévues
-
-1. **Object Pooling** - Réutiliser buffers et objets
-2. **Lock-free structures** - Pour le SessionManager
-3. **Batching** - Grouper messages UDP
-4. **Delta compression** - N'envoyer que les changements
-
----
-
-## 🔧 Configuration
-
-### Ports Utilisés
-
-```cpp
-// infrastructure/configuration/NetworkConfig.hpp (à créer)
-
-struct NetworkConfig {
-    uint16_t udp_port = 4123;  // Gameplay
-    uint16_t tcp_port = 4123;  // Auth
-    size_t buffer_size = 1024;
-    size_t max_clients = 100;
-    std::chrono::seconds timeout = std::chrono::seconds(30);
-};
-```
-
-### Variables d'Environnement (Futures)
-
-```bash
-RTYPE_UDP_PORT=4123
-RTYPE_TCP_PORT=4123
-RTYPE_MAX_CLIENTS=100
-RTYPE_BUFFER_SIZE=1024
-```
-
----
-
-## 🧪 Tests
-
-### Tests Unitaires (À créer)
-
-```cpp
-// tests/server/network/UDPServerTest.cpp
-
-TEST(UDPServerTest, ReceivesPacket) {
-    boost::asio::io_context io_ctx;
-    UDPServer server(io_ctx);
-
-    // TODO: Envoyer paquet test
-    // TODO: Vérifier réception
-}
-
-TEST(TCPServerTest, AcceptsConnection) {
-    boost::asio::io_context io_ctx;
-    TCPServer server(io_ctx);
-
-    // TODO: Connecter client test
-    // TODO: Vérifier session créée
-}
-```
-
-### Tests d'Intégration
-
-```bash
-# Lancer serveur (Linux)
-./artifacts/server/linux/rtype_server
-
-# Lancer serveur (Windows - via Wine)
-wine64 ./artifacts/server/windows/rtype_server.exe
-
-# Dans un autre terminal - Test UDP
-echo "TEST_MESSAGE" | nc -u localhost 4123
-
-# Test TCP
-telnet localhost 4123
-```
-
----
-
-## 📚 Références
-
-### Boost.Asio
-
-- **Documentation:** https://www.boost.org/doc/libs/release/doc/html/boost_asio.html
-- **Tutoriels:** https://think-async.com/Asio/
-- **Patterns:** Proactor pattern (async I/O)
-
-### Protocoles Réseau
-
-- **UDP RFC:** RFC 768
-- **TCP RFC:** RFC 793
-- **Best Practices:** Gaffer on Games - Networking for Game Programmers
+## UDPServer - Gameplay Temps Reel
 
 ### Architecture
 
-- **Hexagonal Architecture:** [guides/hexagonal-architecture.md](hexagonal-architecture.md)
-- **Domain Layer:** [api/domain.md](../api/domain.md)
-- **Adapters:** [api/adapters.md](../api/adapters.md)
+```cpp
+class UDPServer {
+private:
+    udp::socket _socket;
+    udp::endpoint _remote_endpoint;
+    std::array<char, BUFFER_SIZE> _recv_buffer;
+
+    void start_receive();
+    void handle_receive(error_code, size_t);
+};
+```
+
+### Flux Mouvement Joueur
+
+```mermaid
+sequenceDiagram
+    participant C as Client UDP
+    participant U as UDPServer
+    participant E as Execute
+    participant EP as ExecutePlayer
+    participant M as Move UseCase
+
+    C->>U: UDPHeader(type=MovePlayer) + MovePlayer(x,y)
+    U->>U: handle_receive()
+    U->>E: Execute(cmd)
+    E->>EP: ExecutePlayer::move()
+    EP->>M: Move::execute(playerId, x, y, 0)
+    M->>M: Update ECS (futur)
+    U->>C: UDPHeader(type=Snapshot) + GameState
+```
 
 ---
 
-## 📝 Notes
+## Execute Dispatcher
 
-> ✅ **État Actuel:**
->
-> L'infrastructure réseau TCP est **opérationnelle avec protocole binaire**:
-> - ✅ UDPServer écoute et reçoit paquets
-> - ✅ TCPServer accepte connexions et crée sessions
-> - ✅ Protocole binaire implémenté (Header + Payload)
-> - ✅ Messages Login/Register avec sérialisation
-> - ✅ Intégration avec Use Cases (Login, Register)
-> - ⏳ Gestion des sessions (en cours)
->
-> **Prochaine itération:** Implémenter HeartBeat et gestion sessions
+### Architecture Command Pattern
 
-> 💡 **Design Decision - Pourquoi même port pour UDP/TCP?**
->
-> Techniquement possible car UDP et TCP sont des protocoles différents.
-> Avantages:
-> - Simplifie configuration firewall côté client
-> - Un seul port à ouvrir
-> - Convention claire: 4123 = R-Type server
->
-> Si conflit, facile de changer: `udp_port = 4123`, `tcp_port = 4124`
+```cpp
+class Execute {
+public:
+    Execute(
+        const Command& cmd,
+        std::shared_ptr<MongoDBUserRepository> userRepository,
+        std::unordered_map<std::string, User>& users,
+        std::function<void(const User&)> onLoginSuccess
+    );
+};
+
+struct Command {
+    uint16_t type;
+    std::vector<uint8_t> buf;
+};
+```
+
+### Routing des Commandes
+
+```
+Command.type
+    |
+    +-- LoginAck/RegisterAck --> ExecuteAuth
+    |                               |
+    |                               +-- LoginAck --> Login::execute()
+    |                               +-- RegisterAck --> Register::execute()
+    |
+    +-- MovePlayer --> ExecutePlayer
+                           |
+                           +-- MovePlayer --> Move::execute()
+```
 
 ---
 
-**Dernière révision:** 30/11/2025
-**Auteur:** Agent Documentation + Claude Code
-**Statut:** ✅ À jour avec le code (v0.3.0)
+## Client Integration
+
+### TCPClient
+
+```cpp
+class TCPClient {
+    void connect(const std::string& host, uint16_t port);
+    void sendLoginData(const std::string& username, const std::string& password);
+    void sendRegisterData(const std::string& username, const std::string& email,
+                         const std::string& password);
+    bool isAuthenticated() const;
+
+    // Callbacks
+    void setOnConnected(const OnConnectedCallback&);
+    void setOnDisconnected(const OnDisconnectedCallback&);
+    void setOnReceive(const OnReceiveCallback&);
+    void setOnError(const OnErrorCallback&);
+};
+```
+
+### UDPClient
+
+```cpp
+class UDPClient {
+    void connect(std::shared_ptr<TCPClient> tcpClient,
+                const std::string& host, uint16_t port);
+    void movePlayer(uint16_t x, uint16_t y);
+    bool isAuthenticated();  // Verifie auth TCP
+};
+```
+
+### Boot Sequence
+
+```cpp
+// Boot.cpp
+TCPClient tcpClient;
+UDPClient udpClient;
+
+tcpClient.connect("127.0.0.1", 4123);
+udpClient.connect(tcpClient, "127.0.0.1", 4124);
+
+Engine::initialize(tcpClient, udpClient);
+Engine::run();
+```
+
+---
+
+## Serialisation Binaire
+
+### to_bytes / from_bytes
+
+```cpp
+// Header serialisation
+void Header::to_bytes(uint8_t* buf) const {
+    uint16_t net_type = swap16(type);
+    uint32_t net_size = swap32(payload_size);
+
+    buf[0] = isAuthenticated;  // Pas de swap pour 1 byte
+    std::memcpy(buf + 1, &net_type, 2);
+    std::memcpy(buf + 3, &net_size, 4);
+}
+
+// Header deserialisation
+static Header from_bytes(const uint8_t* buf) {
+    Header head;
+    uint16_t net_type;
+    uint32_t net_size;
+
+    head.isAuthenticated = buf[0];
+    std::memcpy(&net_type, buf + 1, 2);
+    std::memcpy(&net_size, buf + 3, 4);
+
+    head.type = swap16(net_type);
+    head.payload_size = swap32(net_size);
+    return head;
+}
+```
+
+### Endianness (Network Byte Order)
+
+```cpp
+inline uint64_t swap64(uint64_t v) { return __builtin_bswap64(v); }
+inline uint32_t swap32(uint32_t v) { return __builtin_bswap32(v); }
+inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
+```
+
+---
+
+## Configuration
+
+### Ports
+
+| Service | Port | Protocole |
+|---------|------|-----------|
+| Authentification | 4123 | TCP |
+| Gameplay | 4124 | UDP |
+
+### Buffer Size
+
+```cpp
+static constexpr std::size_t BUFFER_SIZE = 4096;
+```
+
+---
+
+## Tests
+
+### Integration TCP
+
+```cpp
+TEST(TCPIntegrationTest, SessionAccumulator) {
+    // Test que l'accumulator gere les messages fragmentes
+}
+
+TEST(TCPIntegrationTest, LoginFlow) {
+    // Test flux complet login
+}
+```
+
+### Integration UDP
+
+```cpp
+TEST(UDPIntegrationTest, MovePlayer) {
+    // Test envoi/reception MovePlayer
+}
+```
+
+---
+
+## Fichiers Cles
+
+| Fichier | Description |
+|---------|-------------|
+| `src/common/protocol/Protocol.hpp` | Structures protocole binaire |
+| `src/server/infrastructure/adapters/in/network/TCPServer.cpp` | Serveur TCP + Session |
+| `src/server/infrastructure/adapters/in/network/UDPServer.cpp` | Serveur UDP |
+| `src/server/infrastructure/adapters/in/network/execute/Execute.cpp` | Command dispatcher |
+| `src/client/src/network/TCPClient.cpp` | Client TCP |
+| `src/client/src/network/UDPClient.cpp` | Client UDP |
+
+---
+
+## Evolutions Futures
+
+1. **Snapshots UDP** - Envoi etat jeu complet aux clients
+2. **Interpolation** - Prediction cote client
+3. **Reconnexion** - Gestion deconnexion/reconnexion
+4. **Chiffrement** - TLS pour TCP
+5. **Compression** - Delta compression pour snapshots
+
+---
+
+**Derniere revision:** 02/12/2025
+**Auteur:** General + Claude Code
+**Statut:** A jour avec le code (v0.5.0)
