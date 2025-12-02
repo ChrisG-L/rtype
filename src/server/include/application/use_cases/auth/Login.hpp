@@ -10,12 +10,13 @@
 
 #include "domain/value_objects/player/PlayerId.hpp"
 #include "application/ports/out/persistence/IUserRespository.hpp"
-
+#include "Protocol.hpp"
 #include <iostream>
 
 namespace application::use_cases::auth {
     using domain::value_objects::player::PlayerId;
     using application::ports::out::persistence::IUserRespository;
+    using domain::entities::User;
 
     class Login {
         private:
@@ -23,7 +24,7 @@ namespace application::use_cases::auth {
 
         public:
             explicit Login(std::shared_ptr<IUserRespository> userRepository);
-            void execute(const std::string& username, const std::string& password);
+            std::optional<User> execute(const std::string& username, const std::string& password);
     };
 }
 #endif /* !LOGIN_HPP_ */

@@ -13,11 +13,13 @@
 #include "application/ports/out/persistence/IUserRespository.hpp"
 
 #include <iostream>
+#include <optional>
 
 namespace application::use_cases::auth {
     using domain::entities::User;
     using domain::value_objects::player::PlayerId;
     using application::ports::out::persistence::IUserRespository;
+    
 
     class Register {
         private:
@@ -25,7 +27,7 @@ namespace application::use_cases::auth {
 
         public:
             explicit Register(std::shared_ptr<IUserRespository> userRepository);
-            void execute(
+            std::optional<User> execute(
                 const std::string& username,
                 const std::string& email, 
                 const std::string& unHashedPassword);

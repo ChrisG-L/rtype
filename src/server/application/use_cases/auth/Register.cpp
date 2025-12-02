@@ -10,7 +10,7 @@
 namespace application::use_cases::auth {
     Register::Register(std::shared_ptr<IUserRespository> userRepository) : _userRepository(userRepository) {}
 
-    void Register::execute(
+    std::optional<User> Register::execute(
         const std::string& username,
         const std::string& email,
         const std::string& unHashedPassword
@@ -18,13 +18,13 @@ namespace application::use_cases::auth {
         auto playerOptByName = _userRepository->findByName(username);
         if (playerOptByName.has_value()) {
             std::cout << "Name already exist" << std::endl; 
-            return;
+            return std::nullopt;
         }
 
         auto playerOptByEmail = _userRepository->findByEmail(email);
         if (playerOptByEmail.has_value()) {
             std::cout << "Email already exist" << std::endl; 
-            return;
+            return std::nullopt;
         }
 
         User user(domain::value_objects::user::UserId(bsoncxx::oid().to_string()),
@@ -32,5 +32,6 @@ namespace application::use_cases::auth {
             domain::value_objects::user::Email((email)),
             domain::value_objects::user::Password(domain::value_objects::user::utils::hashPassword(unHashedPassword)));
         _userRepository->save(user);
+        return user;
     }
 }
