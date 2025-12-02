@@ -39,6 +39,7 @@ add_executable(rtype_client
     src/core/DynamicLib.cpp
     src/graphics/Graphics.cpp
     src/network/TCPClient.cpp
+    src/network/UDPClient.cpp
     src/scenes/SceneManager.cpp
     src/scenes/LoginScene.cpp
     src/scenes/GameScene.cpp

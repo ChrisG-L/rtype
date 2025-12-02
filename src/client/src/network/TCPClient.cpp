@@ -10,13 +10,14 @@
 #include "core/Logger.hpp"
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <unistd.h>
 
 namespace client::network
 {
     TCPClient::TCPClient()
-        : _socket(_ioContext), _connected(false), _isWriting(false)
+        : _socket(_ioContext), _connected(false),  _isAuthenticated(false), _isWriting(false)
     {
         client::logging::Logger::getNetworkLogger()->debug("TCPClient created");
     }
@@ -69,7 +70,7 @@ namespace client::network
                 logger->debug("IO thread terminated");
             });
 
-            logger->info("Connection initiated");
+            logger->info("Connection initiated TCP");
         } catch (const std::exception &e) {
             logger->error("Resolution error: {}", e.what());
             if (_onError) {
@@ -119,26 +120,6 @@ namespace client::network
         return _connected && _socket.is_open();
     }
 
-    void TCPClient::send(const std::string &message)
-    {
-        if (!isConnected()) {
-            return;
-        }
-
-        {
-            std::scoped_lock lock(_mutex);
-            _sendQueue.push(message);
-        }
-
-        boost::asio::post(_ioContext, [this]() {
-            std::scoped_lock lock(_mutex);
-            if (!_isWriting) {
-                _isWriting = true;
-                asyncWrite();
-            }
-        });
-    }
-
     void TCPClient::asyncConnect(tcp::resolver::results_type endpoints)
     {
         boost::asio::async_connect(
@@ -160,27 +141,6 @@ namespace client::network
         );
     }
 
-    void TCPClient::asyncWrite()
-    {
-        std::scoped_lock lock(_mutex);
-
-        if (_sendQueue.empty()) {
-            _isWriting = false;
-            return;
-        }
-
-        _isWriting = true;
-        std::string message = _sendQueue.front();
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(message),
-            [this](const boost::system::error_code &error, std::size_t) {
-                handleWrite(error);
-            }
-        );
-    }
-
     void TCPClient::handleConnect(const boost::system::error_code &error)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
@@ -191,7 +151,7 @@ namespace client::network
                 _connected = true;
             }
 
-            logger->info("Connected successfully");
+            logger->info("Connected successfully TCP");
 
             if (_onConnected) {
                 _onConnected();
@@ -210,18 +170,35 @@ namespace client::network
     void TCPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
+
         if (!error) {
-            
             _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
-            if (_accumulator.size() >= Header::WIRE_SIZE) {
-              Header head = Header::from_bytes(_accumulator.data());
-              std::cout << "type: " << head.type << ", size: " << head.payload_size << std::endl;
-            if (head.type == static_cast<uint16_t>(MessageType::Login))
-                sendLoginData(_pendingUsername, _pendingPassword);
-            else if (head.type == static_cast<uint16_t>(MessageType::Register)) {
-                sendRegisterData(_pendingUsername, _pendingEmail, _pendingPassword);
+
+            while (_accumulator.size() >= Header::WIRE_SIZE) {
+                Header head = Header::from_bytes(_accumulator.data());
+                size_t totalSize = Header::WIRE_SIZE + head.payload_size;
+
+                if (_accumulator.size() < totalSize) {
+                    break;
+                }
+
+                _isAuthenticated = head.isAuthenticated;
+
+                if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
+                    std::cout << "HEARTBEAT" << std::endl;
+                }
+                if (head.type == static_cast<uint16_t>(MessageType::Login)) {
+                    sendLoginData("Killian2", "1234");
+                    std::cout << "INSIDE LOGIN " << std::endl;
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::Register)) {
+                    sendRegisterData("Killian3", "killian.pluenet3@gmail.com", "1234");
+                    std::cout << "INSIDE REGISTER " << std::endl;
+                }
+
+                _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
             }
-          }
+
             asyncRead();
         } else {
             if (error == boost::asio::error::eof) {
@@ -238,30 +215,30 @@ namespace client::network
         }
     }
 
-    void TCPClient::handleWrite(const boost::system::error_code &error)
-    {
-        auto logger = client::logging::Logger::getNetworkLogger();
+    // void TCPClient::handleWrite(const boost::system::error_code &error)
+    // {
+    //     auto logger = client::logging::Logger::getNetworkLogger();
 
-        {
-            std::scoped_lock lock(_mutex);
-            if (!_sendQueue.empty()) {
-                _sendQueue.pop();
-            }
-        }
+    //     {
+    //         std::scoped_lock lock(_mutex);
+    //         if (!_sendQueue.empty()) {
+    //             _sendQueue.pop();
+    //         }
+    //     }
 
-        if (!error) {
-            asyncWrite();
-        } else {
-            logger->error("Write error: {}", error.message());
+    //     if (!error) {
+    //         asyncWrite();
+    //     } else {
+    //         logger->error("Write error: {}", error.message());
 
-            if (_onError) {
-                _onError("Erreur envoi: " + error.message());
-            }
+    //         if (_onError) {
+    //             _onError("Erreur envoi: " + error.message());
+    //         }
 
-            _isWriting = false;
-            disconnect();
-        }
-    }
+    //         _isWriting = false;
+    //         disconnect();
+    //     }
+    // }
 
     void TCPClient::setLoginCredentials(const std::string& username, const std::string& password) {
         std::scoped_lock lock(_mutex);
@@ -283,7 +260,7 @@ namespace client::network
         std::strncpy(login.password, password.c_str(), sizeof(login.password) - 1);
         login.password[sizeof(login.password) - 1] = '\0';
 
-        Header head = {.type = static_cast<uint16_t>(MessageType::LoginAck), .payload_size = sizeof(login)};
+        Header head = {.isAuthenticated = false, .type = static_cast<uint16_t>(MessageType::LoginAck), .payload_size = sizeof(login)};
 
         const size_t totalSize = Header::WIRE_SIZE + sizeof(login);
 
@@ -296,7 +273,9 @@ namespace client::network
             _socket,
             boost::asio::buffer(buf->data(), totalSize),
             [this, buf](const boost::system::error_code &error, std::size_t) {
-                handleWrite(error);
+                if (error) {
+                    std::cout << "WRITE TCP ERROR" << std::endl;
+                }
             }
         );
     }
@@ -310,7 +289,7 @@ namespace client::network
         std::strncpy(registerUser.password, password.c_str(), sizeof(registerUser.password) - 1);
         registerUser.password[sizeof(registerUser.password) - 1] = '\0';
 
-        Header head = {.type = static_cast<uint16_t>(MessageType::RegisterAck), .payload_size = sizeof(registerUser)};
+        Header head = {.isAuthenticated = false, .type = static_cast<uint16_t>(MessageType::RegisterAck), .payload_size = sizeof(registerUser)};
 
         const size_t totalSize = Header::WIRE_SIZE + sizeof(registerUser);
 
@@ -323,9 +302,15 @@ namespace client::network
             _socket,
             boost::asio::buffer(buf->data(), totalSize),
             [this, buf](const boost::system::error_code &error, std::size_t) {
-                handleWrite(error);
+                if (error) {
+                    std::cout << "WRITE TCP ERROR" << std::endl;
+                }
             }
         );
+    }
+
+    bool TCPClient::isAuthenticated() const {
+        return _isAuthenticated;
     }
 
 }

@@ -38,8 +38,7 @@ namespace client::network
         void connect(const std::string &host, std::uint16_t port);
         void disconnect();
         bool isConnected() const;
-
-        void send(const std::string &message);
+        bool isAuthenticated() const;
 
         // Configuration des callbacks
         void setOnConnected(const OnConnectedCallback& callback);
@@ -58,12 +57,12 @@ namespace client::network
         // Méthodes async
         void asyncConnect(tcp::resolver::results_type endpoints);
         void asyncRead();
-        void asyncWrite();
+        // void asyncWrite();
 
         // Handlers
         void handleConnect(const boost::system::error_code &error);
         void handleRead(const boost::system::error_code &error, std::size_t bytes);
-        void handleWrite(const boost::system::error_code &error);
+        // void handleWrite(const boost::system::error_code &error);
 
         // Contexte et socket
         boost::asio::io_context _ioContext;
@@ -72,6 +71,7 @@ namespace client::network
 
         // État
         bool _connected;
+        bool _isAuthenticated;
         mutable std::mutex _mutex;
 
         // Queue d'envoi

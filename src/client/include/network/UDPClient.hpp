@@ -9,6 +9,7 @@
 #define UDPCLIENT_HPP_
 
 #include <boost/asio.hpp>
+#include <memory>
 #include <string>
 #include <cstdint>
 #include <thread>
@@ -17,6 +18,7 @@
 #include <functional>
 
 #include "Protocol.hpp"
+#include "TCPClient.hpp"
 
 namespace client::network
 {
@@ -35,9 +37,10 @@ namespace client::network
         ~UDPClient();
 
         // Connexion
-        void connect(const std::string &host, std::uint16_t port);
+        void connect(std::shared_ptr<client::network::TCPClient> tcpClient, const std::string &host, std::uint16_t port);
         void disconnect();
         bool isConnected() const;
+        bool isAuthenticated() const;
 
         void send(const std::string &message);
 
@@ -47,11 +50,13 @@ namespace client::network
         void setOnReceive(const OnReceiveCallback& callback);
         void setOnError(const OnErrorCallback& callback);
 
-    private:
+        
+        void movePlayer(uint16_t x, uint16_t y);
+        
+        private:
         // Méthodes async
-        void asyncConnect(udp::resolver::results_type endpoints);
-        void asyncRead(udp::resolver::endpoint_type endpoints);
-        void asyncWrite();
+        void asyncReceiveFrom();
+        void asyncSendTo(std::shared_ptr<std::vector<uint8_t>>& buf, size_t totalSize);
 
         // Handlers
         void handleConnect(const boost::system::error_code &error);
@@ -62,13 +67,14 @@ namespace client::network
         boost::asio::io_context _ioContext;
         udp::socket _socket;
         std::jthread _ioThread;
+        udp::endpoint _endpoint; 
 
         // État
         bool _connected;
         mutable std::mutex _mutex;
 
         // Queue d'envoi
-        std::queue<std::string> _sendQueue;
+        std::array<char, 1> _sendBuf;
         bool _isWriting;
 
         // Buffer de réception
@@ -85,6 +91,8 @@ namespace client::network
         std::string _pendingUsername;
         std::string _pendingPassword;
         std::string _pendingEmail;
+
+        std::shared_ptr<client::network::TCPClient> _tcpClient;
     };
 
 }
