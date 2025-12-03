@@ -1,17 +1,17 @@
 # État du Projet R-Type
 
-**Dernière mise à jour:** 25 novembre 2025
-**Version:** 0.3.0 (Phase: Core Engine - Client & Server Integration)
+**Dernière mise à jour:** 3 décembre 2025
+**Version:** 0.5.0 (Phase: Gameplay Foundation)
 
 ---
 
 ## 📊 Vue d'Ensemble
 
-Le projet R-Type est en phase de **développement actif** avec un client graphique fonctionnel et un serveur avec architecture hexagonale complète. L'intégration client-serveur est en cours.
+Le projet R-Type est en phase de **développement actif** avec un client graphique fonctionnel, un serveur avec architecture hexagonale complète, et un module gameplay opérationnel.
 
 ### Phase Actuelle
 
-🚧 **Phase 3: Core Engine - Client & Server Integration** (70% complété)
+🚧 **Phase 4: Gameplay Foundation** (85% complété)
 
 **Réalisations:**
 - ✅ Architecture hexagonale serveur complète (Domain/Application/Infrastructure)
@@ -20,10 +20,14 @@ Le projet R-Type est en phase de **développement actif** avec un client graphiq
 - ✅ Communication TCP client-serveur (Boost.Asio)
 - ✅ Authentification complète (Login, Register, MongoDBUserRepository)
 - ✅ Système de logging professionnel (spdlog) - 12 loggers
-- ✅ Gestionnaire d'assets (AssetManager)
-- 🚧 UI et gameplay en cours
+- ✅ Gestionnaire d'assets avec Z-index (AssetManager)
+- ✅ **Module Gameplay** (GameObject, Missile, EntityManager)
+- ✅ **Système d'événements abstrait** (découplage SFML)
+- ✅ **GameLoop avec deltaTime correct** (std::chrono)
+- ✅ **Contrôles joueur** (flèches + tir)
+- 🚧 ECS complet en cours
 
-**Prochaine phase:** Gameplay ECS et Multijoueur
+**Prochaine phase:** ECS complet et Multijoueur
 
 ---
 
@@ -58,7 +62,8 @@ Le projet R-Type est en phase de **développement actif** avec un client graphiq
 | ├─ AssetManager | ✅ Terminé | 95% | - | Cache textures/sprites |
 | ├─ TCPClient | ✅ Terminé | 85% | - | Communication async |
 | └─ UI Components | 🚧 En cours | 20% | - | TextField en cours |
-| **Architecture ECS** | 📋 Planifié | 0% | [EPI-17](https://linear.app/epitech-study/issue/EPI-17) | À démarrer |
+| **Module Gameplay** | 🚧 En cours | 25% | [KAN-65](https://epitech-team-w5qkn5hj.atlassian.net) | GameObject, Missile, EntityManager |
+| **Architecture ECS** | 🚧 En cours | 20% | [KAN-12](https://epitech-team-w5qkn5hj.atlassian.net) | Foundation via EntityManager |
 
 ### Légende des États
 
@@ -223,12 +228,15 @@ src/
 
 **Objectif:** Gameplay R-Type fonctionnel avec ECS
 **Date estimée:** Décembre 2025
-**Statut:** 🚧 **10% complété**
+**Statut:** 🚧 **35% complété**
 
 **Tâches principales:**
-- 📋 Architecture ECS (Entity Component System)
-- 📋 Vaisseau joueur contrôlable
-- 📋 Système de tir
+- ✅ **Module Gameplay** (GameObject, Missile, EntityManager)
+- ✅ **Vaisseau joueur contrôlable** (flèches directionnelles)
+- ✅ **Système de tir** (Space + cooldown)
+- ✅ **GameLoop deltaTime** (std::chrono)
+- ✅ **Système événements abstrait** (découplage SFML)
+- 🚧 Architecture ECS complète (composants/systèmes)
 - 📋 Ennemis basiques avec patterns
 - 📋 Système de collisions
 - 📋 Power-ups
@@ -417,5 +425,5 @@ src/
 
 ---
 
-**Dernière révision:** 25/11/2025 par la Reine des Abeilles 👑
-**Prochaine mise à jour:** Après implémentation ECS
+**Dernière révision:** 03/12/2025 par le Général Army2077 ⭐
+**Prochaine mise à jour:** Après implémentation ECS complet
