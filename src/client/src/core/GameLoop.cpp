@@ -7,6 +7,8 @@
 
 #include "core/GameLoop.hpp"
 #include "events/Event.hpp"
+#include <chrono>
+#include <ctime>
 #include <variant>
 
 namespace core {
@@ -30,34 +32,32 @@ namespace core {
 
     void GameLoop::run()
     {
+        using Clock = std::chrono::high_resolution_clock;
+        using Duration = std::chrono::duration<float>;
+        auto previousTime = Clock::now();
         events::Event event;
-        // signal.connect([](const Event& event) {
-        //     std::visit(overloaded {
-        //         [](const KeyPressed& e) { /* handle key */ },
-        //         [](auto&) { /* ignore others */ }
-        //     }, event);
-        // });
-        std::cout << "inside RUN " << std::endl;
 
         while (_window->isOpen()) {
-            _deltatime = 0.0;
-            if (_deltatime > 0.1f) _deltatime = 0.1f;
+            auto currentTime = Clock::now();
+            float deltaTime = Duration(currentTime - previousTime).count();
+            deltaTime = std::min(deltaTime, 0.1f);
+            previousTime = currentTime;
+
             event = _window->pollEvent();
             if (std::holds_alternative<events::KeyPressed>(event)) {
                 auto& key = std::get<events::KeyPressed>(event);
-                if (key.key == events::Key::B) {
-                    std::cout << "key: " << std::endl;
+                if (key.key == events::Key::Down) {
                     _udpClient->movePlayer(10, 15);
                 }
             }
+            _sceneManager->handleEvent(event);
+            _sceneManager->update(deltaTime);
 
-            // Update
-            _sceneManager->update(_deltatime);
-
-            // Render
             clear();
             _sceneManager->render();
             display();
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(16));
         }
     }
 

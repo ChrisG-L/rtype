@@ -47,7 +47,6 @@ namespace core {
 
     void Engine::run()
     {
-        std::cout << "Inside engine run" << std::endl;
         _gameLoop->run();
     }
 }

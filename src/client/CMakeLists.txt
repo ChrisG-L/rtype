@@ -43,6 +43,10 @@ add_executable(rtype_client
     src/scenes/SceneManager.cpp
     src/scenes/LoginScene.cpp
     src/scenes/GameScene.cpp
+
+    src/gameplay/GameObject.cpp
+    src/gameplay/Missile.cpp
+    src/gameplay/EntityManager.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
