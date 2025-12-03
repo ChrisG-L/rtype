@@ -25,6 +25,12 @@ void SceneManager::changeScene(std::unique_ptr<IScene> newScene)
     }
 }
 
+void SceneManager::handleEvent(const events::Event& event) {
+    if (_currentScene)  {
+        _currentScene->handleEvent(event);
+    }
+}
+
 void SceneManager::setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient)
 {
     _tcpClient = tcpClient;

@@ -19,6 +19,7 @@ class SceneManager
         SceneManager();
         ~SceneManager();
         void changeScene(std::unique_ptr<IScene> newScene);
+        void handleEvent(const events::Event& event);
         void update(float deltatime);
         void render();
 

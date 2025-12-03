@@ -9,7 +9,7 @@
 #define ISCENE_HPP_
 
 #include "graphics/IWindow.hpp"
-#include <SFML/Window/Event.hpp>
+#include "events/Event.hpp"
 #include <memory>
 
 class SceneManager;
@@ -22,7 +22,7 @@ class IScene
 public:
     virtual ~IScene() = default;
 
-    virtual void handleEvent(const sf::Event &event) = 0;
+    virtual void handleEvent(const events::Event& event) = 0;
     virtual void update(float deltatime) = 0;
     virtual void render() = 0;
 
