@@ -7,8 +7,12 @@
 
 #include "utils/AssetManager.hpp"
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/System/Vector2.hpp>
+#include <stdexcept>
+#include <algorithm>
+#include <vector>
 
-AssetManager::AssetManager()
+AssetManager::AssetManager(): textures{}
 {
 }
 
@@ -20,7 +24,22 @@ sf::Texture& AssetManager::getTexture(const std::string& key)
     return textIt->second;
 }
 
-bool AssetManager::registerTexture(const std::string& file)
+sf::Sprite& AssetManager::getSprite(const std::string& textureKey, const std::string& spriteKey)
+{
+    auto textIt = textures.find(textureKey);
+    if (textIt == textures.end())
+        throw std::out_of_range("Texture non chargée.");
+    auto poolIt = spritePools.find(textureKey);
+    if (poolIt == spritePools.end())
+        throw std::out_of_range("Sprite pool non trouvé.");
+    auto spriteIt = poolIt->second.find(spriteKey);
+    if (spriteIt == poolIt->second.end())
+        throw std::out_of_range("Sprite non trouvé.");
+    return spriteIt->second.sprite;
+}
+
+
+bool AssetManager::registerTexture(graphic::GraphicTexture& graphT, const std::string& file)
 {
     auto logger = client::logging::Logger::getGraphicsLogger();
 
@@ -30,10 +49,13 @@ bool AssetManager::registerTexture(const std::string& file)
     }
 
     sf::Texture newTexture;
+
     if (!newTexture.loadFromFile(file)) {
         logger->error("Failed to load texture from file: {}", file);
         return false;
     }
+    sf::Vector2u textureSize = newTexture.getSize();
+    graphT.setSize({textureSize.x, textureSize.y});
     textures.emplace(file, std::move(newTexture));
     logger->debug("Texture '{}' registered successfully", file);
     return true;
@@ -51,16 +73,34 @@ void AssetManager::removeTexture(const std::string& file)
     }
 }
 
-void AssetManager::addSprite(const std::string& key, const sf::Sprite& sprite)
+void AssetManager::addSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite, int zIndex)
 {
-    spritePools[key].push_back(sprite);
+    SpriteData spriteData = {.sprite = sprite, .zIndex  = zIndex};
+    spritePools[textureKey].insert_or_assign(spriteKey, spriteData);
+}
+
+void AssetManager::setSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite, int zIndex)
+{
+    SpriteData spriteData = {.sprite = sprite, .zIndex  = zIndex};
+    spritePools[textureKey].insert_or_assign(spriteKey, spriteData);
 }
 
 void AssetManager::drawAll(sf::RenderWindow* window)
 {
-    for (auto const& [key, sprites]: spritePools) {
-        for (const auto& sprite: sprites) {
-            window->draw(sprite);
+    std::vector<const SpriteData*> sortedSprites;
+
+    for (const auto& [texture, spritesPool] : spritePools) {
+        for (const auto& [key, spriteData] : spritesPool) {
+            sortedSprites.push_back(&spriteData);
         }
+    }
+
+    std::sort(sortedSprites.begin(), sortedSprites.end(),
+        [](const SpriteData* a, const SpriteData* b) {
+            return a->zIndex < b->zIndex;
+        });
+
+    for (const auto* spriteData : sortedSprites) {
+        window->draw(spriteData->sprite);
     }
 }

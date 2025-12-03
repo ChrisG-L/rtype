@@ -24,11 +24,15 @@ class SFMLRenderer: public core::IRenderer {
     public:
         SFMLRenderer(std::shared_ptr<graphics::IWindow> window);
         
-        void initialize(GraphicAssets) override;
-        void update(float deltatime) override;
+        void initialize(GraphicAssets&, GraphicAssetsE&) override;
+        void update(float deltatime, GraphicAssets&, GraphicAssetsE& elements) override;
         void render() override;
 
-        void initGraphicTexture(const graphic::GraphicTexture& graphT);
+        void initGraphicTexture(graphic::GraphicTexture& graphT);
+        void initGraphicElement(graphic::GraphicElement& element);
+        
+        void setGraphicTexture(graphic::GraphicTexture& graphT);
+        void setGraphicElement(graphic::GraphicElement& elements);
 
     private:
         std::shared_ptr<graphics::IWindow> _window;

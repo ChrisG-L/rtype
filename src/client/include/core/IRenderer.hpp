@@ -12,15 +12,13 @@
 
 #include "../graphics/Asset.hpp"
 
-typedef std::vector<Asset> GraphicAssets;
-
 namespace core {
     class IRenderer {
         public:
             virtual ~IRenderer() = default;
 
-            virtual void initialize(GraphicAssets) = 0;
-            virtual void update(float deltatime) = 0;
+            virtual void initialize(GraphicAssets& assets, GraphicAssetsE& elements) = 0;
+            virtual void update(float deltatime, GraphicAssets&, GraphicAssetsE& elements) = 0;
             virtual void render() = 0;
 
     };

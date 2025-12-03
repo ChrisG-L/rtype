@@ -6,24 +6,40 @@
 */
 
 #include "SFMLRenderer.hpp"
+#include "graphics/Graphics.hpp"
+#include "utils/Vecs.hpp"
 
 SFMLRenderer::SFMLRenderer(std::shared_ptr<graphics::IWindow> window)
     : _window{window}, mAsset{std::make_unique<AssetManager>()}
 {
 }
 
-void SFMLRenderer::initialize(GraphicAssets assets)
+void SFMLRenderer::initialize(GraphicAssets& assets, GraphicAssetsE& elements)
 {
-    for (const auto& a: assets) {
+    for (auto& a: assets) {
         std::visit(overloaded {
-            [&](const graphic::GraphicTexture& graphT) {initGraphicTexture(graphT);}
+            [&](graphic::GraphicTexture& graphT) {initGraphicTexture(graphT);}
         }, a);
+    }
+    for (auto& e: elements) {
+        std::visit(overloaded {
+            [&](graphic::GraphicElement& element) {initGraphicElement(element);}
+        }, e);
     }
 }
 
-void SFMLRenderer::update(float deltatime)
+void SFMLRenderer::update(float deltatime, GraphicAssets& assets, GraphicAssetsE& elements)
 {
-    // mAsset->drawAll(_window);
+    for (auto& a: assets) {
+        std::visit(overloaded {
+            [&](graphic::GraphicTexture& graphT) {setGraphicTexture(graphT);}
+        }, a);
+    }
+    for (auto& e: elements) {
+        std::visit(overloaded {
+            [&](graphic::GraphicElement& element) {setGraphicElement(element);}
+        }, e);
+    }
 }
 
 void SFMLRenderer::render()
@@ -32,15 +48,43 @@ void SFMLRenderer::render()
     mAsset->drawAll(renderWindow);
 }
 
-void SFMLRenderer::initGraphicTexture(const graphic::GraphicTexture& textureAsset) {
+void SFMLRenderer::initGraphicTexture(graphic::GraphicTexture& textureAsset) {
     std::string path = textureAsset.getFileName();
-    if (!mAsset->registerTexture(path))
+    if (!mAsset->registerTexture(textureAsset, path))
         throw std::runtime_error("Texture provided not found");
-    Vec2f pos = textureAsset.getPos();
-    Vec2f scale = textureAsset.getScale();
-    
+}
+
+
+void SFMLRenderer::initGraphicElement(graphic::GraphicElement& element) {
+    Vec2f pos = element.getPos();
+    Vec2f scale = element.getScale();
+    std::string path = element.getTexture().getFileName();
+    int zIndex = static_cast<int>(element.getLayer());
     sf::Sprite sprite(mAsset->getTexture(path));
     sprite.setPosition(sf::Vector2f(pos.x, pos.y));
     sprite.scale(sf::Vector2f(scale.x, scale.y));
-    mAsset->addSprite(path, sprite);
+    mAsset->addSprite(path, element.getName(), sprite, zIndex);
+}
+
+void SFMLRenderer::setGraphicTexture(graphic::GraphicTexture& textureAsset) {
+    // std::string path = textureAsset.getFileName();
+    // // if (!mAsset->registerTexture(path))
+    // //     throw std::runtime_error("Texture provided not found");
+    // Vec2f pos = textureAsset.getPos();
+    // Vec2f scale = textureAsset.getScale();
+    // sf::Sprite sprite(mAsset->getTexture(path));
+    // sprite.setPosition(sf::Vector2f(pos.x, pos.y));
+    // sprite.scale(sf::Vector2f(scale.x, scale.y));
+    // mAsset->addSprite(path, sprite);
+}
+
+void SFMLRenderer::setGraphicElement(graphic::GraphicElement& element) {
+    std::string path = element.getTexture().getFileName();
+    Vec2f pos = element.getPos();
+    Vec2f scale = element.getScale();
+    int zIndex = static_cast<int>(element.getLayer());
+    sf::Sprite sprite(mAsset->getTexture(path));
+    sprite.setPosition(sf::Vector2f(pos.x, pos.y));
+    sprite.scale(sf::Vector2f(scale.x, scale.y));
+    mAsset->setSprite(path, element.getName(), sprite, zIndex);
 }
