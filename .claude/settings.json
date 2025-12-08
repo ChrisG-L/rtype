@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "agentdb": {
+      "command": "python",
+      "args": ["-m", "mcp.agentdb.server"],
+      "cwd": "${workspaceFolder}/.claude",
+      "env": {
+        "AGENTDB_PATH": "${workspaceFolder}/.claude/agentdb/db.sqlite",
+        "AGENTDB_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}

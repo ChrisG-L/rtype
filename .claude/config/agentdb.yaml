@@ -1,0 +1,328 @@
+# =============================================================================
+# AGENTDB CONFIGURATION
+# =============================================================================
+# Ce fichier configure le comportement d'AgentDB pour ce projet.
+# Modifiez-le selon les spécificités de votre codebase.
+#
+# Variables d'environnement supportées :
+#   ${PROJECT_ROOT} - Racine du projet (défaut: .)
+#   ${HOME} - Répertoire home de l'utilisateur
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PROJECT INFO
+# -----------------------------------------------------------------------------
+project:
+  name: "flow"
+  description: "Multi-agent code review system"
+  version: "1.0.0"
+  language: "c"  # Langage principal: c, cpp, python, javascript
+  root: "."
+
+# -----------------------------------------------------------------------------
+# DATABASE CONFIGURATION
+# -----------------------------------------------------------------------------
+database:
+  # Chemin vers la base SQLite
+  path: ".claude/agentdb/db.sqlite"
+  # Mode WAL pour meilleures performances
+  wal_mode: true
+  # Timeout en secondes
+  timeout: 30
+  # Taille du cache en pages (1 page = 4KB)
+  cache_size: 10000
+
+# -----------------------------------------------------------------------------
+# INDEXING CONFIGURATION
+# -----------------------------------------------------------------------------
+indexing:
+  # Extensions de fichiers à indexer, groupées par langage
+  extensions:
+    c:
+      - ".c"
+      - ".h"
+    cpp:
+      - ".cpp"
+      - ".hpp"
+      - ".cc"
+      - ".hh"
+      - ".cxx"
+      - ".hxx"
+    python:
+      - ".py"
+      - ".pyi"
+    javascript:
+      - ".js"
+      - ".jsx"
+      - ".mjs"
+    typescript:
+      - ".ts"
+      - ".tsx"
+    rust:
+      - ".rs"
+    go:
+      - ".go"
+
+  # Patterns glob à exclure de l'indexation
+  exclude:
+    # Build artifacts
+    - "build/**"
+    - "dist/**"
+    - "out/**"
+    - "target/**"
+    - "*.o"
+    - "*.obj"
+    - "*.exe"
+    - "*.dll"
+    - "*.so"
+    - "*.a"
+
+    # Dependencies
+    - "vendor/**"
+    - "node_modules/**"
+    - ".venv/**"
+    - "venv/**"
+    - "__pycache__/**"
+    - "*.pyc"
+    - "*.egg-info/**"
+
+    # IDE and VCS
+    - ".git/**"
+    - ".svn/**"
+    - ".idea/**"
+    - ".vscode/**"
+    - "*.swp"
+    - "*~"
+
+    # Generated files
+    - "**/*.min.js"
+    - "**/*.min.css"
+    - "**/*.generated.*"
+    - "**/generated/**"
+
+    # AgentDB internal
+    - ".claude/agentdb/**"
+
+    # Test artifacts
+    - "coverage/**"
+    - ".coverage"
+    - ".pytest_cache/**"
+
+  # Outil d'indexation par langage
+  # Options: ctags, tree-sitter, clang (C/C++), ast (Python)
+  tools:
+    c: "ctags"
+    cpp: "ctags"
+    python: "ast"
+    javascript: "ctags"
+    typescript: "ctags"
+    rust: "ctags"
+    go: "ctags"
+
+  # Chemin vers ctags (auto-détecté si non spécifié)
+  # ctags_path: "/usr/bin/universal-ctags"
+
+  # Taille maximale d'un fichier à indexer (en bytes)
+  max_file_size: 1048576  # 1 MB
+
+  # Nombre de workers parallèles
+  parallel_workers: 4
+
+  # Timeout par fichier en secondes
+  file_timeout: 30
+
+# -----------------------------------------------------------------------------
+# CRITICALITY CONFIGURATION
+# -----------------------------------------------------------------------------
+criticality:
+  # Chemins considérés comme critiques (sécurité, core, etc.)
+  # Le code dans ces chemins recevra un examen plus approfondi
+  critical_paths:
+    # Sécurité
+    - "**/security/**"
+    - "**/auth/**"
+    - "**/authentication/**"
+    - "**/crypto/**"
+    - "**/encryption/**"
+
+    # Données sensibles
+    - "**/*password*"
+    - "**/*secret*"
+    - "**/*token*"
+    - "**/*credential*"
+    - "**/*key*"
+
+    # Points d'entrée
+    - "**/main.*"
+    - "**/init.*"
+    - "**/bootstrap.*"
+
+    # Base de données
+    - "**/migration*"
+    - "**/schema*"
+
+  # Chemins de haute importance (moins critique mais important)
+  high_importance_paths:
+    - "**/core/**"
+    - "**/kernel/**"
+    - "**/api/**"
+    - "**/services/**"
+    - "**/models/**"
+    - "**/handlers/**"
+
+  # Patterns de contenu indiquant un code sensible
+  sensitive_content_patterns:
+    - "AES"
+    - "RSA"
+    - "SHA256"
+    - "bcrypt"
+    - "password"
+    - "secret"
+    - "private_key"
+    - "api_key"
+    - "access_token"
+
+# -----------------------------------------------------------------------------
+# METRICS CONFIGURATION
+# -----------------------------------------------------------------------------
+metrics:
+  # Seuils de complexité cyclomatique
+  complexity:
+    low: 5        # Code simple
+    medium: 10    # Code modéré
+    high: 20      # Code complexe (warning)
+    critical: 30  # Refactoring recommandé (error)
+
+  # Seuils de documentation (pourcentages)
+  documentation:
+    # % minimum de fonctions publiques documentées
+    min_public_documented: 80
+    # % minimum de classes documentées
+    min_classes_documented: 90
+    # Longueur minimum d'un docstring utile
+    min_docstring_length: 10
+
+  # Longueur maximale d'une fonction (lignes)
+  function_length:
+    ideal: 30      # Longueur idéale
+    warning: 50    # Warning
+    error: 100     # Error
+    critical: 200  # Critique
+
+  # Longueur maximale d'un fichier (lignes)
+  file_length:
+    ideal: 300
+    warning: 500
+    error: 1000
+    critical: 2000
+
+  # Profondeur d'imbrication
+  nesting_depth:
+    ideal: 3
+    warning: 5
+    critical: 7
+
+  # Ratio commentaires/code
+  comment_ratio:
+    min: 0.1    # Minimum acceptable
+    ideal: 0.2  # Ratio idéal
+    max: 0.5    # Maximum (trop de commentaires)
+
+# -----------------------------------------------------------------------------
+# GIT ANALYSIS CONFIGURATION
+# -----------------------------------------------------------------------------
+git:
+  # Périodes d'analyse de l'activité (en jours)
+  activity_periods:
+    recent: 30       # Activité récente
+    short_term: 90   # Court terme
+    long_term: 365   # Long terme
+
+  # Seuils pour les "hot files" (fichiers fréquemment modifiés)
+  hot_file_thresholds:
+    recent_commits: 5     # Commits dans les 30 derniers jours
+    short_term_commits: 15  # Commits dans les 90 derniers jours
+
+  # Auteurs à ignorer (bots, CI)
+  ignore_authors:
+    - "dependabot[bot]"
+    - "renovate[bot]"
+    - "github-actions[bot]"
+    - "noreply@github.com"
+
+  # Analyser le blame pour identifier les propriétaires
+  analyze_blame: true
+
+  # Ignorer les commits de merge
+  ignore_merge_commits: true
+
+  # Max de commits à analyser par fichier
+  max_commits_per_file: 100
+
+# -----------------------------------------------------------------------------
+# PATTERNS CONFIGURATION
+# -----------------------------------------------------------------------------
+patterns:
+  # Catégories de patterns activées
+  enabled_categories:
+    - "error_handling"
+    - "memory_safety"
+    - "naming_convention"
+    - "documentation"
+    - "security"
+    - "performance"
+
+  # Sévérité par défaut pour les nouveaux patterns
+  default_severity: "warning"
+
+  # Définitions de patterns personnalisés
+  custom: []
+
+# -----------------------------------------------------------------------------
+# MCP SERVER CONFIGURATION
+# -----------------------------------------------------------------------------
+mcp:
+  # Mode: stdio (défaut) ou tcp
+  mode: "stdio"
+
+  # Port du serveur (si mode TCP)
+  # port: 8765
+
+  # Niveau de log: DEBUG, INFO, WARNING, ERROR
+  log_level: "INFO"
+
+  # Timeout des requêtes en secondes
+  request_timeout: 30
+
+  # Cache des résultats (en secondes, 0 = désactivé)
+  cache_ttl: 60
+
+# -----------------------------------------------------------------------------
+# MAINTENANCE CONFIGURATION
+# -----------------------------------------------------------------------------
+maintenance:
+  # Rétention des snapshots (jours)
+  snapshot_retention_days: 30
+
+  # Nombre de runs de pipeline à garder en détail
+  keep_detailed_runs: 100
+
+  # VACUUM automatique après N suppressions
+  auto_vacuum_threshold: 1000
+
+# -----------------------------------------------------------------------------
+# LOGGING CONFIGURATION
+# -----------------------------------------------------------------------------
+logging:
+  # Répertoire des logs
+  directory: ".claude/logs"
+
+  # Niveau de log: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+
+  # Format du log
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  # Rotation des logs
+  max_size_mb: 10
+  backup_count: 5
