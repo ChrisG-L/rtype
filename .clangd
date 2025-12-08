@@ -1,0 +1,26 @@
+CompileFlags:
+  CompilationDatabase: buildLinux
+  Add:
+    - "-isystem/nix/store/y28c83zz73yr4vwz1fsl4nsrn6yz5fj0-gcc-14.3.0/include/c++/14.3.0"
+    - "-isystem/nix/store/y28c83zz73yr4vwz1fsl4nsrn6yz5fj0-gcc-14.3.0/include/c++/14.3.0/x86_64-unknown-linux-gnu"
+    - "-isystem/nix/store/y28c83zz73yr4vwz1fsl4nsrn6yz5fj0-gcc-14.3.0/include/c++/14.3.0/backward"
+  Remove:
+    - "-W*"
+  Compiler: clang++
+
+Diagnostics:
+  UnusedIncludes: None
+  MissingIncludes: None
+  ClangTidy:
+    Remove:
+      - readability-*
+      - modernize-*
+      - cppcoreguidelines-*
+
+Index:
+  Background: Build
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true

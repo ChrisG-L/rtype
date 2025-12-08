@@ -36,10 +36,19 @@
             # --- FIX VCPKG ---
             export VCPKG_FORCE_SYSTEM_BINARIES=1
 
-            # --- FIX CRITIQUE POUR HYPRLAND / SFML ---
-            # C'est cette ligne qui corrige l'erreur BadMatch (Major opcode 78)
-            # Elle force X11 à ne pas utiliser de visuels transparents complexes
+            # --- FIX CRITIQUE POUR HYPRLAND / SFML / NVIDIA ---
+            # Corrige l'erreur BadMatch (Major opcode 78) avec NVIDIA + XWayland
             export XLIB_SKIP_ARGB_VISUALS=1
+
+            # Force le visual non-composite pour NVIDIA
+            export __GL_ALLOW_FXAA_USAGE=0
+            export __GL_FSAA_MODE=0
+
+            # Désactive la synchronisation qui peut causer des problèmes
+            export vblank_mode=0
+
+            # Force GLX à utiliser le provider NVIDIA correctement
+            export __GLX_VENDOR_LIBRARY_NAME=nvidia
 
             # --- FIX GRAPHIQUE & LD_LIBRARY_PATH ---
             # On combine tout en une seule étape propre

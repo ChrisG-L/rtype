@@ -36,3 +36,6 @@ output.txt
 .direnv/flake-profile-2-link
 
 *.pyc
+
+*.log
+
