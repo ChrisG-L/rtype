@@ -10,9 +10,10 @@
 
 #include "graphics/Graphics.hpp"
 #include "scenes/IScene.hpp"
+#include "events/Event.hpp"
+#include "graphics/IWindow.hpp"
 #include "../core/IRenderer.hpp"
 #include "gameplay/EntityManager.hpp"
-#include "events/Event.hpp"
 
 #include <memory>
 #include <unordered_set>

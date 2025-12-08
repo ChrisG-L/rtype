@@ -89,37 +89,27 @@ namespace client::network
 
     void UDPClient::disconnect()
     {
-        // std::scoped_lock lock(_mutex);
-        // if (!_connected) {
-        //     return;
-        // }
+        std::scoped_lock lock(_mutex);
+        if (!_connected) {
+            return;
+        }
 
-        // auto logger = client::logging::Logger::getNetworkLogger();
-        // logger->info("Disconnecting...");
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Disconnecting UDP...");
 
-        // _connected = false;
-        // _ioContext.stop();
+        _connected = false;
+        _ioContext.stop();
 
-        // boost::system::error_code ec;
-        // _socket.shutdown(udp::socket::shutdown_both, ec);
-        // _socket.close(ec);
+        boost::system::error_code ec;
+        if (_socket.is_open()) {
+            _socket.close(ec);
+        }
 
-        // if (_onDisconnected) {
-        //     _onDisconnected();
-        // }
+        if (_onDisconnected) {
+            _onDisconnected();
+        }
 
-        // _ioContext.restart();
-        // _socket = udp::socket(_ioContext);
-
-        // {
-        //     std::scoped_lock lock(_mutex);
-        //     while (!_sendQueue.empty()) {
-        //         _sendQueue.pop();
-        //     }
-        //     _isWriting = false;
-        // }
-
-        // logger->info("Disconnected successfully");
+        logger->info("UDP disconnected successfully");
     }
 
     bool UDPClient::isConnected() const
@@ -156,8 +146,7 @@ namespace client::network
         _socket.async_send_to(
             boost::asio::buffer(buf->data(), totalSize),
             _endpoint,
-            [this, buf](const boost::system::error_code &error, std::size_t) {
-                // handleWrite(error);
+            [buf](const boost::system::error_code &error, std::size_t) {
                 if (error) {
                     std::cout << "WRITE UDP ERROR: " << error << std::endl;
                 }
@@ -170,18 +159,16 @@ namespace client::network
         auto logger = client::logging::Logger::getNetworkLogger();
         if (!error && bytes > 0) {
             if (bytes >= UDPHeader::WIRE_SIZE) {
-                UDPHeader head = UDPHeader::from_bytes(_readBuffer);
+                auto headOpt = UDPHeader::from_bytes(_readBuffer, bytes);
+                if (!headOpt) {
+                    asyncReceiveFrom();
+                    return;
+                }
+                UDPHeader head = *headOpt;
 
                 if (head.type == static_cast<uint16_t>(MessageType::Snapshop)) {
                     std::cout << "snapShot!" << std::endl;
                 }
-
-                    // if (head.type == static_cast<uint16_t>(MessageType::Login))
-                    //     sendLoginData(_pendingUsername, _pendingPassword);
-                    // else if (head.type == static_cast<uint16_t>(MessageType::Register)) {
-                    //     sendRegisterData(_pendingUsername, _pendingEmail, _pendingPassword);
-                    // }
-                // }
                 asyncReceiveFrom();
             }
         } else {

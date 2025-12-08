@@ -9,6 +9,8 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/LoginScene.hpp"
 #include "core/Logger.hpp"
+#include "events/Event.hpp"
+#include <variant>
 
 GameScene::GameScene()
 {
@@ -17,22 +19,12 @@ GameScene::GameScene()
 
 void GameScene::handleEvent(const events::Event& event)
 {
-    // if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
-    //     if (keyPressed->code == sf::Keyboard::Key::Space) {
-    //         client::logging::Logger::getSceneLogger()->info("Switching to LoginScene");
-    //         // if (_sceneManager) {
-    //         //     _sceneManager->changeScene(std::make_unique<LoginScene>());
-    //         // }
-    //     }
-    // }
     if (std::holds_alternative<events::KeyPressed>(event)) {
         auto& key = std::get<events::KeyPressed>(event);
         if (key.key == events::Key::Down) {
             std::cout << "Game scene Key down ! " << std::endl;
-            // _udpClient->movePlayer(10, 15);
         }
     }
-
 }
 
 void GameScene::update(float deltatime)

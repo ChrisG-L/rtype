@@ -23,8 +23,12 @@ namespace infrastructure::adapters::in::network::execute::player {
     }
 
     void ExecutePlayer::move() {
-        MovePlayer movePlayer = MovePlayer::from_bytes(_cmd.buf.data());
-        _movePlayer->execute(PlayerId("1"), movePlayer.x, movePlayer.y, 0);
+        auto movePlayerOpt = MovePlayer::from_bytes(_cmd.buf.data(), _cmd.buf.size());
+        if (!movePlayerOpt) {
+            std::cout << "Invalid MovePlayer message received!" << std::endl;
+            return;
+        }
+        _movePlayer->execute(PlayerId("1"), movePlayerOpt->x, movePlayerOpt->y, 0);
     }
 }
 

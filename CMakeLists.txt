@@ -38,7 +38,6 @@ find_package(GTest CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
 find_package(OpenSSL CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
-find_package(SFML 3 REQUIRED COMPONENTS Graphics Audio Network)
 find_package(spdlog CONFIG REQUIRED)
 
 # add_library(rtype_proto STATIC)

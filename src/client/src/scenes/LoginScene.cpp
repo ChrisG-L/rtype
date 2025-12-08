@@ -8,7 +8,13 @@
 #include "scenes/LoginScene.hpp"
 #include "gameplay/Missile.hpp"
 #include "core/Logger.hpp"
+#include "utils/Vecs.hpp"
+#include "events/Event.hpp"
 #include <string>
+#include <algorithm>
+#include <memory>
+#include <vector>
+#include <variant>
 
 LoginScene::LoginScene(std::shared_ptr<core::IRenderer> renderer)
     : _renderer(renderer)
