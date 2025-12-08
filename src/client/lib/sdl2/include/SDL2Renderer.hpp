@@ -23,16 +23,18 @@ class SDL2Renderer: public core::IRenderer {
     public:
         SDL2Renderer(std::shared_ptr<graphics::IWindow> window);
 
-        void initialize(GraphicAssets assets) override;
-        void update(float deltatime) override;
+        void initialize(GraphicAssets& assets, GraphicAssetsE& elements) override;
+        void update(float deltatime, GraphicAssets& assets, GraphicAssetsE& elements) override;
         void render() override;
 
         void initGraphicTexture(const graphic::GraphicTexture& graphT);
+        void initGraphicElement(const graphic::GraphicElement& elem);
 
     private:
         std::shared_ptr<graphics::IWindow> _window;
         SDL_Renderer* _sdlRenderer;
         std::unique_ptr<SDL2AssetManager> _assetManager;
+        GraphicAssetsE* _elements = nullptr;
 };
 
 #endif /* !SDL2RENDERER_HPP_ */

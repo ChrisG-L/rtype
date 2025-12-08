@@ -19,10 +19,25 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
 
+# Fix for NixOS: pkg-config returns include/SDL2 but we need include for <SDL2/SDL.h>
+set(SDL2_PARENT_INCLUDE_DIRS "")
+foreach(dir ${SDL2_INCLUDE_DIRS})
+    get_filename_component(parent_dir "${dir}" DIRECTORY)
+    list(APPEND SDL2_PARENT_INCLUDE_DIRS "${parent_dir}")
+endforeach()
+list(REMOVE_DUPLICATES SDL2_PARENT_INCLUDE_DIRS)
+
+set(SDL2_IMAGE_PARENT_INCLUDE_DIRS "")
+foreach(dir ${SDL2_IMAGE_INCLUDE_DIRS})
+    get_filename_component(parent_dir "${dir}" DIRECTORY)
+    list(APPEND SDL2_IMAGE_PARENT_INCLUDE_DIRS "${parent_dir}")
+endforeach()
+list(REMOVE_DUPLICATES SDL2_IMAGE_PARENT_INCLUDE_DIRS)
+
 target_include_directories(rtype_sdl2 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/sdl2/include
-    ${SDL2_INCLUDE_DIRS}
-    ${SDL2_IMAGE_INCLUDE_DIRS}
+    ${SDL2_PARENT_INCLUDE_DIRS}
+    ${SDL2_IMAGE_PARENT_INCLUDE_DIRS}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

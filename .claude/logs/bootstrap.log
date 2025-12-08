@@ -1,0 +1,1005 @@
+2025-12-08 14:24:55,906 - DEBUG - Created directory: /home/simia/Dev/epitech/third_year/rtype/.claude/agentdb
+2025-12-08 14:24:55,906 - DEBUG - Created directory: /home/simia/Dev/epitech/third_year/rtype/.claude/mcp/agentdb
+2025-12-08 14:24:55,907 - DEBUG - Created directory: /home/simia/Dev/epitech/third_year/rtype/.claude/config
+2025-12-08 14:24:55,907 - DEBUG - Created directory: /home/simia/Dev/epitech/third_year/rtype/.claude/logs
+2025-12-08 14:24:55,907 - DEBUG - Created directory: /home/simia/Dev/epitech/third_year/rtype/.claude/scripts
+2025-12-08 14:24:55,907 - INFO - Backed up existing database to /home/simia/Dev/epitech/third_year/rtype/.claude/agentdb/db.sqlite.bak
+2025-12-08 14:24:55,979 - INFO - Created database with tables: ['agentdb_meta', 'architecture_decisions', 'critical_paths', 'error_history', 'file_relations', 'files', 'patterns', 'pipeline_runs', 'relations', 'snapshot_symbols', 'sqlite_sequence', 'symbols']
+2025-12-08 14:25:06,590 - DEBUG - Scanned: tests/server/main.cpp
+2025-12-08 14:25:06,591 - DEBUG - Scanned: tests/client/main.cpp
+2025-12-08 14:25:06,591 - DEBUG - Scanned: tests/server/network/UDPIntegrationTest.cpp
+2025-12-08 14:25:06,592 - DEBUG - Scanned: tests/server/network/ProtobufTest.cpp
+2025-12-08 14:25:06,592 - DEBUG - Scanned: tests/server/network/TCPIntegrationTest.cpp
+2025-12-08 14:25:06,593 - DEBUG - Scanned: tests/server/network/protocol/CommandParserTest.cpp
+2025-12-08 14:25:06,593 - DEBUG - Scanned: tests/server/domain/value_objects/HealthTest.cpp
+2025-12-08 14:25:06,593 - DEBUG - Scanned: tests/server/domain/value_objects/PositionTest.cpp
+2025-12-08 14:25:06,594 - DEBUG - Scanned: tests/server/domain/value_objects/UsernameTest.cpp
+2025-12-08 14:25:06,594 - DEBUG - Scanned: tests/server/domain/value_objects/EmailTest.cpp
+2025-12-08 14:25:06,594 - DEBUG - Scanned: tests/server/domain/entities/PlayerTest.cpp
+2025-12-08 14:25:06,595 - DEBUG - Scanned: tests/client/utils/VecsTest.cpp
+2025-12-08 14:25:06,595 - DEBUG - Scanned: tests/client/utils/SignalTest.cpp
+2025-12-08 14:25:06,595 - DEBUG - Scanned: src/ECS/Component.hpp
+2025-12-08 14:25:06,596 - DEBUG - Scanned: src/ECS/Registry.hpp
+2025-12-08 14:25:06,596 - DEBUG - Scanned: src/ECS/Includes.hpp
+2025-12-08 14:25:06,597 - DEBUG - Scanned: src/ECS/ECS.hpp
+2025-12-08 14:25:06,597 - DEBUG - Scanned: src/ECS/Errors.hpp
+2025-12-08 14:25:06,597 - DEBUG - Scanned: src/ECS/System.hpp
+2025-12-08 14:25:06,597 - DEBUG - Scanned: src/server/main.cpp
+2025-12-08 14:25:06,598 - DEBUG - Scanned: src/client/main.cpp
+2025-12-08 14:25:06,598 - DEBUG - Scanned: src/client/main.hpp
+2025-12-08 14:25:06,599 - DEBUG - Scanned: src/server/include/application/dto/PlayerDTO.hpp
+2025-12-08 14:25:06,599 - DEBUG - Scanned: src/server/include/application/ports/in/IGameCommands.hpp
+2025-12-08 14:25:06,599 - DEBUG - Scanned: src/server/include/application/ports/out/persistence/IPlayerRepository.hpp
+2025-12-08 14:25:06,599 - DEBUG - Scanned: src/server/include/application/ports/out/persistence/IUserRespository.hpp
+2025-12-08 14:25:06,600 - DEBUG - Scanned: src/server/include/application/use_cases/player/Move.hpp
+2025-12-08 14:25:06,600 - DEBUG - Scanned: src/server/include/application/use_cases/auth/Register.hpp
+2025-12-08 14:25:06,600 - DEBUG - Scanned: src/server/include/application/use_cases/auth/Login.hpp
+2025-12-08 14:25:06,600 - DEBUG - Scanned: src/server/include/domain/exceptions/PositionException.hpp
+2025-12-08 14:25:06,601 - DEBUG - Scanned: src/server/include/domain/exceptions/DomainException.hpp
+2025-12-08 14:25:06,601 - DEBUG - Scanned: src/server/include/domain/exceptions/HealthException.hpp
+2025-12-08 14:25:06,601 - DEBUG - Scanned: src/server/include/domain/value_objects/Position.hpp
+2025-12-08 14:25:06,601 - DEBUG - Scanned: src/server/include/domain/value_objects/Health.hpp
+2025-12-08 14:25:06,602 - DEBUG - Scanned: src/server/include/domain/services/GameRule.hpp
+2025-12-08 14:25:06,602 - DEBUG - Scanned: src/server/include/domain/entities/Player.hpp
+2025-12-08 14:25:06,602 - DEBUG - Scanned: src/server/include/domain/entities/User.hpp
+2025-12-08 14:25:06,602 - DEBUG - Scanned: src/server/include/domain/exceptions/user/UsernameException.hpp
+2025-12-08 14:25:06,602 - DEBUG - Scanned: src/server/include/domain/exceptions/user/EmailException.hpp
+2025-12-08 14:25:06,603 - DEBUG - Scanned: src/server/include/domain/exceptions/user/UserIdException.hpp
+2025-12-08 14:25:06,603 - DEBUG - Scanned: src/server/include/domain/exceptions/user/PasswordException.hpp
+2025-12-08 14:25:06,603 - DEBUG - Scanned: src/server/include/domain/exceptions/player/PlayerIdException.hpp
+2025-12-08 14:25:06,603 - DEBUG - Scanned: src/server/include/domain/exceptions/player/PlayerNameException.hpp
+2025-12-08 14:25:06,604 - DEBUG - Scanned: src/server/include/domain/exceptions/player/PlayerPasswordException.hpp
+2025-12-08 14:25:06,604 - DEBUG - Scanned: src/server/include/domain/exceptions/persistence/MongoDBException.hpp
+2025-12-08 14:25:06,604 - DEBUG - Scanned: src/server/include/domain/value_objects/user/UserId.hpp
+2025-12-08 14:25:06,604 - DEBUG - Scanned: src/server/include/domain/value_objects/user/Password.hpp
+2025-12-08 14:25:06,605 - DEBUG - Scanned: src/server/include/domain/value_objects/user/Username.hpp
+2025-12-08 14:25:06,605 - DEBUG - Scanned: src/server/include/domain/value_objects/user/Email.hpp
+2025-12-08 14:25:06,605 - DEBUG - Scanned: src/server/include/domain/value_objects/player/PlayerId.hpp
+2025-12-08 14:25:06,605 - DEBUG - Scanned: src/server/include/domain/value_objects/player/PlayerPassword.hpp
+2025-12-08 14:25:06,606 - DEBUG - Scanned: src/server/include/domain/value_objects/player/PlayerName.hpp
+2025-12-08 14:25:06,606 - DEBUG - Scanned: src/server/include/domain/value_objects/user/utils/PasswordUtils.hpp
+2025-12-08 14:25:06,606 - DEBUG - Scanned: src/server/include/infrastructure/logging/Logger.hpp
+2025-12-08 14:25:06,606 - DEBUG - Scanned: src/server/include/infrastructure/configuration/DBConfig.hpp
+2025-12-08 14:25:06,607 - DEBUG - Scanned: src/server/include/infrastructure/configuration/EnvLoader.hpp
+2025-12-08 14:25:06,607 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/network/UDPServer.hpp
+2025-12-08 14:25:06,607 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/network/TCPServer.hpp
+2025-12-08 14:25:06,608 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/cli/CLIGameController.hpp
+2025-12-08 14:25:06,608 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/network/execute/Execute.hpp
+2025-12-08 14:25:06,608 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/network/protocol/CommandParser.hpp
+2025-12-08 14:25:06,608 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/network/protocol/Command.hpp
+2025-12-08 14:25:06,609 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/network/execute/player/ExecutePlayer.hpp
+2025-12-08 14:25:06,609 - DEBUG - Scanned: src/server/include/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp
+2025-12-08 14:25:06,609 - DEBUG - Scanned: src/server/include/infrastructure/adapters/out/persistence/MongoDBPlayerRepository.hpp
+2025-12-08 14:25:06,609 - DEBUG - Scanned: src/server/include/infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp
+2025-12-08 14:25:06,610 - DEBUG - Scanned: src/server/include/infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp
+2025-12-08 14:25:06,610 - DEBUG - Scanned: src/server/application/use_cases/player/Move.cpp
+2025-12-08 14:25:06,610 - DEBUG - Scanned: src/server/application/use_cases/auth/Login.cpp
+2025-12-08 14:25:06,610 - DEBUG - Scanned: src/server/application/use_cases/auth/Register.cpp
+2025-12-08 14:25:06,611 - DEBUG - Scanned: src/server/domain/exceptions/DomainException.cpp
+2025-12-08 14:25:06,611 - DEBUG - Scanned: src/server/domain/exceptions/HealthException.cpp
+2025-12-08 14:25:06,611 - DEBUG - Scanned: src/server/domain/exceptions/PositionException.cpp
+2025-12-08 14:25:06,611 - DEBUG - Scanned: src/server/domain/value_objects/Position.cpp
+2025-12-08 14:25:06,612 - DEBUG - Scanned: src/server/domain/value_objects/Health.cpp
+2025-12-08 14:25:06,612 - DEBUG - Scanned: src/server/domain/entities/Player.cpp
+2025-12-08 14:25:06,612 - DEBUG - Scanned: src/server/domain/entities/User.cpp
+2025-12-08 14:25:06,612 - DEBUG - Scanned: src/server/domain/exceptions/user/UsernameException.cpp
+2025-12-08 14:25:06,612 - DEBUG - Scanned: src/server/domain/exceptions/user/UserIdException.cpp
+2025-12-08 14:25:06,613 - DEBUG - Scanned: src/server/domain/exceptions/user/PasswordException.cpp
+2025-12-08 14:25:06,613 - DEBUG - Scanned: src/server/domain/exceptions/user/EmailException.cpp
+2025-12-08 14:25:06,613 - DEBUG - Scanned: src/server/domain/exceptions/player/PlayerIdException.cpp
+2025-12-08 14:25:06,613 - DEBUG - Scanned: src/server/domain/exceptions/player/PlayerNameException.cpp
+2025-12-08 14:25:06,614 - DEBUG - Scanned: src/server/domain/exceptions/persistence/MongoDBException.cpp
+2025-12-08 14:25:06,614 - DEBUG - Scanned: src/server/domain/value_objects/user/Email.cpp
+2025-12-08 14:25:06,614 - DEBUG - Scanned: src/server/domain/value_objects/user/UserId.cpp
+2025-12-08 14:25:06,614 - DEBUG - Scanned: src/server/domain/value_objects/user/Password.cpp
+2025-12-08 14:25:06,615 - DEBUG - Scanned: src/server/domain/value_objects/user/Username.cpp
+2025-12-08 14:25:06,615 - DEBUG - Scanned: src/server/domain/value_objects/player/PlayerPassword.cpp
+2025-12-08 14:25:06,615 - DEBUG - Scanned: src/server/domain/value_objects/player/PlayerName.cpp
+2025-12-08 14:25:06,615 - DEBUG - Scanned: src/server/domain/value_objects/player/PlayerId.cpp
+2025-12-08 14:25:06,616 - DEBUG - Scanned: src/server/domain/value_objects/user/utils/PasswordUtils.cpp
+2025-12-08 14:25:06,616 - DEBUG - Scanned: src/server/infrastructure/boostrap/GameBootstrap.hpp
+2025-12-08 14:25:06,616 - DEBUG - Scanned: src/server/infrastructure/logging/Logger.cpp
+2025-12-08 14:25:06,616 - DEBUG - Scanned: src/server/infrastructure/adapters/in/network/TCPServer.cpp
+2025-12-08 14:25:06,617 - DEBUG - Scanned: src/server/infrastructure/adapters/in/network/UDPServer.cpp
+2025-12-08 14:25:06,617 - DEBUG - Scanned: src/server/infrastructure/adapters/in/cli/CLIGameController.cpp
+2025-12-08 14:25:06,617 - DEBUG - Scanned: src/server/infrastructure/adapters/in/network/execute/Execute.cpp
+2025-12-08 14:25:06,618 - DEBUG - Scanned: src/server/infrastructure/adapters/in/network/protocol/CommandParser.cpp
+2025-12-08 14:25:06,618 - DEBUG - Scanned: src/server/infrastructure/adapters/in/network/execute/player/ExecutePlayer.cpp
+2025-12-08 14:25:06,618 - DEBUG - Scanned: src/server/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
+2025-12-08 14:25:06,618 - DEBUG - Scanned: src/server/infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
+2025-12-08 14:25:06,619 - DEBUG - Scanned: src/server/infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
+2025-12-08 14:25:06,619 - DEBUG - Scanned: src/client/include/utils/Vecs.hpp
+2025-12-08 14:25:06,619 - DEBUG - Scanned: src/client/include/network/UDPClient.hpp
+2025-12-08 14:25:06,619 - DEBUG - Scanned: src/client/include/network/TCPClient.hpp
+2025-12-08 14:25:06,620 - DEBUG - Scanned: src/client/include/ui/IButton.hpp
+2025-12-08 14:25:06,620 - DEBUG - Scanned: src/client/include/ui/IUIElement.hpp
+2025-12-08 14:25:06,620 - DEBUG - Scanned: src/client/include/ui/TextInput.hpp
+2025-12-08 14:25:06,620 - DEBUG - Scanned: src/client/include/boot/Boot.hpp
+2025-12-08 14:25:06,621 - DEBUG - Scanned: src/client/include/gameplay/GameObject.hpp
+2025-12-08 14:25:06,621 - DEBUG - Scanned: src/client/include/gameplay/Missile.hpp
+2025-12-08 14:25:06,621 - DEBUG - Scanned: src/client/include/gameplay/Spaceship.hpp
+2025-12-08 14:25:06,621 - DEBUG - Scanned: src/client/include/gameplay/EntityManager.hpp
+2025-12-08 14:25:06,622 - DEBUG - Scanned: src/client/include/graphics/Graphics.hpp
+2025-12-08 14:25:06,622 - DEBUG - Scanned: src/client/include/graphics/ITexture.hpp
+2025-12-08 14:25:06,622 - DEBUG - Scanned: src/client/include/graphics/IWindow.hpp
+2025-12-08 14:25:06,622 - DEBUG - Scanned: src/client/include/graphics/IGraphicPlugin.hpp
+2025-12-08 14:25:06,623 - DEBUG - Scanned: src/client/include/graphics/IDrawable.hpp
+2025-12-08 14:25:06,623 - DEBUG - Scanned: src/client/include/graphics/Asset.hpp
+2025-12-08 14:25:06,623 - DEBUG - Scanned: src/client/include/events/Event.hpp
+2025-12-08 14:25:06,623 - DEBUG - Scanned: src/client/include/events/Signal.hpp
+2025-12-08 14:25:06,624 - DEBUG - Scanned: src/client/include/scenes/LoginScene.hpp
+2025-12-08 14:25:06,624 - DEBUG - Scanned: src/client/include/scenes/GameScene.hpp
+2025-12-08 14:25:06,624 - DEBUG - Scanned: src/client/include/scenes/SceneManager.hpp
+2025-12-08 14:25:06,624 - DEBUG - Scanned: src/client/include/scenes/IScene.hpp
+2025-12-08 14:25:06,624 - DEBUG - Scanned: src/client/include/core/Engine.hpp
+2025-12-08 14:25:06,625 - DEBUG - Scanned: src/client/include/core/GameLoop.hpp
+2025-12-08 14:25:06,625 - DEBUG - Scanned: src/client/include/core/IRenderer.hpp
+2025-12-08 14:25:06,625 - DEBUG - Scanned: src/client/include/core/Logger.hpp
+2025-12-08 14:25:06,625 - DEBUG - Scanned: src/client/include/core/IGameLoop.hpp
+2025-12-08 14:25:06,626 - DEBUG - Scanned: src/client/include/core/IEngine.hpp
+2025-12-08 14:25:06,626 - DEBUG - Scanned: src/client/include/core/DynamicLib.hpp
+2025-12-08 14:25:06,626 - DEBUG - Scanned: src/client/include/network/common/Player.hpp
+2025-12-08 14:25:06,626 - DEBUG - Scanned: src/client/include/ui/auth/LoginBtn.hpp
+2025-12-08 14:25:06,626 - DEBUG - Scanned: src/client/include/events/window/Closed.hpp
+2025-12-08 14:25:06,627 - DEBUG - Scanned: src/client/src/network/UDPClient.cpp
+2025-12-08 14:25:06,627 - DEBUG - Scanned: src/client/src/network/TCPClient.cpp
+2025-12-08 14:25:06,627 - DEBUG - Scanned: src/client/src/boot/Boot.cpp
+2025-12-08 14:25:06,628 - DEBUG - Scanned: src/client/src/gameplay/GameObject.cpp
+2025-12-08 14:25:06,628 - DEBUG - Scanned: src/client/src/gameplay/EntityManager.cpp
+2025-12-08 14:25:06,628 - DEBUG - Scanned: src/client/src/gameplay/Missile.cpp
+2025-12-08 14:25:06,628 - DEBUG - Scanned: src/client/src/graphics/Graphics.cpp
+2025-12-08 14:25:06,629 - DEBUG - Scanned: src/client/src/scenes/SceneManager.cpp
+2025-12-08 14:25:06,629 - DEBUG - Scanned: src/client/src/scenes/GameScene.cpp
+2025-12-08 14:25:06,629 - DEBUG - Scanned: src/client/src/scenes/LoginScene.cpp
+2025-12-08 14:25:06,629 - DEBUG - Scanned: src/client/src/core/Logger.cpp
+2025-12-08 14:25:06,630 - DEBUG - Scanned: src/client/src/core/Engine.cpp
+2025-12-08 14:25:06,630 - DEBUG - Scanned: src/client/src/core/DynamicLib.cpp
+2025-12-08 14:25:06,630 - DEBUG - Scanned: src/client/src/core/GameLoop.cpp
+2025-12-08 14:25:06,630 - DEBUG - Scanned: src/client/lib/sdl2/include/SDL2Window.hpp
+2025-12-08 14:25:06,631 - DEBUG - Scanned: src/client/lib/sdl2/include/SDL2Renderer.hpp
+2025-12-08 14:25:06,631 - DEBUG - Scanned: src/client/lib/sdl2/src/SDL2Plugin.cpp
+2025-12-08 14:25:06,631 - DEBUG - Scanned: src/client/lib/sdl2/src/SDL2AssetManager.cpp
+2025-12-08 14:25:06,632 - DEBUG - Scanned: src/client/lib/sdl2/src/SDL2Window.cpp
+2025-12-08 14:25:06,632 - DEBUG - Scanned: src/client/lib/sdl2/src/SDL2Renderer.cpp
+2025-12-08 14:25:06,632 - DEBUG - Scanned: src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp
+2025-12-08 14:25:06,632 - DEBUG - Scanned: src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp
+2025-12-08 14:25:06,632 - DEBUG - Scanned: src/client/lib/sfml/include/SFMLTexture.hpp
+2025-12-08 14:25:06,633 - DEBUG - Scanned: src/client/lib/sfml/include/SFMLWindow.hpp
+2025-12-08 14:25:06,633 - DEBUG - Scanned: src/client/lib/sfml/include/SFMLRenderer.hpp
+2025-12-08 14:25:06,633 - DEBUG - Scanned: src/client/lib/sfml/src/SFMLWindow.cpp
+2025-12-08 14:25:06,634 - DEBUG - Scanned: src/client/lib/sfml/src/SFMLTexture.cpp
+2025-12-08 14:25:06,634 - DEBUG - Scanned: src/client/lib/sfml/src/AssetManager.cpp
+2025-12-08 14:25:06,634 - DEBUG - Scanned: src/client/lib/sfml/src/SFMLRenderer.cpp
+2025-12-08 14:25:06,634 - DEBUG - Scanned: src/client/lib/sfml/include/utils/TextField.hpp
+2025-12-08 14:25:06,635 - DEBUG - Scanned: src/client/lib/sfml/include/utils/AssetManager.hpp
+2025-12-08 14:25:06,635 - DEBUG - Scanned: src/client/lib/sfml/include/plugins/SFMLPlugin.hpp
+2025-12-08 14:25:06,635 - DEBUG - Scanned: src/client/lib/sfml/src/plugins/SFMLPlugin.cpp
+2025-12-08 14:25:06,635 - DEBUG - Scanned: src/common/protocol/Protocol.hpp
+2025-12-08 14:25:06,636 - DEBUG - Scanned: .claude/tests/conftest.py
+2025-12-08 14:25:06,636 - DEBUG - Scanned: .claude/tests/test_db.py
+2025-12-08 14:25:06,637 - DEBUG - Scanned: .claude/tests/test_crud.py
+2025-12-08 14:25:06,637 - DEBUG - Scanned: .claude/tests/test_queries.py
+2025-12-08 14:25:06,638 - DEBUG - Scanned: .claude/tests/__init__.py
+2025-12-08 14:25:06,638 - DEBUG - Scanned: .claude/tests/test_mcp_tools.py
+2025-12-08 14:25:06,639 - DEBUG - Scanned: .claude/tests/test_models.py
+2025-12-08 14:25:06,641 - DEBUG - Scanned: .claude/scripts/maintenance.py
+2025-12-08 14:25:06,642 - DEBUG - Scanned: .claude/scripts/update.py
+2025-12-08 14:25:06,642 - DEBUG - Scanned: .claude/scripts/__init__.py
+2025-12-08 14:25:06,643 - DEBUG - Scanned: .claude/scripts/bootstrap.py
+2025-12-08 14:25:06,643 - DEBUG - Scanned: .claude/mcp/__init__.py
+2025-12-08 14:25:06,647 - DEBUG - Scanned: .claude/mcp/agentdb/server.py
+2025-12-08 14:25:06,647 - DEBUG - Scanned: .claude/mcp/agentdb/__init__.py
+2025-12-08 14:25:06,648 - DEBUG - Scanned: .claude/mcp/agentdb/tools.py
+2025-12-08 14:25:06,660 - DEBUG - Scanned: ci_cd/docker/builder/main.py
+2025-12-08 14:25:07,453 - DEBUG - Indexed 1 symbols from tests/server/main.cpp
+2025-12-08 14:25:07,458 - DEBUG - Indexed 1 symbols from tests/client/main.cpp
+2025-12-08 14:25:07,465 - DEBUG - Indexed 81 symbols from tests/server/network/UDPIntegrationTest.cpp
+2025-12-08 14:25:07,471 - DEBUG - Indexed 42 symbols from tests/server/network/ProtobufTest.cpp
+2025-12-08 14:25:07,478 - DEBUG - Indexed 87 symbols from tests/server/network/TCPIntegrationTest.cpp
+2025-12-08 14:25:07,483 - DEBUG - Indexed 34 symbols from tests/server/network/protocol/CommandParserTest.cpp
+2025-12-08 14:25:07,488 - DEBUG - Indexed 26 symbols from tests/server/domain/value_objects/HealthTest.cpp
+2025-12-08 14:25:07,493 - DEBUG - Indexed 25 symbols from tests/server/domain/value_objects/PositionTest.cpp
+2025-12-08 14:25:07,498 - DEBUG - Indexed 27 symbols from tests/server/domain/value_objects/UsernameTest.cpp
+2025-12-08 14:25:07,503 - DEBUG - Indexed 27 symbols from tests/server/domain/value_objects/EmailTest.cpp
+2025-12-08 14:25:07,508 - DEBUG - Indexed 25 symbols from tests/server/domain/entities/PlayerTest.cpp
+2025-12-08 14:25:07,513 - DEBUG - Indexed 32 symbols from tests/client/utils/VecsTest.cpp
+2025-12-08 14:25:07,519 - DEBUG - Indexed 47 symbols from tests/client/utils/SignalTest.cpp
+2025-12-08 14:25:07,524 - DEBUG - Indexed 27 symbols from src/ECS/Component.hpp
+2025-12-08 14:25:07,529 - DEBUG - Indexed 11 symbols from src/ECS/Registry.hpp
+2025-12-08 14:25:07,533 - DEBUG - Indexed 15 symbols from src/ECS/Includes.hpp
+2025-12-08 14:25:07,538 - DEBUG - Indexed 33 symbols from src/ECS/ECS.hpp
+2025-12-08 14:25:07,543 - DEBUG - Indexed 23 symbols from src/ECS/Errors.hpp
+2025-12-08 14:25:07,547 - DEBUG - Indexed 3 symbols from src/ECS/System.hpp
+2025-12-08 14:25:07,551 - DEBUG - Indexed 1 symbols from src/server/main.cpp
+2025-12-08 14:25:07,555 - DEBUG - Indexed 1 symbols from src/client/main.cpp
+2025-12-08 14:25:07,559 - DEBUG - Indexed 1 symbols from src/client/main.hpp
+2025-12-08 14:25:07,563 - DEBUG - Indexed 8 symbols from src/server/include/application/dto/PlayerDTO.hpp
+2025-12-08 14:25:07,568 - DEBUG - Indexed 5 symbols from src/server/include/application/ports/in/IGameCommands.hpp
+2025-12-08 14:25:07,572 - DEBUG - Indexed 6 symbols from src/server/include/application/ports/out/persistence/IPlayerRepository.hpp
+2025-12-08 14:25:07,576 - DEBUG - Indexed 6 symbols from src/server/include/application/ports/out/persistence/IUserRespository.hpp
+2025-12-08 14:25:07,580 - DEBUG - Indexed 5 symbols from src/server/include/application/use_cases/player/Move.hpp
+2025-12-08 14:25:07,585 - DEBUG - Indexed 6 symbols from src/server/include/application/use_cases/auth/Register.hpp
+2025-12-08 14:25:07,589 - DEBUG - Indexed 6 symbols from src/server/include/application/use_cases/auth/Login.hpp
+2025-12-08 14:25:07,593 - DEBUG - Indexed 4 symbols from src/server/include/domain/exceptions/PositionException.hpp
+2025-12-08 14:25:07,597 - DEBUG - Indexed 5 symbols from src/server/include/domain/exceptions/DomainException.hpp
+2025-12-08 14:25:07,602 - DEBUG - Indexed 4 symbols from src/server/include/domain/exceptions/HealthException.hpp
+2025-12-08 14:25:07,606 - DEBUG - Indexed 7 symbols from src/server/include/domain/value_objects/Position.hpp
+2025-12-08 14:25:07,610 - DEBUG - Indexed 5 symbols from src/server/include/domain/value_objects/Health.hpp
+2025-12-08 14:25:07,615 - DEBUG - Indexed 4 symbols from src/server/include/domain/services/GameRule.hpp
+2025-12-08 14:25:07,619 - DEBUG - Indexed 7 symbols from src/server/include/domain/entities/Player.hpp
+2025-12-08 14:25:07,623 - DEBUG - Indexed 10 symbols from src/server/include/domain/entities/User.hpp
+2025-12-08 14:25:07,628 - DEBUG - Indexed 5 symbols from src/server/include/domain/exceptions/user/UsernameException.hpp
+2025-12-08 14:25:07,632 - DEBUG - Indexed 5 symbols from src/server/include/domain/exceptions/user/EmailException.hpp
+2025-12-08 14:25:07,636 - DEBUG - Indexed 5 symbols from src/server/include/domain/exceptions/user/UserIdException.hpp
+2025-12-08 14:25:07,640 - DEBUG - Indexed 5 symbols from src/server/include/domain/exceptions/user/PasswordException.hpp
+2025-12-08 14:25:07,644 - DEBUG - Indexed 5 symbols from src/server/include/domain/exceptions/player/PlayerIdException.hpp
+2025-12-08 14:25:07,648 - DEBUG - Indexed 7 symbols from src/server/include/domain/exceptions/player/PlayerNameException.hpp
+2025-12-08 14:25:07,653 - DEBUG - Indexed 7 symbols from src/server/include/domain/exceptions/player/PlayerPasswordException.hpp
+2025-12-08 14:25:07,657 - DEBUG - Indexed 5 symbols from src/server/include/domain/exceptions/persistence/MongoDBException.hpp
+2025-12-08 14:25:07,661 - DEBUG - Indexed 6 symbols from src/server/include/domain/value_objects/user/UserId.hpp
+2025-12-08 14:25:07,666 - DEBUG - Indexed 6 symbols from src/server/include/domain/value_objects/user/Password.hpp
+2025-12-08 14:25:07,670 - DEBUG - Indexed 6 symbols from src/server/include/domain/value_objects/user/Username.hpp
+2025-12-08 14:25:07,674 - DEBUG - Indexed 6 symbols from src/server/include/domain/value_objects/user/Email.hpp
+2025-12-08 14:25:07,679 - DEBUG - Indexed 6 symbols from src/server/include/domain/value_objects/player/PlayerId.hpp
+2025-12-08 14:25:07,683 - DEBUG - Indexed 6 symbols from src/server/include/domain/value_objects/player/PlayerPassword.hpp
+2025-12-08 14:25:07,687 - DEBUG - Indexed 6 symbols from src/server/include/domain/value_objects/player/PlayerName.hpp
+2025-12-08 14:25:07,691 - DEBUG - Indexed 5 symbols from src/server/include/domain/value_objects/user/utils/PasswordUtils.hpp
+2025-12-08 14:25:07,696 - DEBUG - Indexed 10 symbols from src/server/include/infrastructure/logging/Logger.hpp
+2025-12-08 14:25:07,700 - DEBUG - Indexed 6 symbols from src/server/include/infrastructure/configuration/DBConfig.hpp
+2025-12-08 14:25:07,704 - DEBUG - Indexed 7 symbols from src/server/include/infrastructure/configuration/EnvLoader.hpp
+2025-12-08 14:25:07,709 - DEBUG - Indexed 11 symbols from src/server/include/infrastructure/adapters/in/network/UDPServer.hpp
+2025-12-08 14:25:07,713 - DEBUG - Indexed 19 symbols from src/server/include/infrastructure/adapters/in/network/TCPServer.hpp
+2025-12-08 14:25:07,718 - DEBUG - Indexed 7 symbols from src/server/include/infrastructure/adapters/in/cli/CLIGameController.hpp
+2025-12-08 14:25:07,723 - DEBUG - Indexed 9 symbols from src/server/include/infrastructure/adapters/in/network/execute/Execute.hpp
+2025-12-08 14:25:07,728 - DEBUG - Indexed 7 symbols from src/server/include/infrastructure/adapters/in/network/protocol/CommandParser.hpp
+2025-12-08 14:25:07,732 - DEBUG - Indexed 4 symbols from src/server/include/infrastructure/adapters/in/network/protocol/Command.hpp
+2025-12-08 14:25:07,737 - DEBUG - Indexed 10 symbols from src/server/include/infrastructure/adapters/in/network/execute/player/ExecutePlayer.hpp
+2025-12-08 14:25:07,741 - DEBUG - Indexed 12 symbols from src/server/include/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp
+2025-12-08 14:25:07,746 - DEBUG - Indexed 6 symbols from src/server/include/infrastructure/adapters/out/persistence/MongoDBPlayerRepository.hpp
+2025-12-08 14:25:07,750 - DEBUG - Indexed 8 symbols from src/server/include/infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp
+2025-12-08 14:25:07,754 - DEBUG - Indexed 10 symbols from src/server/include/infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp
+2025-12-08 14:25:07,758 - DEBUG - Indexed 5 symbols from src/server/application/use_cases/player/Move.cpp
+2025-12-08 14:25:07,763 - DEBUG - Indexed 5 symbols from src/server/application/use_cases/auth/Login.cpp
+2025-12-08 14:25:07,767 - DEBUG - Indexed 5 symbols from src/server/application/use_cases/auth/Register.cpp
+2025-12-08 14:25:07,771 - DEBUG - Indexed 4 symbols from src/server/domain/exceptions/DomainException.cpp
+2025-12-08 14:25:07,775 - DEBUG - Indexed 4 symbols from src/server/domain/exceptions/HealthException.cpp
+2025-12-08 14:25:07,779 - DEBUG - Indexed 4 symbols from src/server/domain/exceptions/PositionException.cpp
+2025-12-08 14:25:07,783 - DEBUG - Indexed 10 symbols from src/server/domain/value_objects/Position.cpp
+2025-12-08 14:25:07,787 - DEBUG - Indexed 9 symbols from src/server/domain/value_objects/Health.cpp
+2025-12-08 14:25:07,792 - DEBUG - Indexed 8 symbols from src/server/domain/entities/Player.cpp
+2025-12-08 14:25:07,796 - DEBUG - Indexed 11 symbols from src/server/domain/entities/User.cpp
+2025-12-08 14:25:07,800 - DEBUG - Indexed 5 symbols from src/server/domain/exceptions/user/UsernameException.cpp
+2025-12-08 14:25:07,804 - DEBUG - Indexed 5 symbols from src/server/domain/exceptions/user/UserIdException.cpp
+2025-12-08 14:25:07,808 - DEBUG - Indexed 5 symbols from src/server/domain/exceptions/user/PasswordException.cpp
+2025-12-08 14:25:07,812 - DEBUG - Indexed 5 symbols from src/server/domain/exceptions/user/EmailException.cpp
+2025-12-08 14:25:07,816 - DEBUG - Indexed 5 symbols from src/server/domain/exceptions/player/PlayerIdException.cpp
+2025-12-08 14:25:07,818 - DEBUG - Indexed 0 symbols from src/server/domain/exceptions/player/PlayerNameException.cpp
+2025-12-08 14:25:07,822 - DEBUG - Indexed 5 symbols from src/server/domain/exceptions/persistence/MongoDBException.cpp
+2025-12-08 14:25:07,827 - DEBUG - Indexed 8 symbols from src/server/domain/value_objects/user/Email.cpp
+2025-12-08 14:25:07,831 - DEBUG - Indexed 8 symbols from src/server/domain/value_objects/user/UserId.cpp
+2025-12-08 14:25:07,835 - DEBUG - Indexed 9 symbols from src/server/domain/value_objects/user/Password.cpp
+2025-12-08 14:25:07,839 - DEBUG - Indexed 8 symbols from src/server/domain/value_objects/user/Username.cpp
+2025-12-08 14:25:07,844 - DEBUG - Indexed 8 symbols from src/server/domain/value_objects/player/PlayerPassword.cpp
+2025-12-08 14:25:07,848 - DEBUG - Indexed 8 symbols from src/server/domain/value_objects/player/PlayerName.cpp
+2025-12-08 14:25:07,852 - DEBUG - Indexed 8 symbols from src/server/domain/value_objects/player/PlayerId.cpp
+2025-12-08 14:25:07,856 - DEBUG - Indexed 5 symbols from src/server/domain/value_objects/user/utils/PasswordUtils.cpp
+2025-12-08 14:25:07,861 - DEBUG - Indexed 8 symbols from src/server/infrastructure/boostrap/GameBootstrap.hpp
+2025-12-08 14:25:07,865 - DEBUG - Indexed 16 symbols from src/server/infrastructure/logging/Logger.cpp
+2025-12-08 14:25:07,870 - DEBUG - Indexed 18 symbols from src/server/infrastructure/adapters/in/network/TCPServer.cpp
+2025-12-08 14:25:07,875 - DEBUG - Indexed 13 symbols from src/server/infrastructure/adapters/in/network/UDPServer.cpp
+2025-12-08 14:25:07,879 - DEBUG - Indexed 5 symbols from src/server/infrastructure/adapters/in/cli/CLIGameController.cpp
+2025-12-08 14:25:07,883 - DEBUG - Indexed 6 symbols from src/server/infrastructure/adapters/in/network/execute/Execute.cpp
+2025-12-08 14:25:07,887 - DEBUG - Indexed 6 symbols from src/server/infrastructure/adapters/in/network/protocol/CommandParser.cpp
+2025-12-08 14:25:07,892 - DEBUG - Indexed 8 symbols from src/server/infrastructure/adapters/in/network/execute/player/ExecutePlayer.cpp
+2025-12-08 14:25:07,896 - DEBUG - Indexed 10 symbols from src/server/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
+2025-12-08 14:25:07,901 - DEBUG - Indexed 15 symbols from src/server/infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
+2025-12-08 14:25:07,905 - DEBUG - Indexed 9 symbols from src/server/infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
+2025-12-08 14:25:07,909 - DEBUG - Indexed 27 symbols from src/client/include/utils/Vecs.hpp
+2025-12-08 14:25:07,914 - DEBUG - Indexed 26 symbols from src/client/include/network/UDPClient.hpp
+2025-12-08 14:25:07,919 - DEBUG - Indexed 25 symbols from src/client/include/network/TCPClient.hpp
+2025-12-08 14:25:07,923 - DEBUG - Indexed 4 symbols from src/client/include/ui/IButton.hpp
+2025-12-08 14:25:07,927 - DEBUG - Indexed 2 symbols from src/client/include/ui/IUIElement.hpp
+2025-12-08 14:25:07,932 - DEBUG - Indexed 1 symbols from src/client/include/ui/TextInput.hpp
+2025-12-08 14:25:07,936 - DEBUG - Indexed 5 symbols from src/client/include/boot/Boot.hpp
+2025-12-08 14:25:07,940 - DEBUG - Indexed 20 symbols from src/client/include/gameplay/GameObject.hpp
+2025-12-08 14:25:07,945 - DEBUG - Indexed 7 symbols from src/client/include/gameplay/Missile.hpp
+2025-12-08 14:25:07,949 - DEBUG - Indexed 2 symbols from src/client/include/gameplay/Spaceship.hpp
+2025-12-08 14:25:07,953 - DEBUG - Indexed 7 symbols from src/client/include/gameplay/EntityManager.hpp
+2025-12-08 14:25:07,958 - DEBUG - Indexed 22 symbols from src/client/include/graphics/Graphics.hpp
+2025-12-08 14:25:07,962 - DEBUG - Indexed 3 symbols from src/client/include/graphics/ITexture.hpp
+2025-12-08 14:25:07,966 - DEBUG - Indexed 3 symbols from src/client/include/graphics/IWindow.hpp
+2025-12-08 14:25:07,970 - DEBUG - Indexed 5 symbols from src/client/include/graphics/IGraphicPlugin.hpp
+2025-12-08 14:25:07,974 - DEBUG - Indexed 3 symbols from src/client/include/graphics/IDrawable.hpp
+2025-12-08 14:25:07,978 - DEBUG - Indexed 7 symbols from src/client/include/graphics/Asset.hpp
+2025-12-08 14:25:07,983 - DEBUG - Indexed 62 symbols from src/client/include/events/Event.hpp
+2025-12-08 14:25:07,988 - DEBUG - Indexed 6 symbols from src/client/include/events/Signal.hpp
+2025-12-08 14:25:07,992 - DEBUG - Indexed 11 symbols from src/client/include/scenes/LoginScene.hpp
+2025-12-08 14:25:07,997 - DEBUG - Indexed 2 symbols from src/client/include/scenes/GameScene.hpp
+2025-12-08 14:25:08,001 - DEBUG - Indexed 5 symbols from src/client/include/scenes/SceneManager.hpp
+2025-12-08 14:25:08,005 - DEBUG - Indexed 8 symbols from src/client/include/scenes/IScene.hpp
+2025-12-08 14:25:08,010 - DEBUG - Indexed 9 symbols from src/client/include/core/Engine.hpp
+2025-12-08 14:25:08,016 - DEBUG - Indexed 9 symbols from src/client/include/core/GameLoop.hpp
+2025-12-08 14:25:08,020 - DEBUG - Indexed 3 symbols from src/client/include/core/IRenderer.hpp
+2025-12-08 14:25:08,025 - DEBUG - Indexed 10 symbols from src/client/include/core/Logger.hpp
+2025-12-08 14:25:08,029 - DEBUG - Indexed 3 symbols from src/client/include/core/IGameLoop.hpp
+2025-12-08 14:25:08,033 - DEBUG - Indexed 3 symbols from src/client/include/core/IEngine.hpp
+2025-12-08 14:25:08,038 - DEBUG - Indexed 6 symbols from src/client/include/core/DynamicLib.hpp
+2025-12-08 14:25:08,042 - DEBUG - Indexed 5 symbols from src/client/include/network/common/Player.hpp
+2025-12-08 14:25:08,046 - DEBUG - Indexed 4 symbols from src/client/include/ui/auth/LoginBtn.hpp
+2025-12-08 14:25:08,050 - DEBUG - Indexed 4 symbols from src/client/include/events/window/Closed.hpp
+2025-12-08 14:25:08,055 - DEBUG - Indexed 19 symbols from src/client/src/network/UDPClient.cpp
+2025-12-08 14:25:08,060 - DEBUG - Indexed 25 symbols from src/client/src/network/TCPClient.cpp
+2025-12-08 14:25:08,065 - DEBUG - Indexed 6 symbols from src/client/src/boot/Boot.cpp
+2025-12-08 14:25:08,069 - DEBUG - Indexed 2 symbols from src/client/src/gameplay/GameObject.cpp
+2025-12-08 14:25:08,073 - DEBUG - Indexed 9 symbols from src/client/src/gameplay/EntityManager.cpp
+2025-12-08 14:25:08,078 - DEBUG - Indexed 3 symbols from src/client/src/gameplay/Missile.cpp
+2025-12-08 14:25:08,082 - DEBUG - Indexed 16 symbols from src/client/src/graphics/Graphics.cpp
+2025-12-08 14:25:08,086 - DEBUG - Indexed 7 symbols from src/client/src/scenes/SceneManager.cpp
+2025-12-08 14:25:08,091 - DEBUG - Indexed 4 symbols from src/client/src/scenes/GameScene.cpp
+2025-12-08 14:25:08,095 - DEBUG - Indexed 8 symbols from src/client/src/scenes/LoginScene.cpp
+2025-12-08 14:25:08,100 - DEBUG - Indexed 16 symbols from src/client/src/core/Logger.cpp
+2025-12-08 14:25:08,105 - DEBUG - Indexed 6 symbols from src/client/src/core/Engine.cpp
+2025-12-08 14:25:08,109 - DEBUG - Indexed 6 symbols from src/client/src/core/DynamicLib.cpp
+2025-12-08 14:25:08,113 - DEBUG - Indexed 8 symbols from src/client/src/core/GameLoop.cpp
+2025-12-08 14:25:08,118 - DEBUG - Indexed 6 symbols from src/client/lib/sdl2/include/SDL2Window.hpp
+2025-12-08 14:25:08,122 - DEBUG - Indexed 6 symbols from src/client/lib/sdl2/include/SDL2Renderer.hpp
+2025-12-08 14:25:08,127 - DEBUG - Indexed 9 symbols from src/client/lib/sdl2/src/SDL2Plugin.cpp
+2025-12-08 14:25:08,131 - DEBUG - Indexed 7 symbols from src/client/lib/sdl2/src/SDL2AssetManager.cpp
+2025-12-08 14:25:08,136 - DEBUG - Indexed 13 symbols from src/client/lib/sdl2/src/SDL2Window.cpp
+2025-12-08 14:25:08,140 - DEBUG - Indexed 8 symbols from src/client/lib/sdl2/src/SDL2Renderer.cpp
+2025-12-08 14:25:08,145 - DEBUG - Indexed 10 symbols from src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp
+2025-12-08 14:25:08,149 - DEBUG - Indexed 3 symbols from src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp
+2025-12-08 14:25:08,153 - DEBUG - Indexed 3 symbols from src/client/lib/sfml/include/SFMLTexture.hpp
+2025-12-08 14:25:08,158 - DEBUG - Indexed 3 symbols from src/client/lib/sfml/include/SFMLWindow.hpp
+2025-12-08 14:25:08,162 - DEBUG - Indexed 4 symbols from src/client/lib/sfml/include/SFMLRenderer.hpp
+2025-12-08 14:25:08,167 - DEBUG - Indexed 12 symbols from src/client/lib/sfml/src/SFMLWindow.cpp
+2025-12-08 14:25:08,171 - DEBUG - Indexed 3 symbols from src/client/lib/sfml/src/SFMLTexture.cpp
+2025-12-08 14:25:08,175 - DEBUG - Indexed 9 symbols from src/client/lib/sfml/src/AssetManager.cpp
+2025-12-08 14:25:08,180 - DEBUG - Indexed 12 symbols from src/client/lib/sfml/src/SFMLRenderer.cpp
+2025-12-08 14:25:08,184 - DEBUG - Indexed 8 symbols from src/client/lib/sfml/include/utils/TextField.hpp
+2025-12-08 14:25:08,188 - DEBUG - Indexed 7 symbols from src/client/lib/sfml/include/utils/AssetManager.hpp
+2025-12-08 14:25:08,193 - DEBUG - Indexed 3 symbols from src/client/lib/sfml/include/plugins/SFMLPlugin.hpp
+2025-12-08 14:25:08,197 - DEBUG - Indexed 9 symbols from src/client/lib/sfml/src/plugins/SFMLPlugin.cpp
+2025-12-08 14:25:08,203 - DEBUG - Indexed 50 symbols from src/common/protocol/Protocol.hpp
+2025-12-08 14:25:08,207 - DEBUG - Indexed 11 symbols from .claude/tests/conftest.py
+2025-12-08 14:25:08,212 - DEBUG - Indexed 43 symbols from .claude/tests/test_db.py
+2025-12-08 14:25:08,224 - DEBUG - Indexed 70 symbols from .claude/tests/test_crud.py
+2025-12-08 14:25:08,232 - DEBUG - Indexed 50 symbols from .claude/tests/test_queries.py
+2025-12-08 14:25:08,232 - DEBUG - Indexed 0 symbols from .claude/tests/__init__.py
+2025-12-08 14:25:08,240 - DEBUG - Indexed 65 symbols from .claude/tests/test_mcp_tools.py
+2025-12-08 14:25:08,246 - DEBUG - Indexed 52 symbols from .claude/tests/test_models.py
+2025-12-08 14:25:08,250 - DEBUG - Indexed 17 symbols from .claude/scripts/maintenance.py
+2025-12-08 14:25:08,261 - DEBUG - Indexed 24 symbols from .claude/scripts/update.py
+2025-12-08 14:25:08,261 - DEBUG - Indexed 0 symbols from .claude/scripts/__init__.py
+2025-12-08 14:25:08,283 - DEBUG - Indexed 39 symbols from .claude/scripts/bootstrap.py
+2025-12-08 14:25:08,283 - DEBUG - Indexed 0 symbols from .claude/mcp/__init__.py
+2025-12-08 14:25:08,290 - DEBUG - Indexed 24 symbols from .claude/mcp/agentdb/server.py
+2025-12-08 14:25:08,291 - DEBUG - Indexed 0 symbols from .claude/mcp/agentdb/__init__.py
+2025-12-08 14:25:08,304 - DEBUG - Indexed 15 symbols from .claude/mcp/agentdb/tools.py
+2025-12-08 14:25:08,309 - DEBUG - Indexed 15 symbols from ci_cd/docker/builder/main.py
+2025-12-08 14:25:08,333 - INFO - Loaded 1239 symbols for relation extraction
+2025-12-08 14:25:08,334 - DEBUG - Extracted 0 calls from tests/server/main.cpp
+2025-12-08 14:25:08,334 - DEBUG - Extracted 0 calls from tests/client/main.cpp
+2025-12-08 14:25:08,335 - DEBUG - Extracted 96 calls from tests/server/network/UDPIntegrationTest.cpp
+2025-12-08 14:25:08,337 - DEBUG - Extracted 39 calls from tests/server/network/ProtobufTest.cpp
+2025-12-08 14:25:08,338 - DEBUG - Extracted 139 calls from tests/server/network/TCPIntegrationTest.cpp
+2025-12-08 14:25:08,339 - DEBUG - Extracted 34 calls from tests/server/network/protocol/CommandParserTest.cpp
+2025-12-08 14:25:08,340 - DEBUG - Extracted 65 calls from tests/server/domain/value_objects/HealthTest.cpp
+2025-12-08 14:25:08,340 - DEBUG - Extracted 60 calls from tests/server/domain/value_objects/PositionTest.cpp
+2025-12-08 14:25:08,341 - DEBUG - Extracted 46 calls from tests/server/domain/value_objects/UsernameTest.cpp
+2025-12-08 14:25:08,342 - DEBUG - Extracted 47 calls from tests/server/domain/value_objects/EmailTest.cpp
+2025-12-08 14:25:08,343 - DEBUG - Extracted 141 calls from tests/server/domain/entities/PlayerTest.cpp
+2025-12-08 14:25:08,344 - DEBUG - Extracted 19 calls from tests/client/utils/VecsTest.cpp
+2025-12-08 14:25:08,345 - DEBUG - Extracted 62 calls from tests/client/utils/SignalTest.cpp
+2025-12-08 14:25:08,345 - DEBUG - Extracted 18 calls from src/ECS/Component.hpp
+2025-12-08 14:25:08,346 - DEBUG - Extracted 8 calls from src/ECS/Registry.hpp
+2025-12-08 14:25:08,346 - DEBUG - Extracted 0 calls from src/ECS/Includes.hpp
+2025-12-08 14:25:08,346 - DEBUG - Extracted 33 calls from src/ECS/ECS.hpp
+2025-12-08 14:25:08,347 - DEBUG - Extracted 8 calls from src/ECS/Errors.hpp
+2025-12-08 14:25:08,347 - DEBUG - Extracted 0 calls from src/ECS/System.hpp
+2025-12-08 14:25:08,347 - DEBUG - Extracted 7 calls from src/server/main.cpp
+2025-12-08 14:25:08,347 - DEBUG - Extracted 3 calls from src/client/main.cpp
+2025-12-08 14:25:08,347 - DEBUG - Extracted 0 calls from src/client/main.hpp
+2025-12-08 14:25:08,347 - DEBUG - Extracted 0 calls from src/server/include/application/dto/PlayerDTO.hpp
+2025-12-08 14:25:08,347 - DEBUG - Extracted 0 calls from src/server/include/application/ports/in/IGameCommands.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/application/ports/out/persistence/IPlayerRepository.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/application/ports/out/persistence/IUserRespository.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/application/use_cases/player/Move.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/application/use_cases/auth/Register.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/application/use_cases/auth/Login.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/PositionException.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/DomainException.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/HealthException.hpp
+2025-12-08 14:25:08,348 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/Position.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/Health.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/services/GameRule.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/entities/Player.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/entities/User.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/user/UsernameException.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/user/EmailException.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/user/UserIdException.hpp
+2025-12-08 14:25:08,349 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/user/PasswordException.hpp
+2025-12-08 14:25:08,350 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/player/PlayerIdException.hpp
+2025-12-08 14:25:08,350 - DEBUG - Extracted 3 calls from src/server/include/domain/exceptions/player/PlayerNameException.hpp
+2025-12-08 14:25:08,350 - DEBUG - Extracted 3 calls from src/server/include/domain/exceptions/player/PlayerPasswordException.hpp
+2025-12-08 14:25:08,350 - DEBUG - Extracted 0 calls from src/server/include/domain/exceptions/persistence/MongoDBException.hpp
+2025-12-08 14:25:08,350 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/user/UserId.hpp
+2025-12-08 14:25:08,350 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/user/Password.hpp
+2025-12-08 14:25:08,350 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/user/Username.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/user/Email.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/player/PlayerId.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/player/PlayerPassword.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/player/PlayerName.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 0 calls from src/server/include/domain/value_objects/user/utils/PasswordUtils.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/logging/Logger.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/configuration/DBConfig.hpp
+2025-12-08 14:25:08,351 - DEBUG - Extracted 5 calls from src/server/include/infrastructure/configuration/EnvLoader.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/network/UDPServer.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/network/TCPServer.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/cli/CLIGameController.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/network/execute/Execute.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/network/protocol/CommandParser.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/network/protocol/Command.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/network/execute/player/ExecutePlayer.hpp
+2025-12-08 14:25:08,352 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp
+2025-12-08 14:25:08,353 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/out/persistence/MongoDBPlayerRepository.hpp
+2025-12-08 14:25:08,353 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp
+2025-12-08 14:25:08,353 - DEBUG - Extracted 0 calls from src/server/include/infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp
+2025-12-08 14:25:08,353 - DEBUG - Extracted 1 calls from src/server/application/use_cases/player/Move.cpp
+2025-12-08 14:25:08,353 - DEBUG - Extracted 9 calls from src/server/application/use_cases/auth/Login.cpp
+2025-12-08 14:25:08,353 - DEBUG - Extracted 11 calls from src/server/application/use_cases/auth/Register.cpp
+2025-12-08 14:25:08,353 - DEBUG - Extracted 2 calls from src/server/domain/exceptions/DomainException.cpp
+2025-12-08 14:25:08,354 - DEBUG - Extracted 3 calls from src/server/domain/exceptions/HealthException.cpp
+2025-12-08 14:25:08,354 - DEBUG - Extracted 3 calls from src/server/domain/exceptions/PositionException.cpp
+2025-12-08 14:25:08,354 - DEBUG - Extracted 9 calls from src/server/domain/value_objects/Position.cpp
+2025-12-08 14:25:08,354 - DEBUG - Extracted 6 calls from src/server/domain/value_objects/Health.cpp
+2025-12-08 14:25:08,354 - DEBUG - Extracted 11 calls from src/server/domain/entities/Player.cpp
+2025-12-08 14:25:08,355 - DEBUG - Extracted 15 calls from src/server/domain/entities/User.cpp
+2025-12-08 14:25:08,355 - DEBUG - Extracted 3 calls from src/server/domain/exceptions/user/UsernameException.cpp
+2025-12-08 14:25:08,355 - DEBUG - Extracted 3 calls from src/server/domain/exceptions/user/UserIdException.cpp
+2025-12-08 14:25:08,355 - DEBUG - Extracted 2 calls from src/server/domain/exceptions/user/PasswordException.cpp
+2025-12-08 14:25:08,355 - DEBUG - Extracted 3 calls from src/server/domain/exceptions/user/EmailException.cpp
+2025-12-08 14:25:08,355 - DEBUG - Extracted 3 calls from src/server/domain/exceptions/player/PlayerIdException.cpp
+2025-12-08 14:25:08,355 - DEBUG - Extracted 3 calls from src/server/domain/exceptions/persistence/MongoDBException.cpp
+2025-12-08 14:25:08,356 - DEBUG - Extracted 5 calls from src/server/domain/value_objects/user/Email.cpp
+2025-12-08 14:25:08,356 - DEBUG - Extracted 4 calls from src/server/domain/value_objects/user/UserId.cpp
+2025-12-08 14:25:08,356 - DEBUG - Extracted 7 calls from src/server/domain/value_objects/user/Password.cpp
+2025-12-08 14:25:08,356 - DEBUG - Extracted 4 calls from src/server/domain/value_objects/user/Username.cpp
+2025-12-08 14:25:08,356 - DEBUG - Extracted 4 calls from src/server/domain/value_objects/player/PlayerPassword.cpp
+2025-12-08 14:25:08,356 - DEBUG - Extracted 4 calls from src/server/domain/value_objects/player/PlayerName.cpp
+2025-12-08 14:25:08,357 - DEBUG - Extracted 4 calls from src/server/domain/value_objects/player/PlayerId.cpp
+2025-12-08 14:25:08,357 - DEBUG - Extracted 0 calls from src/server/domain/value_objects/user/utils/PasswordUtils.cpp
+2025-12-08 14:25:08,357 - DEBUG - Extracted 7 calls from src/server/infrastructure/boostrap/GameBootstrap.hpp
+2025-12-08 14:25:08,357 - DEBUG - Extracted 7 calls from src/server/infrastructure/logging/Logger.cpp
+2025-12-08 14:25:08,358 - DEBUG - Extracted 34 calls from src/server/infrastructure/adapters/in/network/TCPServer.cpp
+2025-12-08 14:25:08,358 - DEBUG - Extracted 21 calls from src/server/infrastructure/adapters/in/network/UDPServer.cpp
+2025-12-08 14:25:08,358 - DEBUG - Extracted 2 calls from src/server/infrastructure/adapters/in/cli/CLIGameController.cpp
+2025-12-08 14:25:08,359 - DEBUG - Extracted 6 calls from src/server/infrastructure/adapters/in/network/execute/Execute.cpp
+2025-12-08 14:25:08,359 - DEBUG - Extracted 0 calls from src/server/infrastructure/adapters/in/network/protocol/CommandParser.cpp
+2025-12-08 14:25:08,359 - DEBUG - Extracted 7 calls from src/server/infrastructure/adapters/in/network/execute/player/ExecutePlayer.cpp
+2025-12-08 14:25:08,359 - DEBUG - Extracted 12 calls from src/server/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
+2025-12-08 14:25:08,360 - DEBUG - Extracted 33 calls from src/server/infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
+2025-12-08 14:25:08,360 - DEBUG - Extracted 10 calls from src/server/infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
+2025-12-08 14:25:08,360 - DEBUG - Extracted 0 calls from src/client/include/utils/Vecs.hpp
+2025-12-08 14:25:08,360 - DEBUG - Extracted 0 calls from src/client/include/network/UDPClient.hpp
+2025-12-08 14:25:08,360 - DEBUG - Extracted 0 calls from src/client/include/network/TCPClient.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 0 calls from src/client/include/ui/IButton.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 0 calls from src/client/include/ui/IUIElement.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 0 calls from src/client/include/ui/TextInput.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 0 calls from src/client/include/boot/Boot.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 9 calls from src/client/include/gameplay/GameObject.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 1 calls from src/client/include/gameplay/Missile.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 0 calls from src/client/include/gameplay/Spaceship.hpp
+2025-12-08 14:25:08,361 - DEBUG - Extracted 6 calls from src/client/include/gameplay/EntityManager.hpp
+2025-12-08 14:25:08,362 - DEBUG - Extracted 5 calls from src/client/include/graphics/Graphics.hpp
+2025-12-08 14:25:08,362 - DEBUG - Extracted 0 calls from src/client/include/graphics/ITexture.hpp
+2025-12-08 14:25:08,362 - DEBUG - Extracted 0 calls from src/client/include/graphics/IWindow.hpp
+2025-12-08 14:25:08,362 - DEBUG - Extracted 0 calls from src/client/include/graphics/IGraphicPlugin.hpp
+2025-12-08 14:25:08,362 - DEBUG - Extracted 0 calls from src/client/include/graphics/IDrawable.hpp
+2025-12-08 14:25:08,362 - DEBUG - Extracted 0 calls from src/client/include/graphics/Asset.hpp
+2025-12-08 14:25:08,362 - DEBUG - Extracted 0 calls from src/client/include/events/Event.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 1 calls from src/client/include/events/Signal.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 0 calls from src/client/include/scenes/LoginScene.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 0 calls from src/client/include/scenes/GameScene.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 0 calls from src/client/include/scenes/SceneManager.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 1 calls from src/client/include/scenes/IScene.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 0 calls from src/client/include/core/Engine.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 0 calls from src/client/include/core/GameLoop.hpp
+2025-12-08 14:25:08,363 - DEBUG - Extracted 0 calls from src/client/include/core/IRenderer.hpp
+2025-12-08 14:25:08,364 - DEBUG - Extracted 0 calls from src/client/include/core/Logger.hpp
+2025-12-08 14:25:08,364 - DEBUG - Extracted 0 calls from src/client/include/core/IGameLoop.hpp
+2025-12-08 14:25:08,364 - DEBUG - Extracted 0 calls from src/client/include/core/IEngine.hpp
+2025-12-08 14:25:08,364 - DEBUG - Extracted 0 calls from src/client/include/core/DynamicLib.hpp
+2025-12-08 14:25:08,364 - DEBUG - Extracted 0 calls from src/client/include/network/common/Player.hpp
+2025-12-08 14:25:08,364 - DEBUG - Extracted 0 calls from src/client/include/ui/auth/LoginBtn.hpp
+2025-12-08 14:25:08,364 - DEBUG - Extracted 0 calls from src/client/include/events/window/Closed.hpp
+2025-12-08 14:25:08,365 - DEBUG - Extracted 45 calls from src/client/src/network/UDPClient.cpp
+2025-12-08 14:25:08,366 - DEBUG - Extracted 55 calls from src/client/src/network/TCPClient.cpp
+2025-12-08 14:25:08,366 - DEBUG - Extracted 13 calls from src/client/src/boot/Boot.cpp
+2025-12-08 14:25:08,366 - DEBUG - Extracted 5 calls from src/client/src/gameplay/GameObject.cpp
+2025-12-08 14:25:08,367 - DEBUG - Extracted 14 calls from src/client/src/gameplay/EntityManager.cpp
+2025-12-08 14:25:08,367 - DEBUG - Extracted 6 calls from src/client/src/gameplay/Missile.cpp
+2025-12-08 14:25:08,367 - DEBUG - Extracted 22 calls from src/client/src/graphics/Graphics.cpp
+2025-12-08 14:25:08,367 - DEBUG - Extracted 12 calls from src/client/src/scenes/SceneManager.cpp
+2025-12-08 14:25:08,367 - DEBUG - Extracted 4 calls from src/client/src/scenes/GameScene.cpp
+2025-12-08 14:25:08,368 - DEBUG - Extracted 35 calls from src/client/src/scenes/LoginScene.cpp
+2025-12-08 14:25:08,368 - DEBUG - Extracted 6 calls from src/client/src/core/Logger.cpp
+2025-12-08 14:25:08,368 - DEBUG - Extracted 9 calls from src/client/src/core/Engine.cpp
+2025-12-08 14:25:08,369 - DEBUG - Extracted 7 calls from src/client/src/core/DynamicLib.cpp
+2025-12-08 14:25:08,369 - DEBUG - Extracted 22 calls from src/client/src/core/GameLoop.cpp
+2025-12-08 14:25:08,369 - DEBUG - Extracted 0 calls from src/client/lib/sdl2/include/SDL2Window.hpp
+2025-12-08 14:25:08,369 - DEBUG - Extracted 0 calls from src/client/lib/sdl2/include/SDL2Renderer.hpp
+2025-12-08 14:25:08,369 - DEBUG - Extracted 7 calls from src/client/lib/sdl2/src/SDL2Plugin.cpp
+2025-12-08 14:25:08,370 - DEBUG - Extracted 12 calls from src/client/lib/sdl2/src/SDL2AssetManager.cpp
+2025-12-08 14:25:08,370 - DEBUG - Extracted 17 calls from src/client/lib/sdl2/src/SDL2Window.cpp
+2025-12-08 14:25:08,370 - DEBUG - Extracted 17 calls from src/client/lib/sdl2/src/SDL2Renderer.cpp
+2025-12-08 14:25:08,371 - DEBUG - Extracted 0 calls from src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp
+2025-12-08 14:25:08,371 - DEBUG - Extracted 0 calls from src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp
+2025-12-08 14:25:08,371 - DEBUG - Extracted 0 calls from src/client/lib/sfml/include/SFMLTexture.hpp
+2025-12-08 14:25:08,371 - DEBUG - Extracted 0 calls from src/client/lib/sfml/include/SFMLWindow.hpp
+2025-12-08 14:25:08,371 - DEBUG - Extracted 0 calls from src/client/lib/sfml/include/SFMLRenderer.hpp
+2025-12-08 14:25:08,372 - DEBUG - Extracted 24 calls from src/client/lib/sfml/src/SFMLWindow.cpp
+2025-12-08 14:25:08,372 - DEBUG - Extracted 2 calls from src/client/lib/sfml/src/SFMLTexture.cpp
+2025-12-08 14:25:08,372 - DEBUG - Extracted 15 calls from src/client/lib/sfml/src/AssetManager.cpp
+2025-12-08 14:25:08,372 - DEBUG - Extracted 35 calls from src/client/lib/sfml/src/SFMLRenderer.cpp
+2025-12-08 14:25:08,373 - DEBUG - Extracted 5 calls from src/client/lib/sfml/include/utils/TextField.hpp
+2025-12-08 14:25:08,373 - DEBUG - Extracted 0 calls from src/client/lib/sfml/include/utils/AssetManager.hpp
+2025-12-08 14:25:08,373 - DEBUG - Extracted 0 calls from src/client/lib/sfml/include/plugins/SFMLPlugin.hpp
+2025-12-08 14:25:08,373 - DEBUG - Extracted 7 calls from src/client/lib/sfml/src/plugins/SFMLPlugin.cpp
+2025-12-08 14:25:08,374 - DEBUG - Extracted 18 calls from src/common/protocol/Protocol.hpp
+2025-12-08 14:25:08,377 - DEBUG - Extracted 30 calls from .claude/tests/conftest.py
+2025-12-08 14:25:08,382 - DEBUG - Extracted 51 calls from .claude/tests/test_db.py
+2025-12-08 14:25:08,392 - DEBUG - Extracted 88 calls from .claude/tests/test_crud.py
+2025-12-08 14:25:08,398 - DEBUG - Extracted 41 calls from .claude/tests/test_queries.py
+2025-12-08 14:25:08,404 - DEBUG - Extracted 85 calls from .claude/tests/test_mcp_tools.py
+2025-12-08 14:25:08,409 - DEBUG - Extracted 0 calls from .claude/tests/test_models.py
+2025-12-08 14:25:08,412 - DEBUG - Extracted 21 calls from .claude/scripts/maintenance.py
+2025-12-08 14:25:08,422 - DEBUG - Extracted 83 calls from .claude/scripts/update.py
+2025-12-08 14:25:08,441 - DEBUG - Extracted 144 calls from .claude/scripts/bootstrap.py
+2025-12-08 14:25:08,448 - DEBUG - Extracted 67 calls from .claude/mcp/agentdb/server.py
+2025-12-08 14:25:08,459 - DEBUG - Extracted 123 calls from .claude/mcp/agentdb/tools.py
+2025-12-08 14:25:08,464 - DEBUG - Extracted 41 calls from ci_cd/docker/builder/main.py
+2025-12-08 14:25:08,479 - DEBUG - Metrics for tests/server/main.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,479 - DEBUG - Metrics for tests/client/main.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,482 - DEBUG - Metrics for tests/server/network/UDPIntegrationTest.cpp: complexity=0.41, doc=0%
+2025-12-08 14:25:08,485 - DEBUG - Metrics for tests/server/network/ProtobufTest.cpp: complexity=0.2, doc=0%
+2025-12-08 14:25:08,488 - DEBUG - Metrics for tests/server/network/TCPIntegrationTest.cpp: complexity=0.52, doc=0%
+2025-12-08 14:25:08,490 - DEBUG - Metrics for tests/server/network/protocol/CommandParserTest.cpp: complexity=0.23, doc=0%
+2025-12-08 14:25:08,491 - DEBUG - Metrics for tests/server/domain/value_objects/HealthTest.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,492 - DEBUG - Metrics for tests/server/domain/value_objects/PositionTest.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,493 - DEBUG - Metrics for tests/server/domain/value_objects/UsernameTest.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,495 - DEBUG - Metrics for tests/server/domain/value_objects/EmailTest.cpp: complexity=0.08, doc=0%
+2025-12-08 14:25:08,496 - DEBUG - Metrics for tests/server/domain/entities/PlayerTest.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,497 - DEBUG - Metrics for tests/client/utils/VecsTest.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,499 - DEBUG - Metrics for tests/client/utils/SignalTest.cpp: complexity=0.06, doc=0%
+2025-12-08 14:25:08,500 - DEBUG - Metrics for src/ECS/Component.hpp: complexity=1.67, doc=0%
+2025-12-08 14:25:08,501 - DEBUG - Metrics for src/ECS/Registry.hpp: complexity=2.56, doc=0%
+2025-12-08 14:25:08,501 - DEBUG - Metrics for src/ECS/Includes.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,503 - DEBUG - Metrics for src/ECS/ECS.hpp: complexity=2.19, doc=0%
+2025-12-08 14:25:08,504 - DEBUG - Metrics for src/ECS/Errors.hpp: complexity=1.4, doc=0%
+2025-12-08 14:25:08,504 - DEBUG - Metrics for src/ECS/System.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,504 - DEBUG - Metrics for src/server/main.cpp: complexity=1.5, doc=0%
+2025-12-08 14:25:08,504 - DEBUG - Metrics for src/client/main.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,504 - DEBUG - Metrics for src/client/main.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,505 - DEBUG - Metrics for src/server/include/application/dto/PlayerDTO.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,505 - DEBUG - Metrics for src/server/include/application/ports/in/IGameCommands.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,505 - DEBUG - Metrics for src/server/include/application/ports/out/persistence/IPlayerRepository.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,505 - DEBUG - Metrics for src/server/include/application/ports/out/persistence/IUserRespository.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,505 - DEBUG - Metrics for src/server/include/application/use_cases/player/Move.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,505 - DEBUG - Metrics for src/server/include/application/use_cases/auth/Register.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,506 - DEBUG - Metrics for src/server/include/application/use_cases/auth/Login.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,506 - DEBUG - Metrics for src/server/include/domain/exceptions/PositionException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,506 - DEBUG - Metrics for src/server/include/domain/exceptions/DomainException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,506 - DEBUG - Metrics for src/server/include/domain/exceptions/HealthException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,506 - DEBUG - Metrics for src/server/include/domain/value_objects/Position.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,507 - DEBUG - Metrics for src/server/include/domain/value_objects/Health.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,507 - DEBUG - Metrics for src/server/include/domain/services/GameRule.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,507 - DEBUG - Metrics for src/server/include/domain/entities/Player.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,507 - DEBUG - Metrics for src/server/include/domain/entities/User.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,507 - DEBUG - Metrics for src/server/include/domain/exceptions/user/UsernameException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,507 - DEBUG - Metrics for src/server/include/domain/exceptions/user/EmailException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,508 - DEBUG - Metrics for src/server/include/domain/exceptions/user/UserIdException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,508 - DEBUG - Metrics for src/server/include/domain/exceptions/user/PasswordException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,508 - DEBUG - Metrics for src/server/include/domain/exceptions/player/PlayerIdException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,508 - DEBUG - Metrics for src/server/include/domain/exceptions/player/PlayerNameException.hpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,509 - DEBUG - Metrics for src/server/include/domain/exceptions/player/PlayerPasswordException.hpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,509 - DEBUG - Metrics for src/server/include/domain/exceptions/persistence/MongoDBException.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,509 - DEBUG - Metrics for src/server/include/domain/value_objects/user/UserId.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,509 - DEBUG - Metrics for src/server/include/domain/value_objects/user/Password.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,509 - DEBUG - Metrics for src/server/include/domain/value_objects/user/Username.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,509 - DEBUG - Metrics for src/server/include/domain/value_objects/user/Email.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,510 - DEBUG - Metrics for src/server/include/domain/value_objects/player/PlayerId.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,510 - DEBUG - Metrics for src/server/include/domain/value_objects/player/PlayerPassword.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,510 - DEBUG - Metrics for src/server/include/domain/value_objects/player/PlayerName.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,510 - DEBUG - Metrics for src/server/include/domain/value_objects/user/utils/PasswordUtils.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,510 - DEBUG - Metrics for src/server/include/infrastructure/logging/Logger.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,511 - DEBUG - Metrics for src/server/include/infrastructure/configuration/DBConfig.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,511 - DEBUG - Metrics for src/server/include/infrastructure/configuration/EnvLoader.hpp: complexity=2.0, doc=0%
+2025-12-08 14:25:08,511 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/network/UDPServer.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,512 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/network/TCPServer.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,512 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/cli/CLIGameController.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,512 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/network/execute/Execute.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,512 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/network/protocol/CommandParser.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,512 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/network/protocol/Command.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,513 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/network/execute/player/ExecutePlayer.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,513 - DEBUG - Metrics for src/server/include/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,513 - DEBUG - Metrics for src/server/include/infrastructure/adapters/out/persistence/MongoDBPlayerRepository.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,513 - DEBUG - Metrics for src/server/include/infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,513 - DEBUG - Metrics for src/server/include/infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,514 - DEBUG - Metrics for src/server/application/use_cases/player/Move.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,514 - DEBUG - Metrics for src/server/application/use_cases/auth/Login.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,514 - DEBUG - Metrics for src/server/application/use_cases/auth/Register.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,514 - DEBUG - Metrics for src/server/domain/exceptions/DomainException.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,514 - DEBUG - Metrics for src/server/domain/exceptions/HealthException.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,515 - DEBUG - Metrics for src/server/domain/exceptions/PositionException.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,515 - DEBUG - Metrics for src/server/domain/value_objects/Position.cpp: complexity=0.33, doc=0%
+2025-12-08 14:25:08,515 - DEBUG - Metrics for src/server/domain/value_objects/Health.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,515 - DEBUG - Metrics for src/server/domain/entities/Player.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,516 - DEBUG - Metrics for src/server/domain/entities/User.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,516 - DEBUG - Metrics for src/server/domain/exceptions/user/UsernameException.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,516 - DEBUG - Metrics for src/server/domain/exceptions/user/UserIdException.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,516 - DEBUG - Metrics for src/server/domain/exceptions/user/PasswordException.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,516 - DEBUG - Metrics for src/server/domain/exceptions/user/EmailException.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,517 - DEBUG - Metrics for src/server/domain/exceptions/player/PlayerIdException.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,517 - DEBUG - Metrics for src/server/domain/exceptions/player/PlayerNameException.cpp: complexity=0, doc=0%
+2025-12-08 14:25:08,517 - DEBUG - Metrics for src/server/domain/exceptions/persistence/MongoDBException.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,517 - DEBUG - Metrics for src/server/domain/value_objects/user/Email.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,517 - DEBUG - Metrics for src/server/domain/value_objects/user/UserId.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,517 - DEBUG - Metrics for src/server/domain/value_objects/user/Password.cpp: complexity=0.67, doc=0%
+2025-12-08 14:25:08,518 - DEBUG - Metrics for src/server/domain/value_objects/user/Username.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,518 - DEBUG - Metrics for src/server/domain/value_objects/player/PlayerPassword.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,518 - DEBUG - Metrics for src/server/domain/value_objects/player/PlayerName.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,518 - DEBUG - Metrics for src/server/domain/value_objects/player/PlayerId.cpp: complexity=0.33, doc=0%
+2025-12-08 14:25:08,518 - DEBUG - Metrics for src/server/domain/value_objects/user/utils/PasswordUtils.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,519 - DEBUG - Metrics for src/server/infrastructure/boostrap/GameBootstrap.hpp: complexity=0.25, doc=0%
+2025-12-08 14:25:08,519 - DEBUG - Metrics for src/server/infrastructure/logging/Logger.cpp: complexity=0.3, doc=0%
+2025-12-08 14:25:08,520 - DEBUG - Metrics for src/server/infrastructure/adapters/in/network/TCPServer.cpp: complexity=0.5, doc=0%
+2025-12-08 14:25:08,521 - DEBUG - Metrics for src/server/infrastructure/adapters/in/network/UDPServer.cpp: complexity=0.77, doc=0%
+2025-12-08 14:25:08,521 - DEBUG - Metrics for src/server/infrastructure/adapters/in/cli/CLIGameController.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,521 - DEBUG - Metrics for src/server/infrastructure/adapters/in/network/execute/Execute.cpp: complexity=0, doc=0%
+2025-12-08 14:25:08,521 - DEBUG - Metrics for src/server/infrastructure/adapters/in/network/protocol/CommandParser.cpp: complexity=2.0, doc=0%
+2025-12-08 14:25:08,522 - DEBUG - Metrics for src/server/infrastructure/adapters/in/network/execute/player/ExecutePlayer.cpp: complexity=1.0, doc=0%
+2025-12-08 14:25:08,522 - DEBUG - Metrics for src/server/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp: complexity=1.5, doc=0%
+2025-12-08 14:25:08,523 - DEBUG - Metrics for src/server/infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp: complexity=0.71, doc=0%
+2025-12-08 14:25:08,523 - DEBUG - Metrics for src/server/infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp: complexity=1.25, doc=0%
+2025-12-08 14:25:08,523 - DEBUG - Metrics for src/client/include/utils/Vecs.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,524 - DEBUG - Metrics for src/client/include/network/UDPClient.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,524 - DEBUG - Metrics for src/client/include/network/TCPClient.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,524 - DEBUG - Metrics for src/client/include/ui/IButton.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,525 - DEBUG - Metrics for src/client/include/ui/IUIElement.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,525 - DEBUG - Metrics for src/client/include/ui/TextInput.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,525 - DEBUG - Metrics for src/client/include/boot/Boot.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,525 - DEBUG - Metrics for src/client/include/gameplay/GameObject.hpp: complexity=0.2, doc=0%
+2025-12-08 14:25:08,525 - DEBUG - Metrics for src/client/include/gameplay/Missile.hpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,525 - DEBUG - Metrics for src/client/include/gameplay/Spaceship.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,526 - DEBUG - Metrics for src/client/include/gameplay/EntityManager.hpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,526 - DEBUG - Metrics for src/client/include/graphics/Graphics.hpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,526 - DEBUG - Metrics for src/client/include/graphics/ITexture.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,527 - DEBUG - Metrics for src/client/include/graphics/IWindow.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,527 - DEBUG - Metrics for src/client/include/graphics/IGraphicPlugin.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,527 - DEBUG - Metrics for src/client/include/graphics/IDrawable.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,527 - DEBUG - Metrics for src/client/include/graphics/Asset.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,527 - DEBUG - Metrics for src/client/include/events/Event.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,527 - DEBUG - Metrics for src/client/include/events/Signal.hpp: complexity=0.33, doc=0%
+2025-12-08 14:25:08,528 - DEBUG - Metrics for src/client/include/scenes/LoginScene.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,528 - DEBUG - Metrics for src/client/include/scenes/GameScene.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,528 - DEBUG - Metrics for src/client/include/scenes/SceneManager.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,528 - DEBUG - Metrics for src/client/include/scenes/IScene.hpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,529 - DEBUG - Metrics for src/client/include/core/Engine.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,529 - DEBUG - Metrics for src/client/include/core/GameLoop.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,529 - DEBUG - Metrics for src/client/include/core/IRenderer.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,529 - DEBUG - Metrics for src/client/include/core/Logger.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,529 - DEBUG - Metrics for src/client/include/core/IGameLoop.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,530 - DEBUG - Metrics for src/client/include/core/IEngine.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,530 - DEBUG - Metrics for src/client/include/core/DynamicLib.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,530 - DEBUG - Metrics for src/client/include/network/common/Player.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,530 - DEBUG - Metrics for src/client/include/ui/auth/LoginBtn.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,530 - DEBUG - Metrics for src/client/include/events/window/Closed.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,531 - DEBUG - Metrics for src/client/src/network/UDPClient.cpp: complexity=0.71, doc=0%
+2025-12-08 14:25:08,533 - DEBUG - Metrics for src/client/src/network/TCPClient.cpp: complexity=0.82, doc=0%
+2025-12-08 14:25:08,533 - DEBUG - Metrics for src/client/src/boot/Boot.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,533 - DEBUG - Metrics for src/client/src/gameplay/GameObject.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,533 - DEBUG - Metrics for src/client/src/gameplay/EntityManager.cpp: complexity=1.14, doc=0%
+2025-12-08 14:25:08,534 - DEBUG - Metrics for src/client/src/gameplay/Missile.cpp: complexity=0.33, doc=0%
+2025-12-08 14:25:08,534 - DEBUG - Metrics for src/client/src/graphics/Graphics.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,534 - DEBUG - Metrics for src/client/src/scenes/SceneManager.cpp: complexity=0.4, doc=0%
+2025-12-08 14:25:08,534 - DEBUG - Metrics for src/client/src/scenes/GameScene.cpp: complexity=0.4, doc=0%
+2025-12-08 14:25:08,535 - DEBUG - Metrics for src/client/src/scenes/LoginScene.cpp: complexity=1.36, doc=0%
+2025-12-08 14:25:08,536 - DEBUG - Metrics for src/client/src/core/Logger.cpp: complexity=0.3, doc=0%
+2025-12-08 14:25:08,536 - DEBUG - Metrics for src/client/src/core/Engine.cpp: complexity=0.2, doc=0%
+2025-12-08 14:25:08,536 - DEBUG - Metrics for src/client/src/core/DynamicLib.cpp: complexity=0.38, doc=0%
+2025-12-08 14:25:08,537 - DEBUG - Metrics for src/client/src/core/GameLoop.cpp: complexity=0.71, doc=0%
+2025-12-08 14:25:08,537 - DEBUG - Metrics for src/client/lib/sdl2/include/SDL2Window.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,537 - DEBUG - Metrics for src/client/lib/sdl2/include/SDL2Renderer.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,537 - DEBUG - Metrics for src/client/lib/sdl2/src/SDL2Plugin.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,538 - DEBUG - Metrics for src/client/lib/sdl2/src/SDL2AssetManager.cpp: complexity=0.93, doc=0%
+2025-12-08 14:25:08,539 - DEBUG - Metrics for src/client/lib/sdl2/src/SDL2Window.cpp: complexity=3.39, doc=0%
+2025-12-08 14:25:08,539 - DEBUG - Metrics for src/client/lib/sdl2/src/SDL2Renderer.cpp: complexity=0.36, doc=0%
+2025-12-08 14:25:08,539 - DEBUG - Metrics for src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,540 - DEBUG - Metrics for src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,540 - DEBUG - Metrics for src/client/lib/sfml/include/SFMLTexture.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,540 - DEBUG - Metrics for src/client/lib/sfml/include/SFMLWindow.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,540 - DEBUG - Metrics for src/client/lib/sfml/include/SFMLRenderer.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,541 - DEBUG - Metrics for src/client/lib/sfml/src/SFMLWindow.cpp: complexity=4.58, doc=0%
+2025-12-08 14:25:08,541 - DEBUG - Metrics for src/client/lib/sfml/src/SFMLTexture.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,542 - DEBUG - Metrics for src/client/lib/sfml/src/AssetManager.cpp: complexity=1.2, doc=0%
+2025-12-08 14:25:08,542 - DEBUG - Metrics for src/client/lib/sfml/src/SFMLRenderer.cpp: complexity=0.4, doc=0%
+2025-12-08 14:25:08,543 - DEBUG - Metrics for src/client/lib/sfml/include/utils/TextField.hpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,543 - DEBUG - Metrics for src/client/lib/sfml/include/utils/AssetManager.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,543 - DEBUG - Metrics for src/client/lib/sfml/include/plugins/SFMLPlugin.hpp: complexity=0, doc=0%
+2025-12-08 14:25:08,543 - DEBUG - Metrics for src/client/lib/sfml/src/plugins/SFMLPlugin.cpp: complexity=0.0, doc=0%
+2025-12-08 14:25:08,544 - DEBUG - Metrics for src/common/protocol/Protocol.hpp: complexity=0.36, doc=0%
+2025-12-08 14:25:08,550 - DEBUG - Metrics for .claude/tests/conftest.py: complexity=1.87, doc=100%
+2025-12-08 14:25:08,559 - DEBUG - Metrics for .claude/tests/test_db.py: complexity=1.26, doc=100%
+2025-12-08 14:25:08,577 - DEBUG - Metrics for .claude/tests/test_crud.py: complexity=1.15, doc=100%
+2025-12-08 14:25:08,588 - DEBUG - Metrics for .claude/tests/test_queries.py: complexity=1.78, doc=100%
+2025-12-08 14:25:08,588 - DEBUG - Metrics for .claude/tests/__init__.py: complexity=0, doc=0%
+2025-12-08 14:25:08,600 - DEBUG - Metrics for .claude/tests/test_mcp_tools.py: complexity=1.67, doc=100%
+2025-12-08 14:25:08,609 - DEBUG - Metrics for .claude/tests/test_models.py: complexity=1.05, doc=100%
+2025-12-08 14:25:08,616 - DEBUG - Metrics for .claude/scripts/maintenance.py: complexity=2.62, doc=100%
+2025-12-08 14:25:08,633 - DEBUG - Metrics for .claude/scripts/update.py: complexity=5.95, doc=92%
+2025-12-08 14:25:08,634 - DEBUG - Metrics for .claude/scripts/__init__.py: complexity=0, doc=0%
+2025-12-08 14:25:08,669 - DEBUG - Metrics for .claude/scripts/bootstrap.py: complexity=6.95, doc=92%
+2025-12-08 14:25:08,669 - DEBUG - Metrics for .claude/mcp/__init__.py: complexity=0, doc=0%
+2025-12-08 14:25:08,676 - DEBUG - Metrics for .claude/mcp/agentdb/server.py: complexity=1.71, doc=100%
+2025-12-08 14:25:08,676 - DEBUG - Metrics for .claude/mcp/agentdb/__init__.py: complexity=0, doc=0%
+2025-12-08 14:25:08,697 - DEBUG - Metrics for .claude/mcp/agentdb/tools.py: complexity=13.8, doc=100%
+2025-12-08 14:25:08,705 - DEBUG - Metrics for ci_cd/docker/builder/main.py: complexity=4.21, doc=13%
+2025-12-08 14:25:08,739 - DEBUG - Git for tests/server/main.cpp: 1/2/2 commits
+2025-12-08 14:25:08,755 - DEBUG - Git for tests/client/main.cpp: 1/1/1 commits
+2025-12-08 14:25:08,772 - DEBUG - Git for tests/server/network/UDPIntegrationTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,788 - DEBUG - Git for tests/server/network/ProtobufTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,804 - DEBUG - Git for tests/server/network/TCPIntegrationTest.cpp: 2/2/2 commits
+2025-12-08 14:25:08,821 - DEBUG - Git for tests/server/network/protocol/CommandParserTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,837 - DEBUG - Git for tests/server/domain/value_objects/HealthTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,853 - DEBUG - Git for tests/server/domain/value_objects/PositionTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,870 - DEBUG - Git for tests/server/domain/value_objects/UsernameTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,886 - DEBUG - Git for tests/server/domain/value_objects/EmailTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,903 - DEBUG - Git for tests/server/domain/entities/PlayerTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,919 - DEBUG - Git for tests/client/utils/VecsTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,936 - DEBUG - Git for tests/client/utils/SignalTest.cpp: 1/1/1 commits
+2025-12-08 14:25:08,953 - DEBUG - Git for src/ECS/Component.hpp: 1/1/1 commits
+2025-12-08 14:25:08,971 - DEBUG - Git for src/ECS/Registry.hpp: 1/1/1 commits
+2025-12-08 14:25:08,991 - DEBUG - Git for src/ECS/Includes.hpp: 1/1/1 commits
+2025-12-08 14:25:09,010 - DEBUG - Git for src/ECS/ECS.hpp: 1/1/1 commits
+2025-12-08 14:25:09,029 - DEBUG - Git for src/ECS/Errors.hpp: 1/1/1 commits
+2025-12-08 14:25:09,048 - DEBUG - Git for src/ECS/System.hpp: 1/1/1 commits
+2025-12-08 14:25:09,067 - DEBUG - Git for src/server/main.cpp: 5/6/6 commits
+2025-12-08 14:25:09,089 - DEBUG - Git for src/client/main.cpp: 4/4/4 commits
+2025-12-08 14:25:09,111 - DEBUG - Git for src/client/main.hpp: 5/5/5 commits
+2025-12-08 14:25:09,133 - DEBUG - Git for src/server/include/application/dto/PlayerDTO.hpp: 1/1/1 commits
+2025-12-08 14:25:09,154 - DEBUG - Git for src/server/include/application/ports/in/IGameCommands.hpp: 2/2/2 commits
+2025-12-08 14:25:09,176 - DEBUG - Git for src/server/include/application/ports/out/persistence/IPlayerRepository.hpp: 3/3/3 commits
+2025-12-08 14:25:09,197 - DEBUG - Git for src/server/include/application/ports/out/persistence/IUserRespository.hpp: 2/2/2 commits
+2025-12-08 14:25:09,215 - DEBUG - Git for src/server/include/application/use_cases/player/Move.hpp: 1/1/1 commits
+2025-12-08 14:25:09,234 - DEBUG - Git for src/server/include/application/use_cases/auth/Register.hpp: 2/2/2 commits
+2025-12-08 14:25:09,253 - DEBUG - Git for src/server/include/application/use_cases/auth/Login.hpp: 5/5/5 commits
+2025-12-08 14:25:09,274 - DEBUG - Git for src/server/include/domain/exceptions/PositionException.hpp: 2/2/2 commits
+2025-12-08 14:25:09,293 - DEBUG - Git for src/server/include/domain/exceptions/DomainException.hpp: 3/3/3 commits
+2025-12-08 14:25:09,314 - DEBUG - Git for src/server/include/domain/exceptions/HealthException.hpp: 2/2/2 commits
+2025-12-08 14:25:09,334 - DEBUG - Git for src/server/include/domain/value_objects/Position.hpp: 2/2/2 commits
+2025-12-08 14:25:09,355 - DEBUG - Git for src/server/include/domain/value_objects/Health.hpp: 2/2/2 commits
+2025-12-08 14:25:09,376 - DEBUG - Git for src/server/include/domain/services/GameRule.hpp: 1/1/1 commits
+2025-12-08 14:25:09,396 - DEBUG - Git for src/server/include/domain/entities/Player.hpp: 2/2/2 commits
+2025-12-08 14:25:09,415 - DEBUG - Git for src/server/include/domain/entities/User.hpp: 4/4/4 commits
+2025-12-08 14:25:09,435 - DEBUG - Git for src/server/include/domain/exceptions/user/UsernameException.hpp: 1/1/1 commits
+2025-12-08 14:25:09,456 - DEBUG - Git for src/server/include/domain/exceptions/user/EmailException.hpp: 1/1/1 commits
+2025-12-08 14:25:09,476 - DEBUG - Git for src/server/include/domain/exceptions/user/UserIdException.hpp: 1/1/1 commits
+2025-12-08 14:25:09,497 - DEBUG - Git for src/server/include/domain/exceptions/user/PasswordException.hpp: 1/1/1 commits
+2025-12-08 14:25:09,517 - DEBUG - Git for src/server/include/domain/exceptions/player/PlayerIdException.hpp: 2/2/2 commits
+2025-12-08 14:25:09,538 - DEBUG - Git for src/server/include/domain/exceptions/player/PlayerNameException.hpp: 1/1/1 commits
+2025-12-08 14:25:09,559 - DEBUG - Git for src/server/include/domain/exceptions/player/PlayerPasswordException.hpp: 1/1/1 commits
+2025-12-08 14:25:09,579 - DEBUG - Git for src/server/include/domain/exceptions/persistence/MongoDBException.hpp: 1/1/1 commits
+2025-12-08 14:25:09,599 - DEBUG - Git for src/server/include/domain/value_objects/user/UserId.hpp: 1/1/1 commits
+2025-12-08 14:25:09,618 - DEBUG - Git for src/server/include/domain/value_objects/user/Password.hpp: 4/4/4 commits
+2025-12-08 14:25:09,638 - DEBUG - Git for src/server/include/domain/value_objects/user/Username.hpp: 1/1/1 commits
+2025-12-08 14:25:09,659 - DEBUG - Git for src/server/include/domain/value_objects/user/Email.hpp: 1/1/1 commits
+2025-12-08 14:25:09,679 - DEBUG - Git for src/server/include/domain/value_objects/player/PlayerId.hpp: 2/2/2 commits
+2025-12-08 14:25:09,700 - DEBUG - Git for src/server/include/domain/value_objects/player/PlayerPassword.hpp: 1/1/1 commits
+2025-12-08 14:25:09,720 - DEBUG - Git for src/server/include/domain/value_objects/player/PlayerName.hpp: 1/1/1 commits
+2025-12-08 14:25:09,741 - DEBUG - Git for src/server/include/domain/value_objects/user/utils/PasswordUtils.hpp: 1/1/1 commits
+2025-12-08 14:25:09,761 - DEBUG - Git for src/server/include/infrastructure/logging/Logger.hpp: 1/1/1 commits
+2025-12-08 14:25:09,783 - DEBUG - Git for src/server/include/infrastructure/configuration/DBConfig.hpp: 1/1/1 commits
+2025-12-08 14:25:09,801 - DEBUG - Git for src/server/include/infrastructure/configuration/EnvLoader.hpp: 1/1/1 commits
+2025-12-08 14:25:09,820 - DEBUG - Git for src/server/include/infrastructure/adapters/in/network/UDPServer.hpp: 5/5/5 commits
+2025-12-08 14:25:09,840 - DEBUG - Git for src/server/include/infrastructure/adapters/in/network/TCPServer.hpp: 6/6/6 commits
+2025-12-08 14:25:09,859 - DEBUG - Git for src/server/include/infrastructure/adapters/in/cli/CLIGameController.hpp: 3/3/3 commits
+2025-12-08 14:25:09,878 - DEBUG - Git for src/server/include/infrastructure/adapters/in/network/execute/Execute.hpp: 4/4/4 commits
+2025-12-08 14:25:09,899 - DEBUG - Git for src/server/include/infrastructure/adapters/in/network/protocol/CommandParser.hpp: 2/2/2 commits
+2025-12-08 14:25:09,919 - DEBUG - Git for src/server/include/infrastructure/adapters/in/network/protocol/Command.hpp: 2/2/2 commits
+2025-12-08 14:25:09,937 - DEBUG - Git for src/server/include/infrastructure/adapters/in/network/execute/player/ExecutePlayer.hpp: 1/1/1 commits
+2025-12-08 14:25:09,957 - DEBUG - Git for src/server/include/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp: 3/3/3 commits
+2025-12-08 14:25:09,978 - DEBUG - Git for src/server/include/infrastructure/adapters/out/persistence/MongoDBPlayerRepository.hpp: 2/2/2 commits
+2025-12-08 14:25:09,998 - DEBUG - Git for src/server/include/infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp: 2/2/2 commits
+2025-12-08 14:25:10,019 - DEBUG - Git for src/server/include/infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp: 2/2/2 commits
+2025-12-08 14:25:10,037 - DEBUG - Git for src/server/application/use_cases/player/Move.cpp: 1/1/1 commits
+2025-12-08 14:25:10,055 - DEBUG - Git for src/server/application/use_cases/auth/Login.cpp: 5/5/5 commits
+2025-12-08 14:25:10,073 - DEBUG - Git for src/server/application/use_cases/auth/Register.cpp: 3/3/3 commits
+2025-12-08 14:25:10,093 - DEBUG - Git for src/server/domain/exceptions/DomainException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,112 - DEBUG - Git for src/server/domain/exceptions/HealthException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,132 - DEBUG - Git for src/server/domain/exceptions/PositionException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,152 - DEBUG - Git for src/server/domain/value_objects/Position.cpp: 1/1/1 commits
+2025-12-08 14:25:10,172 - DEBUG - Git for src/server/domain/value_objects/Health.cpp: 1/1/1 commits
+2025-12-08 14:25:10,192 - DEBUG - Git for src/server/domain/entities/Player.cpp: 1/1/1 commits
+2025-12-08 14:25:10,210 - DEBUG - Git for src/server/domain/entities/User.cpp: 4/4/4 commits
+2025-12-08 14:25:10,229 - DEBUG - Git for src/server/domain/exceptions/user/UsernameException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,249 - DEBUG - Git for src/server/domain/exceptions/user/UserIdException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,268 - DEBUG - Git for src/server/domain/exceptions/user/PasswordException.cpp: 2/2/2 commits
+2025-12-08 14:25:10,288 - DEBUG - Git for src/server/domain/exceptions/user/EmailException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,307 - DEBUG - Git for src/server/domain/exceptions/player/PlayerIdException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,327 - DEBUG - Git for src/server/domain/exceptions/player/PlayerNameException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,347 - DEBUG - Git for src/server/domain/exceptions/persistence/MongoDBException.cpp: 1/1/1 commits
+2025-12-08 14:25:10,366 - DEBUG - Git for src/server/domain/value_objects/user/Email.cpp: 1/1/1 commits
+2025-12-08 14:25:10,386 - DEBUG - Git for src/server/domain/value_objects/user/UserId.cpp: 1/1/1 commits
+2025-12-08 14:25:10,404 - DEBUG - Git for src/server/domain/value_objects/user/Password.cpp: 4/4/4 commits
+2025-12-08 14:25:10,424 - DEBUG - Git for src/server/domain/value_objects/user/Username.cpp: 1/1/1 commits
+2025-12-08 14:25:10,444 - DEBUG - Git for src/server/domain/value_objects/player/PlayerPassword.cpp: 1/1/1 commits
+2025-12-08 14:25:10,463 - DEBUG - Git for src/server/domain/value_objects/player/PlayerName.cpp: 1/1/1 commits
+2025-12-08 14:25:10,483 - DEBUG - Git for src/server/domain/value_objects/player/PlayerId.cpp: 1/1/1 commits
+2025-12-08 14:25:10,503 - DEBUG - Git for src/server/domain/value_objects/user/utils/PasswordUtils.cpp: 1/1/1 commits
+2025-12-08 14:25:10,520 - DEBUG - Git for src/server/infrastructure/boostrap/GameBootstrap.hpp: 8/8/8 commits
+2025-12-08 14:25:10,540 - DEBUG - Git for src/server/infrastructure/logging/Logger.cpp: 1/1/1 commits
+2025-12-08 14:25:10,559 - DEBUG - Git for src/server/infrastructure/adapters/in/network/TCPServer.cpp: 8/8/8 commits
+2025-12-08 14:25:10,577 - DEBUG - Git for src/server/infrastructure/adapters/in/network/UDPServer.cpp: 4/4/4 commits
+2025-12-08 14:25:10,596 - DEBUG - Git for src/server/infrastructure/adapters/in/cli/CLIGameController.cpp: 2/2/2 commits
+2025-12-08 14:25:10,615 - DEBUG - Git for src/server/infrastructure/adapters/in/network/execute/Execute.cpp: 3/3/3 commits
+2025-12-08 14:25:10,635 - DEBUG - Git for src/server/infrastructure/adapters/in/network/protocol/CommandParser.cpp: 3/3/3 commits
+2025-12-08 14:25:10,653 - DEBUG - Git for src/server/infrastructure/adapters/in/network/execute/player/ExecutePlayer.cpp: 2/2/2 commits
+2025-12-08 14:25:10,671 - DEBUG - Git for src/server/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp: 5/5/5 commits
+2025-12-08 14:25:10,690 - DEBUG - Git for src/server/infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp: 8/8/8 commits
+2025-12-08 14:25:10,710 - DEBUG - Git for src/server/infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp: 2/2/2 commits
+2025-12-08 14:25:10,729 - DEBUG - Git for src/client/include/utils/Vecs.hpp: 3/3/3 commits
+2025-12-08 14:25:10,749 - DEBUG - Git for src/client/include/network/UDPClient.hpp: 2/2/2 commits
+2025-12-08 14:25:10,770 - DEBUG - Git for src/client/include/network/TCPClient.hpp: 11/11/11 commits
+2025-12-08 14:25:10,789 - DEBUG - Git for src/client/include/ui/IButton.hpp: 1/1/1 commits
+2025-12-08 14:25:10,810 - DEBUG - Git for src/client/include/ui/IUIElement.hpp: 2/2/2 commits
+2025-12-08 14:25:10,831 - DEBUG - Git for src/client/include/ui/TextInput.hpp: 1/1/1 commits
+2025-12-08 14:25:10,851 - DEBUG - Git for src/client/include/boot/Boot.hpp: 6/6/6 commits
+2025-12-08 14:25:10,869 - DEBUG - Git for src/client/include/gameplay/GameObject.hpp: 1/1/1 commits
+2025-12-08 14:25:10,888 - DEBUG - Git for src/client/include/gameplay/Missile.hpp: 1/1/1 commits
+2025-12-08 14:25:10,906 - DEBUG - Git for src/client/include/gameplay/Spaceship.hpp: 1/1/1 commits
+2025-12-08 14:25:10,925 - DEBUG - Git for src/client/include/gameplay/EntityManager.hpp: 1/1/1 commits
+2025-12-08 14:25:10,944 - DEBUG - Git for src/client/include/graphics/Graphics.hpp: 3/3/3 commits
+2025-12-08 14:25:10,963 - DEBUG - Git for src/client/include/graphics/ITexture.hpp: 1/1/1 commits
+2025-12-08 14:25:10,984 - DEBUG - Git for src/client/include/graphics/IWindow.hpp: 6/6/6 commits
+2025-12-08 14:25:11,004 - DEBUG - Git for src/client/include/graphics/IGraphicPlugin.hpp: 2/2/2 commits
+2025-12-08 14:25:11,023 - DEBUG - Git for src/client/include/graphics/IDrawable.hpp: 2/2/2 commits
+2025-12-08 14:25:11,042 - DEBUG - Git for src/client/include/graphics/Asset.hpp: 2/2/2 commits
+2025-12-08 14:25:11,061 - DEBUG - Git for src/client/include/events/Event.hpp: 3/3/3 commits
+2025-12-08 14:25:11,080 - DEBUG - Git for src/client/include/events/Signal.hpp: 1/1/1 commits
+2025-12-08 14:25:11,101 - DEBUG - Git for src/client/include/scenes/LoginScene.hpp: 7/7/7 commits
+2025-12-08 14:25:11,121 - DEBUG - Git for src/client/include/scenes/GameScene.hpp: 7/7/7 commits
+2025-12-08 14:25:11,141 - DEBUG - Git for src/client/include/scenes/SceneManager.hpp: 7/7/7 commits
+2025-12-08 14:25:11,161 - DEBUG - Git for src/client/include/scenes/IScene.hpp: 6/6/6 commits
+2025-12-08 14:25:11,181 - DEBUG - Git for src/client/include/core/Engine.hpp: 8/8/8 commits
+2025-12-08 14:25:11,201 - DEBUG - Git for src/client/include/core/GameLoop.hpp: 8/8/8 commits
+2025-12-08 14:25:11,220 - DEBUG - Git for src/client/include/core/IRenderer.hpp: 4/4/4 commits
+2025-12-08 14:25:11,241 - DEBUG - Git for src/client/include/core/Logger.hpp: 1/1/1 commits
+2025-12-08 14:25:11,260 - DEBUG - Git for src/client/include/core/IGameLoop.hpp: 2/2/2 commits
+2025-12-08 14:25:11,280 - DEBUG - Git for src/client/include/core/IEngine.hpp: 1/1/1 commits
+2025-12-08 14:25:11,299 - DEBUG - Git for src/client/include/core/DynamicLib.hpp: 1/1/1 commits
+2025-12-08 14:25:11,318 - DEBUG - Git for src/client/include/network/common/Player.hpp: 1/1/1 commits
+2025-12-08 14:25:11,337 - DEBUG - Git for src/client/include/ui/auth/LoginBtn.hpp: 1/1/1 commits
+2025-12-08 14:25:11,356 - DEBUG - Git for src/client/include/events/window/Closed.hpp: 1/1/1 commits
+2025-12-08 14:25:11,373 - DEBUG - Git for src/client/src/network/UDPClient.cpp: 3/3/3 commits
+2025-12-08 14:25:11,391 - DEBUG - Git for src/client/src/network/TCPClient.cpp: 4/4/4 commits
+2025-12-08 14:25:11,409 - DEBUG - Git for src/client/src/boot/Boot.cpp: 3/3/3 commits
+2025-12-08 14:25:11,428 - DEBUG - Git for src/client/src/gameplay/GameObject.cpp: 1/1/1 commits
+2025-12-08 14:25:11,446 - DEBUG - Git for src/client/src/gameplay/EntityManager.cpp: 1/1/1 commits
+2025-12-08 14:25:11,465 - DEBUG - Git for src/client/src/gameplay/Missile.cpp: 1/1/1 commits
+2025-12-08 14:25:11,483 - DEBUG - Git for src/client/src/graphics/Graphics.cpp: 2/2/2 commits
+2025-12-08 14:25:11,503 - DEBUG - Git for src/client/src/scenes/SceneManager.cpp: 3/3/3 commits
+2025-12-08 14:25:11,522 - DEBUG - Git for src/client/src/scenes/GameScene.cpp: 4/4/4 commits
+2025-12-08 14:25:11,541 - DEBUG - Git for src/client/src/scenes/LoginScene.cpp: 4/4/4 commits
+2025-12-08 14:25:11,560 - DEBUG - Git for src/client/src/core/Logger.cpp: 1/1/1 commits
+2025-12-08 14:25:11,579 - DEBUG - Git for src/client/src/core/Engine.cpp: 6/6/6 commits
+2025-12-08 14:25:11,598 - DEBUG - Git for src/client/src/core/DynamicLib.cpp: 1/1/1 commits
+2025-12-08 14:25:11,616 - DEBUG - Git for src/client/src/core/GameLoop.cpp: 4/4/4 commits
+2025-12-08 14:25:11,633 - DEBUG - Git for src/client/lib/sdl2/include/SDL2Window.hpp: 1/1/1 commits
+2025-12-08 14:25:11,650 - DEBUG - Git for src/client/lib/sdl2/include/SDL2Renderer.hpp: 1/1/1 commits
+2025-12-08 14:25:11,667 - DEBUG - Git for src/client/lib/sdl2/src/SDL2Plugin.cpp: 1/1/1 commits
+2025-12-08 14:25:11,684 - DEBUG - Git for src/client/lib/sdl2/src/SDL2AssetManager.cpp: 1/1/1 commits
+2025-12-08 14:25:11,700 - DEBUG - Git for src/client/lib/sdl2/src/SDL2Window.cpp: 1/1/1 commits
+2025-12-08 14:25:11,717 - DEBUG - Git for src/client/lib/sdl2/src/SDL2Renderer.cpp: 1/1/1 commits
+2025-12-08 14:25:11,734 - DEBUG - Git for src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp: 1/1/1 commits
+2025-12-08 14:25:11,751 - DEBUG - Git for src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp: 1/1/1 commits
+2025-12-08 14:25:11,771 - DEBUG - Git for src/client/lib/sfml/include/SFMLTexture.hpp: 1/1/1 commits
+2025-12-08 14:25:11,789 - DEBUG - Git for src/client/lib/sfml/include/SFMLWindow.hpp: 2/2/2 commits
+2025-12-08 14:25:11,807 - DEBUG - Git for src/client/lib/sfml/include/SFMLRenderer.hpp: 2/2/2 commits
+2025-12-08 14:25:11,826 - DEBUG - Git for src/client/lib/sfml/src/SFMLWindow.cpp: 2/2/2 commits
+2025-12-08 14:25:11,845 - DEBUG - Git for src/client/lib/sfml/src/SFMLTexture.cpp: 1/1/1 commits
+2025-12-08 14:25:11,863 - DEBUG - Git for src/client/lib/sfml/src/AssetManager.cpp: 3/3/3 commits
+2025-12-08 14:25:11,881 - DEBUG - Git for src/client/lib/sfml/src/SFMLRenderer.cpp: 3/3/3 commits
+2025-12-08 14:25:11,900 - DEBUG - Git for src/client/lib/sfml/include/utils/TextField.hpp: 1/1/1 commits
+2025-12-08 14:25:11,918 - DEBUG - Git for src/client/lib/sfml/include/utils/AssetManager.hpp: 3/3/3 commits
+2025-12-08 14:25:11,937 - DEBUG - Git for src/client/lib/sfml/include/plugins/SFMLPlugin.hpp: 2/2/2 commits
+2025-12-08 14:25:11,956 - DEBUG - Git for src/client/lib/sfml/src/plugins/SFMLPlugin.cpp: 2/2/2 commits
+2025-12-08 14:25:11,972 - DEBUG - Git for src/common/protocol/Protocol.hpp: 4/4/4 commits
+2025-12-08 14:25:11,987 - DEBUG - Git for .claude/tests/conftest.py: 1/1/1 commits
+2025-12-08 14:25:12,001 - DEBUG - Git for .claude/tests/test_db.py: 1/1/1 commits
+2025-12-08 14:25:12,015 - DEBUG - Git for .claude/tests/test_crud.py: 1/1/1 commits
+2025-12-08 14:25:12,030 - DEBUG - Git for .claude/tests/test_queries.py: 1/1/1 commits
+2025-12-08 14:25:12,045 - DEBUG - Git for .claude/tests/__init__.py: 1/1/1 commits
+2025-12-08 14:25:12,059 - DEBUG - Git for .claude/tests/test_mcp_tools.py: 1/1/1 commits
+2025-12-08 14:25:12,074 - DEBUG - Git for .claude/tests/test_models.py: 1/1/1 commits
+2025-12-08 14:25:12,088 - DEBUG - Git for .claude/scripts/maintenance.py: 1/1/1 commits
+2025-12-08 14:25:12,103 - DEBUG - Git for .claude/scripts/update.py: 1/1/1 commits
+2025-12-08 14:25:12,117 - DEBUG - Git for .claude/scripts/__init__.py: 1/1/1 commits
+2025-12-08 14:25:12,131 - DEBUG - Git for .claude/scripts/bootstrap.py: 1/1/1 commits
+2025-12-08 14:25:12,146 - DEBUG - Git for .claude/mcp/__init__.py: 1/1/1 commits
+2025-12-08 14:25:12,160 - DEBUG - Git for .claude/mcp/agentdb/server.py: 1/1/1 commits
+2025-12-08 14:25:12,175 - DEBUG - Git for .claude/mcp/agentdb/__init__.py: 1/1/1 commits
+2025-12-08 14:25:12,189 - DEBUG - Git for .claude/mcp/agentdb/tools.py: 1/1/1 commits
+2025-12-08 14:25:12,208 - DEBUG - Git for ci_cd/docker/builder/main.py: 19/19/19 commits
+2025-12-08 14:25:12,231 - DEBUG - Marked tests/server/main.cpp as critical=True, security=False
+2025-12-08 14:25:12,232 - DEBUG - Marked tests/client/main.cpp as critical=True, security=False
+2025-12-08 14:25:12,235 - DEBUG - Marked tests/server/network/ProtobufTest.cpp as critical=True, security=True
+2025-12-08 14:25:12,236 - DEBUG - Marked tests/server/network/TCPIntegrationTest.cpp as critical=True, security=True
+2025-12-08 14:25:12,236 - DEBUG - Marked tests/server/network/protocol/CommandParserTest.cpp as critical=True, security=True
+2025-12-08 14:25:12,250 - DEBUG - Marked src/server/main.cpp as critical=True, security=False
+2025-12-08 14:25:12,250 - DEBUG - Marked src/client/main.cpp as critical=True, security=False
+2025-12-08 14:25:12,251 - DEBUG - Marked src/client/main.hpp as critical=True, security=False
+2025-12-08 14:25:12,252 - DEBUG - Marked src/server/include/application/use_cases/auth/Register.hpp as critical=True, security=False
+2025-12-08 14:25:12,252 - DEBUG - Marked src/server/include/application/use_cases/auth/Login.hpp as critical=True, security=True
+2025-12-08 14:25:12,253 - DEBUG - Marked src/server/include/domain/services/GameRule.hpp as critical=True, security=False
+2025-12-08 14:25:12,254 - DEBUG - Marked src/server/include/domain/entities/User.hpp as critical=True, security=True
+2025-12-08 14:25:12,255 - DEBUG - Marked src/server/include/domain/exceptions/user/PasswordException.hpp as critical=True, security=True
+2025-12-08 14:25:12,255 - DEBUG - Marked src/server/include/domain/exceptions/player/PlayerPasswordException.hpp as critical=True, security=True
+2025-12-08 14:25:12,256 - DEBUG - Marked src/server/include/domain/value_objects/user/Password.hpp as critical=True, security=True
+2025-12-08 14:25:12,257 - DEBUG - Marked src/server/include/domain/value_objects/player/PlayerPassword.hpp as critical=True, security=True
+2025-12-08 14:25:12,257 - DEBUG - Marked src/server/include/domain/value_objects/user/utils/PasswordUtils.hpp as critical=True, security=True
+2025-12-08 14:25:12,261 - DEBUG - Marked src/server/include/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp as critical=True, security=False
+2025-12-08 14:25:12,262 - DEBUG - Marked src/server/application/use_cases/auth/Login.cpp as critical=True, security=True
+2025-12-08 14:25:12,262 - DEBUG - Marked src/server/application/use_cases/auth/Register.cpp as critical=True, security=True
+2025-12-08 14:25:12,264 - DEBUG - Marked src/server/domain/entities/User.cpp as critical=True, security=True
+2025-12-08 14:25:12,264 - DEBUG - Marked src/server/domain/exceptions/user/PasswordException.cpp as critical=True, security=True
+2025-12-08 14:25:12,266 - DEBUG - Marked src/server/domain/value_objects/user/Password.cpp as critical=True, security=True
+2025-12-08 14:25:12,266 - DEBUG - Marked src/server/domain/value_objects/player/PlayerPassword.cpp as critical=True, security=True
+2025-12-08 14:25:12,267 - DEBUG - Marked src/server/domain/value_objects/user/utils/PasswordUtils.cpp as critical=True, security=True
+2025-12-08 14:25:12,267 - DEBUG - Marked src/server/infrastructure/boostrap/GameBootstrap.hpp as critical=True, security=True
+2025-12-08 14:25:12,270 - DEBUG - Marked src/server/infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp as critical=True, security=True
+2025-12-08 14:25:12,270 - DEBUG - Marked src/server/infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp as critical=True, security=True
+2025-12-08 14:25:12,272 - DEBUG - Marked src/client/include/network/TCPClient.hpp as critical=True, security=True
+2025-12-08 14:25:12,277 - DEBUG - Marked src/client/include/core/Engine.hpp as critical=True, security=False
+2025-12-08 14:25:12,277 - DEBUG - Marked src/client/include/core/GameLoop.hpp as critical=True, security=False
+2025-12-08 14:25:12,277 - DEBUG - Marked src/client/include/core/IRenderer.hpp as critical=True, security=False
+2025-12-08 14:25:12,278 - DEBUG - Marked src/client/include/core/Logger.hpp as critical=True, security=False
+2025-12-08 14:25:12,278 - DEBUG - Marked src/client/include/core/IGameLoop.hpp as critical=True, security=False
+2025-12-08 14:25:12,278 - DEBUG - Marked src/client/include/core/IEngine.hpp as critical=True, security=False
+2025-12-08 14:25:12,278 - DEBUG - Marked src/client/include/core/DynamicLib.hpp as critical=True, security=False
+2025-12-08 14:25:12,278 - DEBUG - Marked src/client/include/ui/auth/LoginBtn.hpp as critical=True, security=False
+2025-12-08 14:25:12,280 - DEBUG - Marked src/client/src/network/TCPClient.cpp as critical=True, security=True
+2025-12-08 14:25:12,283 - DEBUG - Marked src/client/src/core/Logger.cpp as critical=True, security=False
+2025-12-08 14:25:12,284 - DEBUG - Marked src/client/src/core/Engine.cpp as critical=True, security=False
+2025-12-08 14:25:12,284 - DEBUG - Marked src/client/src/core/DynamicLib.cpp as critical=True, security=False
+2025-12-08 14:25:12,284 - DEBUG - Marked src/client/src/core/GameLoop.cpp as critical=True, security=False
+2025-12-08 14:25:12,292 - DEBUG - Marked src/common/protocol/Protocol.hpp as critical=True, security=True
+2025-12-08 14:25:12,313 - DEBUG - Marked .claude/tests/test_models.py as critical=True, security=True
+2025-12-08 14:25:12,319 - DEBUG - Marked .claude/scripts/update.py as critical=True, security=True
+2025-12-08 14:25:12,319 - DEBUG - Marked .claude/scripts/bootstrap.py as critical=True, security=True
+2025-12-08 14:25:12,333 - DEBUG - Marked ci_cd/docker/builder/main.py as critical=True, security=False
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: error_handling_malloc
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: error_handling_fopen
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: error_handling_return_codes
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: error_handling_errno
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: memory_safety_strncpy
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: memory_safety_snprintf
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: memory_safety_free
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: memory_safety_bounds_check
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: memory_safety_null_deref
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: naming_functions
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: naming_constants
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: naming_types
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: naming_variables
+2025-12-08 14:25:12,343 - DEBUG - Imported pattern: documentation_public
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: documentation_params
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: documentation_module
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: security_input_validation
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: security_sql_injection
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: security_sensitive_data
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: performance_loop_invariant
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: performance_early_exit
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: python_exception_handling
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: python_context_managers
+2025-12-08 14:25:12,344 - DEBUG - Imported pattern: python_type_hints
+2025-12-08 14:25:12,369 - INFO - Bootstrap completed in 16.5s

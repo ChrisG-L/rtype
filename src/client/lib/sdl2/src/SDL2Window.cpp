@@ -128,18 +128,21 @@ void SDL2Window::close()
 events::Event SDL2Window::pollEvent()
 {
     SDL_Event sdlEvent;
-    while (SDL_PollEvent(&sdlEvent)) {
+    if (SDL_PollEvent(&sdlEvent)) {
         switch (sdlEvent.type) {
             case SDL_QUIT:
                 _isOpen = false;
                 return events::WindowClosed{};
             case SDL_KEYDOWN:
-                return events::KeyPressed{scancodeToKey(sdlEvent.key.keysym.scancode)};
+                if (sdlEvent.key.repeat == 0)
+                    return events::KeyPressed{scancodeToKey(sdlEvent.key.keysym.scancode)};
+                break;
             case SDL_KEYUP:
                 return events::KeyReleased{scancodeToKey(sdlEvent.key.keysym.scancode)};
             default:
                 break;
         }
+        return pollEvent();
     }
     return events::None{};
 }
@@ -151,7 +154,6 @@ void* SDL2Window::getNativeHandle()
 
 void SDL2Window::draw(const graphics::IDrawable& drawable)
 {
-    // Implemented through renderer
 }
 
 void SDL2Window::drawRect(float x, float y, float width, float height, rgba color)
@@ -163,7 +165,6 @@ void SDL2Window::drawRect(float x, float y, float width, float height, rgba colo
 
 void SDL2Window::drawImg(graphics::IDrawable drawable, float x, float y, float scaleX, float scaleY)
 {
-    // Implemented through renderer
 }
 
 void SDL2Window::clear()

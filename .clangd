@@ -4,6 +4,8 @@ CompileFlags:
     - "-isystem/nix/store/y28c83zz73yr4vwz1fsl4nsrn6yz5fj0-gcc-14.3.0/include/c++/14.3.0"
     - "-isystem/nix/store/y28c83zz73yr4vwz1fsl4nsrn6yz5fj0-gcc-14.3.0/include/c++/14.3.0/x86_64-unknown-linux-gnu"
     - "-isystem/nix/store/y28c83zz73yr4vwz1fsl4nsrn6yz5fj0-gcc-14.3.0/include/c++/14.3.0/backward"
+    - "-isystem/nix/store/zrk9hppfabwygs5nmqcwn9xmlw93zbj3-sdl2-compat-2.32.58-dev/include"
+    - "-isystem/nix/store/29jvc5mhg3c4ar4rs7qx85cijvgmnrjh-SDL2_image-2.8.8/include"
   Remove:
     - "-W*"
   Compiler: clang++

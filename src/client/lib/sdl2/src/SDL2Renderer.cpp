@@ -17,18 +17,26 @@ SDL2Renderer::SDL2Renderer(std::shared_ptr<graphics::IWindow> window)
     _assetManager = std::make_unique<SDL2AssetManager>(_sdlRenderer);
 }
 
-void SDL2Renderer::initialize(GraphicAssets assets)
+void SDL2Renderer::initialize(GraphicAssets& assets, GraphicAssetsE& elements)
 {
+    _elements = &elements;
+
     for (const auto& asset : assets) {
         std::visit(overloaded {
             [&](const graphic::GraphicTexture& graphT) { initGraphicTexture(graphT); }
         }, asset);
     }
+
+    for (const auto& elem : elements) {
+        std::visit(overloaded {
+            [&](const graphic::GraphicElement& graphE) { initGraphicElement(graphE); }
+        }, elem);
+    }
 }
 
-void SDL2Renderer::update(float deltatime)
+void SDL2Renderer::update(float deltatime, GraphicAssets& assets, GraphicAssetsE& elements)
 {
-    // Update logic if needed
+    _elements = &elements;
 }
 
 void SDL2Renderer::render()
@@ -42,9 +50,13 @@ void SDL2Renderer::initGraphicTexture(const graphic::GraphicTexture& textureAsse
     if (!_assetManager->registerTexture(path)) {
         throw std::runtime_error("Texture provided not found: " + path);
     }
+}
 
-    Vec2f pos = textureAsset.getPos();
-    Vec2f scale = textureAsset.getScale();
+void SDL2Renderer::initGraphicElement(const graphic::GraphicElement& elem)
+{
+    std::string path = elem.getTexture().getFileName();
+    Vec2f pos = elem.getPos();
+    Vec2f scale = elem.getScale();
 
     _assetManager->addSprite(path, pos.x, pos.y, scale.x, scale.y);
 }
