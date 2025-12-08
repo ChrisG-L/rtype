@@ -9,18 +9,19 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/LoginScene.hpp"
 #include "core/Logger.hpp"
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Graphics/Texture.hpp>
+#include "events/Event.hpp"
+#include <variant>
 
 GameScene::GameScene()
 {
     client::logging::Logger::getSceneLogger()->debug("GameScene created");
 }
 
-void GameScene::handleEvent(const sf::Event &event)
+void GameScene::handleEvent(const events::Event &event)
 {
-    if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
-        if (keyPressed->code == sf::Keyboard::Key::Space) {
+    if (std::holds_alternative<events::KeyPressed>(event)) {
+        const auto& keyPressed = std::get<events::KeyPressed>(event);
+        if (keyPressed.key == events::Key::Space) {
             client::logging::Logger::getSceneLogger()->info("Switching to LoginScene");
             // if (_sceneManager) {
             //     _sceneManager->changeScene(std::make_unique<LoginScene>());

@@ -9,7 +9,7 @@
 #define LOGINSCENE_HPP_
 
 #include "scenes/IScene.hpp"
-#include <SFML/Window/Event.hpp>
+#include "events/Event.hpp"
 
 #include "graphics/IWindow.hpp"
 #include "../core/IRenderer.hpp"
@@ -21,7 +21,7 @@ class LoginScene : public IScene
         LoginScene(std::shared_ptr<core::IRenderer>);
         ~LoginScene() override = default;
 
-        void handleEvent(const sf::Event &event) override;
+        void handleEvent(const events::Event &event) override;
         void update(float deltatime) override;
         void render() override;
     private:

@@ -1,5 +1,5 @@
 {
-  description = "Environnement de développement C++ (Clang + Vcpkg + SFML)";
+  description = "Environnement de développement C++ (Clang + Vcpkg + SDL2)";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -18,6 +18,8 @@
           nativeBuildInputs = with pkgs; [
             cmake ninja pkg-config git unzip zip vcpkg
             llvmPackages.clang-tools
+            # Autotools for vcpkg dependencies
+            autoconf automake libtool autoconf-archive
           ];
 
           buildInputs = with pkgs; [
@@ -25,6 +27,8 @@
             libGL libGLU systemd
             openal flac libvorbis freetype
             gcc.cc.lib cacert openssl
+            # SDL2/SDL3 dependencies (sdl2-compat requires SDL3)
+            SDL2 SDL2_image sdl3
           ];
           hardeningDisable = [ "fortify" ];
           
@@ -36,13 +40,7 @@
             # --- FIX VCPKG ---
             export VCPKG_FORCE_SYSTEM_BINARIES=1
 
-            # --- FIX CRITIQUE POUR HYPRLAND / SFML ---
-            # C'est cette ligne qui corrige l'erreur BadMatch (Major opcode 78)
-            # Elle force X11 à ne pas utiliser de visuels transparents complexes
-            export XLIB_SKIP_ARGB_VISUALS=1
-
             # --- FIX GRAPHIQUE & LD_LIBRARY_PATH ---
-            # On combine tout en une seule étape propre
             export LD_LIBRARY_PATH="/run/opengl-driver/lib:${pkgs.lib.makeLibraryPath [
               pkgs.libGL
               pkgs.libGLU
@@ -50,15 +48,17 @@
               pkgs.xorg.libXcursor
               pkgs.xorg.libXrandr
               pkgs.xorg.libXi
-              pkgs.xorg.libXext    # Ajouté par sécurité
-              pkgs.xorg.libXinerama # Ajouté par sécurité
+              pkgs.xorg.libXext
+              pkgs.xorg.libXinerama
               pkgs.gcc.cc
               pkgs.systemd
+              pkgs.SDL2
+              pkgs.SDL2_image
+              pkgs.sdl3
             ]}:$LD_LIBRARY_PATH"
 
-            echo "🚀 Environnement Clang (Flake) chargé !"
+            echo "🚀 Environnement Clang + SDL2 (Flake) chargé !"
             echo "   Compilateur : $(clang++ --version | head -n1)"
-            echo "   Fix Hyprland : XLIB_SKIP_ARGB_VISUALS=1 appliqué"
           '';
         };
       }

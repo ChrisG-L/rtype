@@ -11,12 +11,12 @@
 #include "scenes/GameScene.hpp"
 #include "core/Logger.hpp"
 #include "utils/Vecs.hpp"
-#include <SFML/Graphics/Rect.hpp>
-#include <SFML/Graphics/Text.hpp>
+#include "events/Event.hpp"
 #include <algorithm>
 #include <memory>
 #include <spdlog/logger.h>
 #include <vector>
+#include <variant>
 
 LoginScene::LoginScene(std::shared_ptr<core::IRenderer> renderer): _renderer(renderer), _loginAssets{}
 {
@@ -28,23 +28,17 @@ LoginScene::LoginScene(std::shared_ptr<core::IRenderer> renderer): _renderer(ren
     _renderer->initialize(std::move(_loginAssets));
 }
 
-void LoginScene::handleEvent(const sf::Event &event)
+void LoginScene::handleEvent(const events::Event &event)
 {
-    if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
-        if (keyPressed->code == sf::Keyboard::Key::Space) {
+    if (std::holds_alternative<events::KeyPressed>(event)) {
+        const auto& keyPressed = std::get<events::KeyPressed>(event);
+        if (keyPressed.key == events::Key::Space) {
             client::logging::Logger::getSceneLogger()->info("Switching to GameScene");
             if (_sceneManager) {
                 _sceneManager->changeScene(std::make_unique<GameScene>());
             }
         }
     }
-    // if (const auto* keyPressed = event.getIf<sf::Event::TextEntered>()){
-    //     if (event.getIf<sf::>()){
-    //         s += static_cast<char>(event.text.unicode);
-    //     } else {
-    //         // Time to consider sf::String or some other unicode-capable string
-    //     }
-    // }
 }
 
 void LoginScene::update(float deltatime)

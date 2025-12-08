@@ -16,6 +16,8 @@
 
 #include <iostream>
 #include <memory>
+#include <cstdlib>
+#include <stdexcept>
 
 namespace infrastructure::boostrap {
     using adapters::out::persistence::MongoDBConfiguration;
@@ -27,8 +29,11 @@ namespace infrastructure::boostrap {
 
             void mongodb() {
                 std::cout << "=== Démarrage de la base de donnée mongoDB ===" << std::endl;
-                std::string mongoURI = "mongodb+srv://dbUser:root@rtypehome.qxzb27g.mongodb.net/";
-                DBConfig dbConfig = {.connexionString = mongoURI, .dbName = "rtype"};
+                const char* mongoURI = std::getenv("MONGODB_URI");
+                if (!mongoURI) {
+                    throw std::runtime_error("MONGODB_URI environment variable not set");
+                }
+                DBConfig dbConfig = {.connexionString = std::string(mongoURI), .dbName = "rtype"};
                 _mongoDB = std::make_shared<MongoDBConfiguration>(dbConfig);
             };
 
@@ -49,9 +54,8 @@ namespace infrastructure::boostrap {
 
                 std::cout << "Serveur UDP prêt. En attente de connexions..." << std::endl;
                 std::cout << "Serveur TCP prêt. En attente de connexions..." << std::endl;
-                
-                tcpServer.run();
-                udpServer.run();
+
+                io_ctx.run();
             }
 
         public:

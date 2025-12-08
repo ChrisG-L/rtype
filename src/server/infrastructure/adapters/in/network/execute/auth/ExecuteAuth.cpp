@@ -30,13 +30,21 @@ namespace infrastructure::adapters::in::network::execute::auth {
     }
 
     void ExecuteAuth::login() {
-        LoginMessage login = LoginMessage::from_bytes(_cmd.buf.data());
-        _user = _login->execute(login.username, login.password);
+        auto loginOpt = LoginMessage::from_bytes(_cmd.buf.data(), _cmd.buf.size());
+        if (!loginOpt) {
+            std::cout << "Invalid LoginMessage received!" << std::endl;
+            return;
+        }
+        _user = _login->execute(loginOpt->username, loginOpt->password);
     }
 
     void ExecuteAuth::signupUser() {
-        RegisterMessage registerUser = RegisterMessage::from_bytes(_cmd.buf.data());
-        _user = _register->execute(registerUser.username, registerUser.email, registerUser.password);
+        auto registerUserOpt = RegisterMessage::from_bytes(_cmd.buf.data(), _cmd.buf.size());
+        if (!registerUserOpt) {
+            std::cout << "Invalid RegisterMessage received!" << std::endl;
+            return;
+        }
+        _user = _register->execute(registerUserOpt->username, registerUserOpt->email, registerUserOpt->password);
     }
 }
 

@@ -36,3 +36,7 @@ output.txt
 .direnv/flake-profile-2-link
 
 *.pyc
+
+# Environment files (contains secrets)
+.env
+.env.local

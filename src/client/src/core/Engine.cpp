@@ -40,7 +40,7 @@ namespace core {
         _tcpClient = tcpClient;
         _udpClient = udpClient;
 
-        _graphicPlugin = _dynamicLib->openGraphicLib("librtype_sfml.so");
+        _graphicPlugin = _dynamicLib->openGraphicLib("librtype_sdl2.so");
         _window = _graphicPlugin->createWindow({.x = 1920, .y = 1080}, "rtype");
         _gameLoop = std::make_unique<GameLoop>(_window, _graphicPlugin, _tcpClient, _udpClient);
     }
