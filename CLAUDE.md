@@ -1,315 +1,345 @@
-# R-Type Project Context
+# R-Type - Claude Code Context
+
+## Project Overview
+
+R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **Hexagonal Architecture** (Ports & Adapters). The project consists of a server and client communicating via UDP (gameplay) and TCP (authentication).
 
 ## Quick Reference
 
-| Aspect | Value |
-|--------|-------|
-| **Language** | C++23 (strict, no extensions) |
-| **Build** | CMake 3.30+ / Ninja / vcpkg |
-| **Server** | Hexagonal Architecture (DDD) |
-| **Client** | Plugin-based (SFML 3.0) |
-| **Tests** | Google Test (210+ tests) |
-| **Docs** | MkDocs Material (French) |
-
-## Build Commands
-
-```bash
-# First time setup (10-30 min)
-./scripts/build.sh --platform=linux
-
-# Compile (15s incremental)
-./scripts/compile.sh --platform=linux --both
-
-# Run tests
-./scripts/test.sh
-
-# Run binaries
-./artifacts/r-type_server
-./artifacts/r-type_client
-```
+| Component | Technology | Port |
+|-----------|------------|------|
+| Server | C++23, Boost.ASIO | UDP 4124, TCP 4123 |
+| Client | C++23, SFML | - |
+| Database | MongoDB | - |
+| Build | CMake 3.30+, Ninja, vcpkg | - |
 
 ## Project Structure
 
 ```
-src/
-├── server/                    # Hexagonal architecture
-│   ├── domain/                # Entities, Value Objects (NO external deps)
-│   ├── application/           # Use Cases, Ports (interfaces)
-│   └── infrastructure/        # Adapters (network, DB, CLI)
-└── client/                    # Plugin architecture
-    ├── core/                  # Engine, GameLoop, DynamicLib
-    ├── graphics/              # IGraphicPlugin interface
-    ├── scenes/                # SceneManager, LoginScene, GameScene
-    └── lib/sfml/              # SFML plugin (rtype_sfml.so)
-
-tests/                         # Google Test (server: 170+, client: 40+)
-docs/                          # MkDocs documentation
-scripts/                       # build.sh, compile.sh, test.sh
-.claude/agents/                # Army2077 agent system
+rtype/
+├── src/
+│   ├── server/                    # Server implementation
+│   │   ├── include/               # Headers
+│   │   │   ├── domain/            # Business logic (entities, value objects)
+│   │   │   ├── application/       # Use cases, ports (interfaces)
+│   │   │   └── infrastructure/    # Adapters (network, persistence)
+│   │   ├── domain/                # Domain layer implementations
+│   │   ├── application/           # Application layer implementations
+│   │   └── infrastructure/        # Infrastructure layer implementations
+│   ├── client/                    # Client implementation (SFML)
+│   └── common/                    # Shared code (protocol)
+├── tests/                         # Google Test tests
+├── docs/                          # MkDocs documentation
+├── third_party/vcpkg/             # Package manager
+├── .mcp.json                      # MCP server configuration
+└── .claude/                       # Claude Code tooling
+    ├── agentdb/                   # Code analysis database
+    │   ├── db.sqlite              # SQLite database
+    │   ├── crud.py                # CRUD operations
+    │   ├── db.py                  # Database connection
+    │   ├── config.py              # Configuration
+    │   ├── indexer.py             # Code indexer
+    │   ├── models.py              # Data models
+    │   └── queries.py             # Query functions
+    ├── agents/                    # Specialized analysis agents
+    │   ├── analyzer.md            # Impact analysis agent
+    │   ├── security.md            # Security audit agent
+    │   ├── reviewer.md            # Code review agent
+    │   ├── risk.md                # Risk evaluation agent
+    │   └── synthesis.md           # Report synthesis agent
+    ├── mcp/                       # MCP server for agentDB
+    │   └── agentdb/
+    │       ├── server.py          # MCP server implementation
+    │       └── tools.py           # MCP tool definitions
+    ├── scripts/                   # Utility scripts
+    │   ├── bootstrap.py           # Initial setup
+    │   ├── update.py              # Database update
+    │   └── maintenance.py         # Maintenance tasks
+    ├── tests/                     # Python tests for agentDB
+    ├── config/                    # Configuration files
+    ├── AGENTS.md                  # Agent documentation
+    └── settings.json              # Claude Code settings
 ```
 
-## Architecture Rules
+## Build Commands
 
-### Server: Hexagonal (CRITICAL)
+```bash
+# Configure (first time or after CMakeLists changes)
+./scripts/build.sh                    # Linux
+./scripts/build.sh --platform=windows # Windows cross-compile
 
-```
-Domain ← Application ← Infrastructure
-  │           │              │
-  │           │              └── Adapters (TCP, UDP, MongoDB, CLI)
-  │           └── Use Cases + Ports (interfaces)
-  └── Entities + Value Objects (ZERO external dependencies)
-```
+# Compile
+./scripts/compile.sh
 
-**Domain Layer** (`src/server/domain/`):
-- NO #include of Boost, MongoDB, spdlog, etc.
-- Pure C++ standard library only
-- Entities: `Player`, `User`
-- Value Objects: `Health`, `Position`, `PlayerId`, `Username`, `Email`, `Password`
+# Run tests
+./artifacts/server/linux/server_tests
 
-**Application Layer** (`src/server/application/`):
-- Use Cases orchestrate domain objects
-- Ports IN: `IGameCommands` (driving interfaces)
-- Ports OUT: `IPlayerRepository`, `IUserRepository` (driven interfaces)
+# Run server
+./artifacts/server/linux/rtype_server
 
-**Infrastructure Layer** (`src/server/infrastructure/`):
-- Adapters IN: `TCPServer`, `UDPServer`, `CLIGameController`
-- Adapters OUT: `MongoDBUserRepository`
-- All external libraries here
-
-### Client: Plugin Architecture
-
-```cpp
-// Interface (src/client/include/graphics/)
-class IGraphicPlugin {
-    virtual IWindow& getWindow() = 0;
-    virtual IRenderer& getRenderer() = 0;
-};
-
-// Implementation (src/client/lib/sfml/)
-class SFMLPlugin : public IGraphicPlugin { };
+# Clean build
+rm -rf build*/ artifacts/
 ```
 
-- Plugins compiled as shared libraries (`.so`)
-- Runtime loading via `DynamicLib`
-- SFML abstracted behind interfaces
+## MCP Configuration
 
-## Code Conventions
+The `.mcp.json` file at the project root configures the MCP server for agentDB:
 
-### Naming
-```cpp
-class PascalCase { };              // Classes
-void camelCase();                  // Functions
-const float UPPER_SNAKE = 1.0f;    // Constants
-namespace lowercase::nested { }    // Namespaces
-float _privateVar;                 // Private members (underscore prefix)
-class IInterface { };              // Interfaces (I prefix)
-```
-
-### File Header
-```cpp
-/*
-** EPITECH PROJECT, 2025
-** rtype
-** File description:
-** Brief description
-*/
-
-#ifndef FILENAME_HPP_
-#define FILENAME_HPP_
-
-namespace domain::entities {
-    // ...
+```json
+{
+  "mcpServers": {
+    "agentdb": {
+      "command": "bash",
+      "args": ["-c", "PYTHONPATH=\"$PWD/.claude\" AGENTDB_PATH=\"$PWD/.claude/agentdb/db.sqlite\" python -m mcp.agentdb.server"]
+    }
+  }
 }
-
-#endif /* !FILENAME_HPP_ */
 ```
 
-### Modern C++ Requirements
-- RAII (no manual new/delete)
-- Smart pointers (`std::unique_ptr` preferred)
-- Move semantics
-- const-correctness
-- Range-based for loops
-- `auto` where appropriate
+## Analysis Agents
 
-## Key Dependencies
+5 specialized agents for code analysis, defined in `.claude/agents/`:
 
-| Library | Purpose | Include Path |
-|---------|---------|--------------|
-| Boost.Asio | Async networking | `<boost/asio.hpp>` |
-| spdlog | Logging | `<spdlog/spdlog.h>` |
-| MongoDB | Persistence | `<mongocxx/...>` |
-| SFML 3 | Graphics | `<SFML/Graphics.hpp>` |
-| GTest | Testing | `<gtest/gtest.h>` |
-| Protobuf | Serialization | `<google/protobuf/...>` |
+| Agent | Description | Use Case |
+|-------|-------------|----------|
+| **analyzer** | Impact analysis of code changes | "What's the impact of my changes?" |
+| **security** | Security audit, regression detection | "Check security of this code" |
+| **reviewer** | Code review, conventions check | "Review this code" |
+| **risk** | Global risk evaluation | "Is it safe to merge?" |
+| **synthesis** | Final report synthesis | "Summarize the analyses" |
 
-## Network Configuration
+### Agent Workflow
 
-| Protocol | Port | Purpose |
-|----------|------|---------|
-| TCP | 4123 | Authentication |
-| UDP | 4123 | Gameplay (real-time) |
-
-## Git Conventions
-
-### Commit Format (AREA)
 ```
-TYPE: Description courte
-
-Explication détaillée (optionnel)
-
-🤖 Generated with Claude Code
-Co-Authored-By: Claude <noreply@anthropic.com>
+┌─────────┐ ┌──────────┐ ┌──────────┐
+│ANALYZER │ │ SECURITY │ │ REVIEWER │
+└────┬────┘ └────┬─────┘ └────┬─────┘
+     └───────────┼────────────┘
+                 ▼
+           ┌─────────┐
+           │  RISK   │
+           └────┬────┘
+                ▼
+          ┌───────────┐
+          │ SYNTHESIS │
+          └───────────┘
 ```
 
-**Types**: `FEAT`, `FIX`, `DOCS`, `STYLE`, `REFACTOR`, `TEST`, `BUILD`, `PERF`, `CI`, `CHORE`
+See `.claude/AGENTS.md` for detailed agent documentation.
 
-### Branches
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `docs/` - Documentation
-- `refactor/` - Code restructuring
+## AgentDB MCP Tools
+
+**AgentDB** is a SQLite-based code analysis database with MCP server integration. Use these tools to query project context:
+
+### Available Tools (via MCP)
+
+| Tool | Description | Example Use |
+|------|-------------|-------------|
+| `get_file_context` | Full 360° view of a file (symbols, dependencies, errors, patterns) | Before modifying a file |
+| `get_symbol_callers` | Find all callers of a function (recursive) | Impact analysis |
+| `get_symbol_callees` | Find all functions called by a symbol | Understanding dependencies |
+| `get_file_impact` | Calculate impact of modifying a file | Before refactoring |
+| `get_error_history` | Historical bugs for a file/symbol/module | Identify risky areas |
+| `get_patterns` | Coding patterns applicable to a file | Ensure consistency |
+| `get_architecture_decisions` | ADRs applicable to a module | Understand design choices |
+| `search_symbols` | Search symbols by pattern (supports wildcards) | Find functions/types |
+| `get_file_metrics` | Detailed metrics (complexity, lines, activity) | Code quality |
+| `get_module_summary` | Summary of a module | Module overview |
+
+### Database Schema (Key Tables)
+
+- **files**: File metadata, metrics, criticality, git activity
+- **symbols**: Functions, classes, structs, enums with location and signatures
+- **relations**: Call graph, type usage, includes relationships
+- **file_relations**: Include/import dependencies between files
+- **error_history**: Historical bugs and their resolutions
+- **patterns**: Coding conventions and best practices
+- **architecture_decisions**: ADRs (Architecture Decision Records)
+
+### Direct SQLite Queries
+
+```bash
+# File info
+sqlite3 .claude/agentdb/db.sqlite "SELECT * FROM files WHERE path LIKE '%UDPServer%'"
+
+# Symbols in a file
+sqlite3 .claude/agentdb/db.sqlite "SELECT name, kind, line_start FROM symbols WHERE file_id = X"
+
+# File relations (includes)
+sqlite3 .claude/agentdb/db.sqlite "SELECT * FROM file_relations WHERE source_file_id = X"
+
+# Module summary
+sqlite3 .claude/agentdb/db.sqlite "SELECT module, COUNT(*) FROM files GROUP BY module"
+```
+
+### AgentDB Maintenance Scripts
+
+```bash
+# Initial setup / re-index entire codebase
+python .claude/scripts/bootstrap.py
+
+# Update database with recent changes
+python .claude/scripts/update.py
+
+# Database maintenance (cleanup, optimization)
+python .claude/scripts/maintenance.py
+
+# Run agentDB tests
+pytest .claude/tests/
+```
+
+## Architecture (Hexagonal)
+
+### Layers
+
+1. **Domain Layer** (`domain/`) - Pure business logic, no external dependencies
+   - Entities: `Player`, `User`
+   - Value Objects: `Position`, `Health`, `PlayerId`, `UserId`
+   - Exceptions: `DomainException`, `PositionException`, etc.
+
+2. **Application Layer** (`application/`) - Use cases, orchestration
+   - Use Cases: `MovePlayerUseCase`, `LoginUseCase`
+   - Ports IN: `IGameCommands`
+   - Ports OUT: `IPlayerRepository`, `IUserRepository`
+
+3. **Infrastructure Layer** (`infrastructure/`) - Technical implementations
+   - Adapters IN: `UDPServer`, `TCPServer`, `CLIGameController`
+   - Adapters OUT: `MongoDBConfiguration`, `MongoDBPlayerRepository`
+
+### Key Principle: Dependency Rule
+
+```
+Infrastructure → Application → Domain → (nothing)
+```
+
+- Domain NEVER depends on Application or Infrastructure
+- Application NEVER depends on Infrastructure
+- Dependencies flow inward only
+
+## Coding Conventions
+
+### C++ Style
+
+- **Standard**: C++23
+- **Naming**:
+  - Classes: `PascalCase`
+  - Methods/Functions: `camelCase`
+  - Private members: `_prefixedWithUnderscore`
+  - Constants: `SCREAMING_SNAKE_CASE`
+- **Headers**: `.hpp` for headers, `.cpp` for implementations
+- **Namespaces**: Match directory structure (`domain::entities::Player`)
+
+### Value Objects
+
+- Always validate in constructor
+- Immutable: methods return new instances
+- Example: `Position::move()` returns a new `Position`
+
+### Repositories
+
+- Define interface in Application layer (`IPlayerRepository`)
+- Implement in Infrastructure layer (`MongoDBPlayerRepository`)
+- Inject dependencies via constructor
+
+## Key Files
+
+| Purpose | Path |
+|---------|------|
+| Server main | `src/server/main.cpp` |
+| UDP Server | `src/server/infrastructure/adapters/in/network/UDPServer.cpp` |
+| TCP Server | `src/server/infrastructure/adapters/in/network/TCPServer.cpp` |
+| Player entity | `src/server/include/domain/entities/Player.hpp` |
+| Position VO | `src/server/include/domain/value_objects/Position.hpp` |
+| Move use case | `src/server/include/application/use_cases/MovePlayerUseCase.hpp` |
+| Binary protocol | `src/common/protocol/` |
 
 ## Testing
 
 ```bash
-# All tests
-./scripts/test.sh
+# Run all tests
+./artifacts/server/linux/server_tests
 
-# Server only
-./scripts/test.sh --server
+# Run specific test
+./artifacts/server/linux/server_tests --gtest_filter=PlayerTest.*
 
-# Client only
-./scripts/test.sh --client
-
-# Filter pattern
-./scripts/test.sh --filter "Health*"
-
-# List tests
-./scripts/test.sh --list
+# With verbose output
+./artifacts/server/linux/server_tests --gtest_verbose
 ```
 
-**Test locations**:
-- `tests/server/domain/` - Domain entities/value objects
-- `tests/server/network/` - TCP/UDP integration
-- `tests/client/utils/` - Client utilities
+## Dependencies (vcpkg)
 
-## Army2077 Agent System
+- **boost-asio**: Async networking
+- **gtest**: Testing framework
+- **mongo-cxx-driver**: MongoDB driver
+- **nlohmann-json**: JSON parsing
+- **sfml**: Client graphics (SFML)
 
-Located in `.claude/agents/`:
+## Git Conventions
 
-| Agent | Purpose | Command |
-|-------|---------|---------|
-| **Général** | Orchestrator | "Général, audit complet" |
-| **CMD Documentation** | Docs | "CMD Doc, documente [module]" |
-| **CMD Qualité** | Quality/Tests | "CMD Qualité, analyse" |
-| **CMD Sécurité** | Security/CI | "CMD Sécurité, audit" |
-| **CMD Git** | Git commits | "CMD Git, analyse changements" |
-| **CMD Jira** | Ticket sync | "CMD Jira, sync Jira" |
-| **Soldat Advisor** | Learning guide | "Soldat Advisor, analyse [file]" |
-| **Soldat Review** | Code review | "Soldat Review, revue PR" |
-| **Soldat Architecture** | Architecture | "Soldat Archi, cartographie" |
+Commit format: `TYPE: Description`
 
-## Common Tasks
+| Type | Usage |
+|------|-------|
+| FEAT | New feature |
+| FIX | Bug fix |
+| DOCS | Documentation |
+| STYLE | Formatting, no code change |
+| REFACTOR | Code refactoring |
+| TEST | Adding tests |
+| CHORE | Maintenance, build, deps |
+| BUILD | Build system changes |
 
-### Add New Entity (Domain)
-1. Create in `src/server/include/domain/entities/`
-2. NO external includes (Boost, MongoDB, etc.)
-3. Add tests in `tests/server/domain/entities/`
-
-### Add New Value Object (Domain)
-1. Create in `src/server/include/domain/value_objects/`
-2. Immutable, validated in constructor
-3. Add tests in `tests/server/domain/value_objects/`
-
-### Add New Use Case (Application)
-1. Create in `src/server/include/application/use_cases/`
-2. Inject dependencies via constructor (ports)
-3. Add tests with mock repositories
-
-### Add Network Adapter (Infrastructure)
-1. Create in `src/server/include/infrastructure/adapters/`
-2. Implement port interfaces
-3. Use Boost.Asio for async
-
-### Add Client Scene
-1. Create in `src/client/include/scenes/`
-2. Inherit from `IScene`
-3. Register in `SceneManager`
-
-### Add SFML Feature
-1. Implement in `src/client/lib/sfml/`
-2. Expose via `IGraphicPlugin` interface
-3. Keep abstraction clean
-
-## Compiler Flags
-
-**Debug** (sanitizers enabled):
-```
--O0 -g3 -Wall -Wextra -Wpedantic
--fsanitize=address,undefined,leak
-```
-
-**Release**:
-```
--O3 -Wall -Wextra -Wpedantic
-```
-
-## Important Files
-
-| File | Purpose |
-|------|---------|
-| `CMakeLists.txt` | Root build config |
-| `scripts/build.sh` | Setup vcpkg + CMake |
-| `scripts/compile.sh` | Compile with filtering |
-| `scripts/test.sh` | Run tests |
-| `mkdocs.yml` | Documentation config |
-| `Jenkinsfile` | CI/CD pipeline |
-| `flake.nix` | Nix dev environment |
-
-## Quality Standards
-
-- Test coverage: >80%
-- Zero compilation warnings
-- Zero critical vulnerabilities
-- 100% atomic commits
-- Documentation sync with code
-
-## Do's and Don'ts
-
-### Do
-- Read code before modifying
-- Follow hexagonal layer boundaries
-- Write tests for new code
-- Use existing patterns
-- Keep commits atomic
-- Update docs when changing code
-
-### Don't
-- Import external libs in Domain layer
-- Skip tests
-- Make large commits
-- Over-engineer solutions
-- Add features not requested
-- Ignore compiler warnings
-
-## Jira Integration
-
-**Project**: KAN (epitech-team-w5qkn5hj.atlassian.net)
-**Cloud ID**: `07d07e1e-f1e8-42f8-930c-ca7af792f859`
-
-Epics: KAN-5 to KAN-14 (10 domains)
-Tickets: 79 synchronized
-
-## Quick Debug
+## Documentation
 
 ```bash
-# Rebuild from scratch
-rm -rf buildLinux && ./scripts/build.sh --platform=linux
+# Serve docs locally
+mkdocs serve
 
-# Check sanitizer output
-ASAN_OPTIONS=detect_leaks=1 ./artifacts/r-type_server
-
-# Run single test
-./artifacts/tests/server_tests --gtest_filter="HealthTest.*"
+# Or with Docker
+cd ci_cd/docker && docker-compose -f docker-compose.docs.yml up
 ```
+
+Access at http://localhost:8000
+
+## Environment
+
+- **OS**: Linux (Ubuntu 22.04 recommended), Windows via WSL2
+- **Compiler**: GCC 11+ or Clang 15+ with C++23 support
+- **CMake**: 3.30+
+- **Build**: Ninja (faster) or Make
+
+## Debugging
+
+```bash
+# GDB
+gdb ./artifacts/server/linux/rtype_server
+
+# Valgrind (memory leaks)
+valgrind --leak-check=full ./artifacts/server/linux/rtype_server
+```
+
+Debug builds include AddressSanitizer by default.
+
+## Common Issues
+
+| Problem | Solution |
+|---------|----------|
+| `CMake version too old` | Install CMake 3.30+ from official site |
+| `undefined reference to boost::...` | Reconfigure: `rm -rf build && ./scripts/build.sh` |
+| `vcpkg dependencies missing` | Run `./third_party/vcpkg/vcpkg install` |
+| `std::ranges not declared` | Upgrade GCC to 11+ |
+
+## Notes for Claude
+
+1. **Always use agentDB MCP tools** to understand file context before modifications
+2. **Follow Hexagonal Architecture** - never add infrastructure code to domain
+3. **Value Objects are immutable** - return new instances, don't modify
+4. **Separate .hpp/.cpp** - declarations in headers, implementations in source files
+5. **Check file relations** before refactoring to understand impact
+6. **Review error history** for files with past issues
+7. **Use analysis agents** for code reviews:
+   - `analyzer` for impact analysis before changes
+   - `security` for security-sensitive code
+   - `reviewer` for code quality checks
+   - `risk` before merging to evaluate risk
+   - `synthesis` for final reports
