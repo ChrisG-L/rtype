@@ -2,11 +2,11 @@
 ** EPITECH PROJECT, 2025
 ** rtype [WSL: Ubuntu]
 ** File description:
-** IUserRespository
+** IUserRepository
 */
 
-#ifndef IUSERRESPOSITORY_HPP_
-#define IUSERRESPOSITORY_HPP_
+#ifndef IUSERREPOSITORY_HPP_
+#define IUSERREPOSITORY_HPP_
 
 #include "domain/entities/User.hpp"
 #include <optional>
@@ -14,9 +14,9 @@
 
 namespace application::ports::out::persistence {
     using domain::entities::User;
-    class IUserRespository {
+    class IUserRepository {
         public:
-            virtual ~IUserRespository() = default;
+            virtual ~IUserRepository() = default;
 
             virtual void save(const User& user) const = 0;
             virtual void update(const User& user) = 0;
@@ -31,4 +31,4 @@ namespace application::ports::out::persistence {
 }
 
 
-#endif /* !IUSERRESPOSITORY_HPP_ */
+#endif /* !IUSERREPOSITORY_HPP_ */

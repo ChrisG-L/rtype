@@ -10,7 +10,6 @@
 
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <chrono>
 #include <optional>
 
@@ -28,7 +27,7 @@ enum class MessageType: uint16_t {
     RegisterAck = 0x0021,
     Basic = 0x0030,
     BasicAck = 0x0031,
-    Snapshop = 0x0040,
+    Snapshot = 0x0040,
     Player = 0x0050,
     MovePlayer = 0x0060,
 };

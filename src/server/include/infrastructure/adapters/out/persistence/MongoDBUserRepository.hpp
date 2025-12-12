@@ -15,13 +15,13 @@
 #include <bsoncxx/types.hpp>
 
 #include "MongoDBConfiguration.hpp"
-#include "application/ports/out/persistence/IUserRespository.hpp"
+#include "application/ports/out/persistence/IUserRepository.hpp"
 
 namespace infrastructure::adapters::out::persistence {
-    using application::ports::out::persistence::IUserRespository;
+    using application::ports::out::persistence::IUserRepository;
     using domain::entities::User;
 
-    class MongoDBUserRepository: public IUserRespository {
+    class MongoDBUserRepository: public IUserRepository {
         private:
             static std::shared_ptr<MongoDBConfiguration> _mongoDB;
             std::unique_ptr<mongocxx::v_noabi::collection> _collection;

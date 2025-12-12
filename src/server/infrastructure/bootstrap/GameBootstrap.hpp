@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include <stdexcept>
 
-namespace infrastructure::boostrap {
+namespace infrastructure::bootstrap {
     using adapters::out::persistence::MongoDBConfiguration;
     using adapters::out::persistence::MongoDBUserRepository;
 

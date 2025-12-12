@@ -188,16 +188,17 @@ namespace client::network
 
                 _isAuthenticated = head.isAuthenticated;
 
-                if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
-                    std::cout << "HEARTBEAT" << std::endl;
-                }
                 if (head.type == static_cast<uint16_t>(MessageType::Login)) {
-                    sendLoginData("Killian2", "1234");
-                    std::cout << "INSIDE LOGIN " << std::endl;
+                    std::scoped_lock lock(_mutex);
+                    if (!_pendingUsername.empty() && !_pendingPassword.empty()) {
+                        sendLoginData(_pendingUsername, _pendingPassword);
+                    }
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::Register)) {
-                    sendRegisterData("Killian3", "killian.pluenet3@gmail.com", "1234");
-                    std::cout << "INSIDE REGISTER " << std::endl;
+                    std::scoped_lock lock(_mutex);
+                    if (!_pendingUsername.empty() && !_pendingEmail.empty() && !_pendingPassword.empty()) {
+                        sendRegisterData(_pendingUsername, _pendingEmail, _pendingPassword);
+                    }
                 }
 
                 _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
@@ -218,31 +219,6 @@ namespace client::network
             disconnect();
         }
     }
-
-    // void TCPClient::handleWrite(const boost::system::error_code &error)
-    // {
-    //     auto logger = client::logging::Logger::getNetworkLogger();
-
-    //     {
-    //         std::scoped_lock lock(_mutex);
-    //         if (!_sendQueue.empty()) {
-    //             _sendQueue.pop();
-    //         }
-    //     }
-
-    //     if (!error) {
-    //         asyncWrite();
-    //     } else {
-    //         logger->error("Write error: {}", error.message());
-
-    //         if (_onError) {
-    //             _onError("Erreur envoi: " + error.message());
-    //         }
-
-    //         _isWriting = false;
-    //         disconnect();
-    //     }
-    // }
 
     void TCPClient::setLoginCredentials(const std::string& username, const std::string& password) {
         std::scoped_lock lock(_mutex);
@@ -277,8 +253,8 @@ namespace client::network
             _socket,
             boost::asio::buffer(buf->data(), totalSize),
             [this, buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    std::cout << "WRITE TCP ERROR" << std::endl;
+                if (error && _onError) {
+                    _onError("Write error: " + error.message());
                 }
             }
         );
@@ -306,8 +282,8 @@ namespace client::network
             _socket,
             boost::asio::buffer(buf->data(), totalSize),
             [this, buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    std::cout << "WRITE TCP ERROR" << std::endl;
+                if (error && _onError) {
+                    _onError("Write error: " + error.message());
                 }
             }
         );

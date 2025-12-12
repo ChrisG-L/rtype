@@ -10,7 +10,6 @@
 
 #include "domain/value_objects/player/PlayerId.hpp"
 #include "application/ports/out/persistence/IPlayerRepository.hpp"
-#include <iostream>
 
 namespace application::use_cases::player {
     using domain::value_objects::player::PlayerId;

@@ -9,7 +9,6 @@
 #define UDPSERVER_HPP_
 
 #include <array>
-#include <iostream>
 #include <boost/asio.hpp>
 #include "Protocol.hpp"
 #include <memory>
@@ -23,7 +22,6 @@ namespace infrastructure::adapters::in::network {
             boost::asio::io_context& _io_ctx;
             udp::socket _socket;
             udp::endpoint _remote_endpoint;
-            std::unordered_map<std::string, udp::endpoint> _clients;
 
             char _readBuffer[BUFFER_SIZE];
 

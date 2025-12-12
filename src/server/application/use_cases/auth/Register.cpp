@@ -8,7 +8,7 @@
 #include "application/use_cases/auth/Register.hpp"
 
 namespace application::use_cases::auth {
-    Register::Register(std::shared_ptr<IUserRespository> userRepository) : _userRepository(userRepository) {}
+    Register::Register(std::shared_ptr<IUserRepository> userRepository) : _userRepository(userRepository) {}
 
     std::optional<User> Register::execute(
         const std::string& username,
@@ -17,13 +17,11 @@ namespace application::use_cases::auth {
     ) {
         auto playerOptByName = _userRepository->findByName(username);
         if (playerOptByName.has_value()) {
-            std::cout << "Name already exist" << std::endl; 
             return std::nullopt;
         }
 
         auto playerOptByEmail = _userRepository->findByEmail(email);
         if (playerOptByEmail.has_value()) {
-            std::cout << "Email already exist" << std::endl; 
             return std::nullopt;
         }
 

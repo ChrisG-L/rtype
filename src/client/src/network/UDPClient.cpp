@@ -126,7 +126,7 @@ namespace client::network
     void UDPClient::asyncReceiveFrom()
     {
         if (!isAuthenticated()) {
-            std::cout << "User not authenticated!" << std::endl;
+            client::logging::Logger::getNetworkLogger()->warn("User not authenticated");
             return;
         }
         _socket.async_receive_from(
@@ -137,10 +137,10 @@ namespace client::network
             }
         );
     }
-    
+
     void UDPClient::asyncSendTo(std::shared_ptr<std::vector<uint8_t>>& buf, size_t totalSize) {
         if (!isAuthenticated()) {
-            std::cout << "User not authenticated!" << std::endl;
+            client::logging::Logger::getNetworkLogger()->warn("User not authenticated");
             return;
         }
         _socket.async_send_to(
@@ -148,7 +148,7 @@ namespace client::network
             _endpoint,
             [buf](const boost::system::error_code &error, std::size_t) {
                 if (error) {
-                    std::cout << "WRITE UDP ERROR: " << error << std::endl;
+                    client::logging::Logger::getNetworkLogger()->error("UDP write error: {}", error.message());
                 }
             }
         );
@@ -166,8 +166,7 @@ namespace client::network
                 }
                 UDPHeader head = *headOpt;
 
-                if (head.type == static_cast<uint16_t>(MessageType::Snapshop)) {
-                    std::cout << "snapShot!" << std::endl;
+                if (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {
                 }
                 asyncReceiveFrom();
             }

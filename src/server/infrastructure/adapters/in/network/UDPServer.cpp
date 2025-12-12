@@ -9,11 +9,11 @@
 #include "Protocol.hpp"
 #include <chrono>
 #include <cstdint>
+#include <iostream>
 
 namespace infrastructure::adapters::in::network {
     UDPServer::UDPServer(boost::asio::io_context& io_ctx)
         : _io_ctx(io_ctx), _socket(io_ctx, udp::endpoint(udp::v4(), 4124)) {
-        std::cout << "Serveur UDP démarré sur le port 4124\n";
     }
 
     void UDPServer::start() {
@@ -48,7 +48,7 @@ namespace infrastructure::adapters::in::network {
                 if (!ec) {
                     do_read();
                 } else {
-                    std::cout << "UDPSERVER ERROR SEND!: " << ec << std::endl;
+                    std::cerr << "UDP send error: " << ec.message() << std::endl;
                 }
             });
     }
@@ -59,7 +59,6 @@ namespace infrastructure::adapters::in::network {
             boost::asio::buffer(_readBuffer, BUFFER_SIZE),
             _remote_endpoint,
             [this](const boost::system::error_code& error, std::size_t bytes) {
-                std::cout << "readPort: " << _remote_endpoint.port() << std::endl;
                 handle_receive(error, bytes);
             }
         );
@@ -68,7 +67,6 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::handle_receive(const boost::system::error_code& error,
         std::size_t bytes) {
         if (!error && bytes > 0) {
-            std::cout << _remote_endpoint.data() << std::endl;
             if (bytes >= UDPHeader::WIRE_SIZE) {
                 auto headOpt = UDPHeader::from_bytes(_readBuffer, bytes);
                 if (!headOpt) {
@@ -79,21 +77,17 @@ namespace infrastructure::adapters::in::network {
                 size_t actual_payload = bytes - UDPHeader::WIRE_SIZE;
                 if (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {
                     if (actual_payload >= MovePlayer::WIRE_SIZE) {
-                        auto movePlayerOpt = MovePlayer::from_bytes(
+                        [[maybe_unused]] auto movePlayerOpt = MovePlayer::from_bytes(
                             _readBuffer + UDPHeader::WIRE_SIZE,
                             actual_payload
                         );
-                        if (movePlayerOpt) {
-                            std::cout << "movePlayer.x: " << movePlayerOpt->x << std::endl;
-                            std::cout << "movePlayer.y: " << movePlayerOpt->y << std::endl;
-                        }
                     }
                 }
             }
         } else if (error) {
-            std::cerr << "Erreur réception: " << error.message() << std::endl;
+            std::cerr << "Receive error: " << error.message() << std::endl;
         }
-        do_write(MessageType::Snapshop, "");
+        do_write(MessageType::Snapshot, "");
         do_read();
     }
 }
