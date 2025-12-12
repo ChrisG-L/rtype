@@ -175,7 +175,11 @@ namespace client::network
             _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
 
             while (_accumulator.size() >= Header::WIRE_SIZE) {
-                Header head = Header::from_bytes(_accumulator.data());
+                auto headOpt = Header::from_bytes(_accumulator.data(), _accumulator.size());
+                if (!headOpt) {
+                    break;
+                }
+                Header head = *headOpt;
                 size_t totalSize = Header::WIRE_SIZE + head.payload_size;
 
                 if (_accumulator.size() < totalSize) {

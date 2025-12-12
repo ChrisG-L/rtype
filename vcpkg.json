@@ -12,10 +12,6 @@
     "mongo-cxx-driver",
     "openssl",
     "protobuf",
-    {
-      "name": "sfml",
-      "version>=": "3.0.1"
-    },
     "spdlog"
   ],
   "overrides": [

@@ -9,6 +9,7 @@
 #define GAMESCENE_HPP_
 
 #include "scenes/IScene.hpp"
+#include "events/Event.hpp"
 #include "graphics/IWindow.hpp"
 #include <iostream>
 

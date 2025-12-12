@@ -1,31 +1,50 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR})
 
-add_library(rtype_sfml SHARED
-    lib/sfml/src/AssetManager.cpp
-    lib/sfml/src/SFMLRenderer.cpp
-    lib/sfml/src/SFMLTexture.cpp
-    lib/sfml/src/SFMLWindow.cpp
-
-    lib/sfml/src/plugins/SFMLPlugin.cpp
+# SDL2 Plugin Library
+add_library(rtype_sdl2 SHARED
+    lib/sdl2/src/SDL2AssetManager.cpp
+    lib/sdl2/src/SDL2Renderer.cpp
+    lib/sdl2/src/SDL2Window.cpp
+    lib/sdl2/src/SDL2Plugin.cpp
 )
 
-set_target_properties(rtype_sfml PROPERTIES
+set_target_properties(rtype_sdl2 PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
 )
 
-target_include_directories(rtype_sfml PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/lib/sfml/include
+# Find SDL2 from system (NixOS provides it via flake.nix)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
+
+# Fix for NixOS: pkg-config returns include/SDL2 but we need include for <SDL2/SDL.h>
+set(SDL2_PARENT_INCLUDE_DIRS "")
+foreach(dir ${SDL2_INCLUDE_DIRS})
+    get_filename_component(parent_dir "${dir}" DIRECTORY)
+    list(APPEND SDL2_PARENT_INCLUDE_DIRS "${parent_dir}")
+endforeach()
+list(REMOVE_DUPLICATES SDL2_PARENT_INCLUDE_DIRS)
+
+set(SDL2_IMAGE_PARENT_INCLUDE_DIRS "")
+foreach(dir ${SDL2_IMAGE_INCLUDE_DIRS})
+    get_filename_component(parent_dir "${dir}" DIRECTORY)
+    list(APPEND SDL2_IMAGE_PARENT_INCLUDE_DIRS "${parent_dir}")
+endforeach()
+list(REMOVE_DUPLICATES SDL2_IMAGE_PARENT_INCLUDE_DIRS)
+
+target_include_directories(rtype_sdl2 PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/sdl2/include
+    ${SDL2_PARENT_INCLUDE_DIRS}
+    ${SDL2_IMAGE_PARENT_INCLUDE_DIRS}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(rtype_sfml PRIVATE
-    SFML::Graphics
-    SFML::Audio
-    SFML::Network
+target_link_libraries(rtype_sdl2 PRIVATE
+    PkgConfig::SDL2
+    PkgConfig::SDL2_IMAGE
     spdlog::spdlog
-    # rtype_proto
 )
 
 
@@ -105,5 +124,5 @@ target_link_libraries(rtype_client PRIVATE
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     spdlog::spdlog
-    rtype_sfml
+    rtype_sdl2
 )

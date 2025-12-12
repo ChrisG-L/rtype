@@ -43,14 +43,18 @@ namespace core {
             deltaTime = std::min(deltaTime, 0.1f);
             previousTime = currentTime;
 
-            event = _window->pollEvent();
-            if (std::holds_alternative<events::KeyPressed>(event)) {
-                auto& key = std::get<events::KeyPressed>(event);
-                if (key.key == events::Key::Down) {
-                    _udpClient->movePlayer(10, 15);
+            while (true) {
+                event = _window->pollEvent();
+                if (std::holds_alternative<events::None>(event))
+                    break;
+                if (std::holds_alternative<events::KeyPressed>(event)) {
+                    auto& key = std::get<events::KeyPressed>(event);
+                    if (key.key == events::Key::Down) {
+                        _udpClient->movePlayer(10, 15);
+                    }
                 }
+                _sceneManager->handleEvent(event);
             }
-            _sceneManager->handleEvent(event);
             _sceneManager->update(deltaTime);
 
             clear();

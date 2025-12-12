@@ -39,3 +39,6 @@ output.txt
 
 *.log
 
+# Environment files (contains secrets)
+.env
+.env.local

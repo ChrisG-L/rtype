@@ -8,13 +8,20 @@
 
 #include "infrastructure/boostrap/GameBootstrap.hpp"
 #include "infrastructure/logging/Logger.hpp"
+#include "infrastructure/configuration/EnvLoader.hpp"
 
 int main(void) {
     using infrastructure::boostrap::GameBootstrap;
+    using infrastructure::configuration::EnvLoader;
 
     // Initialize logging
     server::logging::Logger::init();
     auto logger = server::logging::Logger::getMainLogger();
+
+    // Load .env file if present
+    if (EnvLoader::load(".env")) {
+        logger->info("Loaded configuration from .env file");
+    }
 
     logger->info("R-Type server starting...");
 

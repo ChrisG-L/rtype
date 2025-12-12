@@ -70,15 +70,23 @@ namespace infrastructure::adapters::in::network {
         if (!error && bytes > 0) {
             std::cout << _remote_endpoint.data() << std::endl;
             if (bytes >= UDPHeader::WIRE_SIZE) {
-                UDPHeader head = UDPHeader::from_bytes(_readBuffer);
+                auto headOpt = UDPHeader::from_bytes(_readBuffer, bytes);
+                if (!headOpt) {
+                    do_read();
+                    return;
+                }
+                UDPHeader head = *headOpt;
                 size_t actual_payload = bytes - UDPHeader::WIRE_SIZE;
                 if (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {
-                    if (bytes >= UDPHeader::WIRE_SIZE + MovePlayer::WIRE_SIZE) {
-                        MovePlayer movePlayer = MovePlayer::from_bytes(
-                            _readBuffer + UDPHeader::WIRE_SIZE
+                    if (actual_payload >= MovePlayer::WIRE_SIZE) {
+                        auto movePlayerOpt = MovePlayer::from_bytes(
+                            _readBuffer + UDPHeader::WIRE_SIZE,
+                            actual_payload
                         );
-                        std::cout << "movePlayer.x: " << movePlayer.x << std::endl;
-                        std::cout << "movePlayer.y: " << movePlayer.y << std::endl;
+                        if (movePlayerOpt) {
+                            std::cout << "movePlayer.x: " << movePlayerOpt->x << std::endl;
+                            std::cout << "movePlayer.y: " << movePlayerOpt->y << std::endl;
+                        }
                     }
                 }
             }
