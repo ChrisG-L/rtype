@@ -39,6 +39,15 @@ bash .claude/agentdb/query.sh list_modules                    # Liste modules
 bash .claude/agentdb/query.sh list_critical_files             # Fichiers critiques
 ```
 
+## Gestion des erreurs AgentDB
+
+| Situation | Détection | Action |
+|-----------|-----------|--------|
+| **DB inaccessible** | `"error"` dans JSON | Synthétiser uniquement les rapports des agents |
+| **Query vide** | Résultat vide | OK - les agents ont déjà collecté les données |
+
+**Note** : SYNTHESIS dépend principalement des rapports des autres agents, pas d'AgentDB directement. Les queries AgentDB sont optionnelles pour cross-vérification.
+
 ## Méthodologie OBLIGATOIRE
 
 ### Étape 1 : Extraire les JSON des rapports
@@ -60,8 +69,28 @@ Chercher dans le rapport :
 |-------|-------------|
 | analyzer | score, impact_level, files_modified, total_callers, findings[] |
 | security | score, vulnerabilities, regressions, max_severity, cwes[], findings[] |
-| reviewer | score, errors, warnings, patterns_violated, adrs_violated, findings[] |
+| reviewer | score, blockers, critical, major, medium, minor, info, patterns_violated, adrs_violated, findings[] |
 | risk | score, level, recommendation, factors{}, mitigations[], findings[] |
+
+**Format des findings (unifié pour tous les agents)** :
+
+```json
+{
+  "id": "XXX-001",
+  "severity": "Blocker|Critical|Major|Medium|Minor|Info",
+  "category": "Security|Reliability|Maintainability",
+  "isBug": true|false,
+  "file": "path/to/file.cpp",
+  "line": 42,
+  "message": "Description du problème",
+  "blocking": true|false,
+  "time_estimate_min": 15
+}
+```
+
+**Règles pour isBug** :
+- `isBug: true` uniquement si l'issue provoque un **arrêt brutal** (crash, freeze, gel)
+- `isBug: false` pour les vulnérabilités, problèmes de qualité, performance, etc.
 
 ### Étape 2 : Fusionner les findings
 
@@ -74,7 +103,9 @@ for agent in [analyzer, security, reviewer, risk]:
         all_findings.append({
             "id": finding.id,
             "source": agent.name,
-            "severity": finding.severity,
+            "severity": finding.severity,      # Blocker|Critical|Major|Medium|Minor|Info
+            "category": finding.category,      # Security|Reliability|Maintainability
+            "isBug": finding.isBug,            # true si provoque crash/freeze
             "file": finding.file,
             "line": finding.line,
             "message": finding.message,
@@ -82,10 +113,20 @@ for agent in [analyzer, security, reviewer, risk]:
             "time_estimate_min": finding.time_estimate_min
         })
 
+# Ordre de sévérité (format site web)
+severity_order = {
+    "Blocker": 0,
+    "Critical": 1,
+    "Major": 2,
+    "Medium": 3,
+    "Minor": 4,
+    "Info": 5
+}
+
 # Trier par sévérité puis par source
 all_findings.sort(key=lambda x: (
-    severity_order[x.severity],  # CRITICAL=0, HIGH=1, MEDIUM=2, LOW=3, INFO=4
-    x.source
+    severity_order[x["severity"]],
+    x["source"]
 ))
 ```
 
@@ -96,7 +137,7 @@ all_findings.sort(key=lambda x: (
 | Type | Condition | Action |
 |------|-----------|--------|
 | Score divergent | Écart > 20 points entre agents | ⚠️ Signaler |
-| Sévérité incohérente | SECURITY dit CRITICAL mais RISK dit LOW | ⚠️ Prioriser SECURITY |
+| Sévérité incohérente | SECURITY dit Blocker mais RISK dit LOW | ⚠️ Prioriser SECURITY |
 | Fichier critique | ANALYZER dit safe mais fichier dans list_critical_files | ⚠️ Vérifier |
 | Régression ignorée | SECURITY détecte régression mais RISK ne pénalise pas | ⚠️ Signaler |
 | Tests contradictoires | REVIEWER dit has_tests=true mais RISK dit has_tests=false | ⚠️ Vérifier AgentDB |
@@ -115,11 +156,11 @@ if max(scores) - min(scores) > 20:
         "message": f"Écart de {max(scores) - min(scores)} points"
     })
 
-# Contradiction sévérité vs risque
-if security.max_severity == "CRITICAL" and risk.level in ["LOW", "MEDIUM"]:
+# Contradiction sévérité vs risque (utiliser les nouvelles sévérités)
+if security.max_severity in ["Blocker", "Critical"] and risk.level in ["LOW", "MEDIUM"]:
     contradictions.append({
         "type": "severity_mismatch",
-        "security_says": "CRITICAL",
+        "security_says": security.max_severity,
         "risk_says": risk.level,
         "resolution": "Prioriser SECURITY - vulnérabilité critique détectée"
     })
@@ -134,13 +175,15 @@ if security.regressions > 0 and "regression" not in str(risk.factors):
 
 ### Étape 4 : Calculer le score global
 
+**Référence** : Pondérations dans `.claude/config/agentdb.yaml` section `analysis.weights`
+
 ```
-# Formule pondérée
+# Formule pondérée (valeurs par défaut, personnalisables via config)
 GLOBAL_SCORE = (
-    security.score * 0.35 +    # Sécurité = priorité maximale
-    risk.score * 0.25 +        # Risque global
-    reviewer.score * 0.25 +    # Qualité du code
-    analyzer.score * 0.15      # Impact (informatif)
+    security.score * 0.35 +    # security weight (priorité maximale)
+    risk.score * 0.25 +        # risk weight
+    reviewer.score * 0.25 +    # reviewer weight
+    analyzer.score * 0.15      # analyzer weight
 )
 
 # Pénalités globales
@@ -156,19 +199,27 @@ GLOBAL_SCORE = max(0, min(100, round(GLOBAL_SCORE)))
 
 ### Étape 5 : Déterminer le verdict
 
+**Référence** : Seuils de verdict dans `.claude/config/agentdb.yaml` section `analysis.verdicts`
+
 ```
+# Seuils par défaut (personnalisables via config)
+# approve: 80, review: 60, careful: 40, reject: 0
+
+# Sévérités (format site web)
+# Blocker > Critical > Major > Medium > Minor > Info
+
 # Règles de décision (ordre de priorité)
-if security.max_severity == "CRITICAL" or security.regressions > 0:
+if security.max_severity == "Blocker" or security.regressions > 0:
     verdict = "REJECT"
     emoji = "🔴"
     message = "Ne pas merger - problèmes critiques"
 
-elif security.max_severity == "HIGH" or risk.score < 60 or any(f.blocking for f in all_findings):
+elif security.max_severity == "Critical" or risk.score < config.verdicts.review or any(f.blocking for f in all_findings):
     verdict = "CAREFUL"
     emoji = "🟠"
     message = "Review approfondie requise"
 
-elif reviewer.errors > 0 or risk.score < 80 or GLOBAL_SCORE < 70:
+elif any(f.severity in ["Blocker", "Critical"] for f in all_findings) or risk.score < config.verdicts.approve or GLOBAL_SCORE < 70:
     verdict = "REVIEW"
     emoji = "🟡"
     message = "Review humaine recommandée"
@@ -180,6 +231,8 @@ else:
 ```
 
 ## Format de sortie OBLIGATOIRE
+
+**Exemple de référence** : Voir `.claude/reports/examples/GOLDEN_REPORT.md` pour un rapport complet.
 
 ```markdown
 # 📊 Rapport de Synthèse
@@ -249,53 +302,67 @@ Ajusté à 62 car pas de régression détectée (+10)
 
 ### 🔴 BLOQUANTES (3)
 
-#### 1. [CRITICAL] SEC-001 - Buffer Overflow (CWE-120)
+#### 1. [Blocker] SEC-001 - Buffer Overflow (CWE-120)
 - **Source** : 🔒 Security
+- **Catégorie** : Security
 - **Fichier** : `src/server/UDPServer.cpp:67`
+- **isBug** : ✅ Oui (crash potentiel)
 - **Temps** : ~5 min
 - **Action** : Remplacer `strcpy` par `strncpy` avec bounds check
 
-#### 2. [HIGH] SEC-002 - Command Injection (CWE-78)
+#### 2. [Blocker] SEC-002 - Command Injection (CWE-78)
 - **Source** : 🔒 Security
+- **Catégorie** : Security
 - **Fichier** : `src/utils/Shell.cpp:34`
+- **isBug** : ❌ Non (vulnérabilité sans crash)
 - **Temps** : ~20 min
 - **Action** : Implémenter whitelist de commandes
 
-#### 3. [ERROR] REV-001 - Fonction trop complexe
+#### 3. [Critical] REV-001 - Fonction trop complexe
 - **Source** : 📋 Reviewer
+- **Catégorie** : Maintainability
 - **Fichier** : `src/server/UDPServer.cpp:145`
+- **isBug** : ❌ Non
 - **Temps** : ~20 min
 - **Action** : Refactorer en sous-fonctions
 
 ### 🟠 IMPORTANTES (4)
 
-#### 4. [HIGH] ANA-001 - Impact global
+#### 4. [Critical] ANA-001 - Impact global
 - **Source** : 🔍 Analyzer
+- **Catégorie** : Reliability
 - **Fichier** : `src/server/UDPServer.cpp:42`
+- **isBug** : ❌ Non
 - **Temps** : ~30 min
 - **Action** : Mettre à jour 8 appelants
 
-#### 5. [WARNING] REV-002 - Magic number
+#### 5. [Medium] REV-002 - Magic number
 - **Source** : 📋 Reviewer
+- **Catégorie** : Maintainability
 - **Fichier** : `src/server/UDPServer.cpp:78`
+- **isBug** : ❌ Non
 - **Temps** : ~2 min
 - **Action** : Extraire en constante
 
-#### 6. [WARNING] REV-003 - ADR-007 violé
+#### 6. [Major] REV-003 - ADR-007 violé
 - **Source** : 📋 Reviewer
+- **Catégorie** : Maintainability
 - **Fichier** : `src/server/UDPServer.cpp:92`
+- **isBug** : ❌ Non
 - **Temps** : ~10 min
 - **Action** : Remplacer exception par error code
 
-#### 7. [MEDIUM] RISK-001 - Fichier critique sans tests
+#### 7. [Critical] RISK-001 - Fichier critique sans tests
 - **Source** : ⚠️ Risk
+- **Catégorie** : Reliability
 - **Fichier** : `src/server/UDPServer.cpp`
+- **isBug** : ❌ Non
 - **Temps** : ~120 min
 - **Action** : Ajouter tests unitaires
 
 ### 🟡 MINEURES (4)
 
-#### 8-11. [INFO] Documentation manquante, etc.
+#### 8-11. [Minor/Info] Documentation manquante, etc.
 - Voir détails dans rapports individuels
 
 ---
@@ -365,7 +432,7 @@ Optionnel :
 
 ---
 
-## JSON Output (pour intégration CI/CD)
+## JSON Output (pour intégration CI/CD et WEB SYNTHESIZER)
 
 ```json
 {
@@ -392,12 +459,19 @@ Optionnel :
   "issues": {
     "total": 11,
     "blocking": 3,
+    "bugs": 1,
     "by_severity": {
-      "CRITICAL": 1,
-      "HIGH": 2,
-      "MEDIUM": 1,
-      "WARNING": 3,
-      "INFO": 4
+      "Blocker": 2,
+      "Critical": 3,
+      "Major": 1,
+      "Medium": 1,
+      "Minor": 2,
+      "Info": 2
+    },
+    "by_category": {
+      "Security": 3,
+      "Reliability": 4,
+      "Maintainability": 4
     }
   },
   "contradictions": [
@@ -416,24 +490,42 @@ Optionnel :
   "critical_files_touched": 1,
   "regressions_detected": 0,
   "merge_ready": false,
-  "actions_required": [
+  "findings": [
     {
       "id": "SEC-001",
-      "priority": 1,
+      "severity": "Blocker",
+      "category": "Security",
+      "isBug": true,
+      "title": "Buffer Overflow (CWE-120)",
+      "file": "src/server/UDPServer.cpp",
+      "line": 67,
+      "message": "RÉGRESSION - Buffer Overflow similaire au bug #BUG-456",
       "blocking": true,
-      "description": "Fix buffer overflow"
+      "time_estimate_min": 5
     },
     {
       "id": "SEC-002",
-      "priority": 2,
+      "severity": "Blocker",
+      "category": "Security",
+      "isBug": false,
+      "title": "Command Injection (CWE-78)",
+      "file": "src/utils/Shell.cpp",
+      "line": 34,
+      "message": "Command Injection potentielle",
       "blocking": true,
-      "description": "Fix command injection"
+      "time_estimate_min": 20
     },
     {
       "id": "REV-001",
-      "priority": 3,
+      "severity": "Critical",
+      "category": "Maintainability",
+      "isBug": false,
+      "title": "Fonction trop complexe",
+      "file": "src/server/UDPServer.cpp",
+      "line": 145,
+      "message": "Fonction trop complexe (25 > 20)",
       "blocking": true,
-      "description": "Refactor complex function"
+      "time_estimate_min": 20
     }
   ]
 }
@@ -446,7 +538,7 @@ Optionnel :
 
 ```
 RÈGLE 1 : Security prime sur Risk
-    Si SECURITY.max_severity > RISK.level → utiliser SECURITY
+    Si SECURITY.max_severity in [Blocker, Critical] et RISK.level < HIGH → utiliser SECURITY
 
 RÈGLE 2 : Bloquant = vraiment bloquant
     Si un agent dit blocking=true → le verdict ne peut pas être APPROVE
@@ -456,6 +548,9 @@ RÈGLE 3 : Régression = automatiquement REJECT
 
 RÈGLE 4 : Écart de score > 20 → investigation
     Mentionner la contradiction et expliquer la résolution
+
+RÈGLE 5 : isBug implique attention spéciale
+    Si isBug=true → signaler comme nécessitant reconnaissance utilisateur
 ```
 
 ### Priorisation des sources

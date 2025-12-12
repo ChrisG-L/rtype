@@ -90,7 +90,10 @@ The `.mcp.json` file at the project root configures the MCP server for agentDB:
   "mcpServers": {
     "agentdb": {
       "command": "bash",
-      "args": ["-c", "PYTHONPATH=\"$PWD/.claude\" AGENTDB_PATH=\"$PWD/.claude/agentdb/db.sqlite\" python -m mcp.agentdb.server"]
+      "args": [
+        "-c",
+        "PYTHONPATH=\"$PWD/.claude\" AGENTDB_PATH=\"$PWD/.claude/agentdb/db.sqlite\" python -m mcp.agentdb.server"
+      ]
     }
   }
 }

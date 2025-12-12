@@ -44,12 +44,50 @@ bash .claude/agentdb/query.sh list_modules                      # Liste des modu
 bash .claude/agentdb/query.sh list_critical_files               # Fichiers critiques
 ```
 
+## Gestion des erreurs AgentDB
+
+Chaque query peut retourner une erreur ou des données vides. Voici comment les gérer :
+
+| Situation | Détection | Action | Impact sur rapport |
+|-----------|-----------|--------|-------------------|
+| **DB inaccessible** | `"error"` dans JSON | Continuer sans AgentDB | Marquer `❌ ERROR` + pénalité -5 |
+| **Fichier non indexé** | `"file not found"` ou résultat vide | Utiliser grep/git comme fallback | Marquer `⚠️ NOT INDEXED` |
+| **Symbole introuvable** | Résultat vide | OK si fonction privée/nouvelle | Marquer `⚠️ EMPTY` |
+| **Query timeout** | Pas de réponse après 30s | Retry 1x, puis skip | Marquer `⚠️ TIMEOUT` |
+
+**Template de vérification** :
+```bash
+result=`AGENTDB_CALLER="analyzer" bash .claude/agentdb/query.sh file_context "path/file.cpp"`
+
+# Vérifier si erreur
+if echo "$result" | grep -q '"error"'; then
+    echo "AgentDB error - using fallback"
+    # Utiliser grep/git comme alternative
+fi
+
+# Vérifier si vide
+if [ "$result" = "{}" ] || [ "$result" = "[]" ] || [ -z "$result" ]; then
+    echo "No data - file may not be indexed"
+fi
+```
+
+**Règle** : Un agent ne doit JAMAIS échouer à cause d'AgentDB. Si AgentDB ne répond pas, continuer avec les outils de base (grep, git) et le signaler dans le rapport.
+
 ## Méthodologie OBLIGATOIRE
 
-### Étape 1 : Identifier les fichiers modifiés
+### Étape 1 : Utiliser le contexte fourni
+
+**IMPORTANT** : Tu reçois le contexte du diff depuis le prompt de `/analyze`. Ne fais PAS `git diff HEAD~1`.
+
+Le prompt te fournit :
+- La liste des fichiers modifiés
+- Le diff résumé (--stat)
+- Les commits entre LAST_COMMIT et HEAD (qui peut être > 1 commit)
+
+Si tu as besoin du diff détaillé d'un fichier :
 ```bash
-git diff HEAD~1 --name-status
-git diff HEAD~1 --stat
+# Utiliser les références fournies dans le prompt
+git diff {LAST_COMMIT}..{HEAD} -- "path/to/file.cpp"
 ```
 
 ### Étape 2 : Pour CHAQUE fichier modifié, appeler AgentDB
@@ -67,7 +105,8 @@ AGENTDB_CALLER="analyzer" bash .claude/agentdb/query.sh file_impact "path/to/fil
 ### Étape 3 : Identifier les fonctions modifiées
 ```bash
 # Obtenir le diff détaillé pour voir les fonctions touchées
-git diff HEAD~1 -U5 "path/to/file.cpp"
+# Utiliser les références LAST_COMMIT et HEAD fournies dans le prompt
+git diff {LAST_COMMIT}..{HEAD} -U5 "path/to/file.cpp"
 ```
 
 ### Étape 4 : Pour CHAQUE fonction modifiée, trouver les appelants
@@ -173,19 +212,23 @@ DEFAULT_TIMEOUT (src/core/Config.hpp:15) [MODIFIED]
 
 ### Findings
 
-#### [HIGH] ANA-001 : Changement de signature à fort impact
+#### [Critical] ANA-001 : Changement de signature à fort impact
+- **Catégorie** : Reliability
 - **Fichier** : src/server/UDPServer.cpp:42
 - **Symbole** : `sendPacket`
 - **Problème** : 8 appelants doivent être mis à jour
 - **Temps estimé** : ~30 min
 - **Bloquant** : Oui (compilation cassée)
+- **isBug** : Non (erreur de compilation, pas de crash runtime)
 
-#### [MEDIUM] ANA-002 : Fichier critique impacté
+#### [Major] ANA-002 : Fichier critique impacté
+- **Catégorie** : Reliability
 - **Fichier** : src/api/Server.cpp:156
 - **Raison** : Fichier marqué `is_critical` dans AgentDB
 - **Action** : Review par senior requise
 - **Temps estimé** : ~15 min
 - **Bloquant** : Non
+- **isBug** : Non
 
 ### Recommendations
 
@@ -208,7 +251,9 @@ DEFAULT_TIMEOUT (src/core/Config.hpp:15) [MODIFIED]
   "findings": [
     {
       "id": "ANA-001",
-      "severity": "HIGH",
+      "severity": "Critical",
+      "category": "Reliability",
+      "isBug": false,
       "file": "src/server/UDPServer.cpp",
       "line": 42,
       "symbol": "sendPacket",
@@ -218,7 +263,9 @@ DEFAULT_TIMEOUT (src/core/Config.hpp:15) [MODIFIED]
     },
     {
       "id": "ANA-002",
-      "severity": "MEDIUM",
+      "severity": "Major",
+      "category": "Reliability",
+      "isBug": false,
       "file": "src/api/Server.cpp",
       "line": 156,
       "message": "Fichier critique impacté",
@@ -238,17 +285,19 @@ DEFAULT_TIMEOUT (src/core/Config.hpp:15) [MODIFIED]
 
 ## Calcul du Score (0-100)
 
+**Référence** : Les pénalités sont définies dans `.claude/config/agentdb.yaml` section `analysis.analyzer.penalties`
+
 ```
 Score = 100 - penalties
 
-Penalties :
-- Fichier critique modifié : -15 par fichier
-- Impact GLOBAL : -20
-- Impact MODULE : -10
-- Plus de 5 appelants par fonction : -5 par fonction
-- Plus de 10 appelants total : -10
-- Changement de signature publique : -10 par fonction
-- AgentDB vide (pas de données) : -5
+Pénalités (valeurs par défaut, voir config pour personnaliser) :
+- Fichier critique modifié : -15 par fichier (critical_file)
+- Impact GLOBAL : -20 (global_impact)
+- Impact MODULE : -10 (module_impact)
+- Plus de 5 appelants par fonction : -5 par fonction (callers_per_func_5)
+- Plus de 10 appelants total : -10 (total_callers_10)
+- Changement de signature publique : -10 par fonction (signature_change)
+- AgentDB vide (pas de données) : -5 (no_agentdb_data)
 ```
 
 ## Règles

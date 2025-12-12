@@ -43,6 +43,34 @@ bash .claude/agentdb/query.sh search_symbols "pattern*" [kind]      # Chercher d
 bash .claude/agentdb/query.sh module_summary "module"               # Résumé du module
 ```
 
+## Gestion des erreurs AgentDB
+
+Chaque query peut retourner une erreur ou des données vides. Voici comment les gérer :
+
+| Situation | Détection | Action | Impact sur rapport |
+|-----------|-----------|--------|-------------------|
+| **DB inaccessible** | `"error"` dans JSON | Utiliser conventions standard | Marquer `❌ ERROR` + pénalité -5 |
+| **Pas de patterns** | patterns vide | Utiliser conventions du langage | Marquer `⚠️ NO PATTERNS` |
+| **Pas d'ADRs** | architecture_decisions vide | Skip ADR check | Marquer `⚠️ NO ADRs` |
+| **Métriques absentes** | file_metrics vide | Calculer manuellement si possible | Marquer `⚠️ NO METRICS` |
+
+**Template de vérification** :
+```bash
+result=`AGENTDB_CALLER="reviewer" bash .claude/agentdb/query.sh patterns "path/file.cpp"`
+
+# Vérifier si erreur
+if echo "$result" | grep -q '"error"'; then
+    echo "AgentDB error - using standard conventions"
+fi
+
+# Vérifier si vide
+if [ "$result" = "[]" ] || [ -z "$result" ]; then
+    echo "No patterns defined - using language defaults"
+fi
+```
+
+**Règle** : Si AgentDB ne contient pas de patterns, utiliser les conventions standard du langage (PEP8 pour Python, Google Style pour C++, etc.) et le mentionner dans le rapport.
+
 ## Méthodologie OBLIGATOIRE
 
 ### Étape 1 : Charger les patterns du projet
@@ -92,12 +120,16 @@ AGENTDB_CALLER="reviewer" bash .claude/agentdb/query.sh search_symbols "*Handler
 
 ### Étape 5 : Lire et analyser le code
 
+**IMPORTANT** : Tu reçois le contexte du diff depuis le prompt de `/analyze`. Le prompt te fournit :
+- La liste des fichiers modifiés (entre LAST_COMMIT et HEAD)
+- Les références LAST_COMMIT et HEAD
+
 ```bash
 # Lire le fichier modifié
 cat path/to/file.cpp
 
-# Voir le diff si disponible
-git diff HEAD~1 path/to/file.cpp
+# Voir le diff en utilisant les références fournies dans le prompt
+git diff {LAST_COMMIT}..{HEAD} -- path/to/file.cpp
 ```
 
 ## Catégories de Review
@@ -193,14 +225,27 @@ if (timeout > TIMEOUT_MS) { ... }
 | Documentation | 80% | 75% | > 80% | ❌ FAIL |
 | Functions | 12 | 14 | - | - |
 
+### Sévérités utilisées (format site web)
+
+| Sévérité | Description |
+|----------|-------------|
+| **Blocker** | Bloque le déploiement |
+| **Critical** | Erreur grave nécessitant correction immédiate |
+| **Major** | Impact significatif sur la qualité |
+| **Medium** | Impact modéré |
+| **Minor** | Impact faible |
+| **Info** | Information, suggestion |
+
 ### Issues
 
-#### 🔴 [ERROR] REV-001 : Fonction trop complexe
+#### 🔴 [Critical] REV-001 : Fonction trop complexe
 
+- **Catégorie** : Maintainability
 - **Fichier** : src/server/UDPServer.cpp:145-210
 - **Fonction** : `processMultipleRequests()`
 - **Pattern violé** : complexity (max=25, seuil=20)
 - **Bloquant** : Oui
+- **isBug** : ❌ Non (pas de crash, mais difficile à maintenir)
 
 **Code actuel** (65 lignes, complexité 25) :
 ```cpp
@@ -245,10 +290,12 @@ bool validateRequest(const Request& req) {
 - **Temps estimé** : ~20 min
 - **Bénéfice** : Complexité réduite de 25 à 5
 
-#### 🟠 [WARNING] REV-002 : Magic number
+#### 🟠 [Medium] REV-002 : Magic number
 
+- **Catégorie** : Maintainability
 - **Fichier** : src/server/UDPServer.cpp:78
 - **Pattern violé** : no_magic_numbers
+- **isBug** : ❌ Non
 
 **Code actuel** :
 ```cpp
@@ -269,10 +316,12 @@ if (buffer.size() > MAX_UDP_PAYLOAD) {
 - **Temps estimé** : ~2 min
 - **Bloquant** : Non
 
-#### 🟠 [WARNING] REV-003 : ADR-007 violé
+#### 🟠 [Major] REV-003 : ADR-007 violé
 
+- **Catégorie** : Maintainability
 - **Fichier** : src/server/UDPServer.cpp:92
 - **ADR violé** : ADR-007 "Use error codes over exceptions"
+- **isBug** : ❌ Non
 
 **Code actuel** :
 ```cpp
@@ -297,10 +346,12 @@ ErrorCode sendData(const Buffer& data) {
 - **Temps estimé** : ~10 min
 - **Bloquant** : Non (mais ADR violation)
 
-#### 🟡 [INFO] REV-004 : Fonction non documentée
+#### 🟡 [Minor] REV-004 : Fonction non documentée
 
+- **Catégorie** : Maintainability
 - **Fichier** : src/server/UDPServer.cpp:120
 - **Pattern violé** : doxygen_comments
+- **isBug** : ❌ Non
 
 **Code actuel** :
 ```cpp
@@ -354,9 +405,12 @@ New code:
   "agent": "reviewer",
   "score": 72,
   "issues_count": 7,
-  "errors": 1,
-  "warnings": 3,
-  "infos": 3,
+  "blockers": 0,
+  "critical": 1,
+  "major": 1,
+  "medium": 1,
+  "minor": 1,
+  "info": 3,
   "patterns_loaded": 8,
   "patterns_violated": 3,
   "adrs_checked": 2,
@@ -370,7 +424,9 @@ New code:
   "findings": [
     {
       "id": "REV-001",
-      "severity": "ERROR",
+      "severity": "Critical",
+      "category": "Maintainability",
+      "isBug": false,
       "type": "complexity",
       "file": "src/server/UDPServer.cpp",
       "line": 145,
@@ -382,7 +438,9 @@ New code:
     },
     {
       "id": "REV-002",
-      "severity": "WARNING",
+      "severity": "Medium",
+      "category": "Maintainability",
+      "isBug": false,
       "type": "magic_number",
       "file": "src/server/UDPServer.cpp",
       "line": 78,
@@ -393,7 +451,9 @@ New code:
     },
     {
       "id": "REV-003",
-      "severity": "WARNING",
+      "severity": "Major",
+      "category": "Maintainability",
+      "isBug": false,
       "type": "adr_violation",
       "file": "src/server/UDPServer.cpp",
       "line": 92,
@@ -404,7 +464,9 @@ New code:
     },
     {
       "id": "REV-004",
-      "severity": "INFO",
+      "severity": "Minor",
+      "category": "Maintainability",
+      "isBug": false,
       "type": "documentation",
       "file": "src/server/UDPServer.cpp",
       "line": 120,
@@ -427,18 +489,23 @@ New code:
 
 ## Calcul du Score (0-100)
 
+**Référence** : Les pénalités sont définies dans `.claude/config/agentdb.yaml` section `analysis.reviewer.penalties`
+
 ```
 Score = 100 - penalties
 
-Penalties :
-- Issue ERROR : -15 chacune
-- Issue WARNING : -8 chacune
-- Issue INFO : -3 chacune
-- Pattern violé : -5 par pattern (en plus des issues)
-- ADR violé : -10 par ADR
-- Complexité max > 20 : -10
-- Documentation < 50% : -10
-- AgentDB patterns non chargés : -5
+Pénalités (valeurs par défaut, voir config pour personnaliser) :
+- Issue Blocker : -25 chacune (blocker)
+- Issue Critical : -15 chacune (critical)
+- Issue Major : -10 chacune (major)
+- Issue Medium : -8 chacune (medium)
+- Issue Minor : -5 chacune (minor)
+- Issue Info : -2 chacune (info)
+- Pattern violé : -5 par pattern (pattern_violated)
+- ADR violé : -10 par ADR (adr_violated)
+- Complexité max > seuil : -10 (high_complexity)
+- Documentation < 50% : -10 (low_documentation)
+- AgentDB patterns non chargés : -5 (no_patterns)
 
 Minimum = 0
 ```

@@ -1821,6 +1821,576 @@ def step_9_verify_integrity(
 
 
 # =============================================================================
+# CHECKPOINT MANAGEMENT
+# =============================================================================
+
+@dataclass
+class IndexCheckpoint:
+    """Checkpoint d'indexation."""
+    last_commit: str
+    last_commit_short: str
+    last_commit_message: str
+    files_indexed: int
+    symbols_indexed: int
+    relations_indexed: int
+    last_indexed_at: str
+    duration_seconds: float
+    index_mode: str
+    schema_version: str = "2.0"
+
+
+def get_current_commit(project_root: Path) -> tuple[str, str, str]:
+    """
+    Récupère les infos du commit HEAD actuel.
+
+    Returns:
+        Tuple (hash_complet, hash_court, message)
+    """
+    try:
+        # Hash complet
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root),
+            timeout=10,
+        )
+        full_hash = result.stdout.strip()
+
+        # Hash court
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root),
+            timeout=10,
+        )
+        short_hash = result.stdout.strip()
+
+        # Message du commit
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%s", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root),
+            timeout=10,
+        )
+        message = result.stdout.strip()[:100]  # Limiter à 100 caractères
+
+        return full_hash, short_hash, message
+    except Exception as e:
+        return "", "", ""
+
+
+def get_checkpoint(config: BootstrapConfig) -> Optional[IndexCheckpoint]:
+    """
+    Récupère le checkpoint d'indexation depuis la base.
+
+    Returns:
+        IndexCheckpoint ou None si pas de checkpoint
+    """
+    if not config.db_path.exists():
+        return None
+
+    try:
+        conn = sqlite3.connect(str(config.db_path))
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM index_checkpoints WHERE id = 1")
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return IndexCheckpoint(
+                last_commit=row["last_commit"],
+                last_commit_short=row["last_commit_short"] or "",
+                last_commit_message=row["last_commit_message"] or "",
+                files_indexed=row["files_indexed"] or 0,
+                symbols_indexed=row["symbols_indexed"] or 0,
+                relations_indexed=row["relations_indexed"] or 0,
+                last_indexed_at=row["last_indexed_at"],
+                duration_seconds=row["duration_seconds"] or 0,
+                index_mode=row["index_mode"] or "full",
+                schema_version=row["schema_version"] or "2.0",
+            )
+        return None
+    except sqlite3.Error:
+        return None
+
+
+def save_checkpoint(
+    config: BootstrapConfig,
+    stats: BootstrapStats,
+    mode: str = "full"
+) -> bool:
+    """
+    Enregistre le checkpoint d'indexation.
+
+    Args:
+        config: Configuration du bootstrap
+        stats: Statistiques de l'indexation
+        mode: Mode d'indexation ("full" ou "incremental")
+
+    Returns:
+        True si sauvegardé avec succès
+    """
+    full_hash, short_hash, message = get_current_commit(config.project_root)
+    if not full_hash:
+        return False
+
+    try:
+        conn = sqlite3.connect(str(config.db_path))
+
+        # Utiliser INSERT OR REPLACE pour mettre à jour la ligne unique
+        conn.execute("""
+            INSERT OR REPLACE INTO index_checkpoints (
+                id, last_commit, last_commit_short, last_commit_message,
+                files_indexed, symbols_indexed, relations_indexed,
+                last_indexed_at, duration_seconds, index_mode, schema_version
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, '2.0')
+        """, (
+            full_hash,
+            short_hash,
+            message,
+            stats.files_indexed,
+            stats.symbols_indexed,
+            stats.relations_indexed,
+            stats.duration_seconds,
+            mode,
+        ))
+
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"  {Colors.RED}✗{Colors.RESET} Failed to save checkpoint: {e}")
+        return False
+
+
+def get_changed_files(
+    config: BootstrapConfig,
+    checkpoint: IndexCheckpoint
+) -> dict[str, list[str]]:
+    """
+    Calcule les fichiers modifiés depuis le checkpoint.
+
+    Args:
+        config: Configuration du bootstrap
+        checkpoint: Checkpoint de référence
+
+    Returns:
+        Dict avec les clés 'modified', 'added', 'deleted', 'renamed'
+    """
+    changes: dict[str, list[str]] = {
+        "modified": [],
+        "added": [],
+        "deleted": [],
+        "renamed": [],
+    }
+
+    try:
+        # git diff --name-status pour avoir le type de changement
+        result = subprocess.run(
+            ["git", "diff", f"{checkpoint.last_commit}..HEAD", "--name-status"],
+            capture_output=True,
+            text=True,
+            cwd=str(config.project_root),
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            return changes
+
+        # Collecter toutes les extensions valides
+        valid_extensions = set()
+        for exts in config.extensions.values():
+            valid_extensions.update(exts)
+
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue
+
+            status = parts[0]
+            file_path = parts[1]
+
+            # Vérifier l'extension
+            ext = Path(file_path).suffix.lower()
+            if ext not in valid_extensions:
+                continue
+
+            # Vérifier les exclusions
+            if should_exclude(file_path, config.exclude_patterns):
+                continue
+
+            # Catégoriser le changement
+            if status == "M":
+                changes["modified"].append(file_path)
+            elif status == "A":
+                changes["added"].append(file_path)
+            elif status == "D":
+                changes["deleted"].append(file_path)
+            elif status.startswith("R"):
+                # Renommage : R100<tab>old_path<tab>new_path
+                if len(parts) >= 3:
+                    old_path = parts[1]
+                    new_path = parts[2]
+                    changes["deleted"].append(old_path)
+                    changes["added"].append(new_path)
+                    changes["renamed"].append(f"{old_path} -> {new_path}")
+
+        return changes
+
+    except subprocess.TimeoutExpired:
+        print(f"  {Colors.YELLOW}⚠{Colors.RESET} Git diff timed out")
+        return changes
+    except Exception as e:
+        print(f"  {Colors.YELLOW}⚠{Colors.RESET} Error getting changed files: {e}")
+        return changes
+
+
+# =============================================================================
+# INCREMENTAL INDEXATION
+# =============================================================================
+
+def reindex_file(
+    config: BootstrapConfig,
+    logger: logging.Logger,
+    file_path: str,
+    conn: sqlite3.Connection
+) -> tuple[int, int]:
+    """
+    Réindexe un seul fichier : supprime l'ancien index et réindexe.
+
+    Args:
+        config: Configuration du bootstrap
+        logger: Logger
+        file_path: Chemin du fichier (relatif)
+        conn: Connexion SQLite
+
+    Returns:
+        Tuple (symbols_count, relations_count)
+    """
+    cursor = conn.cursor()
+    full_path = config.project_root / file_path
+
+    if not full_path.exists():
+        logger.warning(f"File not found for reindexing: {file_path}")
+        return 0, 0
+
+    # 1. Supprimer les anciennes données
+    cursor.execute("SELECT id FROM files WHERE path = ?", (file_path,))
+    existing = cursor.fetchone()
+
+    if existing:
+        file_id = existing[0]
+        # Supprimer les symboles (les relations sont supprimées en cascade)
+        cursor.execute("DELETE FROM symbols WHERE file_id = ?", (file_id,))
+        # Supprimer les relations de fichiers
+        cursor.execute(
+            "DELETE FROM file_relations WHERE source_file_id = ? OR target_file_id = ?",
+            (file_id, file_id)
+        )
+        # Supprimer le fichier lui-même
+        cursor.execute("DELETE FROM files WHERE id = ?", (file_id,))
+
+    # 2. Réindexer le fichier
+    # Détecter le langage
+    ext = full_path.suffix.lower()
+    language = None
+    for lang, exts in config.extensions.items():
+        if ext in exts:
+            language = lang
+            break
+
+    if not language:
+        logger.warning(f"Unknown language for {file_path}")
+        return 0, 0
+
+    # Lire le contenu
+    try:
+        content = full_path.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        logger.warning(f"Cannot read {file_path}: {e}")
+        return 0, 0
+
+    # Calculer les métriques
+    line_counts = count_lines(full_path)
+    content_hash = get_content_hash(full_path)
+    module = get_module_from_path(file_path, config.project_root)
+
+    # Déterminer si c'est critique
+    is_critical = matches_pattern(file_path, config.critical_paths) or \
+                  matches_pattern(file_path, config.high_importance_paths)
+    security_sensitive = check_security_content(full_path)
+
+    # Insérer le fichier
+    cursor.execute("""
+        INSERT INTO files (
+            path, filename, extension, module, language,
+            lines_total, lines_code, lines_comment, lines_blank,
+            content_hash, is_critical, security_sensitive, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    """, (
+        file_path, full_path.name, ext, module, language,
+        line_counts["total"], line_counts["code"], line_counts["comment"], line_counts["blank"],
+        content_hash, 1 if is_critical else 0, 1 if security_sensitive else 0,
+    ))
+    file_id = cursor.lastrowid
+
+    # Parser les symboles
+    symbols = []
+    if language == "python":
+        symbols = parse_python_file(full_path)
+    elif language in ("c", "cpp") and shutil.which("ctags"):
+        symbols = run_ctags(full_path)
+
+    # Insérer les symboles
+    symbols_count = 0
+    for sym in symbols:
+        cursor.execute("""
+            INSERT INTO symbols (
+                file_id, name, qualified_name, kind, line_start, line_end,
+                signature, visibility, complexity, is_static,
+                doc_comment, has_doc, base_classes_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            file_id,
+            sym.get("name", ""),
+            sym.get("qualified_name"),
+            sym.get("kind", "unknown"),
+            sym.get("line_start"),
+            sym.get("line_end"),
+            sym.get("signature", ""),
+            sym.get("visibility", "public"),
+            sym.get("complexity", 0),
+            1 if sym.get("is_static") else 0,
+            sym.get("doc_comment", ""),
+            1 if sym.get("doc_comment") else 0,
+            json.dumps(sym.get("base_classes")) if sym.get("base_classes") else None,
+        ))
+        symbols_count += 1
+
+    logger.debug(f"Reindexed {file_path}: {symbols_count} symbols")
+    return symbols_count, 0
+
+
+def delete_file_from_index(
+    config: BootstrapConfig,
+    logger: logging.Logger,
+    file_path: str,
+    conn: sqlite3.Connection
+) -> bool:
+    """
+    Supprime un fichier de l'index.
+
+    Args:
+        config: Configuration du bootstrap
+        logger: Logger
+        file_path: Chemin du fichier
+        conn: Connexion SQLite
+
+    Returns:
+        True si supprimé
+    """
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM files WHERE path = ?", (file_path,))
+    existing = cursor.fetchone()
+
+    if existing:
+        file_id = existing[0]
+        # Les symboles et relations sont supprimés en cascade grâce aux FK
+        cursor.execute("DELETE FROM files WHERE id = ?", (file_id,))
+        logger.debug(f"Deleted from index: {file_path}")
+        return True
+
+    return False
+
+
+def run_incremental(
+    config: BootstrapConfig,
+    logger: logging.Logger,
+    checkpoint: IndexCheckpoint
+) -> tuple[bool, BootstrapStats]:
+    """
+    Exécute l'indexation incrémentale.
+
+    Args:
+        config: Configuration du bootstrap
+        logger: Logger
+        checkpoint: Checkpoint de référence
+
+    Returns:
+        Tuple (success, stats)
+    """
+    stats = BootstrapStats()
+    stats.start_time = time.time()
+
+    print(f"\n{Colors.BOLD}{Colors.CYAN}Incremental Indexation{Colors.RESET}")
+    print(f"{'=' * 60}")
+    print(f"Checkpoint: {checkpoint.last_commit_short} ({checkpoint.last_indexed_at})")
+
+    # Récupérer les fichiers modifiés
+    changes = get_changed_files(config, checkpoint)
+
+    total_changes = (
+        len(changes["modified"]) +
+        len(changes["added"]) +
+        len(changes["deleted"])
+    )
+
+    if total_changes == 0:
+        print(f"\n{Colors.GREEN}✓{Colors.RESET} Base already up to date")
+        print(f"  Last indexed: {checkpoint.last_commit_short}")
+        stats.end_time = time.time()
+        return True, stats
+
+    # Avertissement si beaucoup de fichiers
+    if total_changes > 100:
+        print(f"\n{Colors.YELLOW}⚠{Colors.RESET} {total_changes} files to reindex. This may take a while...")
+        print(f"  (Consider using --full if you did a major rebase)")
+
+    # Afficher le résumé des changements
+    print(f"\n{Colors.BOLD}Changes detected:{Colors.RESET}")
+    if changes["modified"]:
+        print(f"  Modified: {len(changes['modified'])} files")
+    if changes["added"]:
+        print(f"  Added: {len(changes['added'])} files")
+    if changes["deleted"]:
+        print(f"  Deleted: {len(changes['deleted'])} files")
+    if changes["renamed"]:
+        print(f"  Renamed: {len(changes['renamed'])} files")
+
+    # Ouvrir la connexion
+    conn = sqlite3.connect(str(config.db_path))
+    conn.execute("PRAGMA foreign_keys = ON")
+
+    try:
+        # Supprimer les fichiers supprimés
+        for file_path in changes["deleted"]:
+            delete_file_from_index(config, logger, file_path, conn)
+
+        # Réindexer les fichiers modifiés et ajoutés
+        files_to_reindex = changes["modified"] + changes["added"]
+        total_symbols = 0
+        total_relations = 0
+
+        progress = ProgressBar(len(files_to_reindex), "Reindexing")
+        for file_path in files_to_reindex:
+            progress.update()
+            syms, rels = reindex_file(config, logger, file_path, conn)
+            total_symbols += syms
+            total_relations += rels
+            stats.files_indexed += 1
+
+        progress.finish()
+
+        conn.commit()
+
+        stats.symbols_indexed = total_symbols
+        stats.relations_indexed = total_relations
+        stats.end_time = time.time()
+
+        print(f"\n{Colors.GREEN}✓{Colors.RESET} Incremental indexation complete")
+        print(f"  Files reindexed: {stats.files_indexed}")
+        print(f"  Symbols indexed: {stats.symbols_indexed}")
+        print(f"  Duration: {stats.duration_seconds:.1f}s")
+
+        return True, stats
+
+    except Exception as e:
+        conn.rollback()
+        stats.errors.append(str(e))
+        logger.error(f"Incremental indexation failed: {e}")
+        print(f"\n{Colors.RED}✗{Colors.RESET} Incremental indexation failed: {e}")
+        return False, stats
+    finally:
+        conn.close()
+
+
+def show_status(config: BootstrapConfig) -> int:
+    """
+    Affiche l'état actuel de l'indexation.
+
+    Args:
+        config: Configuration du bootstrap
+
+    Returns:
+        Code de retour (0 = OK)
+    """
+    print(f"\n{Colors.BOLD}{Colors.CYAN}AgentDB Index Status{Colors.RESET}")
+    print(f"{'=' * 60}")
+    print(f"Project: {config.project_root}")
+    print(f"Database: {config.db_path}")
+
+    # Vérifier si la base existe
+    if not config.db_path.exists():
+        print(f"\n{Colors.YELLOW}⚠{Colors.RESET} Database not found")
+        print(f"  Run: python bootstrap.py --full")
+        return 1
+
+    # Récupérer le checkpoint
+    checkpoint = get_checkpoint(config)
+
+    if not checkpoint:
+        print(f"\n{Colors.YELLOW}⚠{Colors.RESET} No checkpoint found")
+        print(f"  The database exists but hasn't been indexed yet.")
+        print(f"  Run: python bootstrap.py --full")
+        return 1
+
+    # Afficher les infos du checkpoint
+    print(f"\n{Colors.BOLD}Last Indexation:{Colors.RESET}")
+    print(f"  Commit: {checkpoint.last_commit_short} ({checkpoint.last_commit[:12]}...)")
+    print(f"  Message: {checkpoint.last_commit_message[:60]}...")
+    print(f"  Date: {checkpoint.last_indexed_at}")
+    print(f"  Mode: {checkpoint.index_mode}")
+    print(f"  Duration: {checkpoint.duration_seconds:.1f}s")
+
+    print(f"\n{Colors.BOLD}Statistics:{Colors.RESET}")
+    print(f"  Files indexed: {checkpoint.files_indexed}")
+    print(f"  Symbols indexed: {checkpoint.symbols_indexed}")
+    print(f"  Relations indexed: {checkpoint.relations_indexed}")
+
+    # Calculer les changements depuis le checkpoint
+    changes = get_changed_files(config, checkpoint)
+    total_changes = (
+        len(changes["modified"]) +
+        len(changes["added"]) +
+        len(changes["deleted"])
+    )
+
+    if total_changes == 0:
+        print(f"\n{Colors.GREEN}✓{Colors.RESET} Index is up to date")
+    else:
+        print(f"\n{Colors.YELLOW}!{Colors.RESET} {total_changes} files changed since last indexation:")
+        if changes["modified"]:
+            print(f"    Modified: {len(changes['modified'])}")
+            for f in changes["modified"][:5]:
+                print(f"      - {f}")
+            if len(changes["modified"]) > 5:
+                print(f"      ... and {len(changes['modified']) - 5} more")
+        if changes["added"]:
+            print(f"    Added: {len(changes['added'])}")
+            for f in changes["added"][:5]:
+                print(f"      + {f}")
+            if len(changes["added"]) > 5:
+                print(f"      ... and {len(changes['added']) - 5} more")
+        if changes["deleted"]:
+            print(f"    Deleted: {len(changes['deleted'])}")
+            for f in changes["deleted"][:5]:
+                print(f"      - {f}")
+            if len(changes["deleted"]) > 5:
+                print(f"      ... and {len(changes['deleted']) - 5} more")
+
+        print(f"\n  Run: python bootstrap.py --incremental")
+
+    return 0
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -1876,18 +2446,83 @@ def main() -> int:
         help="Enable verbose output"
     )
 
+    # Mode d'indexation (mutuellement exclusif)
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--full",
+        action="store_true",
+        help="Full indexation (default on first run)"
+    )
+    mode_group.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Incremental indexation (only changed files since last checkpoint)"
+    )
+    mode_group.add_argument(
+        "--status",
+        action="store_true",
+        help="Show current indexation status"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force full indexation even if checkpoint exists"
+    )
+
     args = parser.parse_args()
 
     # Configuration
     config = BootstrapConfig.from_project_root(args.project_root.resolve())
-    stats = BootstrapStats()
-    stats.start_time = time.time()
 
     # Setup logging
     logger = setup_logging(config.logs_dir)
 
+    # =========================================================================
+    # MODE: --status
+    # =========================================================================
+    if args.status:
+        return show_status(config)
+
+    # =========================================================================
+    # MODE: --incremental
+    # =========================================================================
+    if args.incremental:
+        # Vérifier qu'un checkpoint existe
+        checkpoint = get_checkpoint(config)
+
+        if not checkpoint:
+            print(f"\n{Colors.RED}✗{Colors.RESET} No checkpoint found.")
+            print(f"  Run first: python bootstrap.py --full")
+            return 1
+
+        # Lancer l'indexation incrémentale
+        success, stats = run_incremental(config, logger, checkpoint)
+
+        # Sauvegarder le checkpoint si succès
+        if success:
+            save_checkpoint(config, stats, mode="incremental")
+
+        logger.info(f"Incremental indexation {'completed' if success else 'failed'} in {stats.duration_seconds:.1f}s")
+        return 0 if success else 1
+
+    # =========================================================================
+    # MODE: --full (ou par défaut)
+    # =========================================================================
+    stats = BootstrapStats()
+    stats.start_time = time.time()
+
+    # Vérifier si un checkpoint existe et suggérer --incremental
+    if not args.full and not args.force:
+        checkpoint = get_checkpoint(config)
+        if checkpoint:
+            print(f"\n{Colors.YELLOW}!{Colors.RESET} A checkpoint already exists: {checkpoint.last_commit_short}")
+            print(f"  Use --incremental to update only changed files")
+            print(f"  Use --full to force a complete re-indexation")
+            print(f"  Use --status to see current status")
+            return 1
+
     # Banner
-    print(f"\n{Colors.BOLD}{Colors.CYAN}AgentDB Bootstrap{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.CYAN}AgentDB Bootstrap (Full Mode){Colors.RESET}")
     print(f"{'=' * 60}")
     print(f"Project root: {config.project_root}")
     print(f"Database: {config.db_path}")
@@ -1951,7 +2586,7 @@ def main() -> int:
     # Final report
     print_report(stats, success)
 
-    # Update meta
+    # Update meta and save checkpoint
     if success:
         try:
             conn = sqlite3.connect(str(config.db_path))
@@ -1964,8 +2599,13 @@ def main() -> int:
             )
             conn.commit()
             conn.close()
-        except Exception:
-            pass
+
+            # Sauvegarder le checkpoint
+            save_checkpoint(config, stats, mode="full")
+            print(f"\n{Colors.GREEN}✓{Colors.RESET} Checkpoint saved")
+
+        except Exception as e:
+            logger.warning(f"Failed to update meta/checkpoint: {e}")
 
     logger.info(f"Bootstrap {'completed' if success else 'failed'} in {stats.duration_seconds:.1f}s")
 

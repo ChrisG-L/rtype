@@ -7,7 +7,7 @@ description: |
   - "Quel est le risque de ces modifications ?"
   - "Est-ce safe de merger ?"
   - "Évalue le risque de ce commit"
-tools: Read, Grep, Bash
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 
@@ -42,7 +42,39 @@ bash .claude/agentdb/query.sh list_critical_files               # Tous les fichi
 bash .claude/agentdb/query.sh module_summary "module"           # Santé du module
 ```
 
+## Gestion des erreurs AgentDB
+
+Chaque query peut retourner une erreur ou des données vides. Voici comment les gérer :
+
+| Situation | Détection | Action | Impact sur scoring |
+|-----------|-----------|--------|-------------------|
+| **DB inaccessible** | `"error"` dans JSON | Utiliser valeurs par défaut | Marquer `❌ ERROR` + incertitude +10% |
+| **Fichier non indexé** | file_context vide | Assumer `is_critical=false` | Marquer `⚠️ NOT INDEXED` |
+| **Pas d'historique** | error_history vide | Pas de pénalité historique | Marquer `⚠️ NO HISTORY` |
+| **Métriques absentes** | file_metrics vide | Pénalité -5 (incertitude) | Marquer `⚠️ NO METRICS` |
+
+**Template de vérification** :
+```bash
+result=`AGENTDB_CALLER="risk" bash .claude/agentdb/query.sh file_context "path/file.cpp"`
+
+# Vérifier si erreur
+if echo "$result" | grep -q '"error"'; then
+    echo "AgentDB error - assuming defaults with uncertainty penalty"
+    is_critical="unknown"  # Ajouter incertitude au score
+fi
+
+# Vérifier si vide
+if [ "$result" = "{}" ] || [ -z "$result" ]; then
+    echo "File not indexed - assuming non-critical"
+    is_critical="false"
+fi
+```
+
+**Règle** : L'absence de données AgentDB ajoute de l'INCERTITUDE, pas nécessairement du risque. Mentionner clairement les données manquantes et leur impact sur la fiabilité du score.
+
 ## Formule de Scoring (Transparente)
+
+**Référence** : Les pénalités sont définies dans `.claude/config/agentdb.yaml` section `analysis.risk.factors`
 
 ```
 SCORE FINAL = 100 - Σ(pénalités)
@@ -52,53 +84,56 @@ Où les pénalités sont calculées comme suit :
 
 ### Facteur 1 : CRITICITÉ (max -30 points)
 
-| Critère | Pénalité | Source AgentDB |
-|---------|----------|----------------|
-| Fichier `is_critical = true` | -20 | file_context |
-| Fichier `security_sensitive = true` | -15 | file_context |
-| Fichier dans liste critique projet | -10 | list_critical_files |
-| Les deux (critical + sensitive) | -30 (cap) | - |
+| Critère | Pénalité | Config key | Source AgentDB |
+|---------|----------|------------|----------------|
+| Fichier `is_critical = true` | -20 | criticality.is_critical | file_context |
+| Fichier `security_sensitive = true` | -15 | criticality.security_sensitive | file_context |
+| Fichier dans liste critique projet | -10 | criticality.in_critical_list | list_critical_files |
+| Les deux (critical + sensitive) | -30 (cap) | criticality.max_penalty | - |
 
 ### Facteur 2 : HISTORIQUE (max -25 points)
 
-| Critère | Pénalité | Source AgentDB |
-|---------|----------|----------------|
-| Bug dans les 30 derniers jours | -5 par bug (max -15) | error_history |
-| Bug de sévérité HIGH+ dans 90j | -5 supplémentaire | error_history |
-| Régression connue | -10 | error_history (is_regression) |
+| Critère | Pénalité | Config key | Source AgentDB |
+|---------|----------|------------|----------------|
+| Bug dans les 30 derniers jours | -5 par bug (max -15) | history.bug_30d | error_history |
+| Bug de sévérité HIGH+ dans 90j | -5 supplémentaire | history.bug_high_90d | error_history |
+| Régression connue | -10 | history.regression | error_history |
 
 ### Facteur 3 : COMPLEXITÉ (max -20 points)
 
-| Critère | Pénalité | Source AgentDB |
-|---------|----------|----------------|
-| Complexité max > 20 | -10 | file_metrics |
-| Complexité max > 15 | -5 | file_metrics |
-| Complexité moyenne > 10 | -5 | file_metrics |
-| Plus de 500 lignes de code | -5 | file_metrics |
+| Critère | Pénalité | Config key | Source AgentDB |
+|---------|----------|------------|----------------|
+| Complexité max > 20 | -10 | complexity.max_over_20 | file_metrics |
+| Complexité max > 15 | -5 | complexity.max_over_15 | file_metrics |
+| Complexité moyenne > 10 | -5 | complexity.avg_over_10 | file_metrics |
+| Plus de 500 lignes de code | -5 | complexity.lines_over_500 | file_metrics |
 
 ### Facteur 4 : TESTS (max -15 points)
 
-| Critère | Pénalité | Source AgentDB |
-|---------|----------|----------------|
-| `has_tests = false` | -10 | file_metrics |
-| Test file non modifié avec +50 lignes de code | -5 | git diff |
+| Critère | Pénalité | Config key | Source AgentDB |
+|---------|----------|------------|----------------|
+| `has_tests = false` | -10 | tests.no_tests | file_metrics |
+| Test file non modifié avec +50 lignes | -5 | tests.no_test_modified | git diff |
 
 ### Facteur 5 : IMPACT (max -10 points)
 
-| Critère | Pénalité | Source AgentDB |
-|---------|----------|----------------|
-| Plus de 10 fichiers impactés | -10 | file_impact |
-| Plus de 5 fichiers impactés | -5 | file_impact |
-| Fichier critique impacté | -5 | file_impact (is_critical) |
+| Critère | Pénalité | Config key | Source AgentDB |
+|---------|----------|------------|----------------|
+| Plus de 10 fichiers impactés | -10 | impact.files_over_10 | file_impact |
+| Plus de 5 fichiers impactés | -5 | impact.files_over_5 | file_impact |
+| Fichier critique impacté | -5 | impact.critical_impacted | file_impact |
 
 ## Méthodologie OBLIGATOIRE
 
-### Étape 1 : Identifier les fichiers modifiés
-```bash
-git diff HEAD~1 --name-status
-```
+### Pré-requis : Utiliser le contexte fourni
 
-### Étape 2 : Pour CHAQUE fichier, collecter les données AgentDB
+**IMPORTANT** : Tu reçois le contexte depuis le prompt de `/analyze` qui inclut :
+- La liste des fichiers modifiés (entre LAST_COMMIT et HEAD)
+- Les résultats des agents ANALYZER, SECURITY, REVIEWER
+
+Ne fais PAS `git diff HEAD~1` - utilise la liste de fichiers fournie dans le prompt.
+
+### Étape 1 : Pour CHAQUE fichier de la liste fournie, collecter les données AgentDB
 
 ```bash
 # OBLIGATOIRE : Criticité
@@ -225,31 +260,51 @@ Mais cap à 58 car pas de régression et pas de vuln CRITICAL
 
 **Analyse** : Ce commit est plus risqué que la moyenne du projet (score 58 vs 72). Les principaux facteurs sont le fichier critique touché et l'absence de tests.
 
+### Sévérités utilisées (format site web)
+
+| Sévérité | Description |
+|----------|-------------|
+| **Blocker** | Bloque le déploiement |
+| **Critical** | Risque très élevé |
+| **Major** | Risque significatif |
+| **Medium** | Risque modéré |
+| **Minor** | Risque faible |
+| **Info** | Information |
+
 ### Facteurs de Risque Principaux
 
 #### 🔴 Risque #1 : Fichier critique sans tests (-30 combiné)
 
+- **Sévérité** : Critical
+- **Catégorie** : Reliability
 - **Fichier** : src/server/UDPServer.cpp
 - **Problème** : Marqué `is_critical` mais `has_tests=false`
 - **Impact** : Modifications difficiles à valider
 - **Mitigation** : Ajouter tests unitaires (+10 points potentiel)
 - **Effort** : ~2h
+- **isBug** : ❌ Non
 
 #### 🟠 Risque #2 : Complexité élevée (-5)
 
+- **Sévérité** : Major
+- **Catégorie** : Maintainability
 - **Fichier** : src/server/UDPServer.cpp
 - **Problème** : complexity_max=18 (seuil=15)
 - **Impact** : Code difficile à maintenir et tester
 - **Mitigation** : Refactorer la fonction concernée
 - **Effort** : ~1h
+- **isBug** : ❌ Non
 
 #### 🟡 Risque #3 : Impact large (-5)
 
+- **Sévérité** : Medium
+- **Catégorie** : Reliability
 - **Fichier** : src/server/UDPServer.cpp
 - **Problème** : 7 fichiers dépendent de ce fichier
 - **Impact** : Changements peuvent casser d'autres modules
 - **Mitigation** : Tester les intégrations
 - **Effort** : ~30min
+- **isBug** : ❌ Non
 
 ### Actions de Mitigation
 
@@ -309,18 +364,24 @@ Mais cap à 58 car pas de régression et pas de vuln CRITICAL
   "findings": [
     {
       "id": "RISK-001",
-      "severity": "HIGH",
+      "severity": "Critical",
+      "category": "Reliability",
+      "isBug": false,
       "type": "missing_tests",
       "file": "src/server/UDPServer.cpp",
+      "line": 1,
       "message": "Fichier critique sans tests",
       "blocking": false,
       "mitigation": "Ajouter tests unitaires"
     },
     {
       "id": "RISK-002",
-      "severity": "MEDIUM",
+      "severity": "Major",
+      "category": "Maintainability",
+      "isBug": false,
       "type": "complexity",
       "file": "src/server/UDPServer.cpp",
+      "line": 145,
       "message": "Complexité élevée (18 > 15)",
       "blocking": false,
       "mitigation": "Refactorer la fonction"

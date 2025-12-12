@@ -509,3 +509,72 @@ LEFT JOIN error_history e ON e.file_id = f.id
 WHERE f.is_critical = 1 OR e.id IS NOT NULL
 GROUP BY f.id
 ORDER BY f.is_critical DESC, error_count DESC;
+
+-- ============================================================================
+-- PILIER 5 : ANALYSE INCRÉMENTALE
+-- ============================================================================
+
+-- Checkpoints d'analyse par branche
+-- Stocke le dernier commit analysé pour chaque branche
+CREATE TABLE IF NOT EXISTS analysis_checkpoints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    -- Identification de la branche
+    branch TEXT UNIQUE NOT NULL,
+
+    -- Dernier commit analysé
+    last_commit TEXT NOT NULL,
+    last_commit_short TEXT,
+    last_commit_message TEXT,
+
+    -- Métadonnées
+    last_analyzed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    analysis_count INTEGER DEFAULT 1,
+    files_analyzed INTEGER DEFAULT 0,
+
+    -- Contexte
+    merge_base TEXT,           -- Point de divergence avec la branche cible
+    target_branch TEXT,        -- Branche cible (main, develop, etc.)
+
+    -- Informations du dernier run
+    last_run_id TEXT,
+    last_verdict TEXT,
+    last_score INTEGER
+);
+
+-- Index pour performance
+CREATE INDEX IF NOT EXISTS idx_checkpoints_branch ON analysis_checkpoints(branch);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_commit ON analysis_checkpoints(last_commit);
+
+-- ============================================================================
+-- PILIER 6 : INDEXATION INCRÉMENTALE
+-- ============================================================================
+
+-- Checkpoint d'indexation global
+-- Une seule ligne qui stocke l'état de la dernière indexation complète
+CREATE TABLE IF NOT EXISTS index_checkpoints (
+    id INTEGER PRIMARY KEY CHECK (id = 1),  -- Force une seule ligne
+
+    -- Dernier commit indexé
+    last_commit TEXT NOT NULL,
+    last_commit_short TEXT,
+    last_commit_message TEXT,
+
+    -- Statistiques
+    files_indexed INTEGER DEFAULT 0,
+    symbols_indexed INTEGER DEFAULT 0,
+    relations_indexed INTEGER DEFAULT 0,
+
+    -- Timing
+    last_indexed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    duration_seconds REAL DEFAULT 0,
+
+    -- Mode utilisé (full ou incremental)
+    index_mode TEXT DEFAULT 'full',
+
+    -- Version du schéma pour compatibilité
+    schema_version TEXT DEFAULT '2.0'
+);
+
+-- Index sur le commit pour recherche rapide
+CREATE INDEX IF NOT EXISTS idx_index_checkpoints_commit ON index_checkpoints(last_commit);

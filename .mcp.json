@@ -6,6 +6,13 @@
         "-c",
         "PYTHONPATH=\"$PWD/.claude\" AGENTDB_PATH=\"$PWD/.claude/agentdb/db.sqlite\" python -m mcp.agentdb.server"
       ]
+    },
+    "jira": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "PYTHONPATH=\"$PWD/.claude\" python -m mcp.jira.server"
+      ]
     }
   }
 }

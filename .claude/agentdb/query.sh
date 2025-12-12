@@ -23,6 +23,15 @@
 #   list_modules                     - Liste tous les modules
 #   list_critical_files              - Liste les fichiers critiques
 #
+# Incremental Analysis Commands:
+#   get_checkpoint <branch>                          - Récupère le checkpoint d'analyse
+#   set_checkpoint <branch> <commit> [files] [verdict] [score] - Met à jour le checkpoint
+#   reset_checkpoint <branch>                        - Supprime le checkpoint
+#   list_checkpoints                                 - Liste tous les checkpoints
+#
+# Pipeline Recording Commands:
+#   record_pipeline_run <branch> <commit> <score> <verdict> <files_count> - Enregistre une analyse
+#
 # Examples:
 #   bash .claude/agentdb/query.sh file_context "src/server/UDPServer.cpp"
 #   bash .claude/agentdb/query.sh symbol_callers "sendPacket"
@@ -137,6 +146,50 @@ sqlite_json_one() {
         echo "{}"
     else
         echo "$result" | jq '.[0] // {}' 2>/dev/null || echo "{}"
+    fi
+}
+
+# =============================================================================
+# SÉCURITÉ : Échappement SQL
+# =============================================================================
+
+# Échappe les guillemets simples pour prévenir les injections SQL
+# Usage: safe_string=$(sql_escape "$user_input")
+sql_escape() {
+    local input="$1"
+    # Double les guillemets simples (standard SQL)
+    echo "${input//\'/\'\'}"
+}
+
+# Valide qu'une chaîne est un hash git valide (hexadécimal)
+validate_git_hash() {
+    local hash="$1"
+    if [[ "$hash" =~ ^[a-fA-F0-9]+$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Valide qu'une chaîne est un nom de branche valide
+validate_branch_name() {
+    local branch="$1"
+    # Autorise: lettres, chiffres, /, -, _, .
+    if [[ "$branch" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Valide qu'une chaîne est un chemin de fichier valide
+validate_file_path() {
+    local path="$1"
+    # Interdit: ;, ', ", $, `, \, et les séquences ..
+    if [[ "$path" =~ [\;\'\"\$\`\\] ]] || [[ "$path" =~ \.\. ]]; then
+        return 1
+    else
+        return 0
     fi
 }
 
@@ -844,6 +897,330 @@ cmd_list_critical_files() {
 }
 
 # =============================================================================
+# COMMANDES POUR L'ANALYSE INCRÉMENTALE
+# =============================================================================
+
+cmd_get_checkpoint() {
+    local branch="$1"
+
+    if [[ -z "$branch" ]]; then
+        echo '{"error": "Usage: get_checkpoint <branch>"}'
+        return 1
+    fi
+
+    # Validation du nom de branche
+    if ! validate_branch_name "$branch"; then
+        echo '{"error": "Invalid branch name format"}'
+        return 1
+    fi
+
+    local safe_branch=$(sql_escape "$branch")
+
+    local checkpoint=$(sqlite_json_one "
+        SELECT
+            branch,
+            last_commit,
+            last_commit_short,
+            last_commit_message,
+            last_analyzed_at,
+            analysis_count,
+            files_analyzed,
+            merge_base,
+            target_branch,
+            last_run_id,
+            last_verdict,
+            last_score
+        FROM analysis_checkpoints
+        WHERE branch = '$safe_branch'
+    ")
+
+    if [[ "$checkpoint" == "{}" ]]; then
+        # Pas de checkpoint pour cette branche
+        jq -n \
+            --arg branch "$branch" \
+            '{
+                found: false,
+                branch: $branch,
+                message: "No checkpoint found for this branch"
+            }'
+    else
+        echo "$checkpoint" | jq '. + {found: true}'
+    fi
+}
+
+cmd_set_checkpoint() {
+    local branch="$1"
+    local commit="$2"
+    local files_count="${3:-0}"
+    local verdict="${4:-}"
+    local score="${5:-}"
+
+    if [[ -z "$branch" || -z "$commit" ]]; then
+        echo '{"error": "Usage: set_checkpoint <branch> <commit> [files_count] [verdict] [score]"}'
+        return 1
+    fi
+
+    # Validation des entrées
+    if ! validate_branch_name "$branch"; then
+        echo '{"error": "Invalid branch name format"}'
+        return 1
+    fi
+
+    if ! validate_git_hash "$commit"; then
+        echo '{"error": "Invalid commit hash format (must be hexadecimal)"}'
+        return 1
+    fi
+
+    # Valider files_count est un nombre
+    if ! [[ "$files_count" =~ ^[0-9]+$ ]]; then
+        files_count=0
+    fi
+
+    # Valider score est un nombre ou vide
+    if [[ -n "$score" ]] && ! [[ "$score" =~ ^[0-9]+$ ]]; then
+        score=""
+    fi
+
+    # Échapper les valeurs pour SQL
+    local safe_branch=$(sql_escape "$branch")
+    local safe_verdict=$(sql_escape "$verdict")
+
+    # Récupérer les infos du commit
+    local commit_short=$(git rev-parse --short "$commit" 2>/dev/null || echo "$commit")
+    local commit_message=$(git log -1 --format="%s" "$commit" 2>/dev/null || echo "")
+    local safe_commit_message=$(sql_escape "$commit_message")
+
+    # Trouver la branche cible (main ou develop)
+    local target_branch=""
+    if git rev-parse --verify main >/dev/null 2>&1; then
+        target_branch="main"
+    elif git rev-parse --verify develop >/dev/null 2>&1; then
+        target_branch="develop"
+    elif git rev-parse --verify master >/dev/null 2>&1; then
+        target_branch="master"
+    fi
+
+    # Calculer le merge-base si possible
+    local merge_base=""
+    if [[ -n "$target_branch" ]]; then
+        merge_base=$(git merge-base "$commit" "$target_branch" 2>/dev/null || echo "")
+    fi
+
+    # Générer un run_id
+    local run_id="run-$(date +%Y%m%d-%H%M%S)-$(echo $RANDOM | md5sum | head -c 8)"
+
+    # Upsert avec SQLite (valeurs déjà validées et échappées)
+    sqlite3 "$DB_PATH" "
+        INSERT INTO analysis_checkpoints (
+            branch, last_commit, last_commit_short, last_commit_message,
+            last_analyzed_at, analysis_count, files_analyzed,
+            merge_base, target_branch, last_run_id, last_verdict, last_score
+        ) VALUES (
+            '$safe_branch', '$commit', '$commit_short', '$safe_commit_message',
+            datetime('now'), 1, $files_count,
+            '$merge_base', '$target_branch', '$run_id', '$safe_verdict', ${score:-NULL}
+        )
+        ON CONFLICT(branch) DO UPDATE SET
+            last_commit = excluded.last_commit,
+            last_commit_short = excluded.last_commit_short,
+            last_commit_message = excluded.last_commit_message,
+            last_analyzed_at = excluded.last_analyzed_at,
+            analysis_count = analysis_count + 1,
+            files_analyzed = excluded.files_analyzed,
+            merge_base = excluded.merge_base,
+            last_run_id = excluded.last_run_id,
+            last_verdict = excluded.last_verdict,
+            last_score = excluded.last_score;
+    "
+
+    # Retourner le checkpoint mis à jour
+    cmd_get_checkpoint "$branch"
+}
+
+cmd_reset_checkpoint() {
+    local branch="$1"
+
+    if [[ -z "$branch" ]]; then
+        echo '{"error": "Usage: reset_checkpoint <branch>"}'
+        return 1
+    fi
+
+    # Validation du nom de branche
+    if ! validate_branch_name "$branch"; then
+        echo '{"error": "Invalid branch name format"}'
+        return 1
+    fi
+
+    local safe_branch=$(sql_escape "$branch")
+
+    # Supprimer le checkpoint
+    sqlite3 "$DB_PATH" "DELETE FROM analysis_checkpoints WHERE branch = '$safe_branch';"
+
+    jq -n \
+        --arg branch "$branch" \
+        '{
+            success: true,
+            branch: $branch,
+            message: "Checkpoint deleted for branch"
+        }'
+}
+
+cmd_list_checkpoints() {
+    local checkpoints=$(sqlite_json "
+        SELECT
+            branch,
+            last_commit_short,
+            last_analyzed_at,
+            analysis_count,
+            files_analyzed,
+            last_verdict,
+            last_score
+        FROM analysis_checkpoints
+        ORDER BY last_analyzed_at DESC
+    ")
+
+    jq -n --argjson checkpoints "$checkpoints" '{ checkpoints: $checkpoints }'
+}
+
+# =============================================================================
+# COMMANDES POUR L'ENREGISTREMENT DES ANALYSES
+# =============================================================================
+
+cmd_record_pipeline_run() {
+    local branch="$1"
+    local commit="$2"
+    local score="${3:-0}"
+    local verdict="${4:-UNKNOWN}"
+    local files_count="${5:-0}"
+
+    if [[ -z "$branch" || -z "$commit" ]]; then
+        echo '{"error": "Usage: record_pipeline_run <branch> <commit> <score> <verdict> <files_count>"}'
+        return 1
+    fi
+
+    # Validation des entrées
+    if ! validate_branch_name "$branch"; then
+        echo '{"error": "Invalid branch name format"}'
+        return 1
+    fi
+
+    if ! validate_git_hash "$commit"; then
+        echo '{"error": "Invalid commit hash format (must be hexadecimal)"}'
+        return 1
+    fi
+
+    # Valider score est un nombre
+    if ! [[ "$score" =~ ^[0-9]+$ ]]; then
+        score=0
+    fi
+
+    # Valider files_count est un nombre
+    if ! [[ "$files_count" =~ ^[0-9]+$ ]]; then
+        files_count=0
+    fi
+
+    # Échapper les valeurs pour SQL
+    local safe_branch=$(sql_escape "$branch")
+    local safe_verdict=$(sql_escape "$verdict")
+
+    # Récupérer les infos du commit
+    local commit_short=$(git rev-parse --short "$commit" 2>/dev/null || echo "$commit")
+    local commit_message=$(git log -1 --format="%s" "$commit" 2>/dev/null || echo "")
+    local commit_author=$(git log -1 --format="%an" "$commit" 2>/dev/null || echo "")
+    local safe_commit_message=$(sql_escape "$commit_message")
+    local safe_commit_author=$(sql_escape "$commit_author")
+
+    # Générer un run_id unique
+    local run_id="run-$(date +%Y%m%d-%H%M%S)-$(echo $RANDOM | md5sum | head -c 8)"
+    local started_at=$(date -Iseconds)
+
+    # Calculer les compteurs de sévérité basés sur le score
+    local issues_critical=0
+    local issues_high=0
+    local issues_medium=0
+    local issues_low=0
+
+    # Estimation basique basée sur le score
+    if [[ "$score" -lt 40 ]]; then
+        issues_critical=1
+    elif [[ "$score" -lt 60 ]]; then
+        issues_high=1
+    elif [[ "$score" -lt 80 ]]; then
+        issues_medium=1
+    else
+        issues_low=0
+    fi
+
+    # Mapper le verdict vers un status
+    local status="completed"
+
+    # Insérer dans pipeline_runs
+    sqlite3 "$DB_PATH" "
+        INSERT INTO pipeline_runs (
+            run_id, commit_hash, commit_message, commit_author,
+            branch_source, status, overall_score, recommendation,
+            issues_critical, issues_high, issues_medium, issues_low,
+            files_analyzed, started_at, completed_at
+        ) VALUES (
+            '$run_id', '$commit', '$safe_commit_message', '$safe_commit_author',
+            '$safe_branch', '$status', $score, '$safe_verdict',
+            $issues_critical, $issues_high, $issues_medium, $issues_low,
+            $files_count, '$started_at', datetime('now')
+        );
+    "
+
+    # Retourner le résultat
+    jq -n \
+        --arg run_id "$run_id" \
+        --arg branch "$branch" \
+        --arg commit "$commit" \
+        --argjson score "$score" \
+        --arg verdict "$verdict" \
+        --argjson files "$files_count" \
+        '{
+            success: true,
+            run_id: $run_id,
+            branch: $branch,
+            commit: $commit,
+            score: $score,
+            verdict: $verdict,
+            files_analyzed: $files,
+            message: "Pipeline run recorded successfully"
+        }'
+}
+
+cmd_list_pipeline_runs() {
+    local limit="${1:-10}"
+
+    # Valider limit est un nombre
+    if ! [[ "$limit" =~ ^[0-9]+$ ]]; then
+        limit=10
+    fi
+
+    local runs=$(sqlite_json "
+        SELECT
+            run_id,
+            branch_source as branch,
+            commit_hash,
+            overall_score as score,
+            recommendation as verdict,
+            files_analyzed,
+            started_at
+        FROM pipeline_runs
+        ORDER BY started_at DESC
+        LIMIT $limit
+    ")
+
+    jq -n \
+        --argjson runs "$runs" \
+        --argjson limit "$limit" \
+        '{
+            limit: $limit,
+            runs: $runs
+        }'
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -910,6 +1287,24 @@ case "$cmd" in
         ;;
     list_critical_files)
         run_with_logging "list_critical_files" cmd_list_critical_files
+        ;;
+    get_checkpoint)
+        run_with_logging "get_checkpoint" cmd_get_checkpoint "$@"
+        ;;
+    set_checkpoint)
+        run_with_logging "set_checkpoint" cmd_set_checkpoint "$@"
+        ;;
+    reset_checkpoint)
+        run_with_logging "reset_checkpoint" cmd_reset_checkpoint "$@"
+        ;;
+    list_checkpoints)
+        run_with_logging "list_checkpoints" cmd_list_checkpoints
+        ;;
+    record_pipeline_run)
+        run_with_logging "record_pipeline_run" cmd_record_pipeline_run "$@"
+        ;;
+    list_pipeline_runs)
+        run_with_logging "list_pipeline_runs" cmd_list_pipeline_runs "$@"
         ;;
     help|--help|-h)
         head -40 "${BASH_SOURCE[0]}" | tail -n +2 | sed 's/^# //' | sed 's/^#//'

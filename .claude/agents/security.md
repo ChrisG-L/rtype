@@ -41,12 +41,49 @@ bash .claude/agentdb/query.sh symbol_callers "funcName"             # Propagatio
 bash .claude/agentdb/query.sh list_critical_files                   # Fichiers sensibles
 ```
 
+## Gestion des erreurs AgentDB
+
+Chaque query peut retourner une erreur ou des données vides. Voici comment les gérer :
+
+| Situation | Détection | Action | Impact sur rapport |
+|-----------|-----------|--------|-------------------|
+| **DB inaccessible** | `"error"` dans JSON | Continuer sans AgentDB | Marquer `❌ ERROR` + pénalité -10 |
+| **Fichier non indexé** | `"file not found"` ou résultat vide | Scanner le code manuellement | Marquer `⚠️ NOT INDEXED` |
+| **Pas d'historique** | error_history vide | OK si projet nouveau | Marquer `⚠️ NO HISTORY` |
+| **Query timeout** | Pas de réponse après 30s | Retry 1x, puis skip | Marquer `⚠️ TIMEOUT` |
+
+**Template de vérification** :
+```bash
+result=`AGENTDB_CALLER="security" bash .claude/agentdb/query.sh error_history "path/file.cpp" 365`
+
+# Vérifier si erreur
+if echo "$result" | grep -q '"error"'; then
+    echo "AgentDB error - scanning manually"
+fi
+
+# Vérifier si vide (OK pour error_history si projet nouveau)
+if [ "$result" = "[]" ] || [ -z "$result" ]; then
+    echo "No bug history - project may be new or error_history not populated"
+fi
+```
+
+**Règle CRITIQUE** : Pour la sécurité, l'absence de données AgentDB ne doit PAS empêcher le scan. Toujours scanner le code avec grep pour les patterns dangereux (strcpy, system, etc.) même si AgentDB est vide.
+
 ## Méthodologie OBLIGATOIRE
+
+### Pré-requis : Utiliser le contexte fourni
+
+**IMPORTANT** : Tu reçois le contexte du diff depuis le prompt de `/analyze`. Le prompt te fournit :
+- La liste des fichiers modifiés (entre LAST_COMMIT et HEAD)
+- Le type d'analyse (diff unifié)
+
+Utilise cette liste pour itérer sur les fichiers, ne fais PAS ton propre `git diff HEAD~1`.
 
 ### Étape 1 : VÉRIFIER L'HISTORIQUE (CRITIQUE)
 
 ```bash
 # OBLIGATOIRE EN PREMIER : Récupérer les bugs passés sur 365 jours
+# Pour CHAQUE fichier de la liste fournie dans le prompt
 AGENTDB_CALLER="security" bash .claude/agentdb/query.sh error_history "path/to/file.cpp" 365
 ```
 
@@ -99,43 +136,66 @@ AGENTDB_CALLER="security" bash .claude/agentdb/query.sh symbol_callers "vulnerab
 
 ## Base de connaissances CWE
 
+### Sévérités utilisées (format site web)
+
+| Sévérité | Description | Exemples |
+|----------|-------------|----------|
+| **Blocker** | Bloque le déploiement, crash certain | Use-after-free, buffer overflow exploitable |
+| **Critical** | Très grave, nécessite correction immédiate | Injection SQL, commandes système |
+| **Major** | Impact significatif | Path traversal, validation manquante |
+| **Medium** | Impact modéré | Retours non vérifiés |
+| **Minor** | Impact faible | Bonnes pratiques non suivies |
+| **Info** | Information | Suggestions d'amélioration |
+
 ### Memory Safety (C/C++)
 
-| Pattern dangereux | CWE | Sévérité | Correction |
-|-------------------|-----|----------|------------|
-| `strcpy(dst, src)` | CWE-120 | HIGH | `strncpy(dst, src, sizeof(dst)-1); dst[sizeof(dst)-1]='\0';` |
-| `sprintf(buf, fmt, ...)` | CWE-120 | HIGH | `snprintf(buf, sizeof(buf), fmt, ...)` |
-| `gets(buf)` | CWE-120 | CRITICAL | `fgets(buf, sizeof(buf), stdin)` |
-| `strcat(dst, src)` | CWE-120 | HIGH | `strncat(dst, src, sizeof(dst)-strlen(dst)-1)` |
-| `scanf("%s", buf)` | CWE-120 | HIGH | `scanf("%99s", buf)` avec limite |
-| `free(ptr); use(ptr)` | CWE-416 | CRITICAL | `free(ptr); ptr=NULL;` |
-| `malloc` sans check | CWE-476 | MEDIUM | `if (ptr == NULL) { handle_error(); }` |
+| Pattern dangereux | CWE | Sévérité | isBug? | Correction |
+|-------------------|-----|----------|--------|------------|
+| `strcpy(dst, src)` | CWE-120 | Critical | ✅ Oui (crash) | `strncpy(dst, src, sizeof(dst)-1); dst[sizeof(dst)-1]='\0';` |
+| `sprintf(buf, fmt, ...)` | CWE-120 | Critical | ✅ Oui (crash) | `snprintf(buf, sizeof(buf), fmt, ...)` |
+| `gets(buf)` | CWE-120 | Blocker | ✅ Oui (crash) | `fgets(buf, sizeof(buf), stdin)` |
+| `strcat(dst, src)` | CWE-120 | Critical | ✅ Oui (crash) | `strncat(dst, src, sizeof(dst)-strlen(dst)-1)` |
+| `scanf("%s", buf)` | CWE-120 | Critical | ✅ Oui (crash) | `scanf("%99s", buf)` avec limite |
+| `free(ptr); use(ptr)` | CWE-416 | Blocker | ✅ Oui (crash) | `free(ptr); ptr=NULL;` |
+| `malloc` sans check | CWE-476 | Major | ✅ Oui (crash si NULL) | `if (ptr == NULL) { handle_error(); }` |
 
 ### Injection
 
-| Pattern dangereux | CWE | Sévérité | Correction |
-|-------------------|-----|----------|------------|
-| `system(user_input)` | CWE-78 | CRITICAL | Valider/sanitizer l'input, éviter system() |
-| `popen(user_input, ...)` | CWE-78 | CRITICAL | Utiliser execvp() avec args séparés |
-| `exec*(user_input)` | CWE-78 | CRITICAL | Whitelist des commandes autorisées |
-| `sql_query(user_input)` | CWE-89 | CRITICAL | Requêtes préparées (parameterized queries) |
-| `eval(user_input)` | CWE-94 | CRITICAL | Ne jamais eval du contenu utilisateur |
+| Pattern dangereux | CWE | Sévérité | isBug? | Correction |
+|-------------------|-----|----------|--------|------------|
+| `system(user_input)` | CWE-78 | Blocker | ❌ Non | Valider/sanitizer l'input, éviter system() |
+| `popen(user_input, ...)` | CWE-78 | Blocker | ❌ Non | Utiliser execvp() avec args séparés |
+| `exec*(user_input)` | CWE-78 | Blocker | ❌ Non | Whitelist des commandes autorisées |
+| `sql_query(user_input)` | CWE-89 | Blocker | ❌ Non | Requêtes préparées (parameterized queries) |
+| `eval(user_input)` | CWE-94 | Blocker | ❌ Non | Ne jamais eval du contenu utilisateur |
 
 ### Path Traversal
 
-| Pattern dangereux | CWE | Sévérité | Correction |
-|-------------------|-----|----------|------------|
-| `open(user_path)` | CWE-22 | HIGH | Vérifier que le path est dans le répertoire autorisé |
-| `include(user_file)` | CWE-22 | CRITICAL | Whitelist des fichiers autorisés |
-| Path avec `..` | CWE-22 | HIGH | Normaliser et vérifier le path final |
+| Pattern dangereux | CWE | Sévérité | isBug? | Correction |
+|-------------------|-----|----------|--------|------------|
+| `open(user_path)` | CWE-22 | Critical | ❌ Non | Vérifier que le path est dans le répertoire autorisé |
+| `include(user_file)` | CWE-22 | Blocker | ❌ Non | Whitelist des fichiers autorisés |
+| Path avec `..` | CWE-22 | Critical | ❌ Non | Normaliser et vérifier le path final |
 
 ### Credentials
 
-| Pattern dangereux | CWE | Sévérité | Correction |
-|-------------------|-----|----------|------------|
-| `password = "..."` | CWE-798 | CRITICAL | Variables d'environnement ou vault |
-| `api_key = "..."` | CWE-798 | CRITICAL | Fichier de config sécurisé |
-| `if (pass == "admin")` | CWE-798 | CRITICAL | Hash comparison avec timing-safe |
+| Pattern dangereux | CWE | Sévérité | isBug? | Correction |
+|-------------------|-----|----------|--------|------------|
+| `password = "..."` | CWE-798 | Blocker | ❌ Non | Variables d'environnement ou vault |
+| `api_key = "..."` | CWE-798 | Blocker | ❌ Non | Fichier de config sécurisé |
+| `if (pass == "admin")` | CWE-798 | Blocker | ❌ Non | Hash comparison avec timing-safe |
+
+### Définition de isBug
+
+Un finding a `isBug: true` **uniquement** s'il provoque un **arrêt brutal de l'application** :
+- ✅ Crash (segfault, exception non gérée)
+- ✅ Gel (freeze, boucle infinie)
+- ✅ Fermeture inopinée
+
+**Ce n'est PAS un bug** si l'application reste fonctionnelle malgré le problème :
+- ❌ Vulnérabilité de sécurité (données exposées mais app fonctionne)
+- ❌ Résultats incorrects
+- ❌ Fuite mémoire progressive
 
 ## Détection des Régressions
 
@@ -204,11 +264,13 @@ strcpy(response_buffer, user_data);
 
 ### Vulnerabilities
 
-#### 🔴 [CRITICAL] SEC-001 : RÉGRESSION - Buffer Overflow (CWE-120)
+#### 🔴 [Blocker] SEC-001 : RÉGRESSION - Buffer Overflow (CWE-120)
 
+- **Catégorie** : Security
 - **Fichier** : src/server/UDPServer.cpp:67
 - **Fonction** : `processRequest()`
 - **Bug similaire** : #BUG-456 (2025-10-15)
+- **isBug** : ✅ Oui (provoque un crash - segmentation fault)
 
 **Code actuel** :
 ```cpp
@@ -233,10 +295,12 @@ void processRequest(const char* user_data) {
 - **Bloquant** : ✅ OUI (régression)
 - **Référence** : https://cwe.mitre.org/data/definitions/120.html
 
-#### 🟠 [HIGH] SEC-002 : Command Injection potentielle (CWE-78)
+#### 🔴 [Blocker] SEC-002 : Command Injection potentielle (CWE-78)
 
+- **Catégorie** : Security
 - **Fichier** : src/utils/Shell.cpp:34
 - **Fonction** : `executeCommand()`
+- **isBug** : ❌ Non (vulnérabilité, mais l'app ne crash pas)
 
 **Code actuel** :
 ```cpp
@@ -259,13 +323,15 @@ void executeCommand(const std::string& cmd) {
 ```
 
 - **Temps estimé** : ~20 min
-- **Bloquant** : ✅ OUI (CWE-78 = CRITICAL)
+- **Bloquant** : ✅ OUI (CWE-78 = vulnérabilité critique)
 - **Propagation** : 4 fonctions appellent `executeCommand`
 
-#### 🟡 [MEDIUM] SEC-003 : Retour non vérifié (CWE-252)
+#### 🟡 [Medium] SEC-003 : Retour non vérifié (CWE-252)
 
+- **Catégorie** : Reliability
 - **Fichier** : src/server/UDPServer.cpp:89
 - **Fonction** : `sendResponse()`
+- **isBug** : ❌ Non (erreur silencieuse, pas de crash)
 
 **Code actuel** :
 ```cpp
@@ -323,12 +389,14 @@ executeCommand (src/utils/Shell.cpp:34) [VULNERABLE: CWE-78]
   "score": 45,
   "vulnerabilities": 3,
   "regressions": 1,
-  "max_severity": "CRITICAL",
+  "max_severity": "Blocker",
   "cwes": ["CWE-120", "CWE-78", "CWE-252"],
   "findings": [
     {
       "id": "SEC-001",
-      "severity": "CRITICAL",
+      "severity": "Blocker",
+      "category": "Security",
+      "isBug": true,
       "type": "regression",
       "cwe": "CWE-120",
       "file": "src/server/UDPServer.cpp",
@@ -341,7 +409,9 @@ executeCommand (src/utils/Shell.cpp:34) [VULNERABLE: CWE-78]
     },
     {
       "id": "SEC-002",
-      "severity": "HIGH",
+      "severity": "Blocker",
+      "category": "Security",
+      "isBug": false,
       "type": "vulnerability",
       "cwe": "CWE-78",
       "file": "src/utils/Shell.cpp",
@@ -354,7 +424,9 @@ executeCommand (src/utils/Shell.cpp:34) [VULNERABLE: CWE-78]
     },
     {
       "id": "SEC-003",
-      "severity": "MEDIUM",
+      "severity": "Medium",
+      "category": "Reliability",
+      "isBug": false,
       "type": "vulnerability",
       "cwe": "CWE-252",
       "file": "src/server/UDPServer.cpp",
@@ -379,18 +451,22 @@ executeCommand (src/utils/Shell.cpp:34) [VULNERABLE: CWE-78]
 
 ## Calcul du Score (0-100)
 
+**Référence** : Les pénalités sont définies dans `.claude/config/agentdb.yaml` section `analysis.security.penalties`
+
 ```
 Score = 100 - penalties
 
-Penalties :
-- Vulnérabilité CRITICAL : -30 chacune
-- Vulnérabilité HIGH : -20 chacune
-- Vulnérabilité MEDIUM : -10 chacune
-- Vulnérabilité LOW : -5 chacune
-- RÉGRESSION détectée : -25 (en plus de la sévérité)
-- Fichier security_sensitive touché : -10
-- Pattern de sécurité violé : -5 par pattern
-- AgentDB error_history non consulté : -10
+Pénalités (valeurs par défaut, voir config pour personnaliser) :
+- Vulnérabilité Blocker : -35 chacune (blocker)
+- Vulnérabilité Critical : -25 chacune (critical)
+- Vulnérabilité Major : -15 chacune (major)
+- Vulnérabilité Medium : -10 chacune (medium)
+- Vulnérabilité Minor : -5 chacune (minor)
+- Vulnérabilité Info : 0 (info)
+- RÉGRESSION détectée : -25 (en plus de la sévérité) (regression)
+- Fichier security_sensitive touché : -10 (sensitive_file)
+- Pattern de sécurité violé : -5 par pattern (pattern_violated)
+- AgentDB error_history non consulté : 0 (no_error_history - pas de pénalité si DB vide)
 
 Minimum = 0 (ne pas aller en négatif)
 ```

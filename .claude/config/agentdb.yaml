@@ -326,3 +326,92 @@ logging:
   # Rotation des logs
   max_size_mb: 10
   backup_count: 5
+
+# -----------------------------------------------------------------------------
+# AGENT ANALYSIS CONFIGURATION
+# -----------------------------------------------------------------------------
+analysis:
+  # Seuils de verdict global
+  verdicts:
+    approve: 80      # Score >= 80 : peut être mergé
+    review: 60       # Score >= 60 : review humaine recommandée
+    careful: 40      # Score >= 40 : review approfondie requise
+    reject: 0        # Score < 40 : ne pas merger
+
+  # Pondération des agents pour le score global
+  weights:
+    security: 0.35   # Priorité maximale à la sécurité
+    risk: 0.25       # Risque global
+    reviewer: 0.25   # Qualité du code
+    analyzer: 0.15   # Impact (informatif)
+
+  # Configuration de l'agent SECURITY
+  security:
+    penalties:
+      critical: 30   # Vulnérabilité CRITICAL
+      high: 20       # Vulnérabilité HIGH
+      medium: 10     # Vulnérabilité MEDIUM
+      low: 5         # Vulnérabilité LOW
+      regression: 25 # Régression détectée (en plus de la sévérité)
+      sensitive_file: 10  # Fichier security_sensitive touché
+      pattern_violated: 5  # Pattern de sécurité violé
+      no_error_history: 0  # Pas de pénalité si DB vide
+
+  # Configuration de l'agent REVIEWER
+  reviewer:
+    penalties:
+      error: 15      # Issue de type ERROR
+      warning: 8     # Issue de type WARNING
+      info: 3        # Issue de type INFO
+      pattern_violated: 5   # Pattern projet violé
+      adr_violated: 10      # ADR violé
+      high_complexity: 10   # Complexité max > seuil
+      low_documentation: 10 # Documentation < 50%
+      no_patterns: 5        # AgentDB patterns non chargés
+
+  # Configuration de l'agent RISK
+  risk:
+    factors:
+      criticality:
+        max_penalty: 30
+        is_critical: 20      # Fichier is_critical=true
+        security_sensitive: 15  # Fichier security_sensitive=true
+        in_critical_list: 10    # Dans list_critical_files
+      history:
+        max_penalty: 25
+        bug_30d: 5           # Par bug dans les 30 derniers jours (max 15)
+        bug_high_90d: 5      # Bug HIGH+ dans 90 jours (supplément)
+        regression: 10       # Régression connue
+      complexity:
+        max_penalty: 20
+        max_over_20: 10      # Complexité max > 20
+        max_over_15: 5       # Complexité max > 15
+        avg_over_10: 5       # Complexité moyenne > 10
+        lines_over_500: 5    # Plus de 500 lignes
+      tests:
+        max_penalty: 15
+        no_tests: 10         # has_tests=false
+        no_test_modified: 5  # Fichier test non modifié avec +50 lignes
+      impact:
+        max_penalty: 10
+        files_over_10: 10    # Plus de 10 fichiers impactés
+        files_over_5: 5      # Plus de 5 fichiers impactés
+        critical_impacted: 5 # Fichier critique impacté
+
+  # Configuration de l'agent ANALYZER
+  analyzer:
+    penalties:
+      critical_file: 15      # Par fichier critique modifié
+      global_impact: 20      # Impact GLOBAL (cross-module)
+      module_impact: 10      # Impact MODULE
+      callers_per_func_5: 5  # Par fonction avec > 5 appelants
+      total_callers_10: 10   # Plus de 10 appelants au total
+      signature_change: 10   # Par changement de signature publique
+      no_agentdb_data: 5     # AgentDB vide
+
+  # Configuration de SYNTHESIS
+  synthesis:
+    penalties:
+      blocking_issues: 10    # Issues bloquantes présentes
+      contradictions: 5      # Contradictions entre agents
+      regressions: 15        # Régressions détectées
