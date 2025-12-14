@@ -6,11 +6,21 @@
 */
 
 #include "main.hpp"
+#include "accessibility/AccessibilityConfig.hpp"
 
 int main(void) {
     try
     {
         client::logging::Logger::init();
+
+        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+        if (accessConfig.loadFromFile("assets/accessibility.cfg")) {
+            client::logging::Logger::getBootLogger()->info("Accessibility config loaded");
+        } else {
+            client::logging::Logger::getBootLogger()->info("Using default accessibility settings");
+            accessConfig.saveToFile("assets/accessibility.cfg");
+        }
+
         Boot boot;
         boot.core();
         client::logging::Logger::shutdown();

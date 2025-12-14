@@ -11,8 +11,12 @@
 #include "scenes/IScene.hpp"
 #include "events/Event.hpp"
 #include "graphics/IWindow.hpp"
+#include "accessibility/AccessibilityConfig.hpp"
+#include "audio/AudioManager.hpp"
 #include <iostream>
 #include <unordered_set>
+#include <vector>
+#include <random>
 
 class GameScene : public IScene
 {
@@ -25,11 +29,61 @@ public:
     void render() override;
 
 private:
+    void renderBackground();
+    void renderHUD();
+    void renderPlayers();
+    void renderMissiles();
+    void renderEnemies();
+    void renderEnemyMissiles();
+    void renderDeathScreen();
+    void loadAssets();
+    void initStars();
+    void initAudio();
+
     uint16_t _localX = 100;
     uint16_t _localY = 300;
     std::unordered_set<events::Key> _keysPressed;
+
+    float _shootCooldown = 0.0f;
+    bool _assetsLoaded = false;
+    bool _starsInitialized = false;
+    bool _audioInitialized = false;
+
+    struct Star {
+        float x, y;
+        float speed;
+        float size;
+        uint8_t brightness;
+    };
+    std::vector<Star> _stars;
+
     static constexpr float MOVE_SPEED = 200.0f;
-    static constexpr float SHIP_WIDTH = 50.0f;
+    static constexpr float SHIP_WIDTH = 64.0f;
     static constexpr float SHIP_HEIGHT = 30.0f;
+    static constexpr float MISSILE_WIDTH = 32.0f;
+    static constexpr float MISSILE_HEIGHT = 16.0f;
+
+    static constexpr float HUD_HEALTH_BAR_WIDTH = 200.0f;
+    static constexpr float HUD_HEALTH_BAR_HEIGHT = 20.0f;
+    static constexpr float HUD_MARGIN = 20.0f;
+    static constexpr uint8_t MAX_HEALTH = 100;
+
+    static constexpr float SHOOT_COOLDOWN_TIME = 0.3f;
+    static constexpr const char* SHIP_TEXTURE_KEY = "ship";
+    static constexpr const char* MISSILE_TEXTURE_KEY = "missile";
+    static constexpr const char* FONT_KEY = "main";
+    static constexpr unsigned int LABEL_FONT_SIZE = 14;
+
+    static constexpr float ENEMY_WIDTH = 40.0f;
+    static constexpr float ENEMY_HEIGHT = 40.0f;
+    static constexpr float ENEMY_MISSILE_WIDTH = 24.0f;
+    static constexpr float ENEMY_MISSILE_HEIGHT = 12.0f;
+    static constexpr const char* ENEMY_TEXTURE_KEY = "enemy";
+
+    static constexpr float SCREEN_WIDTH = 1920.0f;
+    static constexpr float SCREEN_HEIGHT = 1080.0f;
+    static constexpr size_t STAR_COUNT = 150;
+    static constexpr float STAR_MIN_SPEED = 20.0f;
+    static constexpr float STAR_MAX_SPEED = 150.0f;
 };
 #endif /* !GAMESCENE_HPP_ */
