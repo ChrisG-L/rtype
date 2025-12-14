@@ -29,6 +29,10 @@ namespace graphics {
             virtual void draw(const IDrawable& drawable) = 0;
             virtual void drawRect(float x, float y, float width, float height, rgba color) = 0;
             virtual void drawImg(graphics::IDrawable, float x, float y, float scaleX, float scaleY) = 0;
+            virtual bool loadTexture(const std::string& key, const std::string& filepath) = 0;
+            virtual void drawSprite(const std::string& textureKey, float x, float y, float width, float height) = 0;
+            virtual bool loadFont(const std::string& key, const std::string& filepath) = 0;
+            virtual void drawText(const std::string& fontKey, const std::string& text, float x, float y, unsigned int size, rgba color) = 0;
 
             virtual void* getNativeHandle() = 0;
  

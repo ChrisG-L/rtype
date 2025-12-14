@@ -127,6 +127,66 @@ void SFMLWindow::drawImg(graphics::IDrawable drawable, float x, float y, float s
     // _window.draw(imgS);
 }
 
+bool SFMLWindow::loadTexture(const std::string& key, const std::string& filepath) {
+    if (_textures.count(key)) {
+        return true;
+    }
+
+    sf::Texture texture;
+    if (!texture.loadFromFile(filepath)) {
+        return false;
+    }
+
+    _textures[key] = std::move(texture);
+    return true;
+}
+
+void SFMLWindow::drawSprite(const std::string& textureKey, float x, float y, float width, float height) {
+    auto it = _textures.find(textureKey);
+    if (it == _textures.end()) {
+        drawRect(x, y, width, height, {255, 0, 255, 255});
+        return;
+    }
+
+    sf::Sprite sprite(it->second);
+    sprite.setPosition({x, y});
+
+    sf::Vector2u texSize = it->second.getSize();
+    if (texSize.x > 0 && texSize.y > 0) {
+        float scaleX = width / static_cast<float>(texSize.x);
+        float scaleY = height / static_cast<float>(texSize.y);
+        sprite.setScale({scaleX, scaleY});
+    }
+
+    _window.draw(sprite);
+}
+
+bool SFMLWindow::loadFont(const std::string& key, const std::string& filepath) {
+    if (_fonts.count(key)) {
+        return true;
+    }
+
+    sf::Font font;
+    if (!font.openFromFile(filepath)) {
+        return false;
+    }
+
+    _fonts[key] = std::move(font);
+    return true;
+}
+
+void SFMLWindow::drawText(const std::string& fontKey, const std::string& text, float x, float y, unsigned int size, rgba color) {
+    auto it = _fonts.find(fontKey);
+    if (it == _fonts.end()) {
+        return;
+    }
+
+    sf::Text sfText(it->second, text, size);
+    sfText.setPosition({x, y});
+    sfText.setFillColor(sf::Color(color.r, color.g, color.b, color.a));
+    _window.draw(sfText);
+}
+
 void SFMLWindow::clear() {
     _window.clear();
 }

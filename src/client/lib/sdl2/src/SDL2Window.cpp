@@ -8,6 +8,8 @@
 #include "SDL2Window.hpp"
 #include "events/Event.hpp"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdexcept>
 
 static events::Key scancodeToKey(SDL_Scancode scancode)
@@ -99,6 +101,24 @@ SDL2Window::SDL2Window(Vec2u winSize, const std::string& name)
 
 SDL2Window::~SDL2Window()
 {
+    for (auto& [key, texture] : _textures) {
+        if (texture) {
+            SDL_DestroyTexture(texture);
+        }
+    }
+    _textures.clear();
+
+    for (auto& [key, font] : _fonts) {
+        if (font) {
+            TTF_CloseFont(font);
+        }
+    }
+    _fonts.clear();
+
+    if (_ttfInitialized) {
+        TTF_Quit();
+    }
+
     if (_renderer) {
         SDL_DestroyRenderer(_renderer);
     }
@@ -165,6 +185,94 @@ void SDL2Window::drawRect(float x, float y, float width, float height, rgba colo
 
 void SDL2Window::drawImg(graphics::IDrawable drawable, float x, float y, float scaleX, float scaleY)
 {
+}
+
+bool SDL2Window::loadTexture(const std::string& key, const std::string& filepath)
+{
+    if (_textures.count(key)) {
+        return true;
+    }
+
+    SDL_Surface* surface = IMG_Load(filepath.c_str());
+    if (!surface) {
+        return false;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
+    SDL_FreeSurface(surface);
+
+    if (!texture) {
+        return false;
+    }
+
+    _textures[key] = texture;
+    return true;
+}
+
+void SDL2Window::drawSprite(const std::string& textureKey, float x, float y, float width, float height)
+{
+    auto it = _textures.find(textureKey);
+    if (it == _textures.end()) {
+        drawRect(x, y, width, height, {255, 0, 255, 255});
+        return;
+    }
+
+    SDL_FRect destRect = {x, y, width, height};
+    SDL_RenderCopyF(_renderer, it->second, nullptr, &destRect);
+}
+
+bool SDL2Window::loadFont(const std::string& key, const std::string& filepath)
+{
+    if (_fonts.count(key)) {
+        return true;
+    }
+
+    if (!_ttfInitialized) {
+        if (TTF_Init() < 0) {
+            return false;
+        }
+        _ttfInitialized = true;
+    }
+
+    TTF_Font* font = TTF_OpenFont(filepath.c_str(), 16);
+    if (!font) {
+        return false;
+    }
+
+    _fonts[key] = font;
+    return true;
+}
+
+void SDL2Window::drawText(const std::string& fontKey, const std::string& text, float x, float y, unsigned int size, rgba color)
+{
+    auto it = _fonts.find(fontKey);
+    if (it == _fonts.end()) {
+        return;
+    }
+
+    TTF_SetFontSize(it->second, static_cast<int>(size));
+    SDL_Color sdlColor = {
+        static_cast<Uint8>(color.r),
+        static_cast<Uint8>(color.g),
+        static_cast<Uint8>(color.b),
+        static_cast<Uint8>(color.a)
+    };
+    SDL_Surface* surface = TTF_RenderText_Blended(it->second, text.c_str(), sdlColor);
+    if (!surface) {
+        return;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
+    SDL_FreeSurface(surface);
+    if (!texture) {
+        return;
+    }
+
+    int texW, texH;
+    SDL_QueryTexture(texture, nullptr, nullptr, &texW, &texH);
+    SDL_FRect destRect = {x, y, static_cast<float>(texW), static_cast<float>(texH)};
+    SDL_RenderCopyF(_renderer, texture, nullptr, &destRect);
+    SDL_DestroyTexture(texture);
 }
 
 void SDL2Window::clear()

@@ -9,7 +9,9 @@
 #define SDL2WINDOW_HPP_
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <string>
+#include <unordered_map>
 
 #include "graphics/IWindow.hpp"
 #include "graphics/IDrawable.hpp"
@@ -28,6 +30,10 @@ class SDL2Window: public graphics::IWindow {
         void draw(const graphics::IDrawable& drawable) override;
         void drawRect(float x, float y, float width, float height, rgba color) override;
         void drawImg(graphics::IDrawable, float x, float y, float scaleX, float scaleY) override;
+        bool loadTexture(const std::string& key, const std::string& filepath) override;
+        void drawSprite(const std::string& textureKey, float x, float y, float width, float height) override;
+        bool loadFont(const std::string& key, const std::string& filepath) override;
+        void drawText(const std::string& fontKey, const std::string& text, float x, float y, unsigned int size, rgba color) override;
 
         void* getNativeHandle() override;
 
@@ -40,6 +46,9 @@ class SDL2Window: public graphics::IWindow {
         SDL_Window* _window;
         SDL_Renderer* _renderer;
         bool _isOpen;
+        bool _ttfInitialized = false;
+        std::unordered_map<std::string, SDL_Texture*> _textures;
+        std::unordered_map<std::string, TTF_Font*> _fonts;
 };
 
 #endif /* !SDL2WINDOW_HPP_ */
