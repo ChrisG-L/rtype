@@ -364,6 +364,7 @@ Mais cap à 58 car pas de régression et pas de vuln CRITICAL
   "findings": [
     {
       "id": "RISK-001",
+      "source": ["risk"],
       "severity": "Critical",
       "category": "Reliability",
       "isBug": false,
@@ -376,6 +377,7 @@ Mais cap à 58 car pas de régression et pas de vuln CRITICAL
     },
     {
       "id": "RISK-002",
+      "source": ["risk"],
       "severity": "Major",
       "category": "Maintainability",
       "isBug": false,

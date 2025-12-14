@@ -42,3 +42,7 @@ output.txt
 # Environment files (contains secrets)
 .env
 .env.local
+.claude/agentdb/db.sqlite
+.claude/agentdb/db.sqlite-shm
+.claude/agentdb/db.sqlite-wal
+.claude/agentdb/db.sqlite.bak

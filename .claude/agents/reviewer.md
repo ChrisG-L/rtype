@@ -424,6 +424,7 @@ New code:
   "findings": [
     {
       "id": "REV-001",
+      "source": ["reviewer"],
       "severity": "Critical",
       "category": "Maintainability",
       "isBug": false,
@@ -438,6 +439,7 @@ New code:
     },
     {
       "id": "REV-002",
+      "source": ["reviewer"],
       "severity": "Medium",
       "category": "Maintainability",
       "isBug": false,
@@ -451,6 +453,7 @@ New code:
     },
     {
       "id": "REV-003",
+      "source": ["reviewer"],
       "severity": "Major",
       "category": "Maintainability",
       "isBug": false,
@@ -464,6 +467,7 @@ New code:
     },
     {
       "id": "REV-004",
+      "source": ["reviewer"],
       "severity": "Minor",
       "category": "Maintainability",
       "isBug": false,

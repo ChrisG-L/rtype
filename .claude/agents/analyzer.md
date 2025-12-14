@@ -251,6 +251,7 @@ DEFAULT_TIMEOUT (src/core/Config.hpp:15) [MODIFIED]
   "findings": [
     {
       "id": "ANA-001",
+      "source": ["analyzer"],
       "severity": "Critical",
       "category": "Reliability",
       "isBug": false,
@@ -263,6 +264,7 @@ DEFAULT_TIMEOUT (src/core/Config.hpp:15) [MODIFIED]
     },
     {
       "id": "ANA-002",
+      "source": ["analyzer"],
       "severity": "Major",
       "category": "Reliability",
       "isBug": false,

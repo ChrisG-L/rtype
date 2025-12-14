@@ -68,6 +68,32 @@ echo "HEAD: $HEAD_SHORT - $HEAD_MESSAGE"
 | `--files <paths>` | `files` | Analyse fichiers spécifiques |
 | `<hash>` | `commit` | Analyse un commit spécifique |
 
+```bash
+# Déterminer le mode d'analyse (POSIX-compatible pour bash/zsh)
+MODE="incremental"  # Par défaut
+
+case "$ARGUMENTS" in
+    "--all")
+        MODE="full"
+        ;;
+    "--reset")
+        MODE="reset"
+        ;;
+    "--files"*)
+        MODE="files"
+        ;;
+    ""|--*)
+        # Vide ou autre option --xxx : rester en incremental
+        ;;
+    *)
+        # Argument sans -- : probablement un hash de commit
+        MODE="commit"
+        ;;
+esac
+
+echo "Mode d'analyse: $MODE"
+```
+
 ## ÉTAPE 2 : Récupérer ou calculer le point de départ
 
 ### Mode INCREMENTAL (par défaut, sans argument)
@@ -141,17 +167,17 @@ Analyse des fichiers spécifiques sans utiliser le système de checkpoint.
 ```bash
 # Exemple: /analyze --files src/server/UDPServer.cpp src/client/Client.cpp
 
-# Extraire les fichiers de la liste d'arguments
+# Extraire les fichiers de la liste d'arguments (POSIX-compatible)
 FILES_TO_ANALYZE=""
 PARSING_FILES=false
 for arg in $ARGUMENTS; do
-    if [[ "$arg" == "--files" ]]; then
+    if [ "$arg" = "--files" ]; then
         PARSING_FILES=true
         continue
     fi
-    if [[ "$PARSING_FILES" == true ]]; then
+    if [ "$PARSING_FILES" = "true" ]; then
         # Vérifier que le fichier existe
-        if [[ -f "$arg" ]]; then
+        if [ -f "$arg" ]; then
             FILES_TO_ANALYZE="$FILES_TO_ANALYZE $arg"
         else
             echo "⚠️  Fichier non trouvé: $arg"
@@ -160,12 +186,12 @@ for arg in $ARGUMENTS; do
 done
 
 # Valider qu'au moins un fichier est spécifié
-if [[ -z "$FILES_TO_ANALYZE" ]]; then
+if [ -z "$FILES_TO_ANALYZE" ]; then
     echo '{"error": "Aucun fichier valide spécifié. Usage: /analyze --files <file1> [file2] ..."}'
     # TERMINER
 fi
 
-FILES_COUNT=`echo "$FILES_TO_ANALYZE" | wc -w`
+FILES_COUNT=$(echo "$FILES_TO_ANALYZE" | wc -w)
 ```
 
 **Workflow mode FILES** :
@@ -201,16 +227,19 @@ Analyse un commit spécifique (diff entre parent et ce commit).
 
 COMMIT_ARG="$ARGUMENTS"
 
-# Vérifier si c'est une plage (contient ..)
-if [[ "$COMMIT_ARG" == *".."* ]]; then
-    # Plage de commits: abc123..def456
-    START_COMMIT="${COMMIT_ARG%%..*}"
-    END_COMMIT="${COMMIT_ARG##*..}"
-else
-    # Commit unique: analyser depuis son parent
-    START_COMMIT=`git rev-parse "$COMMIT_ARG^" 2>/dev/null`
-    END_COMMIT="$COMMIT_ARG"
-fi
+# Vérifier si c'est une plage (contient ..) - POSIX-compatible
+case "$COMMIT_ARG" in
+    *".."*)
+        # Plage de commits: abc123..def456
+        START_COMMIT="${COMMIT_ARG%%..*}"
+        END_COMMIT="${COMMIT_ARG##*..}"
+        ;;
+    *)
+        # Commit unique: analyser depuis son parent
+        START_COMMIT=$(git rev-parse "$COMMIT_ARG^" 2>/dev/null)
+        END_COMMIT="$COMMIT_ARG"
+        ;;
+esac
 
 # Valider les commits
 if ! git rev-parse --verify "$START_COMMIT" >/dev/null 2>&1; then
@@ -289,6 +318,95 @@ FILES_COUNT=`echo "$FILES_CHANGED" | grep -c '.' || echo 0`
 
 **TERMINER ICI si aucun fichier à analyser.**
 
+## ÉTAPE 3b : Transformer le rapport SonarQube (optionnel)
+
+**Cette étape est optionnelle.** Si aucun rapport SonarQube n'est disponible, continuer normalement.
+
+### Vérifier la présence du rapport SonarQube
+
+```bash
+# POSIX-compatible SonarQube detection
+SONAR_INPUT=".claude/sonar/issues.json"
+SONAR_AVAILABLE=false
+
+if [ -f "$SONAR_INPUT" ]; then
+    SONAR_AVAILABLE=true
+    echo "📊 Rapport SonarQube détecté : $SONAR_INPUT"
+else
+    echo "ℹ️  Pas de rapport SonarQube trouvé, analyse sans SonarQube"
+fi
+```
+
+### Si le rapport existe, le transformer
+
+```bash
+# POSIX-compatible SonarQube transformation
+if [ "$SONAR_AVAILABLE" = "true" ]; then
+    # Créer le dossier de rapport si nécessaire (utilisé plus tard aussi)
+    DATE=$(date +%Y-%m-%d)
+    REPORT_DIR=".claude/reports/${DATE}-${HEAD_SHORT}"
+    mkdir -p "$REPORT_DIR"
+
+    # Préparer la liste des fichiers du diff (séparés par des virgules)
+    FILES_LIST=$(echo "$FILES_CHANGED" | tr '\n' ',' | sed 's/,$//')
+
+    # Calculer la date du commit de départ pour filtrer SonarQube
+    # Cette date est celle du checkpoint (ou merge-base si premier run)
+    # Format ISO 8601 : 2025-12-10T14:32:15+01:00
+    if [ "$MODE" = "full" ]; then
+        # Mode --all : garder toutes les issues (pas de filtrage temporel)
+        SINCE_ARG="--since none"
+        echo "Mode --all : pas de filtrage temporel SonarQube"
+    else
+        # Mode incrémental : filtrer les issues depuis la date du commit de départ
+        CHECKPOINT_DATE=$(git show -s --format=%cI "$LAST_COMMIT" 2>/dev/null)
+        if [ -n "$CHECKPOINT_DATE" ]; then
+            SINCE_ARG="--since $CHECKPOINT_DATE"
+            echo "Filtrage SonarQube depuis : $CHECKPOINT_DATE"
+        else
+            # Fallback si pas de date disponible
+            SINCE_ARG="--since 48h"
+            echo "Fallback : filtrage SonarQube sur 48h"
+        fi
+    fi
+
+    # Générer le rapport Markdown ET JSON filtré sur les fichiers du diff
+    # Le script génère automatiquement :
+    # - sonar.md (pour SYNTHESIS)
+    # - sonar-issues.json (pour web-synthesizer)
+    python .claude/scripts/transform-sonar.py "$SONAR_INPUT" \
+        --files "$FILES_LIST" \
+        $SINCE_ARG \
+        --commit "$HEAD_SHORT" \
+        --branch "$CURRENT_BRANCH" \
+        --output "$REPORT_DIR/sonar.md"
+
+    if [ $? -eq 0 ]; then
+        SONAR_REPORT="$REPORT_DIR/sonar.md"
+        SONAR_ISSUES_JSON="$REPORT_DIR/sonar-issues.json"
+        echo "✅ Rapport SonarQube généré : $SONAR_REPORT"
+        echo "✅ Issues SonarQube JSON : $SONAR_ISSUES_JSON"
+    else
+        echo "⚠️  Erreur lors de la transformation SonarQube, analyse sans SonarQube"
+        SONAR_AVAILABLE=false
+        SONAR_ISSUES_JSON=""
+    fi
+fi
+```
+
+**Comportement** :
+- Si `.claude/sonar/issues.json` existe → transformer et filtrer sur les fichiers du diff
+- Si le fichier n'existe pas → continuer sans SonarQube (message informatif)
+
+**Filtrage temporel dynamique** :
+- Mode incrémental : filtre les issues depuis la date du commit checkpoint
+- Mode --all : pas de filtrage temporel (garde toutes les issues)
+- La date est au format ISO 8601 (ex: `2025-12-10T14:32:15+01:00`)
+- Si la transformation échoue → continuer sans SonarQube (avertissement)
+- Le rapport `sonar.md` sera passé à SYNTHESIS comme input optionnel
+
+---
+
 ## ÉTAPE 4 : Afficher le résumé avant analyse
 
 ```
@@ -299,6 +417,7 @@ FILES_COUNT=`echo "$FILES_CHANGED" | grep -c '.' || echo 0`
 ║  Checkpoint   : {LAST_COMMIT_SHORT} ({LAST_DATE})             ║
 ║  HEAD         : {HEAD_SHORT}                                  ║
 ║  Fichiers     : {FILES_COUNT} fichiers à analyser             ║
+║  SonarQube    : {Disponible/Non disponible}                   ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║  Fichiers modifiés :                                          ║
 ║  - src/server/UDPServer.cpp (modifié)                         ║
@@ -329,7 +448,7 @@ git diff $LAST_COMMIT..HEAD --stat -- "path/to/file.cpp"
 
 ## ÉTAPE 7 : Lancer les agents
 
-### Ordre d'exécution OBLIGATOIRE
+### Ordre d'exécution OBLIGATOIRE (4 phases)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -342,18 +461,31 @@ git diff $LAST_COMMIT..HEAD --stat -- "path/to/file.cpp"
 │        └──────────────┼──────────────┘                           │
 │                       ▼                                          │
 ├─────────────────────────────────────────────────────────────────┤
-│                     PHASE 2 : SÉQUENTIEL                        │
+│                     PHASE 2 : RISK puis PARALLÈLE               │
 │                       ▼                                          │
 │                 ┌──────────┐                                     │
 │                 │   RISK   │  ← Reçoit les 3 rapports           │
 │                 └────┬─────┘                                     │
-│                      ▼                                          │
-│                ┌───────────┐                                     │
-│                │ SYNTHESIS │  ← Reçoit les 4 rapports           │
-│                └────┬──────┘                                     │
+│                      ▼                                           │
+│        ┌─────────────┴─────────────┐                             │
+│        │                           │                             │
+│   ┌────┴─────┐               ┌─────┴────┐                        │
+│   │SYNTHESIS │               │  SONAR   │ (si SonarQube dispo)   │
+│   └────┬─────┘               └────┬─────┘                        │
+│        │                          │                              │
+│        └──────────┬───────────────┘                              │
+│                   ▼                                              │
+├─────────────────────────────────────────────────────────────────┤
+│                     PHASE 3 : FUSION                            │
+│                       ▼                                          │
+│            ┌───────────────────┐                                 │
+│            │  META-SYNTHESIS   │ ← Fusionne SYNTHESIS + SONAR   │
+│            │  - Dédoublonne    │                                 │
+│            │  - Complète       │                                 │
+│            └────────┬──────────┘                                 │
 │                     ▼                                            │
 ├─────────────────────────────────────────────────────────────────┤
-│                     PHASE 3 : WEB EXPORT                        │
+│                     PHASE 4 : WEB EXPORT                        │
 │                     ▼                                            │
 │           ┌─────────────────┐                                    │
 │           │ WEB SYNTHESIZER │  ← Transforme pour le site web    │
@@ -378,27 +510,64 @@ Chaque agent DOIT utiliser AgentDB. Vérifie dans chaque rapport la présence de
 | SECURITY | `security` | error_history, patterns (category=security) |
 | REVIEWER | `reviewer` | patterns, file_metrics, architecture_decisions |
 
-### PHASE 2 : Lancer RISK puis SYNTHESIS (séquentiel)
+### PHASE 2 : Lancer RISK puis SYNTHESIS et SONAR (parallèle)
 
 **Attendre** que les 3 agents de Phase 1 soient terminés.
 
-### PHASE 3 : Lancer WEB SYNTHESIZER (après SYNTHESIS)
+1. **D'abord RISK** : Lancer l'agent RISK avec les résultats des 3 agents Phase 1
+2. **Puis en parallèle** :
+   - **SYNTHESIS** : Agrège les rapports des 4 agents (ANALYZER, SECURITY, REVIEWER, RISK)
+   - **SONAR** (si SonarQube disponible) : Enrichit les issues SonarQube avec AgentDB
 
-**Attendre** que SYNTHESIS soit terminé.
+| Agent | subagent_type | Input | Condition |
+|-------|---------------|-------|-----------|
+| RISK | `risk` | Rapports ANALYZER, SECURITY, REVIEWER | Toujours |
+| SYNTHESIS | `synthesis` | Rapports des 4 agents | Toujours |
+| SONAR | `sonar` | sonar-issues.json + contexte | Si SonarQube disponible |
+
+**CRITIQUE** : SYNTHESIS et SONAR sont lancés **en parallèle** dans un seul message avec **2 appels Task tool simultanés**.
+
+**Gestion du cas sans SonarQube** :
+- Si `.claude/sonar/issues.json` n'existe pas → Ne pas lancer SONAR, lancer seulement SYNTHESIS
+
+### PHASE 3 : Lancer META-SYNTHESIS (après Phase 2)
+
+**Attendre** que SYNTHESIS et SONAR (si lancé) soient terminés.
 
 | Agent | subagent_type | Input |
 |-------|---------------|-------|
-| WEB SYNTHESIZER | `web-synthesizer` | Rapport SYNTHESIS complet |
+| META-SYNTHESIS | `meta-synthesis` | Rapports SYNTHESIS + SONAR (si disponible) |
+
+**L'agent META-SYNTHESIS** :
+1. Lit le rapport SYNTHESIS (REPORT.md) avec tous les findings des agents
+2. Lit le rapport SONAR enrichi (sonar-enriched.json) si disponible
+3. Fusionne toutes les issues dans une liste unique
+4. Détecte et fusionne les doublons (même fichier + ligne ±5 + même catégorie)
+5. Génère les where/why/how pour les issues agents qui n'en ont pas
+6. Vérifie que CHAQUE issue a where/why/how NON VIDES
+7. Produit meta-synthesis.json pour WEB-SYNTHESIZER
+
+### PHASE 4 : Lancer WEB SYNTHESIZER (après Phase 3)
+
+**Attendre** que META-SYNTHESIS soit terminé.
+
+| Agent | subagent_type | Input |
+|-------|---------------|-------|
+| WEB SYNTHESIZER | `web-synthesizer` | Rapport META-SYNTHESIS |
 
 **L'agent WEB SYNTHESIZER** :
-1. Lit le rapport SYNTHESIS (REPORT.md)
-2. Extrait toutes les issues avec leurs métadonnées (severity, category, isBug)
-3. Génère les détails where/why/how pour chaque issue
-4. Produit un fichier JSON dans `reports/web-report-{date}-{commit}.json`
+1. Lit le rapport META-SYNTHESIS (meta-synthesis.json)
+2. Transforme en format JSON pour le site web
+3. Crée `issues[]` et `issueDetails{}`
+4. Vérifie que `issues.length === Object.keys(issueDetails).length`
+5. Produit un fichier JSON dans `reports/web-report-{date}-{commit}.json`
+
+**IMPORTANT** : WEB-SYNTHESIZER ne fait PLUS de dédoublonnage ni de fusion. Il reçoit des données déjà propres de META-SYNTHESIS.
 
 ## ÉTAPE 8 : Créer le dossier de rapport
 
 ```bash
+# Note: Le dossier peut déjà exister si SonarQube était disponible (étape 3b)
 DATE=`date +%Y-%m-%d`
 COMMIT_SHORT=`git rev-parse --short HEAD`
 REPORT_DIR=".claude/reports/${DATE}-${COMMIT_SHORT}"
@@ -409,11 +578,17 @@ mkdir -p "$REPORT_DIR"
 
 ```
 .claude/reports/{date}-{commit}/
-├── analyzer.md
-├── security.md
-├── reviewer.md
-├── risk.md
-└── REPORT.md
+├── analyzer.md              # Phase 1 - Agent ANALYZER
+├── security.md              # Phase 1 - Agent SECURITY
+├── reviewer.md              # Phase 1 - Agent REVIEWER
+├── risk.md                  # Phase 2 - Agent RISK
+├── REPORT.md                # Phase 2 - Agent SYNTHESIS (rapport principal)
+├── sonar.md                 # Phase 2 - Script transform-sonar.py (markdown)
+├── sonar-issues.json        # Phase 2 - Script transform-sonar.py (JSON)
+├── sonar-enriched.md        # Phase 2 - Agent SONAR (rapport lisible, optionnel)
+├── sonar-enriched.json      # Phase 2 - Agent SONAR (JSON pour META-SYNTHESIS, optionnel)
+├── meta-synthesis.json      # Phase 3 - Agent META-SYNTHESIS
+└── meta-synthesis-report.md # Phase 3 - Agent META-SYNTHESIS (rapport lisible)
 ```
 
 ## ÉTAPE 10 : Mettre à jour le checkpoint et enregistrer l'analyse
@@ -610,39 +785,135 @@ INSTRUCTIONS :
 2. Calcule le score global (Security×0.35 + Risk×0.25 + Reviewer×0.25 + Analyzer×0.15)
 3. Détecte les contradictions entre agents
 4. Détermine le verdict : APPROVE / REVIEW / CAREFUL / REJECT
-5. Produis le rapport final
+5. Produis le rapport final avec TOUS les findings des agents
 
 IMPORTANT - FORMAT DES FINDINGS :
 Chaque finding DOIT inclure :
+- id : Identifiant unique (SEC-001, ANA-001, REV-001, RISK-001)
+- source : Tableau ["security"] ou ["analyzer"] etc.
 - severity : Blocker | Critical | Major | Medium | Minor | Info
 - category : Security | Reliability | Maintainability
 - isBug : true si provoque crash/freeze, false sinon
+- file : Chemin du fichier
+- line : Numéro de ligne
+- message : Description du problème
+
+IMPORTANT - NOTE :
+- SYNTHESIS ne fait PLUS de dédoublonnage avec SonarQube
+- Le dédoublonnage sera fait par META-SYNTHESIS ensuite
+- Produis un rapport avec TOUS les findings des 4 agents
 
 FORMAT DE SORTIE OBLIGATOIRE : Utilise le format défini dans .claude/agents/synthesis.md
+```
+
+### Prompt SONAR
+
+```
+Enrichis les issues SonarQube avec le contexte du projet via AgentDB.
+
+**Type d'analyse** : Diff unifié entre {LAST_COMMIT_SHORT} et {HEAD_SHORT}
+**Branche** : {CURRENT_BRANCH}
+**Date** : {date}
+
+**Dossier de rapport** : .claude/reports/{date}-{commit}/
+
+**Fichiers du diff** :
+{liste des fichiers modifiés}
+
+**Fichier SonarQube issues** : .claude/reports/{date}-{commit}/sonar-issues.json
+(Généré par transform-sonar.py avec les issues filtrées sur les fichiers du diff)
+
+INSTRUCTIONS :
+1. Lis le fichier sonar-issues.json qui contient les issues SonarQube
+2. Pour CHAQUE issue, appelle AgentDB pour enrichir le contexte :
+   - file_context : Comprendre le rôle du fichier
+   - patterns : Trouver les patterns applicables
+   - file_metrics : Obtenir les métriques
+   - architecture_decisions : Vérifier les ADRs
+3. Enrichis les sections where/why/how avec le contexte du projet
+4. Vérifie que CHAQUE issue a where/why/how NON VIDES
+5. Produis sonar-enriched.json pour META-SYNTHESIS
+
+IMPORTANT - RÈGLE ABSOLUE :
+Chaque issue DOIT avoir un where, why, how NON VIDE.
+Si AgentDB ne répond pas, conserve les données basiques de transform-sonar.py.
+
+FORMAT DE SORTIE OBLIGATOIRE : Utilise le format défini dans .claude/agents/sonar.md
+```
+
+### Prompt META-SYNTHESIS
+
+```
+Fusionne et dédoublonne les rapports SYNTHESIS et SONAR.
+
+**Type d'analyse** : Diff unifié entre {LAST_COMMIT_SHORT} et {HEAD_SHORT}
+**Branche** : {CURRENT_BRANCH}
+**Date** : {date}
+
+**Dossier de rapport** : .claude/reports/{date}-{commit}/
+
+**Rapport SYNTHESIS** : .claude/reports/{date}-{commit}/REPORT.md
+**Rapport SONAR** : {Si SONAR_AVAILABLE == true : ".claude/reports/{date}-{commit}/sonar-enriched.json", sinon : "Non disponible"}
+
+INSTRUCTIONS :
+1. Lis le rapport SYNTHESIS et extrait TOUS les findings
+2. Si disponible, lis sonar-enriched.json avec les issues SonarQube
+3. Fusionne toutes les issues dans une liste unique
+4. Détecte les doublons (même fichier + ligne ±5 + même catégorie)
+5. Fusionne les doublons en combinant leurs sources
+6. Génère where/why/how pour les issues agents qui n'en ont pas
+7. Utilise AgentDB si des données manquent
+8. VÉRIFIE que CHAQUE issue a where/why/how NON VIDES
+9. Produis meta-synthesis.json pour WEB-SYNTHESIZER
+
+RÈGLE ABSOLUE :
+`issues.length === nombre_issueDetails`
+Chaque issue DOIT avoir where, why, how NON VIDES.
+
+RÈGLES DE FUSION :
+- ID : Garder l'ID agent (priorité sur SonarQube)
+- source : Combiner les tableaux (ex: ["security", "sonarqube"])
+- severity : Garder la plus haute
+- isBug : true si l'un des deux est true
+
+FORMAT DE SORTIE OBLIGATOIRE : Utilise le format défini dans .claude/agents/meta-synthesis.md
 ```
 
 ### Prompt WEB SYNTHESIZER
 
 ```
-Transforme le rapport SYNTHESIS en format compatible avec le site web CRE Interface.
+Transforme le rapport META-SYNTHESIS en format compatible avec le site web CRE Interface.
 
-**Rapport SYNTHESIS** : .claude/reports/{date}-{commit}/REPORT.md
+**Rapport META-SYNTHESIS** : .claude/reports/{date}-{commit}/meta-synthesis.json
 **Date** : {date}
 **Commit** : {HEAD_SHORT}
 **Branche** : {CURRENT_BRANCH}
 
 INSTRUCTIONS :
-1. Lis le rapport SYNTHESIS complet
-2. Extrait le bloc JSON contenant les findings
-3. Pour chaque finding, génère les détails (where, why, how) en markdown avec mermaid
-4. Assemble le rapport web au format JSON
-5. Sauvegarde dans reports/web-report-{date}-{commit}.json
+1. Lis le fichier meta-synthesis.json (déjà fusionné et dédoublonné par META-SYNTHESIS)
+2. Transforme chaque issue en format attendu par le site web
+3. Crée le tableau `issues[]` avec les bons champs
+4. Crée l'objet `issueDetails{}` avec where/why/how pour CHAQUE issue
+5. VÉRIFIE que `issues.length === Object.keys(issueDetails).length`
+6. Sauvegarde dans reports/web-report-{date}-{commit}.json
 
-RÈGLES isBug :
-- isBug = true UNIQUEMENT si l'issue provoque un crash/freeze/gel
-- Buffer overflow, null pointer, division par zéro → isBug = true
-- Vulnérabilités de sécurité sans crash → isBug = false
-- Problèmes de qualité/maintenabilité → isBug = false
+IMPORTANT - CE QUE TU NE FAIS PLUS :
+- Tu NE fais PLUS de dédoublonnage (déjà fait par META-SYNTHESIS)
+- Tu NE fais PLUS de fusion des sources (déjà fait par META-SYNTHESIS)
+- Tu NE génères PLUS les where/why/how (déjà générés par META-SYNTHESIS)
+- Tu COPIES simplement les données de meta-synthesis.json vers le format web
+
+RÈGLE ABSOLUE :
+`issues.length === Object.keys(issueDetails).length`
+
+Si cette règle n'est pas respectée → ERREUR, le JSON est invalide.
+
+VÉRIFICATION FINALE :
+Pour CHAQUE issue dans issues[] :
+- issueDetails[issue.id] DOIT exister
+- issueDetails[issue.id].where DOIT être non vide
+- issueDetails[issue.id].why DOIT être non vide
+- issueDetails[issue.id].how DOIT être non vide
 
 FORMAT DE SORTIE OBLIGATOIRE : Utilise le format défini dans .claude/agents/web-synthesizer.md
 ```
@@ -703,8 +974,12 @@ Maintenant, exécute l'analyse en suivant les étapes ci-dessus.
 3. Si mode == reset : mets à jour le checkpoint et TERMINE
 4. Calcule le diff unifié
 5. Si aucun fichier : affiche "Rien à analyser" et TERMINE
-6. Lance les agents (PHASE 1: analyzer/security/reviewer, PHASE 2: risk/synthesis, PHASE 3: web-synthesizer)
-7. Produis le rapport SYNTHESIS
-8. Génère le rapport web (web-synthesizer)
+6. Transforme le rapport SonarQube si disponible (transform-sonar.py)
+7. Lance les agents :
+   - **PHASE 1** : analyzer/security/reviewer EN PARALLÈLE
+   - **PHASE 2** : risk, puis synthesis/sonar EN PARALLÈLE
+   - **PHASE 3** : meta-synthesis (fusionne et dédoublonne)
+   - **PHASE 4** : web-synthesizer (produit le JSON final)
+8. Vérifie que CHAQUE issue a where/why/how
 9. Mets à jour le checkpoint avec le verdict
 10. Affiche le verdict final

@@ -394,6 +394,7 @@ executeCommand (src/utils/Shell.cpp:34) [VULNERABLE: CWE-78]
   "findings": [
     {
       "id": "SEC-001",
+      "source": ["security"],
       "severity": "Blocker",
       "category": "Security",
       "isBug": true,
@@ -409,6 +410,7 @@ executeCommand (src/utils/Shell.cpp:34) [VULNERABLE: CWE-78]
     },
     {
       "id": "SEC-002",
+      "source": ["security"],
       "severity": "Blocker",
       "category": "Security",
       "isBug": false,
@@ -424,6 +426,7 @@ executeCommand (src/utils/Shell.cpp:34) [VULNERABLE: CWE-78]
     },
     {
       "id": "SEC-003",
+      "source": ["security"],
       "severity": "Medium",
       "category": "Reliability",
       "isBug": false,

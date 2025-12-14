@@ -1,0 +1,453 @@
+{
+  "metadata": {
+    "commit": "59ce226",
+    "branch": "main",
+    "timestamp": "2025-12-12T15:00:00Z",
+    "verdict": "CAREFUL",
+    "score": 61
+  },
+  "issues": [
+    {
+      "id": "SONAR-001",
+      "source": ["sonarqube"],
+      "title": "Refactor this function to reduce its Cognitive Complexity from 29 to the 25 allowed.",
+      "category": "Maintainability",
+      "severity": "Critical",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 170,
+      "status": "pending",
+      "rule": "cpp:S3776",
+      "effort": "9min"
+    },
+    {
+      "id": "SONAR-002",
+      "source": ["sonarqube"],
+      "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+      "category": "Maintainability",
+      "severity": "Critical",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 193,
+      "status": "pending",
+      "rule": "cpp:S134",
+      "effort": "10min"
+    },
+    {
+      "id": "SONAR-003",
+      "source": ["sonarqube"],
+      "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+      "category": "Maintainability",
+      "severity": "Critical",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 199,
+      "status": "pending",
+      "rule": "cpp:S134",
+      "effort": "10min"
+    },
+    {
+      "id": "SEC-001",
+      "source": ["security", "risk"],
+      "title": "Password hashing without salt (CWE-916)",
+      "category": "Security",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/server/domain/value_objects/user/utils/PasswordUtils.cpp",
+      "line": 11,
+      "status": "pending"
+    },
+    {
+      "id": "SEC-002",
+      "source": ["security", "risk"],
+      "title": "Passwords transmitted in clear text (CWE-319)",
+      "category": "Security",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 236,
+      "status": "pending"
+    },
+    {
+      "id": "REV-001",
+      "source": ["reviewer"],
+      "title": "Variable maybe_unused but never used",
+      "category": "Maintainability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 80,
+      "status": "pending"
+    },
+    {
+      "id": "REV-002",
+      "source": ["reviewer", "risk"],
+      "title": "Move::execute() function body empty",
+      "category": "Reliability",
+      "severity": "Major",
+      "isBug": true,
+      "file": "src/server/application/use_cases/player/Move.cpp",
+      "line": 14,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-003",
+      "source": ["analyzer"],
+      "title": "Hardcoded credentials removed (POSITIVE)",
+      "category": "Security",
+      "severity": "Major",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "SONAR-004",
+      "source": ["sonarqube"],
+      "title": "Fill this compound statement, remove it, or add a nested comment explaining why it is empty.",
+      "category": "Maintainability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/client/src/network/UDPClient.cpp",
+      "line": 169,
+      "status": "pending",
+      "rule": "cpp:S108",
+      "effort": "5min"
+    },
+    {
+      "id": "SEC-003",
+      "source": ["security"],
+      "title": "Password in memory not cleared (CWE-316)",
+      "category": "Security",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 223,
+      "status": "pending"
+    },
+    {
+      "id": "REV-003",
+      "source": ["reviewer"],
+      "title": "Missing documentation on public functions",
+      "category": "Maintainability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 223,
+      "status": "pending"
+    },
+    {
+      "id": "REV-004",
+      "source": ["reviewer", "risk"],
+      "title": "Potential double lock in disconnect()",
+      "category": "Reliability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 106,
+      "status": "pending"
+    },
+    {
+      "id": "REV-005",
+      "source": ["reviewer"],
+      "title": "Using iostream instead of logger",
+      "category": "Maintainability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 12,
+      "status": "pending"
+    },
+    {
+      "id": "RISK-003",
+      "source": ["risk"],
+      "title": "Cyclomatic complexity exceeds threshold",
+      "category": "Maintainability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "RISK-004",
+      "source": ["risk"],
+      "title": "Protocol changes impact 21 files",
+      "category": "Reliability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "REV-006",
+      "source": ["reviewer"],
+      "title": "Magic number 4124 for UDP port",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 16,
+      "status": "pending"
+    },
+    {
+      "id": "REV-007",
+      "source": ["reviewer"],
+      "title": "Member _clients removed - verify not used",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": "src/server/include/infrastructure/adapters/in/network/UDPServer.hpp",
+      "line": 25,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-001",
+      "source": ["analyzer"],
+      "title": "Protocol enum renamed (Snapshop->Snapshot)",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-002",
+      "source": ["analyzer"],
+      "title": "Interface renamed (IUserRespository->IUserRepository)",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-004",
+      "source": ["analyzer"],
+      "title": "Debug output removed",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-005",
+      "source": ["analyzer"],
+      "title": "Thread safety improvement (POSITIVE)",
+      "category": "Reliability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-006",
+      "source": ["analyzer"],
+      "title": "Error handling improvement (POSITIVE)",
+      "category": "Reliability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "SEC-004",
+      "source": ["security"],
+      "title": "Debug statements logging passwords removed (POSITIVE)",
+      "category": "Security",
+      "severity": "Info",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "REV-008",
+      "source": ["reviewer"],
+      "title": "Error messages mix French and English",
+      "category": "Maintainability",
+      "severity": "Info",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "REV-009",
+      "source": ["reviewer"],
+      "title": "Documentation score at 0%",
+      "category": "Maintainability",
+      "severity": "Info",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-007",
+      "source": ["analyzer"],
+      "title": "Namespace typo fix (boostrap->bootstrap)",
+      "category": "Maintainability",
+      "severity": "Info",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-008",
+      "source": ["analyzer"],
+      "title": "Unused member removed",
+      "category": "Maintainability",
+      "severity": "Info",
+      "isBug": false,
+      "file": null,
+      "line": null,
+      "status": "pending"
+    }
+  ],
+  "issueDetails": {
+    "SEC-001": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/domain/value_objects/user/utils/PasswordUtils.cpp`\n**Ligne** : 11\n**Fonction** : `hashPassword(std::string password)`\n**Module** : server (Domain Layer)\n\n### Contexte du fichier\n\nCe fichier fait partie de la couche Domain du serveur R-Type. Il implemente les utilitaires de gestion des mots de passe dans le namespace `domain::value_objects::user::utils`.\n\n**Caracteristiques du fichier** (AgentDB) :\n- **Critique** : Oui\n- **Sensible securite** : Oui\n- Lignes totales : 23\n- Complexite max : 1\n- Derniere modification : 2025-11-17\n\n### Dependances\n\n- Header : `src/server/include/domain/value_objects/user/utils/PasswordUtils.hpp`",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLa fonction `hashPassword` utilise SHA256 sans sel (salt). Cette methode est vulnerable aux attaques par tables arc-en-ciel (rainbow tables) et aux attaques par dictionnaire.\n\n**CWE-916** : Use of Password Hash With Insufficient Computational Effort\n\n### Impact\n\n- **Severite** : Major (bloquant pour le merge)\n- **Categorie** : Security\n- Un attaquant ayant acces a la base de donnees peut facilement reverser les mots de passe\n- Les mots de passe identiques produisent des hashs identiques (pas de sel)\n- SHA256 est trop rapide pour le hashing de mots de passe (GPU cracking)\n\n### Fichier critique\n\nCe fichier est marque **critique** et **sensible securite** dans AgentDB. Toute modification doit etre revue par un expert securite.",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\nRemplacer SHA256 par un algorithme de hashing de mots de passe moderne :\n\n```cpp\n// Option 1 : bcrypt (recommande)\n#include <bcrypt.h>\nstd::string hashPassword(const std::string& password) {\n    char salt[BCRYPT_HASHSIZE];\n    char hash[BCRYPT_HASHSIZE];\n    bcrypt_gensalt(12, salt);  // cost factor 12\n    bcrypt_hashpw(password.c_str(), salt, hash);\n    return std::string(hash);\n}\n\n// Option 2 : Argon2 (plus moderne)\n#include <argon2.h>\nstd::string hashPassword(const std::string& password) {\n    // Argon2id with recommended parameters\n    // time=3, memory=64MB, parallelism=4\n}\n```\n\n### Temps estime\n\n30 minutes\n\n### Validation\n\n- [ ] Implementer bcrypt ou Argon2\n- [ ] Ajouter un sel aleatoire unique par utilisateur\n- [ ] Migrer les mots de passe existants\n- [ ] Tester la verification des mots de passe"
+    },
+    "SEC-002": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 236\n**Module** : client (Infrastructure Layer)\n\n### Contexte du fichier\n\nCe fichier implemente le client TCP pour la communication avec le serveur d'authentification. Il gere :\n- La connexion/deconnexion TCP\n- L'envoi des credentials (login/register)\n- La reception des messages du protocole binaire\n\n**Caracteristiques du fichier** (AgentDB) :\n- **Critique** : Oui\n- **Sensible securite** : Oui\n- Lignes totales : 297\n- Complexite max : 25\n- 5 commits dans les 30 derniers jours\n\n### Dependances\n\nInclut : TCPClient.hpp, Logger.hpp, Protocol.hpp",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLes mots de passe sont transmis en clair sur la connexion TCP sans chiffrement. Un attaquant sur le reseau peut intercepter les credentials par sniffing.\n\n**CWE-319** : Cleartext Transmission of Sensitive Information\n\n### Impact\n\n- **Severite** : Major (bloquant pour le merge)\n- **Categorie** : Security\n- Interception possible des mots de passe sur le reseau local\n- Attaque Man-in-the-Middle (MITM) facile\n- Non conforme aux bonnes pratiques de securite\n\n### Fichier critique\n\nCe fichier est marque **critique** et **sensible securite** dans AgentDB avec une activite elevee (5 commits/30j).",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n**Option 1 : Implementer TLS/SSL**\n```cpp\n// Utiliser boost::asio::ssl\n#include <boost/asio/ssl.hpp>\n\nboost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv13_client);\nboost::asio::ssl::stream<tcp::socket> socket(_io_context, ctx);\n```\n\n**Option 2 : Chiffrement pre-transmission**\n```cpp\n// Chiffrer le mot de passe avant envoi avec une cle publique\nstd::string encryptedPassword = crypto::encryptWithPublicKey(password, serverPubKey);\nsendCredentials(username, encryptedPassword);\n```\n\n### Temps estime\n\n60 minutes\n\n### Validation\n\n- [ ] Implementer TLS ou chiffrement asymetrique\n- [ ] Verifier les certificats serveur\n- [ ] Tester avec Wireshark que les credentials ne sont plus lisibles"
+    },
+    "SEC-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 223\n**Module** : client (Infrastructure Layer)\n\n### Contexte du fichier\n\nMeme fichier que SEC-002. La ligne 223 est dans la zone de gestion des credentials avant envoi.\n\n**Caracteristiques du fichier** (AgentDB) :\n- **Critique** : Oui\n- **Sensible securite** : Oui",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLe mot de passe reste en memoire apres utilisation. Un dump memoire ou un debugger peut reveler les credentials.\n\n**CWE-316** : Cleartext Storage of Sensitive Information in Memory\n\n### Impact\n\n- **Severite** : Medium\n- **Categorie** : Security\n- Risque en cas de crash dump\n- Exploitable par malware avec acces memoire\n- Non conforme aux standards de securite (PCI-DSS, etc.)",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n```cpp\n// Utiliser secure_memset apres utilisation\n#include <cstring>\n\nvoid clearPassword(std::string& password) {\n    volatile char* p = const_cast<char*>(password.data());\n    for (size_t i = 0; i < password.size(); ++i) {\n        p[i] = 0;\n    }\n    password.clear();\n}\n\n// Ou utiliser SecureString si disponible\n```\n\n### Temps estime\n\n15 minutes\n\n### Validation\n\n- [ ] Implementer secure_memset\n- [ ] Appeler clearPassword apres chaque utilisation\n- [ ] Verifier avec un debugger que la memoire est effacee"
+    },
+    "SEC-004": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (changement global)\n**Source** : Agent Security\n\n### Contexte\n\nCette issue est une **amelioration positive** - les logs de debug qui affichaient les mots de passe ont ete supprimes dans ce commit.",
+      "why": "## Pourquoi c'est une amelioration\n\n### Description\n\nLes statements de debug qui loggaient les mots de passe en clair ont ete supprimes. C'est une amelioration de securite importante.\n\n**Impact positif** :\n- Plus de fuite de credentials dans les logs\n- Conformite amelioree\n- Reduction de la surface d'attaque",
+      "how": "## Action\n\n**Aucune action requise** - C'est une amelioration positive deja effectuee.\n\n### Validation\n\n- [x] Verifier qu'aucun log ne contient de mot de passe\n- [x] Commit valide"
+    },
+    "REV-001": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Ligne** : 80\n**Module** : server (Infrastructure Layer)\n\n### Contexte du fichier\n\nCe fichier implemente le serveur UDP pour le gameplay en temps reel.\n\n**Caracteristiques du fichier** (AgentDB) :\n- **Critique** : Non\n- **Sensible securite** : Non\n- Lignes totales : 94\n- Complexite max : 9\n- 4 commits dans les 30 derniers jours",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLa variable `movePlayerOpt` est marquee avec l'attribut `[[maybe_unused]]` mais n'est jamais utilisee dans le code.\n\n### Impact\n\n- **Severite** : Major (bloquant)\n- **Categorie** : Maintainability\n- Code mort qui reduit la lisibilite\n- L'attribut `[[maybe_unused]]` masque un probleme potentiel\n- Si la variable devait etre utilisee, c'est un bug fonctionnel",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n**Option 1** : Supprimer la variable si elle n'est pas necessaire\n```cpp\n// Supprimer la ligne\n// [[maybe_unused]] auto movePlayerOpt = ...;\n```\n\n**Option 2** : Implementer son utilisation si elle est necessaire\n```cpp\nauto movePlayerOpt = ...;\nif (movePlayerOpt) {\n    // Utiliser movePlayerOpt\n}\n```\n\n### Temps estime\n\n5 minutes\n\n### Validation\n\n- [ ] Verifier si la variable est necessaire\n- [ ] Supprimer ou implementer selon le cas"
+    },
+    "REV-002": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/application/use_cases/player/Move.cpp`\n**Ligne** : 14\n**Fonction** : `execute(const PlayerId & id, float dx, float dy, float dz)`\n**Module** : server (Application Layer - Use Cases)\n\n### Contexte du fichier\n\nCe fichier implemente le use case de deplacement du joueur dans la couche Application.\n\n**Caracteristiques du fichier** (AgentDB) :\n- **Critique** : Non\n- **Sensible securite** : Non\n- Lignes totales : 20\n- Complexite max : 0 (corps vide!)\n- 2 commits dans les 30 derniers jours\n\n### Dependances\n\n- Header : `src/server/include/application/use_cases/player/Move.hpp`\n\n**Ce probleme provoque un dysfonctionnement de l'application - le deplacement des joueurs ne fonctionne pas.**",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLa fonction `Move::execute()` a un corps completement vide. Les joueurs ne peuvent pas se deplacer dans le jeu.\n\n### Impact\n\n- **Severite** : Major (bloquant)\n- **Categorie** : Reliability\n- **BUG FONCTIONNEL** : Le deplacement des joueurs est casse\n- Le jeu n'est pas jouable sans cette fonctionnalite\n- Le client envoie des commandes de mouvement qui sont ignorees",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n```cpp\nvoid Move::execute(const PlayerId& id, float dx, float dy, float dz) {\n    // Recuperer le joueur depuis le repository\n    auto player = _playerRepository->findById(id);\n    if (!player) {\n        throw PlayerNotFoundException(id);\n    }\n    \n    // Calculer la nouvelle position\n    auto currentPos = player->getPosition();\n    auto newPos = currentPos.move(dx, dy, dz);\n    \n    // Valider les limites du monde\n    if (!_worldBounds.contains(newPos)) {\n        throw PositionOutOfBoundsException(newPos);\n    }\n    \n    // Mettre a jour la position\n    player->setPosition(newPos);\n    _playerRepository->save(player);\n}\n```\n\n### Temps estime\n\n30 minutes\n\n### Validation\n\n- [ ] Implementer la logique de deplacement\n- [ ] Respecter l'architecture hexagonale (utiliser le repository)\n- [ ] Ajouter des tests unitaires\n- [ ] Tester le deplacement en jeu"
+    },
+    "REV-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 223\n**Module** : client (Infrastructure Layer)\n\n### Contexte du fichier\n\nFichier critique et sensible securite sans documentation sur les fonctions publiques.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLes fonctions publiques de TCPClient ne sont pas documentees. Pour un fichier critique et sensible securite, la documentation est essentielle.\n\n### Impact\n\n- **Severite** : Medium\n- **Categorie** : Maintainability\n- Difficile pour les nouveaux developpeurs de comprendre le code\n- Risque d'erreurs lors des modifications\n- Non conforme aux standards du projet (pattern documentation_public)",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\nAjouter de la documentation Doxygen :\n\n```cpp\n/**\n * @brief Envoie les credentials de connexion au serveur\n * @param username Nom d'utilisateur\n * @param password Mot de passe (sera transmis de maniere securisee)\n * @throws ConnectionException si la connexion echoue\n * @note Le mot de passe est efface de la memoire apres envoi\n */\nvoid sendCredentials(const std::string& username, const std::string& password);\n```\n\n### Temps estime\n\n20 minutes\n\n### Validation\n\n- [ ] Documenter toutes les fonctions publiques\n- [ ] Generer la doc Doxygen\n- [ ] Verifier la coherence"
+    },
+    "REV-004": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 106\n**Fonction** : `disconnect()`\n**Module** : client (Infrastructure Layer)\n\n### Contexte du fichier\n\nFichier critique avec 5 commits recents. La fonction disconnect() gere la fermeture de connexion.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLa fonction `disconnect()` pourrait causer un double lock (deadlock) si elle est appelee depuis un contexte ou le mutex est deja verrouille.\n\n### Impact\n\n- **Severite** : Medium (bloquant car potentiel deadlock)\n- **Categorie** : Reliability\n- Peut causer un freeze de l'application\n- Difficile a debugger\n- Reproductibilite aleatoire",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n```cpp\nvoid TCPClient::disconnect() {\n    // Utiliser try_lock ou unique_lock avec defer_lock\n    std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);\n    \n    if (!lock.try_lock()) {\n        // Deja verrouille, planifier la deconnexion\n        _io_context.post([this]() { disconnect(); });\n        return;\n    }\n    \n    // Logique de deconnexion\n    _socket.close();\n}\n```\n\n### Temps estime\n\n15 minutes\n\n### Validation\n\n- [ ] Analyser le flow de verrouillage\n- [ ] Utiliser try_lock ou recursive_mutex\n- [ ] Tester les scenarios de deconnexion concurrents"
+    },
+    "REV-005": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Ligne** : 12\n**Module** : server (Infrastructure Layer)\n\n### Contexte du fichier\n\nUtilisation de std::cout au lieu du logger du projet.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLe fichier utilise `std::cout` (iostream) au lieu du logger unifie du projet.\n\n### Impact\n\n- **Severite** : Medium\n- **Categorie** : Maintainability\n- Logs non uniformes\n- Pas de niveau de log (debug/info/error)\n- Pas de rotation des logs\n- Difficile de filtrer les messages",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n```cpp\n// Remplacer\n#include <iostream>\nstd::cout << \"Server started\" << std::endl;\n\n// Par\n#include \"core/Logger.hpp\"\nLogger::getInstance().info(\"Server started\");\n```\n\n### Temps estime\n\n10 minutes\n\n### Validation\n\n- [ ] Remplacer tous les std::cout par le Logger\n- [ ] Utiliser les bons niveaux de log"
+    },
+    "REV-006": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Ligne** : 16\n**Module** : server (Infrastructure Layer)\n\n### Contexte du fichier\n\nLe port UDP 4124 est code en dur dans le fichier.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLe nombre magique 4124 (port UDP) est code en dur au lieu d'etre une constante nommee ou configurable.\n\n### Impact\n\n- **Severite** : Minor\n- **Categorie** : Maintainability\n- Difficile a modifier\n- Pas clair pour un lecteur\n- Duplication potentielle",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n```cpp\n// Dans un fichier de configuration ou constants.hpp\nnamespace config {\n    constexpr uint16_t UDP_PORT = 4124;\n}\n\n// Utilisation\n_socket.bind(udp::endpoint(udp::v4(), config::UDP_PORT));\n```\n\n### Temps estime\n\n2 minutes\n\n### Validation\n\n- [ ] Extraire le port en constante\n- [ ] Verifier qu'il n'y a pas de duplication"
+    },
+    "REV-007": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/include/infrastructure/adapters/in/network/UDPServer.hpp`\n**Ligne** : 25\n**Module** : server (Infrastructure Layer)\n\n### Contexte du fichier\n\nLe membre `_clients` a ete supprime du header.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLe membre `_clients` a ete supprime mais il faut verifier qu'il n'est pas utilise ailleurs.\n\n### Impact\n\n- **Severite** : Minor\n- **Categorie** : Maintainability\n- Risque de compilation echouee si utilise ailleurs\n- Code potentiellement incomplet",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n```bash\n# Verifier les utilisations de _clients\ngrep -r \"_clients\" src/server/\n```\n\nSi aucune utilisation trouvee, la suppression est correcte.\n\n### Temps estime\n\n5 minutes\n\n### Validation\n\n- [ ] Verifier qu'aucun code ne reference _clients\n- [ ] S'assurer que le build passe"
+    },
+    "REV-008": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (observation globale)\n**Source** : Agent Reviewer\n\n### Contexte\n\nLes messages d'erreur dans le code melangent francais et anglais.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLes messages d'erreur utilisent un melange de francais et anglais, ce qui nuit a la coherence.\n\n### Impact\n\n- **Severite** : Info\n- **Categorie** : Maintainability\n- Confusion pour les utilisateurs\n- Difficulte de maintenance\n- Non professionnel",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\nChoisir une langue (anglais recommande) et uniformiser tous les messages.\n\n### Temps estime\n\n15 minutes\n\n### Validation\n\n- [ ] Identifier tous les messages en francais\n- [ ] Traduire en anglais\n- [ ] Verifier la coherence"
+    },
+    "REV-009": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (observation globale)\n**Source** : Agent Reviewer\n\n### Contexte\n\nLe score de documentation du projet est a 0% - aucune fonction n'est documentee.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nAucune fonction publique n'est documentee dans le projet.\n\n### Impact\n\n- **Severite** : Info\n- **Categorie** : Maintainability\n- Onboarding difficile\n- Maintenance complexe\n- Pas de doc generee",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\nCommencer par documenter les fichiers critiques identifies par AgentDB.\n\n### Temps estime\n\n60 minutes (pour les fichiers critiques)\n\n### Validation\n\n- [ ] Documenter les fichiers critiques\n- [ ] Generer la doc Doxygen\n- [ ] Atteindre au moins 50% de couverture"
+    },
+    "RISK-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (observation globale)\n**Source** : Agent Risk\n\n### Contexte\n\nLa complexite cyclomatique maximale detectee (25) depasse le seuil recommande (20).\n\n> Note : Cette issue est liee a SONAR-001 qui identifie TCPClient.cpp:170 comme le fichier problematique.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLa complexite cyclomatique de 25 depasse le seuil de 20, indiquant des fonctions trop complexes.\n\n### Impact\n\n- **Severite** : Medium\n- **Categorie** : Maintainability\n- Code difficile a tester\n- Risque accru de bugs\n- Maintenance complexe",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n1. Identifier les fonctions avec complexite > 20 (voir SONAR-001)\n2. Refactorer en sous-fonctions\n3. Utiliser des early returns\n\n### Temps estime\n\n45 minutes\n\n### Validation\n\n- [ ] Identifier les fonctions complexes\n- [ ] Refactorer\n- [ ] Verifier que la complexite < 20"
+    },
+    "RISK-004": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Multiple (21 fichiers impactes)\n**Source** : Agent Risk\n\n### Contexte\n\nLes changements au protocole impactent 21 fichiers dont 7 critiques.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLes modifications du protocole ont un impact large sur le codebase (21 fichiers, 7 critiques).\n\n### Impact\n\n- **Severite** : Medium\n- **Categorie** : Reliability\n- Risque de regression eleve\n- Tous les fichiers doivent etre testes\n- Compatibilite client/serveur a verifier",
+      "how": "## Comment corriger\n\n### Solution suggeree\n\n1. Lister tous les fichiers impactes\n2. Verifier la compatibilite\n3. Executer les tests d'integration\n\n### Temps estime\n\n30 minutes (verification)\n\n### Validation\n\n- [ ] Identifier les 21 fichiers impactes\n- [ ] Tester la compatibilite\n- [ ] Verifier les 7 fichiers critiques"
+    },
+    "ANA-001": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (changement dans le protocole)\n**Source** : Agent Analyzer\n\n### Contexte\n\nCorrection de typo dans l'enum du protocole : Snapshop -> Snapshot",
+      "why": "## Pourquoi c'est un changement\n\n### Description\n\nCorrection d'une faute de frappe dans le nom de l'enum (Snapshop -> Snapshot).\n\n### Impact\n\n- **Severite** : Minor\n- **Categorie** : Maintainability\n- Amelioration de la lisibilite\n- Breaking change potentiel si utilise ailleurs",
+      "how": "## Action\n\n**Changement deja effectue** - Verifier que tous les usages ont ete mis a jour.\n\n### Validation\n\n- [x] Typo corrigee\n- [ ] Verifier tous les usages"
+    },
+    "ANA-002": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (interface Application layer)\n**Source** : Agent Analyzer\n\n### Contexte\n\nCorrection de typo dans le nom de l'interface : IUserRespository -> IUserRepository",
+      "why": "## Pourquoi c'est un changement\n\n### Description\n\nCorrection d'une faute de frappe dans le nom de l'interface (IUserRespository -> IUserRepository).\n\n### Impact\n\n- **Severite** : Minor\n- **Categorie** : Maintainability\n- Amelioration de la lisibilite\n- Breaking change pour les implementeurs",
+      "how": "## Action\n\n**Changement deja effectue** - Verifier que tous les usages ont ete mis a jour.\n\n### Validation\n\n- [x] Typo corrigee\n- [ ] Verifier les implementations"
+    },
+    "ANA-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (changement global)\n**Source** : Agent Analyzer\n\n### Contexte\n\nAmelioration positive - les credentials codes en dur ont ete supprimes.",
+      "why": "## Pourquoi c'est une amelioration\n\n### Description\n\nLes credentials (mots de passe, API keys) codes en dur dans le code source ont ete supprimes.\n\n### Impact positif\n\n- **Severite** : Major (amelioration importante)\n- **Categorie** : Security\n- Reduction de la surface d'attaque\n- Conformite amelioree\n- Meilleure gestion des secrets",
+      "how": "## Action\n\n**Aucune action requise** - C'est une amelioration positive deja effectuee.\n\n### Validation\n\n- [x] Credentials supprimes\n- [ ] Verifier qu'aucun secret ne reste dans le code"
+    },
+    "ANA-004": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (changement global)\n**Source** : Agent Analyzer\n\n### Contexte\n\nAmelioration positive - les outputs de debug ont ete supprimes du code de production.",
+      "why": "## Pourquoi c'est une amelioration\n\n### Description\n\nLes sorties de debug (printf, cout, etc.) ont ete supprimees du code de production.\n\n### Impact positif\n\n- **Severite** : Minor\n- **Categorie** : Maintainability\n- Code plus propre\n- Pas de logs parasites en production",
+      "how": "## Action\n\n**Aucune action requise** - C'est une amelioration positive deja effectuee."
+    },
+    "ANA-005": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (changement global)\n**Source** : Agent Analyzer\n\n### Contexte\n\nAmelioration positive - la thread safety a ete amelioree.",
+      "why": "## Pourquoi c'est une amelioration\n\n### Description\n\nDes ameliorations ont ete apportees a la gestion de la concurrence et de la thread safety.\n\n### Impact positif\n\n- **Severite** : Minor\n- **Categorie** : Reliability\n- Moins de race conditions\n- Application plus stable",
+      "how": "## Action\n\n**Aucune action requise** - C'est une amelioration positive deja effectuee."
+    },
+    "ANA-006": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (changement global)\n**Source** : Agent Analyzer\n\n### Contexte\n\nAmelioration positive - la gestion des erreurs a ete amelioree.",
+      "why": "## Pourquoi c'est une amelioration\n\n### Description\n\nLa gestion des erreurs a ete amelioree dans le code.\n\n### Impact positif\n\n- **Severite** : Minor\n- **Categorie** : Reliability\n- Meilleure robustesse\n- Messages d'erreur plus clairs",
+      "how": "## Action\n\n**Aucune action requise** - C'est une amelioration positive deja effectuee."
+    },
+    "ANA-007": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (namespace global)\n**Source** : Agent Analyzer\n\n### Contexte\n\nCorrection de typo dans le namespace : boostrap -> bootstrap",
+      "why": "## Pourquoi c'est un changement\n\n### Description\n\nCorrection d'une faute de frappe dans le nom du namespace (boostrap -> bootstrap).\n\n### Impact\n\n- **Severite** : Info\n- **Categorie** : Maintainability\n- Amelioration de la lisibilite",
+      "how": "## Action\n\n**Changement deja effectue** - Typo corrigee."
+    },
+    "ANA-008": {
+      "where": "## Localisation du probleme\n\n**Fichier** : Non specifie (cleanup global)\n**Source** : Agent Analyzer\n\n### Contexte\n\nUn membre non utilise a ete supprime du code.",
+      "why": "## Pourquoi c'est une amelioration\n\n### Description\n\nUn membre de classe non utilise a ete supprime, reduisant le code mort.\n\n### Impact\n\n- **Severite** : Info\n- **Categorie** : Maintainability\n- Code plus propre\n- Moins de confusion",
+      "how": "## Action\n\n**Aucune action requise** - Cleanup deja effectue."
+    },
+    "SONAR-001": {
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 170\n**Module** : client\n**Fonction** : `handleRead(const boost::system::error_code &error, std::size_t bytes)`\n\n### Contexte du fichier\n\nCe fichier implemente le client TCP pour la communication reseau avec le serveur d'authentification. Il fait partie de la couche infrastructure du client R-Type et gere :\n- La connexion/deconnexion TCP\n- L'envoi des credentials (login/register)\n- La reception et le parsing des messages du protocole binaire\n\n### Dependances\n\nCe fichier inclut :\n- `src/client/include/network/TCPClient.hpp` (header)\n- `src/client/include/core/Logger.hpp` (logging)\n- `src/common/protocol/Protocol.hpp` (protocole binaire)\n\n> **Note** : Fichier marque **critique** et **sensible securite** dans AgentDB. Tout changement doit etre revise avec attention.",
+      "why": "## Pourquoi c'est un probleme\n\nLa fonction `handleRead` a une complexite cognitive de 29, depassant le seuil autorise de 25. Cette complexite elevee est due a :\n\n1. **Boucle while imbriquee** dans la condition `if (!error)`\n2. **Multiple conditions imbriquees** pour parser les messages (if/else if)\n3. **Gestion de plusieurs cas d'erreur** (eof, autres erreurs)\n\n**Regle SonarQube** : [cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)\n**Categorie** : Maintainability\n**Effort estime** : 9min\n\n### Impact dans le projet\n\nCe fichier est **critique** pour le client R-Type :\n- Il gere l'authentification des utilisateurs\n- Il traite des donnees sensibles (credentials)\n- 5 commits dans les 30 derniers jours indiquent une activite elevee\n- Le module client depend de ce fichier pour toute communication TCP\n\n### Patterns du projet concernes\n\nLe pattern **performance_early_exit** du projet recommande :\n> \"Check for invalid conditions early and return/continue to avoid unnecessary processing.\"\n\nLa fonction actuelle ne suit pas ce pattern : elle utilise des blocs `if/else` imbriques au lieu d'early returns.",
+      "how": "## Solution suggeree\n\n1. **Extraire la logique de parsing** dans une methode privee `parseMessage()`\n2. **Utiliser des early returns** pour reduire l'imbrication :\n   ```cpp\n   if (error) {\n       handleError(error);\n       return;\n   }\n   // Main logic here without else\n   ```\n3. **Extraire le traitement par type de message** dans des handlers separes :\n   - `handleLoginMessage()`\n   - `handleRegisterMessage()`\n\n### Exemples dans le projet\n\nLe pattern **performance_early_exit** recommande :\n```cpp\nif (data == NULL || len == 0) return;\nif (already_processed) return;\n// Main processing here\n```\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)\n- Pattern projet : `performance_early_exit`"
+    },
+    "SONAR-002": {
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 193\n**Module** : client\n**Fonction** : `handleRead` > bloc `MessageType::Login`\n\n### Contexte du fichier\n\nLe code a la ligne 193 se trouve dans une structure imbriquee :\n1. `if (!error)` - niveau 1\n2. `while (_accumulator.size() >= Header::WIRE_SIZE)` - niveau 2\n3. `if (head.type == static_cast<uint16_t>(MessageType::Login))` - niveau 3\n4. `if (!_pendingUsername.empty() && !_pendingPassword.empty())` - **niveau 4 (violation)**\n\n### Dependances\n\nMeme contexte que SONAR-001 - fichier TCPClient.cpp gerant l'authentification.\n\n> **Note** : Cette issue est liee a SONAR-001. La resolution de l'une aidera a resoudre l'autre.",
+      "why": "## Pourquoi c'est un probleme\n\nLe code imbrique plus de 3 niveaux de structures de controle (if/for/while/switch), rendant le flux difficile a suivre.\n\n**Structure actuelle** :\n```\nif (!error)                           // Niveau 1\n    while (accumulator.size() >= ...)  // Niveau 2\n        if (head.type == Login)        // Niveau 3\n            if (!pending...)           // Niveau 4 - VIOLATION\n```\n\n**Regle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Categorie** : Maintainability\n**Effort estime** : 10min\n\n### Impact dans le projet\n\n- Code difficile a lire et maintenir\n- Risque accru de bugs lors des modifications\n- Fichier sensible securite : la complexite augmente le risque d'erreurs dans le traitement des credentials\n\n### Patterns du projet concernes\n\nLe pattern **performance_early_exit** recommande d'utiliser des early exits pour aplatir la structure.",
+      "how": "## Solution suggeree\n\n1. **Inverser la condition d'erreur** avec un early return :\n   ```cpp\n   if (error) {\n       handleError(error);\n       return;\n   }\n   // Suite sans else, niveau 0\n   ```\n\n2. **Extraire le traitement des messages** dans une methode :\n   ```cpp\n   void TCPClient::processAccumulatedMessages() {\n       while (_accumulator.size() >= Header::WIRE_SIZE) {\n           processOneMessage();\n       }\n   }\n   ```\n\n3. **Utiliser un switch ou un dispatch table** pour les types de messages.\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n- Pattern projet : `performance_early_exit`"
+    },
+    "SONAR-003": {
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 199\n**Module** : client\n**Fonction** : `handleRead` > bloc `MessageType::Register`\n\n### Contexte du fichier\n\nLe code a la ligne 199 se trouve dans une structure similaire a SONAR-002 :\n1. `if (!error)` - niveau 1\n2. `while (_accumulator.size() >= Header::WIRE_SIZE)` - niveau 2\n3. `else if (head.type == static_cast<uint16_t>(MessageType::Register))` - niveau 3\n4. `if (!_pendingUsername.empty() && !_pendingEmail.empty() && !_pendingPassword.empty())` - **niveau 4 (violation)**\n\n### Dependances\n\nMeme contexte que SONAR-001 et SONAR-002.\n\n> **Note** : Cette issue est directement liee a SONAR-002. La resolution sera identique.",
+      "why": "## Pourquoi c'est un probleme\n\nMeme problematique que SONAR-002 : imbrication excessive dans le bloc de traitement Register.\n\n**Regle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Categorie** : Maintainability\n**Effort estime** : 10min\n\n### Impact dans le projet\n\n- La fonction `handleRead` traite les deux cas (Login et Register) avec la meme structure problematique\n- Le refactoring devra adresser les deux blocs simultanement\n\n### Patterns du projet concernes\n\nPattern **performance_early_exit** : meme recommandation que SONAR-002.",
+      "how": "## Solution suggeree\n\nLa solution est identique a SONAR-002. Le refactoring de la fonction `handleRead` resoudra les deux issues simultanement.\n\n**Approche recommandee** :\n1. Creer une methode `handleLoginRequest()` pour le bloc Login\n2. Creer une methode `handleRegisterRequest()` pour le bloc Register\n3. Les deux methodes auront une structure plate grace aux early returns\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n- Pattern projet : `performance_early_exit`"
+    },
+    "SONAR-004": {
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 169\n**Module** : client\n**Fonction** : `handleRead` > bloc `MessageType::Snapshot`\n\n### Contexte du fichier\n\nCe fichier implemente le client UDP pour la communication gameplay en temps reel. Il gere :\n- La reception des snapshots de jeu\n- L'envoi des mouvements du joueur\n- La communication asynchrone via Boost.ASIO\n\n### Dependances\n\nCe fichier inclut :\n- `src/client/include/network/UDPClient.hpp` (header)\n- `src/client/include/core/Logger.hpp` (logging)\n- `src/common/protocol/Protocol.hpp` (protocole binaire)\n\n> **Note** : Fichier non critique selon AgentDB, mais le bloc vide suggere une implementation incomplete.",
+      "why": "## Pourquoi c'est un probleme\n\nLe code contient un bloc vide apres la condition `if (head.type == static_cast<uint16_t>(MessageType::Snapshot))` :\n\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {\n    // Bloc completement vide - rien n'est fait avec le snapshot\n}\n```\n\n**Regle SonarQube** : [cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n**Categorie** : Maintainability\n**Effort estime** : 5min\n\n### Impact dans le projet\n\n- **Intention floue** : On ne sait pas si le bloc est intentionnellement vide ou si c'est un oubli\n- **Code mort potentiel** : Si le Snapshot n'est jamais traite, pourquoi le tester ?\n- **Maintenabilite** : Un developpeur futur pourrait supprimer ou modifier ce code sans comprendre l'intention\n\n### Patterns du projet concernes\n\nLe pattern **documentation_public** recommande de documenter les intentions.",
+      "how": "## Solution suggeree\n\n**Option 1 - Si le traitement est prevu mais non implemente** :\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {\n    // TODO: Implement snapshot handling\n    // Expected: deserialize snapshot and update game state\n    logger->debug(\"Snapshot received but not yet processed\");\n}\n```\n\n**Option 2 - Si le bloc doit rester vide intentionnellement** :\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {\n    // Intentionally empty: snapshots are handled asynchronously\n    // by the game loop, not here. See GameLoop::processSnapshots()\n}\n```\n\n**Option 3 - Si le test est inutile** :\nSupprimer completement le bloc conditionnel.\n\n### Ressources\n\n- [Documentation SonarQube cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n- Pattern projet : `documentation_public`, `documentation_module`"
+    }
+  }
+}

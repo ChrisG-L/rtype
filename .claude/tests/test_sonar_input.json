@@ -1,0 +1,124 @@
+{
+  "total": 8,
+  "p": 1,
+  "ps": 100,
+  "issues": [
+    {
+      "key": "AY-001",
+      "rule": "cpp:S2259",
+      "severity": "BLOCKER",
+      "component": "rtype:src/network/UDPServer.cpp",
+      "project": "rtype",
+      "line": 142,
+      "message": "Possible null pointer dereference in socket handler",
+      "effort": "15min",
+      "debt": "15min",
+      "type": "BUG",
+      "tags": ["suspicious"],
+      "creationDate": "2025-12-10T10:00:00",
+      "status": "OPEN"
+    },
+    {
+      "key": "AY-002",
+      "rule": "cpp:S2068",
+      "severity": "CRITICAL",
+      "component": "rtype:src/auth/Login.cpp",
+      "project": "rtype",
+      "line": 34,
+      "message": "Hardcoded password detected: 'admin123'",
+      "effort": "30min",
+      "type": "VULNERABILITY",
+      "status": "OPEN"
+    },
+    {
+      "key": "AY-003",
+      "rule": "cpp:S107",
+      "severity": "MAJOR",
+      "component": "rtype:src/ecs/Registry.hpp",
+      "project": "rtype",
+      "line": 12,
+      "message": "Function has too many parameters (8 > 7 allowed)",
+      "effort": "1h",
+      "type": "CODE_SMELL",
+      "status": "OPEN"
+    },
+    {
+      "key": "AY-004",
+      "rule": "cpp:S1200",
+      "severity": "MAJOR",
+      "component": "rtype:src/ecs/Registry.hpp",
+      "project": "rtype",
+      "line": 1,
+      "message": "This class has 45 methods, which is greater than 20 authorized",
+      "effort": "2h",
+      "type": "CODE_SMELL",
+      "status": "OPEN"
+    },
+    {
+      "key": "AY-005",
+      "rule": "cpp:S134",
+      "severity": "MAJOR",
+      "component": "rtype:src/game/GameLoop.cpp",
+      "project": "rtype",
+      "line": 89,
+      "message": "Control flow statements nested too deeply (5 > 4 allowed)",
+      "effort": "45min",
+      "type": "CODE_SMELL",
+      "status": "OPEN"
+    },
+    {
+      "key": "AY-006",
+      "rule": "cpp:S1066",
+      "severity": "MINOR",
+      "component": "rtype:src/utils/Logger.cpp",
+      "project": "rtype",
+      "line": 23,
+      "message": "Merge this if statement with the enclosing one",
+      "effort": "5min",
+      "type": "CODE_SMELL",
+      "status": "OPEN"
+    },
+    {
+      "key": "AY-007",
+      "rule": "cpp:S1135",
+      "severity": "INFO",
+      "component": "rtype:src/main.cpp",
+      "project": "rtype",
+      "line": 5,
+      "message": "Complete the task associated to this TODO comment",
+      "effort": "0min",
+      "type": "CODE_SMELL",
+      "status": "OPEN"
+    },
+    {
+      "key": "AY-008",
+      "rule": "cpp:S2259",
+      "severity": "CRITICAL",
+      "component": "rtype:src/network/TCPServer.cpp",
+      "project": "rtype",
+      "line": 78,
+      "message": "Null pointer used after validation",
+      "effort": "20min",
+      "type": "BUG",
+      "status": "RESOLVED"
+    }
+  ],
+  "rules": [
+    {"key": "cpp:S2259", "name": "Null pointer dereference", "lang": "cpp"},
+    {"key": "cpp:S2068", "name": "Hardcoded credentials", "lang": "cpp"},
+    {"key": "cpp:S107", "name": "Too many parameters", "lang": "cpp"},
+    {"key": "cpp:S1200", "name": "Classes should not have too many methods", "lang": "cpp"},
+    {"key": "cpp:S134", "name": "Control flow statements nested too deeply", "lang": "cpp"},
+    {"key": "cpp:S1066", "name": "Merge if statements", "lang": "cpp"},
+    {"key": "cpp:S1135", "name": "TODO comment", "lang": "cpp"}
+  ],
+  "components": [
+    {"key": "rtype:src/network/UDPServer.cpp", "path": "src/network/UDPServer.cpp"},
+    {"key": "rtype:src/auth/Login.cpp", "path": "src/auth/Login.cpp"},
+    {"key": "rtype:src/ecs/Registry.hpp", "path": "src/ecs/Registry.hpp"},
+    {"key": "rtype:src/game/GameLoop.cpp", "path": "src/game/GameLoop.cpp"},
+    {"key": "rtype:src/utils/Logger.cpp", "path": "src/utils/Logger.cpp"},
+    {"key": "rtype:src/main.cpp", "path": "src/main.cpp"},
+    {"key": "rtype:src/network/TCPServer.cpp", "path": "src/network/TCPServer.cpp"}
+  ]
+}

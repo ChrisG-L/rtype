@@ -1,0 +1,4966 @@
+{
+    "total": 776,
+    "p": 1,
+    "ps": 100,
+    "paging": {
+        "pageIndex": 1,
+        "pageSize": 100,
+        "total": 776
+    },
+    "effortTotal": 4805,
+    "debtTotal": 4805,
+    "issues": [
+        {
+            "key": "AZsR-nDQkRyw-BwlWri-",
+            "rule": "cpp:S3776",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 170,
+            "hash": "d677fd1aeebcb9cb18ee85e5581452dd",
+            "textRange": {
+                "startLine": 170,
+                "endLine": 170,
+                "startOffset": 20,
+                "endOffset": 30
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 174,
+                                "endLine": 174,
+                                "startOffset": 8,
+                                "endOffset": 10
+                            },
+                            "msg": "+1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 177,
+                                "endLine": 177,
+                                "startOffset": 12,
+                                "endOffset": 17
+                            },
+                            "msg": "+2 (incl 1 for nesting)"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 179,
+                                "endLine": 179,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "+3 (incl 2 for nesting)"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 185,
+                                "endLine": 185,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "+3 (incl 2 for nesting)"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 191,
+                                "endLine": 191,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "+3 (incl 2 for nesting)"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 193,
+                                "endLine": 193,
+                                "startOffset": 20,
+                                "endOffset": 22
+                            },
+                            "msg": "+4 (incl 3 for nesting)"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 193,
+                                "endLine": 193,
+                                "startOffset": 50,
+                                "endOffset": 52
+                            },
+                            "msg": "+1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 197,
+                                "endLine": 197,
+                                "startOffset": 16,
+                                "endOffset": 20
+                            },
+                            "msg": "+1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 199,
+                                "endLine": 199,
+                                "startOffset": 20,
+                                "endOffset": 22
+                            },
+                            "msg": "+4 (incl 3 for nesting)"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 199,
+                                "endLine": 199,
+                                "startOffset": 76,
+                                "endOffset": 78
+                            },
+                            "msg": "+1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 208,
+                                "endLine": 208,
+                                "startOffset": 10,
+                                "endOffset": 14
+                            },
+                            "msg": "+1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 209,
+                                "endLine": 209,
+                                "startOffset": 12,
+                                "endOffset": 14
+                            },
+                            "msg": "+2 (incl 1 for nesting)"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 211,
+                                "endLine": 211,
+                                "startOffset": 14,
+                                "endOffset": 18
+                            },
+                            "msg": "+1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 215,
+                                "endLine": 215,
+                                "startOffset": 12,
+                                "endOffset": 14
+                            },
+                            "msg": "+2 (incl 1 for nesting)"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Refactor this function to reduce its Cognitive Complexity from 29 to the 25 allowed.",
+            "effort": "9min",
+            "debt": "9min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "brain-overload"
+            ],
+            "creationDate": "2025-12-12T09:51:15+0000",
+            "updateDate": "2025-12-12T09:51:15+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZsR-nDQkRyw-BwlWri_",
+            "rule": "cpp:S134",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 193,
+            "hash": "72133184023b4305be72efc69530ed04",
+            "textRange": {
+                "startLine": 193,
+                "endLine": 193,
+                "startOffset": 20,
+                "endOffset": 22
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 174,
+                                "endLine": 174,
+                                "startOffset": 8,
+                                "endOffset": 10
+                            },
+                            "msg": "Nesting level 1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 177,
+                                "endLine": 177,
+                                "startOffset": 12,
+                                "endOffset": 17
+                            },
+                            "msg": "Nesting level 2"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 191,
+                                "endLine": 191,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "Nesting level 3"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "brain-overload"
+            ],
+            "creationDate": "2025-12-12T09:51:15+0000",
+            "updateDate": "2025-12-12T09:51:15+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZsR-nDQkRyw-BwlWrjA",
+            "rule": "cpp:S134",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 199,
+            "hash": "63fc20380fb1181f8b72d77523a04f8f",
+            "textRange": {
+                "startLine": 199,
+                "endLine": 199,
+                "startOffset": 20,
+                "endOffset": 22
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 174,
+                                "endLine": 174,
+                                "startOffset": 8,
+                                "endOffset": 10
+                            },
+                            "msg": "Nesting level 1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 177,
+                                "endLine": 177,
+                                "startOffset": 12,
+                                "endOffset": 17
+                            },
+                            "msg": "Nesting level 2"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 191,
+                                "endLine": 191,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "Nesting level 3"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "brain-overload"
+            ],
+            "creationDate": "2025-12-12T09:51:15+0000",
+            "updateDate": "2025-12-12T09:51:15+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZsR-nFekRyw-BwlWrjB",
+            "rule": "cpp:S108",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/network/UDPClient.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 169,
+            "hash": "6671d4c2d24c780a79cc4d62536998ef",
+            "textRange": {
+                "startLine": 169,
+                "endLine": 170,
+                "startOffset": 79,
+                "endOffset": 17
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Fill this compound statement, remove it, or add a nested comment explaining why it is empty.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "suspicious"
+            ],
+            "creationDate": "2025-12-12T09:51:15+0000",
+            "updateDate": "2025-12-12T09:51:15+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZsR43uoiGPAHl6iX0g3",
+            "rule": "secrets:S6694",
+            "severity": "BLOCKER",
+            "component": "Pluenet-Killian_rtype:reports/web-report-2025-12-12-e8a89a9.json",
+            "project": "Pluenet-Killian_rtype",
+            "line": 135,
+            "hash": "86a9b78e35256986401f5631c5dd8827",
+            "textRange": {
+                "startLine": 135,
+                "endLine": 135,
+                "startOffset": 611,
+                "endOffset": 623
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Make sure this MongoDB database password gets changed and removed from the code.",
+            "effort": "30min",
+            "debt": "30min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cwe"
+            ],
+            "creationDate": "2025-12-12T09:27:20+0000",
+            "updateDate": "2025-12-12T09:27:29+0000",
+            "type": "VULNERABILITY",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "TRUSTWORTHY",
+            "cleanCodeAttributeCategory": "RESPONSIBLE",
+            "impacts": [
+                {
+                    "softwareQuality": "SECURITY",
+                    "severity": "BLOCKER"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlfRusbt-b3bDTzk",
+            "rule": "cpp:S134",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/src/core/GameLoop.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 52,
+            "hash": "3e7bdd93f7344ee7e83c1d35752fbf72",
+            "textRange": {
+                "startLine": 52,
+                "endLine": 52,
+                "startOffset": 20,
+                "endOffset": 22
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/core/GameLoop.cpp",
+                            "textRange": {
+                                "startLine": 40,
+                                "endLine": 40,
+                                "startOffset": 8,
+                                "endOffset": 13
+                            },
+                            "msg": "Nesting level 1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/core/GameLoop.cpp",
+                            "textRange": {
+                                "startLine": 46,
+                                "endLine": 46,
+                                "startOffset": 12,
+                                "endOffset": 17
+                            },
+                            "msg": "Nesting level 2"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/core/GameLoop.cpp",
+                            "textRange": {
+                                "startLine": 50,
+                                "endLine": 50,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "Nesting level 3"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "brain-overload"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlghusbt-b3bDTzl",
+            "rule": "cpp:S924",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 177,
+            "hash": "9d2a11af4f0f5ee36bb4f683bd4e0b1e",
+            "textRange": {
+                "startLine": 177,
+                "endLine": 177,
+                "startOffset": 12,
+                "endOffset": 17
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 180,
+                                "endLine": 180,
+                                "startOffset": 20,
+                                "endOffset": 25
+                            },
+                            "msg": "\"break\" statement"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+                            "textRange": {
+                                "startLine": 186,
+                                "endLine": 186,
+                                "startOffset": 20,
+                                "endOffset": 25
+                            },
+                            "msg": "\"break\" statement"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Reduce the number of nested \"break\" statements from 2 to 1 authorized.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "confusing"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlg3usbt-b3bDTzm",
+            "rule": "cpp:S1048",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/src/network/UDPClient.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 28,
+            "hash": "a3d058ef3bdbf09f7bb79f6e8439e3f9",
+            "textRange": {
+                "startLine": 28,
+                "endLine": 28,
+                "startOffset": 8,
+                "endOffset": 18
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/UDPClient.cpp",
+                            "textRange": {
+                                "startLine": 28,
+                                "endLine": 28,
+                                "startOffset": 8,
+                                "endOffset": 18
+                            },
+                            "msg": "Do not throw uncaught exceptions in a destructor; 4 call stack frame(s) from the exception"
+                        },
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/src/network/UDPClient.cpp",
+                            "textRange": {
+                                "startLine": 109,
+                                "endLine": 109,
+                                "startOffset": 12,
+                                "endOffset": 27
+                            },
+                            "msg": "3 call stack frame(s) from the exception"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Do not throw uncaught exceptions in a destructor.",
+            "effort": "30min",
+            "debt": "30min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "misra-c++2008"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "BUG",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "LOGICAL",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "RELIABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlg3usbt-b3bDTzn",
+            "rule": "cpp:S1481",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/network/UDPClient.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 149,
+            "hash": "b8c685a838c88c578fe775ffe2cd555e",
+            "textRange": {
+                "startLine": 149,
+                "endLine": 149,
+                "startOffset": 13,
+                "endOffset": 16
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove the unused lambda capture \"buf\".",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "unused"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JliPusbt-b3bDTzo",
+            "rule": "cpp:S5008",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/common/protocol/Protocol.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 88,
+            "hash": "beb1ee862e02b49a6dfa21939898baec",
+            "textRange": {
+                "startLine": 88,
+                "endLine": 88,
+                "startOffset": 53,
+                "endOffset": 58
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"void *\" with a more meaningful type.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cppcoreguidelines"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JliPusbt-b3bDTzp",
+            "rule": "cpp:S5008",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/common/protocol/Protocol.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 182,
+            "hash": "d5d9a7be00e7a38f3d93442958478f15",
+            "textRange": {
+                "startLine": 182,
+                "endLine": 182,
+                "startOffset": 54,
+                "endOffset": 59
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"void *\" with a more meaningful type.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cppcoreguidelines"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlVousbt-b3bDTy9",
+            "rule": "cpp:S924",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/TCPServer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 46,
+            "hash": "9d2a11af4f0f5ee36bb4f683bd4e0b1e",
+            "textRange": {
+                "startLine": 46,
+                "endLine": 46,
+                "startOffset": 20,
+                "endOffset": 25
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/TCPServer.cpp",
+                            "textRange": {
+                                "startLine": 49,
+                                "endLine": 49,
+                                "startOffset": 28,
+                                "endOffset": 33
+                            },
+                            "msg": "\"break\" statement"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/TCPServer.cpp",
+                            "textRange": {
+                                "startLine": 55,
+                                "endLine": 55,
+                                "startOffset": 28,
+                                "endOffset": 33
+                            },
+                            "msg": "\"break\" statement"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Reduce the number of nested \"break\" statements from 2 to 1 authorized.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "confusing"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlVUusbt-b3bDTy7",
+            "rule": "cpp:S134",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 79,
+            "hash": "299bc816f6af8255f1d21dfd0cae7ec6",
+            "textRange": {
+                "startLine": 79,
+                "endLine": 79,
+                "startOffset": 20,
+                "endOffset": 22
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+                            "textRange": {
+                                "startLine": 69,
+                                "endLine": 69,
+                                "startOffset": 8,
+                                "endOffset": 10
+                            },
+                            "msg": "Nesting level 1"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+                            "textRange": {
+                                "startLine": 70,
+                                "endLine": 70,
+                                "startOffset": 12,
+                                "endOffset": 14
+                            },
+                            "msg": "Nesting level 2"
+                        }
+                    ]
+                },
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+                            "textRange": {
+                                "startLine": 78,
+                                "endLine": 78,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "Nesting level 3"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "brain-overload"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlVUusbt-b3bDTy8",
+            "rule": "cpp:S1066",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 79,
+            "hash": "299bc816f6af8255f1d21dfd0cae7ec6",
+            "textRange": {
+                "startLine": 79,
+                "endLine": 79,
+                "startOffset": 20,
+                "endOffset": 22
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+                            "textRange": {
+                                "startLine": 78,
+                                "endLine": 78,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "Enclosing \"if\" statement"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Merge this \"if\" statement with the enclosing one.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlWJusbt-b3bDTy-",
+            "rule": "cpp:S112",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/server/infrastructure/bootstrap/GameBootstrap.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 34,
+            "hash": "5e2252c613ead7be97130f4bde8d617f",
+            "textRange": {
+                "startLine": 34,
+                "endLine": 34,
+                "startOffset": 26,
+                "endOffset": 88
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define and throw a dedicated exception instead of using a generic one.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "cppcoreguidelines",
+                "cwe",
+                "error-handling"
+            ],
+            "creationDate": "2025-12-08T13:26:41+0000",
+            "updateDate": "2025-12-12T09:51:15+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlcausbt-b3bDTzY",
+            "rule": "cpp:S3608",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 32,
+            "hash": "0375c8f231536831e22961b3f6e2d1f8",
+            "textRange": {
+                "startLine": 32,
+                "endLine": 32,
+                "startOffset": 13,
+                "endOffset": 14
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Explicitly capture the required scope variables.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++11",
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:26:32+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlcausbt-b3bDTzZ",
+            "rule": "cpp:S5019",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 32,
+            "hash": "0375c8f231536831e22961b3f6e2d1f8",
+            "textRange": {
+                "startLine": 32,
+                "endLine": 32,
+                "startOffset": 12,
+                "endOffset": 15
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+                            "textRange": {
+                                "startLine": 32,
+                                "endLine": 32,
+                                "startOffset": 57,
+                                "endOffset": 75
+                            },
+                            "msg": "\"this\" implicitly captured"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Explicitly capture all local variables required in this lambda.",
+            "effort": "1min",
+            "debt": "1min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "cppcoreguidelines",
+                "pitfall",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:26:32+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzQ",
+            "rule": "cpp:S6004",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 131,
+            "hash": "9765d29542ca423c40ea9b38ae699952",
+            "textRange": {
+                "startLine": 131,
+                "endLine": 131,
+                "startOffset": 8,
+                "endOffset": 32
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+                            "textRange": {
+                                "startLine": 130,
+                                "endLine": 130,
+                                "startOffset": 4,
+                                "endOffset": 22
+                            },
+                            "msg": "Variable \"sdlEvent\" is declared here."
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Use the init-statement to declare \"sdlEvent\" inside the if statement.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "since-c++17"
+            ],
+            "creationDate": "2025-12-08T13:26:32+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlcpusbt-b3bDTzb",
+            "rule": "cpp:S1709",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/SDL2Renderer.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 24,
+            "hash": "7a6b784915f1396e529713e4b5dbba0e",
+            "textRange": {
+                "startLine": 24,
+                "endLine": 24,
+                "startOffset": 8,
+                "endOffset": 20
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Add the \"explicit\" keyword to this constructor.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cppcoreguidelines"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JldZusbt-b3bDTzi",
+            "rule": "cpp:S3624",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/SDL2Window.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 18,
+            "hash": "1cacc0ed34b6ce733b4fe3eda4fcd1ed",
+            "textRange": {
+                "startLine": 18,
+                "endLine": 18,
+                "startOffset": 6,
+                "endOffset": 16
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+                            "textRange": {
+                                "startLine": 100,
+                                "endLine": 100,
+                                "startOffset": 12,
+                                "endOffset": 23
+                            },
+                            "msg": "User-provided destructor: the class manages resources directly"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Customize this class\u0027 copy constructor to participate in resource management. Customize or delete its copy assignment operator. Also consider whether move operations should be customized.",
+            "effort": "30min",
+            "debt": "30min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "leak",
+                "pitfall"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JldZusbt-b3bDTzj",
+            "rule": "cpp:S3471",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/SDL2Window.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 21,
+            "hash": "e3aa0109d2faae24b238591ae2d7deb7",
+            "textRange": {
+                "startLine": 21,
+                "endLine": 21,
+                "startOffset": 8,
+                "endOffset": 19
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Annotate this function with \"override\" or \"final\".",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "api-design",
+                "cppcoreguidelines",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JldJusbt-b3bDTzg",
+            "rule": "cpp:S3539",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 33,
+            "hash": "d9d5c2d586487da4587e90c0fae88ada",
+            "textRange": {
+                "startLine": 33,
+                "endLine": 33,
+                "startOffset": 8,
+                "endOffset": 18
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove this access specifier; it does not affect any declaration.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "redundant"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JldJusbt-b3bDTzh",
+            "rule": "cpp:S3539",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 34,
+            "hash": "bf24b7d67a71d851e442e18e1f8933f9",
+            "textRange": {
+                "startLine": 34,
+                "endLine": 34,
+                "startOffset": 8,
+                "endOffset": 16
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove this access specifier; it does not affect any declaration.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "redundant"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlc6usbt-b3bDTzf",
+            "rule": "cpp:S3624",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 29,
+            "hash": "d615ea6ed0672a2b00c46a3059f9b15e",
+            "textRange": {
+                "startLine": 29,
+                "endLine": 29,
+                "startOffset": 6,
+                "endOffset": 22
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2AssetManager.cpp",
+                            "textRange": {
+                                "startLine": 20,
+                                "endLine": 20,
+                                "startOffset": 18,
+                                "endOffset": 35
+                            },
+                            "msg": "User-provided destructor: the class manages resources directly"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Customize this class\u0027 copy constructor to participate in resource management. Customize or delete its copy assignment operator. Also consider whether move operations should be customized.",
+            "effort": "30min",
+            "debt": "30min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "leak",
+                "pitfall"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlc6usbt-b3bDTzc",
+            "rule": "cpp:S1709",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 31,
+            "hash": "47e499991858fc607d4acdfe8a860f39",
+            "textRange": {
+                "startLine": 31,
+                "endLine": 31,
+                "startOffset": 8,
+                "endOffset": 24
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Add the \"explicit\" keyword to this constructor.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cppcoreguidelines"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlc6usbt-b3bDTzd",
+            "rule": "cpp:S6045",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 42,
+            "hash": "fa332751eda5b4cbdfc2312b1d760918",
+            "textRange": {
+                "startLine": 42,
+                "endLine": 42,
+                "startOffset": 13,
+                "endOffset": 53
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use the transparent equality \"std::equal_to\u003c\u003e\" and a custom transparent heterogeneous hasher with this associative string container.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "performance",
+                "since-c++14"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlc6usbt-b3bDTze",
+            "rule": "cpp:S6045",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 43,
+            "hash": "ffe6f2e5da8a6632fc2dc313d09598d9",
+            "textRange": {
+                "startLine": 43,
+                "endLine": 43,
+                "startOffset": 13,
+                "endOffset": 64
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use the transparent equality \"std::equal_to\u003c\u003e\" and a custom transparent heterogeneous hasher with this associative string container.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "performance",
+                "since-c++14"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlbqusbt-b3bDTy_",
+            "rule": "cpp:S112",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 16,
+            "hash": "02f6cbb781698346238cbb8f6c6b3ec6",
+            "textRange": {
+                "startLine": 16,
+                "endLine": 16,
+                "startOffset": 14,
+                "endOffset": 98
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define and throw a dedicated exception instead of using a generic one.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "cppcoreguidelines",
+                "cwe",
+                "error-handling"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlbqusbt-b3bDTzA",
+            "rule": "cpp:S5350",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 22,
+            "hash": "e5850e1c3d8496e4c3654c578fec899d",
+            "textRange": {
+                "startLine": 22,
+                "endLine": 22,
+                "startOffset": 9,
+                "endOffset": 31
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Make the type of this variable a reference-to-const. The current type of this unnamed variable is \"struct std::pair\u003cconst std::string, struct SDL_Texture *\u003e \u0026\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "based-on-misra"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlbqusbt-b3bDTzB",
+            "rule": "cpp:S6171",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 45,
+            "hash": "47bc7196b717b9c036114790c10f8f96",
+            "textRange": {
+                "startLine": 45,
+                "endLine": 45,
+                "startOffset": 8,
+                "endOffset": 29
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use \"contains\" member function.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "since-c++20"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlbqusbt-b3bDTzC",
+            "rule": "cpp:S1659",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 90,
+            "hash": "a6d0ae7283e86e70144f7eb54ccddb3f",
+            "textRange": {
+                "startLine": 90,
+                "endLine": 90,
+                "startOffset": 4,
+                "endOffset": 12
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define each identifier in a dedicated statement.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cert",
+                "convention"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FORMATTED",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlb6usbt-b3bDTzD",
+            "rule": "cpp:S3490",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Plugin.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 11,
+            "hash": "4ecc65666f1706c47fe60786972883da",
+            "textRange": {
+                "startLine": 11,
+                "endLine": 11,
+                "startOffset": 16,
+                "endOffset": 26
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use \"\u003ddefault\" instead of the default implementation of this special member functions.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "cppcoreguidelines",
+                "performance",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CONVENTIONAL",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlb6usbt-b3bDTzE",
+            "rule": "cpp:S5025",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Plugin.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 33,
+            "hash": "54addf8d56cf8c0a04ba78708552bfb5",
+            "textRange": {
+                "startLine": 33,
+                "endLine": 33,
+                "startOffset": 15,
+                "endOffset": 18
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace the use of \"new\" with an operation that automatically manages the memory.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "cppcoreguidelines",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlb6usbt-b3bDTzF",
+            "rule": "cpp:S5025",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Plugin.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 37,
+            "hash": "377e1e9fd3dd45ef73ff75204fee189e",
+            "textRange": {
+                "startLine": 37,
+                "endLine": 37,
+                "startOffset": 8,
+                "endOffset": 14
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Rewrite the code so that you no longer need this \"delete\".",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "cppcoreguidelines",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlcausbt-b3bDTzV",
+            "rule": "cpp:S112",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 15,
+            "hash": "ee491d95190c12432d5d8784abe13998",
+            "textRange": {
+                "startLine": 15,
+                "endLine": 15,
+                "startOffset": 14,
+                "endOffset": 74
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define and throw a dedicated exception instead of using a generic one.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "cppcoreguidelines",
+                "cwe",
+                "error-handling"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlcausbt-b3bDTzW",
+            "rule": "cpp:S3608",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 26,
+            "hash": "f2f879baa9267214c3855b79ba596afb",
+            "textRange": {
+                "startLine": 26,
+                "endLine": 26,
+                "startOffset": 13,
+                "endOffset": 14
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Explicitly capture the required scope variables.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++11",
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlcausbt-b3bDTzX",
+            "rule": "cpp:S5019",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 26,
+            "hash": "f2f879baa9267214c3855b79ba596afb",
+            "textRange": {
+                "startLine": 26,
+                "endLine": 26,
+                "startOffset": 12,
+                "endOffset": 15
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+                            "textRange": {
+                                "startLine": 26,
+                                "endLine": 26,
+                                "startOffset": 57,
+                                "endOffset": 75
+                            },
+                            "msg": "\"this\" implicitly captured"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Explicitly capture all local variables required in this lambda.",
+            "effort": "1min",
+            "debt": "1min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "cppcoreguidelines",
+                "pitfall",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Jlcausbt-b3bDTza",
+            "rule": "cpp:S112",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 51,
+            "hash": "e5e4e2b8e5000f5cc11efc53ca9e6ac8",
+            "textRange": {
+                "startLine": 51,
+                "endLine": 51,
+                "startOffset": 14,
+                "endOffset": 71
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define and throw a dedicated exception instead of using a generic one.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "cppcoreguidelines",
+                "cwe",
+                "error-handling"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzJ",
+            "rule": "cpp:S6177",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 15,
+            "hash": "7ab05a2f2162617fc539f836653e3c28",
+            "textRange": {
+                "startLine": 15,
+                "endLine": 15,
+                "startOffset": 22,
+                "endOffset": 23
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Reduce verbosity with \"using enum\" for \"events::Key\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++20"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzK",
+            "rule": "cpp:S1479",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 15,
+            "hash": "7ab05a2f2162617fc539f836653e3c28",
+            "textRange": {
+                "startLine": 15,
+                "endLine": 15,
+                "startOffset": 4,
+                "endOffset": 10
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Reduce the number of switch cases from 52 to at most 30.",
+            "effort": "30min",
+            "debt": "30min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "brain-overload"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzG",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 72,
+            "hash": "475282f94484889485bb4953d5b4b479",
+            "textRange": {
+                "startLine": 72,
+                "endLine": 72,
+                "startOffset": 24,
+                "endOffset": 42
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Do not use the constructor\u0027s initializer list for data member \"_renderer\". Use the in-class initializer instead.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzH",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 72,
+            "hash": "475282f94484889485bb4953d5b4b479",
+            "textRange": {
+                "startLine": 72,
+                "endLine": 72,
+                "startOffset": 44,
+                "endOffset": 57
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Do not use the constructor\u0027s initializer list for data member \"_isOpen\". Use the in-class initializer instead.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzI",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 72,
+            "hash": "475282f94484889485bb4953d5b4b479",
+            "textRange": {
+                "startLine": 72,
+                "endLine": 72,
+                "startOffset": 6,
+                "endOffset": 22
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Do not use the constructor\u0027s initializer list for data member \"_window\". Use the in-class initializer instead.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzL",
+            "rule": "cpp:S112",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 75,
+            "hash": "ab10b628582de0fe665ad2eede814c25",
+            "textRange": {
+                "startLine": 75,
+                "endLine": 75,
+                "startOffset": 14,
+                "endOffset": 92
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define and throw a dedicated exception instead of using a generic one.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "cppcoreguidelines",
+                "cwe",
+                "error-handling"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzM",
+            "rule": "cpp:S112",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 89,
+            "hash": "79b4221d204dcb1ad22116dc24bce265",
+            "textRange": {
+                "startLine": 89,
+                "endLine": 89,
+                "startOffset": 14,
+                "endOffset": 95
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define and throw a dedicated exception instead of using a generic one.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "cppcoreguidelines",
+                "cwe",
+                "error-handling"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzN",
+            "rule": "cpp:S112",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 96,
+            "hash": "30d764d4f75717c5c2f3ed7a95436715",
+            "textRange": {
+                "startLine": 96,
+                "endLine": 96,
+                "startOffset": 14,
+                "endOffset": 97
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define and throw a dedicated exception instead of using a generic one.",
+            "effort": "20min",
+            "debt": "20min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cert",
+                "cppcoreguidelines",
+                "cwe",
+                "error-handling"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzO",
+            "rule": "cpp:S1659",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 113,
+            "hash": "a6d0ae7283e86e70144f7eb54ccddb3f",
+            "textRange": {
+                "startLine": 113,
+                "endLine": 113,
+                "startOffset": 4,
+                "endOffset": 12
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Define each identifier in a dedicated statement.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cert",
+                "convention"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FORMATTED",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzP",
+            "rule": "cpp:S6872",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 115,
+            "hash": "6791c3156e8c566549f26a585d2fa2a7",
+            "textRange": {
+                "startLine": 115,
+                "endLine": 115,
+                "startOffset": 16,
+                "endOffset": 76
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use braces to initialize the aggregate.",
+            "effort": "1min",
+            "debt": "1min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++20"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzU",
+            "rule": "cpp:S5008",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 150,
+            "hash": "a07ac2293d4c4904a421926f3a338be6",
+            "textRange": {
+                "startLine": 150,
+                "endLine": 150,
+                "startOffset": 0,
+                "endOffset": 5
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"void *\" with a more meaningful type.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cppcoreguidelines"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzR",
+            "rule": "cpp:S1186",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 156,
+            "hash": "f95b70fdc3088560732a5ac135644506",
+            "textRange": {
+                "startLine": 156,
+                "endLine": 157,
+                "startOffset": 0,
+                "endOffset": 1
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Add a nested comment explaining why this method is empty, or complete the implementation.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzT",
+            "rule": "cpp:S1238",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 166,
+            "hash": "8367f0dcc3fd1311c15a311e9c2e7347",
+            "textRange": {
+                "startLine": 166,
+                "endLine": 166,
+                "startOffset": 25,
+                "endOffset": 53
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Pass polymorphic object \"drawable\" by reference to const.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlcKusbt-b3bDTzS",
+            "rule": "cpp:S1186",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 167,
+            "hash": "f95b70fdc3088560732a5ac135644506",
+            "textRange": {
+                "startLine": 167,
+                "endLine": 168,
+                "startOffset": 0,
+                "endOffset": 1
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Add a nested comment explaining why this method is empty, or complete the implementation.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlRcusbt-b3bDTy5",
+            "rule": "cpp:S6009",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/server/include/infrastructure/configuration/EnvLoader.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 49,
+            "hash": "f6af2c9443ce4d1a15ad60300254b50d",
+            "textRange": {
+                "startLine": 49,
+                "endLine": 49,
+                "startOffset": 36,
+                "endOffset": 58
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this const reference to \"std::string\" by a \"std::string_view\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++17"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-JlRcusbt-b3bDTy6",
+            "rule": "cpp:S1066",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/server/include/infrastructure/configuration/EnvLoader.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 58,
+            "hash": "e3033bd5ac261d74bb583e6a5720f5ee",
+            "textRange": {
+                "startLine": 58,
+                "endLine": 58,
+                "startOffset": 20,
+                "endOffset": 22
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/server/include/infrastructure/configuration/EnvLoader.hpp",
+                            "textRange": {
+                                "startLine": 57,
+                                "endLine": 57,
+                                "startOffset": 16,
+                                "endOffset": 18
+                            },
+                            "msg": "Enclosing \"if\" statement"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Merge this \"if\" statement with the enclosing one.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy"
+            ],
+            "creationDate": "2025-12-08T13:05:43+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eoft7KWnAbRkDyLb",
+            "rule": "cpp:S5416",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/include/graphics/Asset.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 23,
+            "hash": "af085a3d21fcc0efb8ed1523bf858753",
+            "textRange": {
+                "startLine": 23,
+                "endLine": 23,
+                "startOffset": 0,
+                "endOffset": 38
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "\"using\" should be preferred to \"typedef\" for type aliasing.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "design",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CONVENTIONAL",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eoft7KWnAbRkDyLc",
+            "rule": "cpp:S5416",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/include/graphics/Asset.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 24,
+            "hash": "654781d086e0f360f1f9c110f5682da8",
+            "textRange": {
+                "startLine": 24,
+                "endLine": 24,
+                "startOffset": 0,
+                "endOffset": 40
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "\"using\" should be preferred to \"typedef\" for type aliasing.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "design",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CONVENTIONAL",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EokG7KWnAbRkDyLz",
+            "rule": "cpp:S6045",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/include/utils/AssetManager.hpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 44,
+            "hash": "5acc75c2b3e636ccba5563432863e9de",
+            "textRange": {
+                "startLine": 44,
+                "endLine": 44,
+                "startOffset": 13,
+                "endOffset": 84
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use the transparent equality \"std::equal_to\u003c\u003e\" and a custom transparent heterogeneous hasher with this associative string container.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "performance",
+                "since-c++14"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EojX7KWnAbRkDyLe",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 15,
+            "hash": "0d08b3184b2b07ce79b7d1263b28abec",
+            "textRange": {
+                "startLine": 15,
+                "endLine": 15,
+                "startOffset": 30,
+                "endOffset": 40
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove this use of the constructor\u0027s initializer list for data member \"textures\". It is redundant with default initialization behavior.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EojX7KWnAbRkDyLg",
+            "rule": "cpp:S6004",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 30,
+            "hash": "8c83a1371a2e471bc96ba55bd8ea02fc",
+            "textRange": {
+                "startLine": 30,
+                "endLine": 30,
+                "startOffset": 8,
+                "endOffset": 32
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/AssetManager.cpp",
+                            "textRange": {
+                                "startLine": 29,
+                                "endLine": 29,
+                                "startOffset": 4,
+                                "endOffset": 43
+                            },
+                            "msg": "Variable \"textIt\" is declared here."
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Use the init-statement to declare \"textIt\" inside the if statement.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "since-c++17"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EojX7KWnAbRkDyLf",
+            "rule": "cpp:S4144",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 82,
+            "hash": "9a1c9e1de6fe2e47524720e5f57c19be",
+            "textRange": {
+                "startLine": 82,
+                "endLine": 82,
+                "startOffset": 19,
+                "endOffset": 28
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/AssetManager.cpp",
+                            "textRange": {
+                                "startLine": 76,
+                                "endLine": 76,
+                                "startOffset": 19,
+                                "endOffset": 28
+                            },
+                            "msg": "Original implementation"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Update this method so that its implementation is not identical to addSprite.",
+            "effort": "15min",
+            "debt": "15min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "duplicate",
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "DISTINCT",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EojX7KWnAbRkDyLh",
+            "rule": "cpp:S6197",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/AssetManager.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 98,
+            "hash": "08be14c591410ffccbac84c2295781c2",
+            "textRange": {
+                "startLine": 98,
+                "endLine": 101,
+                "startOffset": 4,
+                "endOffset": 10
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace with the version of \"std::ranges::sort\" that takes a range.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "clumsy",
+                "since-c++20"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CONVENTIONAL",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLi",
+            "rule": "cpp:S3608",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 21,
+            "hash": "7ca84f910e224c7c135b0d7163548f36",
+            "textRange": {
+                "startLine": 21,
+                "endLine": 21,
+                "startOffset": 13,
+                "endOffset": 14
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Explicitly capture the required scope variables.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++11",
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLj",
+            "rule": "cpp:S5019",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 21,
+            "hash": "7ca84f910e224c7c135b0d7163548f36",
+            "textRange": {
+                "startLine": 21,
+                "endLine": 21,
+                "startOffset": 12,
+                "endOffset": 15
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+                            "textRange": {
+                                "startLine": 21,
+                                "endLine": 21,
+                                "startOffset": 50,
+                                "endOffset": 68
+                            },
+                            "msg": "\"this\" implicitly captured"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Explicitly capture all local variables required in this lambda.",
+            "effort": "1min",
+            "debt": "1min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "cppcoreguidelines",
+                "pitfall",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLk",
+            "rule": "cpp:S3608",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 26,
+            "hash": "83bf01e14c3f11e5759dc21a3dc47514",
+            "textRange": {
+                "startLine": 26,
+                "endLine": 26,
+                "startOffset": 13,
+                "endOffset": 14
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Explicitly capture the required scope variables.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++11",
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLl",
+            "rule": "cpp:S5019",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 26,
+            "hash": "83bf01e14c3f11e5759dc21a3dc47514",
+            "textRange": {
+                "startLine": 26,
+                "endLine": 26,
+                "startOffset": 12,
+                "endOffset": 15
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+                            "textRange": {
+                                "startLine": 26,
+                                "endLine": 26,
+                                "startOffset": 51,
+                                "endOffset": 69
+                            },
+                            "msg": "\"this\" implicitly captured"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Explicitly capture all local variables required in this lambda.",
+            "effort": "1min",
+            "debt": "1min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "cppcoreguidelines",
+                "pitfall",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLm",
+            "rule": "cpp:S3608",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 35,
+            "hash": "cfdb17dd6da522d3d3d2edcf9a086e9d",
+            "textRange": {
+                "startLine": 35,
+                "endLine": 35,
+                "startOffset": 13,
+                "endOffset": 14
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Explicitly capture the required scope variables.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++11",
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLn",
+            "rule": "cpp:S5019",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 35,
+            "hash": "cfdb17dd6da522d3d3d2edcf9a086e9d",
+            "textRange": {
+                "startLine": 35,
+                "endLine": 35,
+                "startOffset": 12,
+                "endOffset": 15
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+                            "textRange": {
+                                "startLine": 35,
+                                "endLine": 35,
+                                "startOffset": 50,
+                                "endOffset": 67
+                            },
+                            "msg": "\"this\" implicitly captured"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Explicitly capture all local variables required in this lambda.",
+            "effort": "1min",
+            "debt": "1min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "cppcoreguidelines",
+                "pitfall",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLo",
+            "rule": "cpp:S3608",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 40,
+            "hash": "3dba57055be3044f504f448841f9396f",
+            "textRange": {
+                "startLine": 40,
+                "endLine": 40,
+                "startOffset": 13,
+                "endOffset": 14
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Explicitly capture the required scope variables.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++11",
+                "suspicious"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLp",
+            "rule": "cpp:S5019",
+            "severity": "CRITICAL",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 40,
+            "hash": "3dba57055be3044f504f448841f9396f",
+            "textRange": {
+                "startLine": 40,
+                "endLine": 40,
+                "startOffset": 12,
+                "endOffset": 15
+            },
+            "flows": [
+                {
+                    "locations": [
+                        {
+                            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+                            "textRange": {
+                                "startLine": 40,
+                                "endLine": 40,
+                                "startOffset": 51,
+                                "endOffset": 68
+                            },
+                            "msg": "\"this\" implicitly captured"
+                        }
+                    ]
+                }
+            ],
+            "status": "OPEN",
+            "message": "Explicitly capture all local variables required in this lambda.",
+            "effort": "1min",
+            "debt": "1min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "cppcoreguidelines",
+                "pitfall",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "HIGH"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLq",
+            "rule": "cpp:S995",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 58,
+            "hash": "c5984baf6e3924fbc0269762f5e1b391",
+            "textRange": {
+                "startLine": 58,
+                "endLine": 58,
+                "startOffset": 38,
+                "endOffset": 70
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Make the type of this parameter a reference-to-const. The current type of \"element\" is \"class graphic::GraphicElement \u0026\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "misra-c++2008",
+                "misra-c2004",
+                "misra-c2012"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CONVENTIONAL",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLr",
+            "rule": "cpp:S5827",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 62,
+            "hash": "948475e206874f5109a288cb18339889",
+            "textRange": {
+                "startLine": 62,
+                "endLine": 62,
+                "startOffset": 4,
+                "endOffset": 7
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace the redundant type with \"auto\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "cppcoreguidelines",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLs",
+            "rule": "cpp:S7035",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 62,
+            "hash": "948475e206874f5109a288cb18339889",
+            "textRange": {
+                "startLine": 62,
+                "endLine": 62,
+                "startOffset": 17,
+                "endOffset": 53
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use \"std::to_underlying\" to cast enums to their underlying type.",
+            "effort": "15min",
+            "debt": "15min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "pitfall",
+                "since-c++23"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLt",
+            "rule": "cpp:S5817",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 69,
+            "hash": "1d09114d3aa87b726f4faf93a0eb71e5",
+            "textRange": {
+                "startLine": 69,
+                "endLine": 69,
+                "startOffset": 19,
+                "endOffset": 36
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "This function should be declared \"const\".",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "confusing",
+                "pitfall"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLu",
+            "rule": "cpp:S1172",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 69,
+            "hash": "1d09114d3aa87b726f4faf93a0eb71e5",
+            "textRange": {
+                "startLine": 69,
+                "endLine": 69,
+                "startOffset": 62,
+                "endOffset": 74
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove the unused parameter \"textureAsset\", make it unnamed, or declare it \"[[maybe_unused]]\".",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "cert",
+                "unused"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLy",
+            "rule": "cpp:S125",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 70,
+            "hash": "598dc06cbdd3a1b3730e0b204d37fa87",
+            "textRange": {
+                "startLine": 70,
+                "endLine": 78,
+                "startOffset": 4,
+                "endOffset": 39
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove the commented out code.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "unused"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLv",
+            "rule": "cpp:S995",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 81,
+            "hash": "a6e6117735571e97e11ac10b4b4b5193",
+            "textRange": {
+                "startLine": 81,
+                "endLine": 81,
+                "startOffset": 37,
+                "endOffset": 69
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Make the type of this parameter a reference-to-const. The current type of \"element\" is \"class graphic::GraphicElement \u0026\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "misra-c++2008",
+                "misra-c2004",
+                "misra-c2012"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CONVENTIONAL",
+            "cleanCodeAttributeCategory": "CONSISTENT",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLw",
+            "rule": "cpp:S5827",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 85,
+            "hash": "948475e206874f5109a288cb18339889",
+            "textRange": {
+                "startLine": 85,
+                "endLine": 85,
+                "startOffset": 4,
+                "endOffset": 7
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace the redundant type with \"auto\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "cppcoreguidelines",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eojm7KWnAbRkDyLx",
+            "rule": "cpp:S7035",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 85,
+            "hash": "948475e206874f5109a288cb18339889",
+            "textRange": {
+                "startLine": 85,
+                "endLine": 85,
+                "startOffset": 17,
+                "endOffset": 53
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use \"std::to_underlying\" to cast enums to their underlying type.",
+            "effort": "15min",
+            "debt": "15min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "pitfall",
+                "since-c++23"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "FOCUSED",
+            "cleanCodeAttributeCategory": "ADAPTABLE",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eom17KWnAbRkDyMU",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/graphics/Graphics.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 15,
+            "hash": "deb89ac5833a5951b77b7e0cbe38f75f",
+            "textRange": {
+                "startLine": 15,
+                "endLine": 15,
+                "startOffset": 40,
+                "endOffset": 53
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Do not use the constructor\u0027s initializer list for data member \"_size\". Use the in-class initializer instead.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eom17KWnAbRkDyMW",
+            "rule": "cpp:S1238",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/graphics/Graphics.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 43,
+            "hash": "e08df1eadfdefd7e8bed4c72ce85345d",
+            "textRange": {
+                "startLine": 43,
+                "endLine": 43,
+                "startOffset": 8,
+                "endOffset": 24
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Pass expensive to copy object \"name\" by reference to const.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-Eom17KWnAbRkDyMV",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/graphics/Graphics.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 45,
+            "hash": "af00ce237a6d7c59c6a620169e0c8c26",
+            "textRange": {
+                "startLine": 45,
+                "endLine": 45,
+                "startOffset": 66,
+                "endOffset": 80
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Do not use the constructor\u0027s initializer list for data member \"_isAlive\". Use the in-class initializer instead.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolL7KWnAbRkDyL0",
+            "rule": "cpp:S125",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/GameScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "hash": "4c8513d46c6eb3876258c94f059581cc",
+            "textRange": {
+                "startLine": 20,
+                "endLine": 27,
+                "startOffset": 4,
+                "endOffset": 8
+            },
+            "flows": [],
+            "resolution": "FIXED",
+            "status": "CLOSED",
+            "message": "Remove the commented out code.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "unused"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "closeDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "FIXED",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolL7KWnAbRkDyL1",
+            "rule": "cpp:S125",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/GameScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "hash": "0f3c4c7b902682887753c27457f79ed7",
+            "textRange": {
+                "startLine": 32,
+                "endLine": 32,
+                "startOffset": 12,
+                "endOffset": 46
+            },
+            "flows": [],
+            "resolution": "FIXED",
+            "status": "CLOSED",
+            "message": "Remove the commented out code.",
+            "effort": "5min",
+            "debt": "5min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "based-on-misra",
+                "unused"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:26:41+0000",
+            "closeDate": "2025-12-08T13:26:41+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "FIXED",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL2",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 21,
+            "hash": "0d48981027a4ff9f02804a2515ae8600",
+            "textRange": {
+                "startLine": 21,
+                "endLine": 21,
+                "startOffset": 6,
+                "endOffset": 17
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove this use of the constructor\u0027s initializer list for data member \"_textures\". It is redundant with default initialization behavior.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL3",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 22,
+            "hash": "7158e1f18f6a448723143cd4554624d9",
+            "textRange": {
+                "startLine": 22,
+                "endLine": 22,
+                "startOffset": 6,
+                "endOffset": 17
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove this use of the constructor\u0027s initializer list for data member \"_elements\". It is redundant with default initialization behavior.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL5",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 23,
+            "hash": "0a0b61cb2407562b9eb5da600cbfb76d",
+            "textRange": {
+                "startLine": 23,
+                "endLine": 23,
+                "startOffset": 6,
+                "endOffset": 22
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Do not use the constructor\u0027s initializer list for data member \"_entityManager\". Use the in-class initializer instead.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL4",
+            "rule": "cpp:S3230",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 24,
+            "hash": "743967e76aff483d68b84a48e4059d70",
+            "textRange": {
+                "startLine": 24,
+                "endLine": 24,
+                "startOffset": 6,
+                "endOffset": 25
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Remove this use of the constructor\u0027s initializer list for data member \"_fireCooldown\". It is redundant with the in-class initializer.",
+            "effort": "10min",
+            "debt": "10min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "cppcoreguidelines",
+                "performance"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "COMPLETE",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL8",
+            "rule": "cpp:S6003",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 36,
+            "hash": "4ba6f3d7f50679367253ef54506c154f",
+            "textRange": {
+                "startLine": 36,
+                "endLine": 36,
+                "startOffset": 4,
+                "endOffset": 35
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"push_back\" with \"emplace_back\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "performance",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL9",
+            "rule": "cpp:S6003",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 37,
+            "hash": "225e9dc27cefb436784ab97aeaf830a4",
+            "textRange": {
+                "startLine": 37,
+                "endLine": 37,
+                "startOffset": 4,
+                "endOffset": 33
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"push_back\" with \"emplace_back\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "performance",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL-",
+            "rule": "cpp:S6003",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 38,
+            "hash": "71c848a8ff59665898b4fe95a35961ac",
+            "textRange": {
+                "startLine": 38,
+                "endLine": 38,
+                "startOffset": 4,
+                "endOffset": 35
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"push_back\" with \"emplace_back\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "performance",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL_",
+            "rule": "cpp:S6003",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 40,
+            "hash": "75357e694e16e35c74da19794417afe7",
+            "textRange": {
+                "startLine": 40,
+                "endLine": 40,
+                "startOffset": 4,
+                "endOffset": 35
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"push_back\" with \"emplace_back\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "performance",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyMA",
+            "rule": "cpp:S6003",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 41,
+            "hash": "004f13b4d8e07c92bee25c82147102af",
+            "textRange": {
+                "startLine": 41,
+                "endLine": 41,
+                "startOffset": 4,
+                "endOffset": 36
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this use of \"push_back\" with \"emplace_back\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "performance",
+                "since-c++11"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL7",
+            "rule": "cpp:S5350",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 45,
+            "hash": "3bab76725648b1fb020f910c6c178989",
+            "textRange": {
+                "startLine": 45,
+                "endLine": 45,
+                "startOffset": 4,
+                "endOffset": 65
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Make the type of this variable a pointer-to-const. The current type of \"bgTexture\" is \"class graphic::GraphicTexture *\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "based-on-misra"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyMB",
+            "rule": "cpp:S6009",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 55,
+            "hash": "a82b0da577c8d97a143a85a6662968c3",
+            "textRange": {
+                "startLine": 55,
+                "endLine": 55,
+                "startOffset": 49,
+                "endOffset": 72
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this const reference to \"std::string\" by a \"std::string_view\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++17"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyMC",
+            "rule": "cpp:S6009",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 65,
+            "hash": "cda4c7bd66f76d4583fe89b2bd664222",
+            "textRange": {
+                "startLine": 65,
+                "endLine": 65,
+                "startOffset": 49,
+                "endOffset": 72
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Replace this const reference to \"std::string\" by a \"std::string_view\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++17"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "EFFICIENT",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyMD",
+            "rule": "cpp:S5350",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 95,
+            "hash": "7a6dcb2c5580b2097d3fd9a7571d37e9",
+            "textRange": {
+                "startLine": 95,
+                "endLine": 95,
+                "startOffset": 4,
+                "endOffset": 46
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Make the type of this variable a pointer-to-const. The current type of \"spaceship\" is \"class graphic::GraphicElement *\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "bad-practice",
+                "based-on-misra"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyME",
+            "rule": "cpp:S6185",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 104,
+            "hash": "6550c021fa3fac4d4cd78ecfffc971bc",
+            "textRange": {
+                "startLine": 104,
+                "endLine": 104,
+                "startOffset": 30,
+                "endOffset": 71
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Use std::format instead of concatenating pieces manually.",
+            "effort": "3min",
+            "debt": "3min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "clumsy",
+                "since-c++20"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr-EolZ7KWnAbRkDyL6",
+            "rule": "cpp:S6177",
+            "severity": "MINOR",
+            "component": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "project": "Pluenet-Killian_rtype",
+            "line": 111,
+            "hash": "ee8f8fc60ec283d9b6c94b2a63b019ac",
+            "textRange": {
+                "startLine": 111,
+                "endLine": 111,
+                "startOffset": 52,
+                "endOffset": 53
+            },
+            "flows": [],
+            "status": "OPEN",
+            "message": "Reduce verbosity with \"using enum\" for \"events::Key\".",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "since-c++20"
+            ],
+            "creationDate": "2025-12-08T13:05:09+0000",
+            "updateDate": "2025-12-08T13:05:09+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "CLEAR",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "LOW"
+                }
+            ],
+            "issueStatus": "OPEN",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr9fx1AYdKf-cRNwsev",
+            "rule": "shelldre:S7682",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:.claude/agentdb/query.sh",
+            "project": "Pluenet-Killian_rtype",
+            "hash": "0ef3309c35dac8e6bcd787a86f7534fb",
+            "textRange": {
+                "startLine": 79,
+                "endLine": 79,
+                "startOffset": 0,
+                "endOffset": 9
+            },
+            "flows": [],
+            "resolution": "FIXED",
+            "status": "CLOSED",
+            "message": "Add an explicit return statement at the end of the function.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "best-practice",
+                "clarity",
+                "shell"
+            ],
+            "creationDate": "2025-12-08T10:23:21+0000",
+            "updateDate": "2025-12-12T09:00:37+0000",
+            "closeDate": "2025-12-12T09:00:37+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "LOGICAL",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "FIXED",
+            "projectName": "rtype"
+        },
+        {
+            "key": "AZr9fx1AYdKf-cRNwsew",
+            "rule": "shelldre:S7682",
+            "severity": "MAJOR",
+            "component": "Pluenet-Killian_rtype:.claude/agentdb/query.sh",
+            "project": "Pluenet-Killian_rtype",
+            "hash": "79f83c3bf5ef207bbcf33ce56ad8cece",
+            "textRange": {
+                "startLine": 89,
+                "endLine": 89,
+                "startOffset": 0,
+                "endOffset": 7
+            },
+            "flows": [],
+            "resolution": "FIXED",
+            "status": "CLOSED",
+            "message": "Add an explicit return statement at the end of the function.",
+            "effort": "2min",
+            "debt": "2min",
+            "assignee": "Pluenet-Killian-WX6tx@github",
+            "author": "killian.pluenet@gmail.com",
+            "tags": [
+                "best-practice",
+                "clarity",
+                "shell"
+            ],
+            "creationDate": "2025-12-08T10:23:21+0000",
+            "updateDate": "2025-12-12T09:00:37+0000",
+            "closeDate": "2025-12-12T09:00:37+0000",
+            "type": "CODE_SMELL",
+            "organization": "pluenet-killian",
+            "cleanCodeAttribute": "LOGICAL",
+            "cleanCodeAttributeCategory": "INTENTIONAL",
+            "impacts": [
+                {
+                    "softwareQuality": "MAINTAINABILITY",
+                    "severity": "MEDIUM"
+                }
+            ],
+            "issueStatus": "FIXED",
+            "projectName": "rtype"
+        }
+    ],
+    "components": [
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/include/graphics/Asset.hpp",
+            "uuid": "AZq6uhZubggZrJcXA3Tl",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "Asset.hpp",
+            "longName": "src/client/include/graphics/Asset.hpp",
+            "path": "src/client/include/graphics/Asset.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/server/infrastructure/bootstrap/GameBootstrap.hpp",
+            "uuid": "AZsR-mSvkRyw-BwlWri6",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "GameBootstrap.hpp",
+            "longName": "src/server/infrastructure/bootstrap/GameBootstrap.hpp",
+            "path": "src/server/infrastructure/bootstrap/GameBootstrap.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTyz",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2Plugin.hpp",
+            "longName": "src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp",
+            "path": "src/client/lib/sdl2/include/plugins/SDL2Plugin.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/SDL2Renderer.hpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTyw",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2Renderer.hpp",
+            "longName": "src/client/lib/sdl2/include/SDL2Renderer.hpp",
+            "path": "src/client/lib/sdl2/include/SDL2Renderer.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTyx",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2AssetManager.hpp",
+            "longName": "src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp",
+            "path": "src/client/lib/sdl2/include/utils/SDL2AssetManager.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:.claude/agentdb/query.sh",
+            "uuid": "AZr9fw99YdKf-cRNwsei",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "query.sh",
+            "longName": ".claude/agentdb/query.sh",
+            "path": ".claude/agentdb/query.sh"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+            "uuid": "AZp0Us2Zmi-smuRhEE3c",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "UDPServer.cpp",
+            "longName": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+            "path": "src/server/infrastructure/adapters/in/network/UDPServer.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/src/graphics/Graphics.cpp",
+            "uuid": "AZq_DXqbSchGjxeKyJEn",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "Graphics.cpp",
+            "longName": "src/client/src/graphics/Graphics.cpp",
+            "path": "src/client/src/graphics/Graphics.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/server/infrastructure/adapters/in/network/TCPServer.cpp",
+            "uuid": "AZp0Us2Zmi-smuRhEE3d",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "TCPServer.cpp",
+            "longName": "src/server/infrastructure/adapters/in/network/TCPServer.cpp",
+            "path": "src/server/infrastructure/adapters/in/network/TCPServer.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:reports/web-report-2025-12-12-e8a89a9.json",
+            "uuid": "AZsR42zviGPAHl6iX0g1",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "web-report-2025-12-12-e8a89a9.json",
+            "longName": "reports/web-report-2025-12-12-e8a89a9.json",
+            "path": "reports/web-report-2025-12-12-e8a89a9.json"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTyu",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2Renderer.cpp",
+            "longName": "src/client/lib/sdl2/src/SDL2Renderer.cpp",
+            "path": "src/client/lib/sdl2/src/SDL2Renderer.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/common/protocol/Protocol.hpp",
+            "uuid": "AZrWkWSQQjI_6wXfE8kJ",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "Protocol.hpp",
+            "longName": "src/common/protocol/Protocol.hpp",
+            "path": "src/common/protocol/Protocol.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/src/scenes/LoginScene.cpp",
+            "uuid": "AZq_DXqbSchGjxeKyJEg",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "LoginScene.cpp",
+            "longName": "src/client/src/scenes/LoginScene.cpp",
+            "path": "src/client/src/scenes/LoginScene.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/src/scenes/GameScene.cpp",
+            "uuid": "AZq_DXqbSchGjxeKyJEf",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "GameScene.cpp",
+            "longName": "src/client/src/scenes/GameScene.cpp",
+            "path": "src/client/src/scenes/GameScene.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Plugin.cpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTys",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2Plugin.cpp",
+            "longName": "src/client/lib/sdl2/src/SDL2Plugin.cpp",
+            "path": "src/client/lib/sdl2/src/SDL2Plugin.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2Window.cpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTyt",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2Window.cpp",
+            "longName": "src/client/lib/sdl2/src/SDL2Window.cpp",
+            "path": "src/client/lib/sdl2/src/SDL2Window.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/include/SDL2Window.hpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTy1",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2Window.hpp",
+            "longName": "src/client/lib/sdl2/include/SDL2Window.hpp",
+            "path": "src/client/lib/sdl2/include/SDL2Window.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sdl2/src/SDL2AssetManager.cpp",
+            "uuid": "AZr-Jk3lusbt-b3bDTyr",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SDL2AssetManager.cpp",
+            "longName": "src/client/lib/sdl2/src/SDL2AssetManager.cpp",
+            "path": "src/client/lib/sdl2/src/SDL2AssetManager.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/src/network/TCPClient.cpp",
+            "uuid": "AZq_DXqbSchGjxeKyJEj",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "TCPClient.cpp",
+            "longName": "src/client/src/network/TCPClient.cpp",
+            "path": "src/client/src/network/TCPClient.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/src/core/GameLoop.cpp",
+            "uuid": "AZq_DXqbSchGjxeKyJEb",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "GameLoop.cpp",
+            "longName": "src/client/src/core/GameLoop.cpp",
+            "path": "src/client/src/core/GameLoop.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "uuid": "AZq_DXqbSchGjxeKyJEO",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "SFMLRenderer.cpp",
+            "longName": "src/client/lib/sfml/src/SFMLRenderer.cpp",
+            "path": "src/client/lib/sfml/src/SFMLRenderer.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sfml/src/AssetManager.cpp",
+            "uuid": "AZq_DXqbSchGjxeKyJEN",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "AssetManager.cpp",
+            "longName": "src/client/lib/sfml/src/AssetManager.cpp",
+            "path": "src/client/lib/sfml/src/AssetManager.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/lib/sfml/include/utils/AssetManager.hpp",
+            "uuid": "AZq_DXqbSchGjxeKyJET",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "AssetManager.hpp",
+            "longName": "src/client/lib/sfml/include/utils/AssetManager.hpp",
+            "path": "src/client/lib/sfml/include/utils/AssetManager.hpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/client/src/network/UDPClient.cpp",
+            "uuid": "AZrW0mC4QjI_6wXfGjPb",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "UDPClient.cpp",
+            "longName": "src/client/src/network/UDPClient.cpp",
+            "path": "src/client/src/network/UDPClient.cpp"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype",
+            "uuid": "AZpycdpXa-mCnhafMrad",
+            "enabled": true,
+            "qualifier": "TRK",
+            "name": "rtype",
+            "longName": "rtype"
+        },
+        {
+            "organization": "pluenet-killian",
+            "key": "Pluenet-Killian_rtype:src/server/include/infrastructure/configuration/EnvLoader.hpp",
+            "uuid": "AZr-Jk3dusbt-b3bDTyq",
+            "enabled": true,
+            "qualifier": "FIL",
+            "name": "EnvLoader.hpp",
+            "longName": "src/server/include/infrastructure/configuration/EnvLoader.hpp",
+            "path": "src/server/include/infrastructure/configuration/EnvLoader.hpp"
+        }
+    ],
+    "organizations": [
+        {
+            "key": "pluenet-killian",
+            "name": "Pluenet-Killian"
+        }
+    ],
+    "facets": []
+}

@@ -1,0 +1,159 @@
+{
+  "agent": "sonar",
+  "timestamp": "2025-12-12T14:32:00Z",
+  "total_issues": 4,
+  "enriched_issues": 4,
+  "agentdb_queries": {
+    "file_context": {"status": "ok", "count": 2},
+    "patterns": {"status": "ok", "count": 2, "patterns_found": 25},
+    "file_metrics": {"status": "ok", "count": 2},
+    "architecture_decisions": {"status": "ok", "count": 1, "adrs_found": 0},
+    "module_summary": {"status": "ok", "count": 1}
+  },
+  "summary": {
+    "by_severity": {
+      "blocker": 0,
+      "critical": 3,
+      "major": 1,
+      "minor": 0,
+      "info": 0
+    },
+    "by_category": {
+      "maintainability": 4,
+      "security": 0,
+      "reliability": 0
+    },
+    "by_file": {
+      "src/client/src/network/TCPClient.cpp": {
+        "count": 3,
+        "is_critical": true,
+        "security_sensitive": true
+      },
+      "src/client/src/network/UDPClient.cpp": {
+        "count": 1,
+        "is_critical": false,
+        "security_sensitive": false
+      }
+    }
+  },
+  "issues": [
+    {
+      "id": "SONAR-001",
+      "source": ["sonarqube"],
+      "title": "Refactor this function to reduce its Cognitive Complexity from 29 to the 25 allowed.",
+      "severity": "Critical",
+      "category": "Maintainability",
+      "status": "pending",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 170,
+      "rule": "cpp:S3776",
+      "effort": "9min",
+      "agentdb_context": {
+        "module": "client",
+        "is_critical": true,
+        "security_sensitive": true,
+        "complexity_max": 25,
+        "patterns_violated": ["performance_early_exit"],
+        "patterns_applicable": ["performance_early_exit", "error_handling_return_codes"],
+        "adr_applicable": null,
+        "dependencies": {
+          "includes": ["src/client/include/network/TCPClient.hpp", "src/client/include/core/Logger.hpp", "src/common/protocol/Protocol.hpp"],
+          "included_by": []
+        },
+        "activity": {
+          "commits_30d": 5,
+          "commits_90d": 5,
+          "last_modified": "2025-12-12T10:51:08+01:00"
+        }
+      },
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 170\n**Module** : client\n**Fonction** : `handleRead(const boost::system::error_code &error, std::size_t bytes)`\n\n### Contexte du fichier\n\nCe fichier implemente le client TCP pour la communication reseau avec le serveur d'authentification. Il fait partie de la couche infrastructure du client R-Type et gere :\n- La connexion/deconnexion TCP\n- L'envoi des credentials (login/register)\n- La reception et le parsing des messages du protocole binaire\n\n### Dependances\n\nCe fichier inclut :\n- `src/client/include/network/TCPClient.hpp` (header)\n- `src/client/include/core/Logger.hpp` (logging)\n- `src/common/protocol/Protocol.hpp` (protocole binaire)\n\n> **Note** : Fichier marque **critique** et **sensible securite** dans AgentDB. Tout changement doit etre revise avec attention.",
+      "why": "## Pourquoi c'est un probleme\n\nLa fonction `handleRead` a une complexite cognitive de 29, depassant le seuil autorise de 25. Cette complexite elevee est due a :\n\n1. **Boucle while imbriquee** dans la condition `if (!error)`\n2. **Multiple conditions imbriquees** pour parser les messages (if/else if)\n3. **Gestion de plusieurs cas d'erreur** (eof, autres erreurs)\n\n**Regle SonarQube** : [cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)\n**Categorie** : Maintainability\n**Effort estime** : 9min\n\n### Impact dans le projet\n\nCe fichier est **critique** pour le client R-Type :\n- Il gere l'authentification des utilisateurs\n- Il traite des donnees sensibles (credentials)\n- 5 commits dans les 30 derniers jours indiquent une activite elevee\n- Le module client depend de ce fichier pour toute communication TCP\n\n### Patterns du projet concernes\n\nLe pattern **performance_early_exit** du projet recommande :\n> \"Check for invalid conditions early and return/continue to avoid unnecessary processing.\"\n\nLa fonction actuelle ne suit pas ce pattern : elle utilise des blocs `if/else` imbriques au lieu d'early returns.",
+      "how": "## Solution suggeree\n\n1. **Extraire la logique de parsing** dans une methode privee `parseMessage()`\n2. **Utiliser des early returns** pour reduire l'imbrication :\n   ```cpp\n   if (error) {\n       handleError(error);\n       return;\n   }\n   // Main logic here without else\n   ```\n3. **Extraire le traitement par type de message** dans des handlers separes :\n   - `handleLoginMessage()`\n   - `handleRegisterMessage()`\n\n### Exemples dans le projet\n\nLe pattern **performance_early_exit** recommande :\n```cpp\nif (data == NULL || len == 0) return;\nif (already_processed) return;\n// Main processing here\n```\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)\n- Pattern projet : `performance_early_exit`"
+    },
+    {
+      "id": "SONAR-002",
+      "source": ["sonarqube"],
+      "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+      "severity": "Critical",
+      "category": "Maintainability",
+      "status": "pending",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 193,
+      "rule": "cpp:S134",
+      "effort": "10min",
+      "agentdb_context": {
+        "module": "client",
+        "is_critical": true,
+        "security_sensitive": true,
+        "patterns_violated": ["performance_early_exit"],
+        "patterns_applicable": ["performance_early_exit"],
+        "adr_applicable": null,
+        "related_issues": ["SONAR-001", "SONAR-003"]
+      },
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 193\n**Module** : client\n**Fonction** : `handleRead` > bloc `MessageType::Login`\n\n### Contexte du fichier\n\nLe code a la ligne 193 se trouve dans une structure imbriquee :\n1. `if (!error)` - niveau 1\n2. `while (_accumulator.size() >= Header::WIRE_SIZE)` - niveau 2\n3. `if (head.type == static_cast<uint16_t>(MessageType::Login))` - niveau 3\n4. `if (!_pendingUsername.empty() && !_pendingPassword.empty())` - **niveau 4 (violation)**\n\n### Dependances\n\nMeme contexte que SONAR-001 - fichier TCPClient.cpp gerant l'authentification.\n\n> **Note** : Cette issue est liee a SONAR-001. La resolution de l'une aidera a resoudre l'autre.",
+      "why": "## Pourquoi c'est un probleme\n\nLe code imbrique plus de 3 niveaux de structures de controle (if/for/while/switch), rendant le flux difficile a suivre.\n\n**Structure actuelle** :\n```\nif (!error)                           // Niveau 1\n    while (accumulator.size() >= ...)  // Niveau 2\n        if (head.type == Login)        // Niveau 3\n            if (!pending...)           // Niveau 4 - VIOLATION\n```\n\n**Regle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Categorie** : Maintainability\n**Effort estime** : 10min\n\n### Impact dans le projet\n\n- Code difficile a lire et maintenir\n- Risque accru de bugs lors des modifications\n- Fichier sensible securite : la complexite augmente le risque d'erreurs dans le traitement des credentials\n\n### Patterns du projet concernes\n\nLe pattern **performance_early_exit** recommande d'utiliser des early exits pour aplatir la structure.",
+      "how": "## Solution suggeree\n\n1. **Inverser la condition d'erreur** avec un early return :\n   ```cpp\n   if (error) {\n       handleError(error);\n       return;\n   }\n   // Suite sans else, niveau 0\n   ```\n\n2. **Extraire le traitement des messages** dans une methode :\n   ```cpp\n   void TCPClient::processAccumulatedMessages() {\n       while (_accumulator.size() >= Header::WIRE_SIZE) {\n           processOneMessage();\n       }\n   }\n   ```\n\n3. **Utiliser un switch ou un dispatch table** pour les types de messages.\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n- Pattern projet : `performance_early_exit`"
+    },
+    {
+      "id": "SONAR-003",
+      "source": ["sonarqube"],
+      "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+      "severity": "Critical",
+      "category": "Maintainability",
+      "status": "pending",
+      "isBug": false,
+      "file": "src/client/src/network/TCPClient.cpp",
+      "line": 199,
+      "rule": "cpp:S134",
+      "effort": "10min",
+      "agentdb_context": {
+        "module": "client",
+        "is_critical": true,
+        "security_sensitive": true,
+        "patterns_violated": ["performance_early_exit"],
+        "patterns_applicable": ["performance_early_exit"],
+        "adr_applicable": null,
+        "related_issues": ["SONAR-001", "SONAR-002"]
+      },
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 199\n**Module** : client\n**Fonction** : `handleRead` > bloc `MessageType::Register`\n\n### Contexte du fichier\n\nLe code a la ligne 199 se trouve dans une structure similaire a SONAR-002 :\n1. `if (!error)` - niveau 1\n2. `while (_accumulator.size() >= Header::WIRE_SIZE)` - niveau 2\n3. `else if (head.type == static_cast<uint16_t>(MessageType::Register))` - niveau 3\n4. `if (!_pendingUsername.empty() && !_pendingEmail.empty() && !_pendingPassword.empty())` - **niveau 4 (violation)**\n\n### Dependances\n\nMeme contexte que SONAR-001 et SONAR-002.\n\n> **Note** : Cette issue est directement liee a SONAR-002. La resolution sera identique.",
+      "why": "## Pourquoi c'est un probleme\n\nMeme problematique que SONAR-002 : imbrication excessive dans le bloc de traitement Register.\n\n**Regle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Categorie** : Maintainability\n**Effort estime** : 10min\n\n### Impact dans le projet\n\n- La fonction `handleRead` traite les deux cas (Login et Register) avec la meme structure problematique\n- Le refactoring devra adresser les deux blocs simultanement\n\n### Patterns du projet concernes\n\nPattern **performance_early_exit** : meme recommandation que SONAR-002.",
+      "how": "## Solution suggeree\n\nLa solution est identique a SONAR-002. Le refactoring de la fonction `handleRead` resoudra les deux issues simultanement.\n\n**Approche recommandee** :\n1. Creer une methode `handleLoginRequest()` pour le bloc Login\n2. Creer une methode `handleRegisterRequest()` pour le bloc Register\n3. Les deux methodes auront une structure plate grace aux early returns\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n- Pattern projet : `performance_early_exit`"
+    },
+    {
+      "id": "SONAR-004",
+      "source": ["sonarqube"],
+      "title": "Fill this compound statement, remove it, or add a nested comment explaining why it is empty.",
+      "severity": "Major",
+      "category": "Maintainability",
+      "status": "pending",
+      "isBug": false,
+      "file": "src/client/src/network/UDPClient.cpp",
+      "line": 169,
+      "rule": "cpp:S108",
+      "effort": "5min",
+      "agentdb_context": {
+        "module": "client",
+        "is_critical": false,
+        "security_sensitive": false,
+        "complexity_max": 17,
+        "patterns_violated": [],
+        "patterns_applicable": ["documentation_public", "documentation_module"],
+        "adr_applicable": null,
+        "dependencies": {
+          "includes": ["src/client/include/network/UDPClient.hpp", "src/client/include/core/Logger.hpp", "src/common/protocol/Protocol.hpp"],
+          "included_by": []
+        },
+        "activity": {
+          "commits_30d": 4,
+          "commits_90d": 4,
+          "last_modified": "2025-12-12T10:51:08+01:00"
+        }
+      },
+      "where": "## Localisation\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 169\n**Module** : client\n**Fonction** : `handleRead` > bloc `MessageType::Snapshot`\n\n### Contexte du fichier\n\nCe fichier implemente le client UDP pour la communication gameplay en temps reel. Il gere :\n- La reception des snapshots de jeu\n- L'envoi des mouvements du joueur\n- La communication asynchrone via Boost.ASIO\n\n### Dependances\n\nCe fichier inclut :\n- `src/client/include/network/UDPClient.hpp` (header)\n- `src/client/include/core/Logger.hpp` (logging)\n- `src/common/protocol/Protocol.hpp` (protocole binaire)\n\n> **Note** : Fichier non critique selon AgentDB, mais le bloc vide suggere une implementation incomplete.",
+      "why": "## Pourquoi c'est un probleme\n\nLe code contient un bloc vide apres la condition `if (head.type == static_cast<uint16_t>(MessageType::Snapshot))` :\n\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {\n    // Bloc completement vide - rien n'est fait avec le snapshot\n}\n```\n\n**Regle SonarQube** : [cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n**Categorie** : Maintainability\n**Effort estime** : 5min\n\n### Impact dans le projet\n\n- **Intention floue** : On ne sait pas si le bloc est intentionnellement vide ou si c'est un oubli\n- **Code mort potentiel** : Si le Snapshot n'est jamais traite, pourquoi le tester ?\n- **Maintenabilite** : Un developpeur futur pourrait supprimer ou modifier ce code sans comprendre l'intention\n\n### Patterns du projet concernes\n\nLe pattern **documentation_public** recommande de documenter les intentions.",
+      "how": "## Solution suggeree\n\n**Option 1 - Si le traitement est prevu mais non implemente** :\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {\n    // TODO: Implement snapshot handling\n    // Expected: deserialize snapshot and update game state\n    logger->debug(\"Snapshot received but not yet processed\");\n}\n```\n\n**Option 2 - Si le bloc doit rester vide intentionnellement** :\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {\n    // Intentionally empty: snapshots are handled asynchronously\n    // by the game loop, not here. See GameLoop::processSnapshots()\n}\n```\n\n**Option 3 - Si le test est inutile** :\nSupprimer completement le bloc conditionnel.\n\n### Ressources\n\n- [Documentation SonarQube cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n- Pattern projet : `documentation_public`, `documentation_module`"
+    }
+  ]
+}

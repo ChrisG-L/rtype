@@ -1,10 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # AgentDB Query Script
 # =============================================================================
 #
 # Script helper pour interroger la base AgentDB depuis les sous-agents.
 # Retourne du JSON parsable.
+#
+# Compatibilité: bash 4+, zsh 5+ (via emulation bash)
 #
 # Usage:
 #   bash .claude/agentdb/query.sh <command> [arguments...]
@@ -51,10 +53,23 @@
 #
 # =============================================================================
 
+# Force bash emulation if running under zsh
+if [ -n "$ZSH_VERSION" ]; then
+    emulate -L bash
+    setopt KSH_ARRAYS BASH_REMATCH
+fi
+
 set -e
 
 # Chemin vers la base de données (relatif au repo root)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Compatible bash et zsh
+if [ -n "$BASH_SOURCE" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+elif [ -n "$ZSH_VERSION" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${(%):-%x}")" && pwd)"
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
 DB_PATH="$SCRIPT_DIR/db.sqlite"
 
 # =============================================================================
@@ -84,29 +99,39 @@ log_entry() {
     echo "[$timestamp] [$caller] $message" >> "$LOG_FILE" 2>/dev/null || true
 }
 
+# Fonction pour obtenir le timestamp en millisecondes (compatible bash/zsh/macOS/Linux)
+get_timestamp_ms() {
+    if date +%s%3N 2>/dev/null | grep -qE '^[0-9]+$'; then
+        date +%s%3N
+    else
+        # Fallback pour macOS ou systèmes sans %N
+        echo "$(($(date +%s) * 1000))"
+    fi
+}
+
 # Log le début d'une commande
 log_start() {
     local cmd="$1"
     shift
     local args="$*"
 
-    START_TIME=$(date +%s%3N)
+    START_TIME=$(get_timestamp_ms)
     log_entry 1 "START $cmd ${args:+(args: $args)}"
 }
 
 # Log la fin d'une commande
 log_end() {
     local cmd="$1"
-    local status="${2:-0}"
+    local exit_code="${2:-0}"
     local result_size="${3:-0}"
 
-    local end_time=$(date +%s%3N)
+    local end_time=$(get_timestamp_ms)
     local duration=$((end_time - START_TIME))
 
-    if [[ "$status" -eq 0 ]]; then
+    if [[ "$exit_code" -eq 0 ]]; then
         log_entry 1 "END   $cmd (${duration}ms, ${result_size} bytes, OK)"
     else
-        log_entry 1 "END   $cmd (${duration}ms, FAILED: exit $status)"
+        log_entry 1 "END   $cmd (${duration}ms, FAILED: exit $exit_code)"
     fi
 }
 
@@ -600,7 +625,11 @@ cmd_error_history() {
         return 1
     fi
 
-    local cutoff_date=$(date -d "$days days ago" +%Y-%m-%d 2>/dev/null || date -v-${days}d +%Y-%m-%d)
+    # Compatible GNU date (Linux) et BSD date (macOS)
+    local cutoff_date
+    cutoff_date=$(date -d "$days days ago" +%Y-%m-%d 2>/dev/null) || \
+    cutoff_date=$(date -v-"${days}"d +%Y-%m-%d 2>/dev/null) || \
+    cutoff_date=$(date +%Y-%m-%d)  # Fallback: aujourd'hui
 
     local errors=$(sqlite_json "
         SELECT
@@ -1151,8 +1180,8 @@ cmd_record_pipeline_run() {
         issues_low=0
     fi
 
-    # Mapper le verdict vers un status
-    local status="completed"
+    # Mapper le verdict vers un run_status
+    local run_status="completed"
 
     # Insérer dans pipeline_runs
     sqlite3 "$DB_PATH" "
@@ -1163,7 +1192,7 @@ cmd_record_pipeline_run() {
             files_analyzed, started_at, completed_at
         ) VALUES (
             '$run_id', '$commit', '$safe_commit_message', '$safe_commit_author',
-            '$safe_branch', '$status', $score, '$safe_verdict',
+            '$safe_branch', '$run_status', $score, '$safe_verdict',
             $issues_critical, $issues_high, $issues_medium, $issues_low,
             $files_count, '$started_at', datetime('now')
         );
@@ -1237,18 +1266,18 @@ run_with_logging() {
     log_start "$cmd_name" "$@"
 
     local result
-    local status=0
-    result=$("$cmd_func" "$@") || status=$?
+    local exit_code=0
+    result=$("$cmd_func" "$@") || exit_code=$?
 
     local result_size=${#result}
-    log_end "$cmd_name" "$status" "$result_size"
+    log_end "$cmd_name" "$exit_code" "$result_size"
 
     if [[ "$LOG_LEVEL" -ge 2 ]]; then
         log_result "$result"
     fi
 
     echo "$result"
-    return $status
+    return $exit_code
 }
 
 case "$cmd" in
@@ -1307,7 +1336,7 @@ case "$cmd" in
         run_with_logging "list_pipeline_runs" cmd_list_pipeline_runs "$@"
         ;;
     help|--help|-h)
-        head -40 "${BASH_SOURCE[0]}" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
+        head -40 "$SCRIPT_DIR/query.sh" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
         ;;
     *)
         log_entry 1 "ERROR: Unknown command: $cmd"

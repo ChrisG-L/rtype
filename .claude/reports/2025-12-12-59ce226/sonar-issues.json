@@ -1,0 +1,74 @@
+[
+  {
+    "id": "SONAR-001",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Refactor this function to reduce its Cognitive Complexity from 29 to the 25 allowed.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/TCPClient.cpp",
+    "line": 170,
+    "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 170\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube.",
+    "why": "## Problème\n\nRefactor this function to reduce its Cognitive Complexity from 29 to the 25 allowed.\n\n**Règle SonarQube** : [cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)\n**Catégorie** : Maintainability\n**Effort estimé** : 9min\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.",
+    "how": "## Solution suggérée\n\n1. Découper la fonction en sous-fonctions plus simples\n2. Réduire le nombre de branches conditionnelles\n3. Simplifier la logique en extrayant des méthodes\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)",
+    "effort": "9min",
+    "rule": "cpp:S3776"
+  },
+  {
+    "id": "SONAR-002",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/TCPClient.cpp",
+    "line": 193,
+    "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 193\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube.",
+    "why": "## Problème\n\nRefactor this code to not nest more than 3 if|for|do|while|switch statements.\n\n**Règle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Catégorie** : Maintainability\n**Effort estimé** : 10min\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.",
+    "how": "## Solution suggérée\n\n1. Extraire les blocs imbriqués dans des fonctions dédiées\n2. Utiliser des early returns pour réduire l'imbrication\n3. Appliquer le pattern Guard Clause\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)",
+    "effort": "10min",
+    "rule": "cpp:S134"
+  },
+  {
+    "id": "SONAR-003",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/TCPClient.cpp",
+    "line": 199,
+    "where": "## Localisation\n\n**Fichier** : `src/client/src/network/TCPClient.cpp`\n**Ligne** : 199\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube.",
+    "why": "## Problème\n\nRefactor this code to not nest more than 3 if|for|do|while|switch statements.\n\n**Règle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Catégorie** : Maintainability\n**Effort estimé** : 10min\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.",
+    "how": "## Solution suggérée\n\n1. Extraire les blocs imbriqués dans des fonctions dédiées\n2. Utiliser des early returns pour réduire l'imbrication\n3. Appliquer le pattern Guard Clause\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)",
+    "effort": "10min",
+    "rule": "cpp:S134"
+  },
+  {
+    "id": "SONAR-004",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Fill this compound statement, remove it, or add a nested comment explaining why it is empty.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/UDPClient.cpp",
+    "line": 169,
+    "where": "## Localisation\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 169\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube.",
+    "why": "## Problème\n\nFill this compound statement, remove it, or add a nested comment explaining why it is empty.\n\n**Règle SonarQube** : [cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n**Catégorie** : Maintainability\n**Effort estimé** : 5min\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.",
+    "how": "## Solution suggérée\n\n1. Implémenter le code manquant\n2. Ajouter un commentaire justifiant le bloc vide\n3. Supprimer le bloc vide si inutile\n\n### Ressources\n\n- [Documentation SonarQube cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)",
+    "effort": "5min",
+    "rule": "cpp:S108"
+  }
+]
