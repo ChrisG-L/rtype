@@ -53,6 +53,21 @@ namespace client::network
         _onSnapshot = callback;
     }
 
+    void UDPClient::setOnMissileSpawned(const OnMissileSpawnedCallback& callback)
+    {
+        _onMissileSpawned = callback;
+    }
+
+    void UDPClient::setOnMissileDestroyed(const OnMissileDestroyedCallback& callback)
+    {
+        _onMissileDestroyed = callback;
+    }
+
+    void UDPClient::setOnPlayerDied(const OnPlayerDiedCallback& callback)
+    {
+        _onPlayerDied = callback;
+    }
+
     void UDPClient::connect(const std::string &host, std::uint16_t port)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
@@ -125,6 +140,19 @@ namespace client::network
             std::lock_guard<std::mutex> plock(_playersMutex);
             _localPlayerId = std::nullopt;
             _players.clear();
+            _isLocalPlayerDead = false;
+        }
+        {
+            std::lock_guard<std::mutex> mlock(_missilesMutex);
+            _missiles.clear();
+        }
+        {
+            std::lock_guard<std::mutex> elock(_enemiesMutex);
+            _enemies.clear();
+        }
+        {
+            std::lock_guard<std::mutex> emlock(_enemyMissilesMutex);
+            _enemyMissiles.clear();
         }
 
         if (_onDisconnected) {
@@ -149,6 +177,30 @@ namespace client::network
     {
         std::lock_guard<std::mutex> lock(_playersMutex);
         return _players;
+    }
+
+    std::vector<NetworkMissile> UDPClient::getMissiles() const
+    {
+        std::lock_guard<std::mutex> lock(_missilesMutex);
+        return _missiles;
+    }
+
+    std::vector<NetworkEnemy> UDPClient::getEnemies() const
+    {
+        std::lock_guard<std::mutex> lock(_enemiesMutex);
+        return _enemies;
+    }
+
+    std::vector<NetworkMissile> UDPClient::getEnemyMissiles() const
+    {
+        std::lock_guard<std::mutex> lock(_enemyMissilesMutex);
+        return _enemyMissiles;
+    }
+
+    bool UDPClient::isLocalPlayerDead() const
+    {
+        std::lock_guard<std::mutex> lock(_playersMutex);
+        return _isLocalPlayerDead;
     }
 
     void UDPClient::asyncReceiveFrom()
@@ -220,7 +272,48 @@ namespace client::network
                 .id = ps.id,
                 .x = ps.x,
                 .y = ps.y,
+                .health = ps.health,
                 .alive = ps.alive != 0
+            });
+        }
+
+        std::vector<NetworkMissile> newMissiles;
+        newMissiles.reserve(gsOpt->missile_count);
+
+        for (uint8_t i = 0; i < gsOpt->missile_count; ++i) {
+            const auto& ms = gsOpt->missiles[i];
+            newMissiles.push_back(NetworkMissile{
+                .id = ms.id,
+                .owner_id = ms.owner_id,
+                .x = ms.x,
+                .y = ms.y
+            });
+        }
+
+        std::vector<NetworkEnemy> newEnemies;
+        newEnemies.reserve(gsOpt->enemy_count);
+
+        for (uint8_t i = 0; i < gsOpt->enemy_count; ++i) {
+            const auto& es = gsOpt->enemies[i];
+            newEnemies.push_back(NetworkEnemy{
+                .id = es.id,
+                .x = es.x,
+                .y = es.y,
+                .health = es.health,
+                .enemy_type = es.enemy_type
+            });
+        }
+
+        std::vector<NetworkMissile> newEnemyMissiles;
+        newEnemyMissiles.reserve(gsOpt->enemy_missile_count);
+
+        for (uint8_t i = 0; i < gsOpt->enemy_missile_count; ++i) {
+            const auto& ms = gsOpt->enemy_missiles[i];
+            newEnemyMissiles.push_back(NetworkMissile{
+                .id = ms.id,
+                .owner_id = ms.owner_id,
+                .x = ms.x,
+                .y = ms.y
             });
         }
 
@@ -228,10 +321,81 @@ namespace client::network
             std::lock_guard<std::mutex> lock(_playersMutex);
             _players = std::move(newPlayers);
         }
+        {
+            std::lock_guard<std::mutex> lock(_missilesMutex);
+            _missiles = std::move(newMissiles);
+        }
+        {
+            std::lock_guard<std::mutex> lock(_enemiesMutex);
+            _enemies = std::move(newEnemies);
+        }
+        {
+            std::lock_guard<std::mutex> lock(_enemyMissilesMutex);
+            _enemyMissiles = std::move(newEnemyMissiles);
+        }
 
         if (_onSnapshot) {
             std::lock_guard<std::mutex> lock(_playersMutex);
             _onSnapshot(_players);
+        }
+    }
+
+    void UDPClient::handleMissileSpawned(const uint8_t* payload, size_t size) {
+        auto msOpt = MissileSpawned::from_bytes(payload, size);
+        if (!msOpt) return;
+
+        NetworkMissile missile{
+            .id = msOpt->missile_id,
+            .owner_id = msOpt->owner_id,
+            .x = msOpt->x,
+            .y = msOpt->y
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_missilesMutex);
+            _missiles.push_back(missile);
+        }
+
+        if (_onMissileSpawned) {
+            _onMissileSpawned(missile);
+        }
+    }
+
+    void UDPClient::handleMissileDestroyed(const uint8_t* payload, size_t size) {
+        auto mdOpt = MissileDestroyed::from_bytes(payload, size);
+        if (!mdOpt) return;
+
+        {
+            std::lock_guard<std::mutex> lock(_missilesMutex);
+            _missiles.erase(
+                std::remove_if(_missiles.begin(), _missiles.end(),
+                    [&](const NetworkMissile& m) { return m.id == mdOpt->missile_id; }),
+                _missiles.end()
+            );
+        }
+
+        if (_onMissileDestroyed) {
+            _onMissileDestroyed(mdOpt->missile_id);
+        }
+    }
+
+    void UDPClient::handlePlayerDied(const uint8_t* payload, size_t size) {
+        auto pdOpt = PlayerDied::from_bytes(payload, size);
+        if (!pdOpt) return;
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Player {} died", static_cast<int>(pdOpt->player_id));
+
+        {
+            std::lock_guard<std::mutex> lock(_playersMutex);
+            if (_localPlayerId && *_localPlayerId == pdOpt->player_id) {
+                _isLocalPlayerDead = true;
+                logger->info("Local player died!");
+            }
+        }
+
+        if (_onPlayerDied) {
+            _onPlayerDied(pdOpt->player_id);
         }
     }
 
@@ -258,6 +422,15 @@ namespace client::network
                         break;
                     case MessageType::Snapshot:
                         handleSnapshot(payload, payload_size);
+                        break;
+                    case MessageType::MissileSpawned:
+                        handleMissileSpawned(payload, payload_size);
+                        break;
+                    case MessageType::MissileDestroyed:
+                        handleMissileDestroyed(payload, payload_size);
+                        break;
+                    case MessageType::PlayerDied:
+                        handlePlayerDied(payload, payload_size);
                         break;
                     default:
                         break;
@@ -295,6 +468,19 @@ namespace client::network
 
         head.to_bytes(buf->data());
         movePlayer.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
+        asyncSendTo(buf, totalSize);
+    }
+
+    void UDPClient::shootMissile() {
+        UDPHeader head = {
+            .type = static_cast<uint16_t>(MessageType::ShootMissile),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE;
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+        head.to_bytes(buf->data());
         asyncSendTo(buf, totalSize);
     }
 

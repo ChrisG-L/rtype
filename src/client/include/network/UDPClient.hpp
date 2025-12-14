@@ -28,7 +28,23 @@ namespace client::network
         uint8_t id;
         uint16_t x;
         uint16_t y;
+        uint8_t health;
         bool alive;
+    };
+
+    struct NetworkMissile {
+        uint16_t id;
+        uint8_t owner_id;
+        uint16_t x;
+        uint16_t y;
+    };
+
+    struct NetworkEnemy {
+        uint16_t id;
+        uint16_t x;
+        uint16_t y;
+        uint8_t health;
+        uint8_t enemy_type;
     };
 
     class UDPClient
@@ -39,6 +55,9 @@ namespace client::network
         using OnReceiveCallback = std::function<void(const std::string &)>;
         using OnErrorCallback = std::function<void(const std::string &)>;
         using OnSnapshotCallback = std::function<void(const std::vector<NetworkPlayer>&)>;
+        using OnMissileSpawnedCallback = std::function<void(const NetworkMissile&)>;
+        using OnMissileDestroyedCallback = std::function<void(uint16_t)>;
+        using OnPlayerDiedCallback = std::function<void(uint8_t)>;
 
         UDPClient();
         ~UDPClient();
@@ -54,11 +73,19 @@ namespace client::network
         void setOnReceive(const OnReceiveCallback& callback);
         void setOnError(const OnErrorCallback& callback);
         void setOnSnapshot(const OnSnapshotCallback& callback);
+        void setOnMissileSpawned(const OnMissileSpawnedCallback& callback);
+        void setOnMissileDestroyed(const OnMissileDestroyedCallback& callback);
+        void setOnPlayerDied(const OnPlayerDiedCallback& callback);
 
         void movePlayer(uint16_t x, uint16_t y);
+        void shootMissile();
 
         std::optional<uint8_t> getLocalPlayerId() const;
         std::vector<NetworkPlayer> getPlayers() const;
+        std::vector<NetworkMissile> getMissiles() const;
+        std::vector<NetworkEnemy> getEnemies() const;
+        std::vector<NetworkMissile> getEnemyMissiles() const;
+        bool isLocalPlayerDead() const;
 
     private:
         void asyncReceiveFrom();
@@ -71,6 +98,9 @@ namespace client::network
         void handlePlayerJoin(const uint8_t* payload, size_t size);
         void handlePlayerLeave(const uint8_t* payload, size_t size);
         void handleSnapshot(const uint8_t* payload, size_t size);
+        void handleMissileSpawned(const uint8_t* payload, size_t size);
+        void handleMissileDestroyed(const uint8_t* payload, size_t size);
+        void handlePlayerDied(const uint8_t* payload, size_t size);
 
         boost::asio::io_context _ioContext;
         udp::socket _socket;
@@ -89,12 +119,25 @@ namespace client::network
         std::optional<uint8_t> _localPlayerId;
         std::vector<NetworkPlayer> _players;
         mutable std::mutex _playersMutex;
+        bool _isLocalPlayerDead = false;
+
+        std::vector<NetworkMissile> _missiles;
+        mutable std::mutex _missilesMutex;
+
+        std::vector<NetworkEnemy> _enemies;
+        mutable std::mutex _enemiesMutex;
+
+        std::vector<NetworkMissile> _enemyMissiles;
+        mutable std::mutex _enemyMissilesMutex;
 
         OnConnectedCallback _onConnected;
         OnDisconnectedCallback _onDisconnected;
         OnReceiveCallback _onReceive;
         OnErrorCallback _onError;
         OnSnapshotCallback _onSnapshot;
+        OnMissileSpawnedCallback _onMissileSpawned;
+        OnMissileDestroyedCallback _onMissileDestroyed;
+        OnPlayerDiedCallback _onPlayerDied;
     };
 
 }
