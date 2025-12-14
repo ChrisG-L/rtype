@@ -19,7 +19,17 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
 
+# SDL2_ttf - find directly to avoid pkg-config transitive dependency issues on NixOS
+find_library(SDL2_TTF_LIBRARY NAMES SDL2_ttf REQUIRED)
+find_path(SDL2_TTF_INCLUDE_DIR SDL_ttf.h PATH_SUFFIXES SDL2 REQUIRED)
+
+# SDL2_mixer - for audio support
+find_library(SDL2_MIXER_LIBRARY NAMES SDL2_mixer REQUIRED)
+find_path(SDL2_MIXER_INCLUDE_DIR SDL_mixer.h PATH_SUFFIXES SDL2 REQUIRED)
+
 # Fix for NixOS: pkg-config returns include/SDL2 but we need include for <SDL2/SDL.h>
+# Get parent directory for SDL2_mixer to allow #include <SDL2/SDL_mixer.h>
+get_filename_component(SDL2_MIXER_PARENT_INCLUDE_DIR "${SDL2_MIXER_INCLUDE_DIR}" DIRECTORY)
 set(SDL2_PARENT_INCLUDE_DIRS "")
 foreach(dir ${SDL2_INCLUDE_DIRS})
     get_filename_component(parent_dir "${dir}" DIRECTORY)
@@ -38,12 +48,14 @@ target_include_directories(rtype_sdl2 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/sdl2/include
     ${SDL2_PARENT_INCLUDE_DIRS}
     ${SDL2_IMAGE_PARENT_INCLUDE_DIRS}
+    ${SDL2_TTF_INCLUDE_DIR}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(rtype_sdl2 PRIVATE
     PkgConfig::SDL2
     PkgConfig::SDL2_IMAGE
+    ${SDL2_TTF_LIBRARY}
     spdlog::spdlog
 )
 
@@ -64,6 +76,9 @@ add_executable(rtype_client
     src/gameplay/GameObject.cpp
     src/gameplay/Missile.cpp
     src/gameplay/EntityManager.cpp
+
+    src/accessibility/AccessibilityConfig.cpp
+    src/audio/AudioManager.cpp
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -112,6 +127,8 @@ target_include_directories(rtype_client PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/common/protocol
+    ${SDL2_PARENT_INCLUDE_DIRS}
+    ${SDL2_MIXER_PARENT_INCLUDE_DIR}
     )
 
 target_link_libraries(rtype_client PRIVATE
@@ -120,4 +137,6 @@ target_link_libraries(rtype_client PRIVATE
     OpenSSL::Crypto
     spdlog::spdlog
     rtype_sdl2
+    PkgConfig::SDL2
+    ${SDL2_MIXER_LIBRARY}
 )
