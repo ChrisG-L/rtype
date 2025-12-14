@@ -161,6 +161,7 @@ nav:
       - Séparation Header/Implementation C++: guides/cpp-header-implementation.md
       - Système d'Authentification: guides/authentication.md
       - SonarQube - Qualité Code: guides/sonarqube.md
+      - Accessibilité: guides/accessibility.md
 
   - Référence API:
       - Vue d'ensemble: api/overview.md

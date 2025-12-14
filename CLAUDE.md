@@ -2,63 +2,78 @@
 
 ## Project Overview
 
-R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **Hexagonal Architecture** (Ports & Adapters). The project consists of a server and client communicating via UDP (gameplay) and TCP (authentication).
+R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **Hexagonal Architecture** (Ports & Adapters). The project consists of a server and client communicating via UDP for real-time gameplay synchronization.
 
 ## Quick Reference
 
 | Component | Technology | Port |
 |-----------|------------|------|
-| Server | C++23, Boost.ASIO | UDP 4124, TCP 4123 |
-| Client | C++23, SFML | - |
-| Database | MongoDB | - |
-| Build | CMake 3.30+, Ninja, vcpkg | - |
+| Server | C++23, Boost.ASIO | UDP 4124 |
+| Client | C++23, SFML/SDL2 (multi-backend) | - |
+| Build | CMake 3.30+, Ninja, vcpkg, Nix | - |
 
 ## Project Structure
 
 ```
 rtype/
 ├── src/
-│   ├── server/                    # Server implementation
-│   │   ├── include/               # Headers
-│   │   │   ├── domain/            # Business logic (entities, value objects)
-│   │   │   ├── application/       # Use cases, ports (interfaces)
-│   │   │   └── infrastructure/    # Adapters (network, persistence)
-│   │   ├── domain/                # Domain layer implementations
-│   │   ├── application/           # Application layer implementations
-│   │   └── infrastructure/        # Infrastructure layer implementations
-│   ├── client/                    # Client implementation (SFML)
-│   └── common/                    # Shared code (protocol)
-├── tests/                         # Google Test tests
-├── docs/                          # MkDocs documentation
-├── third_party/vcpkg/             # Package manager
-├── .mcp.json                      # MCP server configuration
-└── .claude/                       # Claude Code tooling
-    ├── agentdb/                   # Code analysis database
-    │   ├── db.sqlite              # SQLite database
-    │   ├── crud.py                # CRUD operations
-    │   ├── db.py                  # Database connection
-    │   ├── config.py              # Configuration
-    │   ├── indexer.py             # Code indexer
-    │   ├── models.py              # Data models
-    │   └── queries.py             # Query functions
-    ├── agents/                    # Specialized analysis agents
-    │   ├── analyzer.md            # Impact analysis agent
-    │   ├── security.md            # Security audit agent
-    │   ├── reviewer.md            # Code review agent
-    │   ├── risk.md                # Risk evaluation agent
-    │   └── synthesis.md           # Report synthesis agent
-    ├── mcp/                       # MCP server for agentDB
-    │   └── agentdb/
-    │       ├── server.py          # MCP server implementation
-    │       └── tools.py           # MCP tool definitions
-    ├── scripts/                   # Utility scripts
-    │   ├── bootstrap.py           # Initial setup
-    │   ├── update.py              # Database update
-    │   └── maintenance.py         # Maintenance tasks
-    ├── tests/                     # Python tests for agentDB
-    ├── config/                    # Configuration files
-    ├── AGENTS.md                  # Agent documentation
-    └── settings.json              # Claude Code settings
+│   ├── server/                          # Server implementation (Hexagonal)
+│   │   ├── include/
+│   │   │   ├── domain/                  # Business logic
+│   │   │   │   ├── entities/            # Player
+│   │   │   │   ├── value_objects/       # Position, Health, PlayerId
+│   │   │   │   ├── exceptions/          # DomainException, etc.
+│   │   │   │   └── services/            # GameRule
+│   │   │   ├── application/             # Use cases, ports
+│   │   │   │   ├── use_cases/player/    # Move
+│   │   │   │   ├── ports/in/            # IGameCommands
+│   │   │   │   └── ports/out/           # IPlayerRepository
+│   │   │   └── infrastructure/          # Adapters, network, game
+│   │   │       ├── adapters/in/network/ # UDPServer
+│   │   │       ├── game/                # GameWorld (missiles, players)
+│   │   │       └── logging/             # Logger
+│   │   ├── domain/                      # Domain implementations
+│   │   ├── application/                 # Application implementations
+│   │   └── infrastructure/              # Infrastructure implementations
+│   │
+│   ├── client/                          # Client implementation
+│   │   ├── include/
+│   │   │   ├── scenes/                  # GameScene, SceneManager, IScene
+│   │   │   ├── network/                 # UDPClient
+│   │   │   ├── graphics/                # IWindow, IDrawable, Graphics
+│   │   │   ├── gameplay/                # EntityManager, GameObject, Missile
+│   │   │   ├── events/                  # Event system (KeyPressed, etc.)
+│   │   │   ├── core/                    # Engine, GameLoop, Logger
+│   │   │   ├── boot/                    # Boot
+│   │   │   └── utils/                   # Vecs (Vec2u, Vec2f)
+│   │   ├── src/                         # Implementations
+│   │   └── lib/                         # Graphics backends
+│   │       ├── sfml/                    # SFML backend
+│   │       │   ├── include/             # SFMLWindow, SFMLRenderer
+│   │       │   └── src/
+│   │       └── sdl2/                    # SDL2 backend
+│   │           ├── include/             # SDL2Window, SDL2Renderer
+│   │           └── src/
+│   │
+│   ├── common/                          # Shared code
+│   │   ├── protocol/                    # Protocol.hpp (binary protocol)
+│   │   └── collision/                   # AABB.hpp (hitboxes)
+│   │
+│   └── ECS/                             # Entity Component System (future)
+│
+├── assets/                              # Game assets
+│   ├── spaceship/                       # Ship1.png, missile.png
+│   ├── enemies/
+│   ├── backgrounds/
+│   ├── audio/
+│   └── fonts/
+│
+├── tests/                               # Google Test tests
+├── docs/                                # MkDocs documentation
+├── scripts/                             # Build scripts
+├── third_party/vcpkg/                   # Package manager
+├── .mcp.json                            # MCP server configuration
+└── .claude/                             # Claude Code tooling
 ```
 
 ## Build Commands
@@ -71,153 +86,227 @@ rtype/
 # Compile
 ./scripts/compile.sh
 
-# Run tests
-./artifacts/server/linux/server_tests
-
-# Run server
-./artifacts/server/linux/rtype_server
+# Run
+./artifacts/server/linux/rtype_server  # Server (UDP 4124)
+./artifacts/client/linux/rtype_client  # Client
 
 # Clean build
 rm -rf build*/ artifacts/
 ```
 
-## MCP Configuration
+## Network Protocol
 
-The `.mcp.json` file at the project root configures the MCP server for agentDB:
+Binary protocol over UDP with network byte order (big-endian). All messages start with `UDPHeader` (12 bytes).
 
-```json
-{
-  "mcpServers": {
-    "agentdb": {
-      "command": "bash",
-      "args": [
-        "-c",
-        "PYTHONPATH=\"$PWD/.claude\" AGENTDB_PATH=\"$PWD/.claude/agentdb/db.sqlite\" python -m mcp.agentdb.server"
-      ]
-    }
-  }
+### Message Types
+
+| Type | Value | Direction | Payload | Description |
+|------|-------|-----------|---------|-------------|
+| `HeartBeat` | 0x0001 | Both | - | Keep-alive |
+| `Snapshot` | 0x0040 | S→C | GameSnapshot | Full game state (20Hz) |
+| `MovePlayer` | 0x0060 | C→S | x, y (4B) | Player position update |
+| `PlayerJoin` | 0x0070 | S→C | player_id (1B) | New player joined |
+| `PlayerLeave` | 0x0071 | S→C | player_id (1B) | Player disconnected |
+| `ShootMissile` | 0x0080 | C→S | - | Fire missile request |
+| `MissileSpawned` | 0x0081 | S→C | MissileState (7B) | Missile created |
+| `MissileDestroyed` | 0x0082 | S→C | missile_id (2B) | Missile removed |
+
+### Key Structures
+
+```cpp
+// UDPHeader (12 bytes) - All messages
+struct UDPHeader {
+    uint16_t type;          // MessageType
+    uint16_t sequence_num;
+    uint64_t timestamp;     // Milliseconds since epoch
+};
+
+// PlayerState (7 bytes)
+struct PlayerState {
+    uint8_t id;
+    uint16_t x, y;
+    uint8_t health;         // 0-100
+    uint8_t alive;          // 0 or 1
+};
+
+// MissileState (7 bytes)
+struct MissileState {
+    uint16_t id;
+    uint8_t owner_id;
+    uint16_t x, y;
+};
+
+// GameSnapshot (variable size) - Broadcast at 20Hz
+struct GameSnapshot {
+    uint8_t player_count;
+    PlayerState players[MAX_PLAYERS];  // MAX_PLAYERS = 4
+    uint8_t missile_count;
+    MissileState missiles[MAX_MISSILES]; // MAX_MISSILES = 32
+};
+```
+
+### Serialization Pattern
+
+All structures use `to_bytes()` and `from_bytes()` with network byte order:
+
+```cpp
+void to_bytes(uint8_t* buf) const {
+    uint16_t net_x = swap16(x);  // Host to network order
+    std::memcpy(buf, &net_x, 2);
+}
+
+static std::optional<T> from_bytes(const void* buf, size_t len) {
+    if (len < WIRE_SIZE) return std::nullopt;
+    // Parse with swap16/swap32/swap64 for network to host
 }
 ```
 
-## Analysis Agents
+## Collision System
 
-5 specialized agents for code analysis, defined in `.claude/agents/`:
+AABB (Axis-Aligned Bounding Box) in `src/common/collision/AABB.hpp`:
 
-| Agent | Description | Use Case |
-|-------|-------------|----------|
-| **analyzer** | Impact analysis of code changes | "What's the impact of my changes?" |
-| **security** | Security audit, regression detection | "Check security of this code" |
-| **reviewer** | Code review, conventions check | "Review this code" |
-| **risk** | Global risk evaluation | "Is it safe to merge?" |
-| **synthesis** | Final report synthesis | "Summarize the analyses" |
+```cpp
+namespace collision {
+    struct AABB {
+        float x, y, width, height;
+        constexpr bool intersects(const AABB& other) const;
+        constexpr bool contains(float px, float py) const;
+    };
 
-### Agent Workflow
-
-```
-┌─────────┐ ┌──────────┐ ┌──────────┐
-│ANALYZER │ │ SECURITY │ │ REVIEWER │
-└────┬────┘ └────┬─────┘ └────┬─────┘
-     └───────────┼────────────┘
-                 ▼
-           ┌─────────┐
-           │  RISK   │
-           └────┬────┘
-                ▼
-          ┌───────────┐
-          │ SYNTHESIS │
-          └───────────┘
+    namespace Hitboxes {
+        SHIP_WIDTH = 50.0f, SHIP_HEIGHT = 30.0f;
+        MISSILE_WIDTH = 16.0f, MISSILE_HEIGHT = 8.0f;
+        ENEMY_WIDTH = 40.0f, ENEMY_HEIGHT = 40.0f;
+    }
+}
 ```
 
-See `.claude/AGENTS.md` for detailed agent documentation.
+## Client Architecture
 
-## AgentDB MCP Tools
+### Graphics Abstraction (Multi-Backend)
 
-**AgentDB** is a SQLite-based code analysis database with MCP server integration. Use these tools to query project context:
+```cpp
+// Interface: src/client/include/graphics/IWindow.hpp
+class IWindow {
+    virtual void drawRect(float x, float y, float w, float h, rgba color) = 0;
+    virtual void drawSprite(const std::string& key, float x, float y, float w, float h) = 0;
+    virtual bool loadTexture(const std::string& key, const std::string& path) = 0;
+    virtual events::Event pollEvent() = 0;
+    virtual void clear() = 0;
+    virtual void display() = 0;
+};
 
-### Available Tools (via MCP)
-
-| Tool | Description | Example Use |
-|------|-------------|-------------|
-| `get_file_context` | Full 360° view of a file (symbols, dependencies, errors, patterns) | Before modifying a file |
-| `get_symbol_callers` | Find all callers of a function (recursive) | Impact analysis |
-| `get_symbol_callees` | Find all functions called by a symbol | Understanding dependencies |
-| `get_file_impact` | Calculate impact of modifying a file | Before refactoring |
-| `get_error_history` | Historical bugs for a file/symbol/module | Identify risky areas |
-| `get_patterns` | Coding patterns applicable to a file | Ensure consistency |
-| `get_architecture_decisions` | ADRs applicable to a module | Understand design choices |
-| `search_symbols` | Search symbols by pattern (supports wildcards) | Find functions/types |
-| `get_file_metrics` | Detailed metrics (complexity, lines, activity) | Code quality |
-| `get_module_summary` | Summary of a module | Module overview |
-
-### Database Schema (Key Tables)
-
-- **files**: File metadata, metrics, criticality, git activity
-- **symbols**: Functions, classes, structs, enums with location and signatures
-- **relations**: Call graph, type usage, includes relationships
-- **file_relations**: Include/import dependencies between files
-- **error_history**: Historical bugs and their resolutions
-- **patterns**: Coding conventions and best practices
-- **architecture_decisions**: ADRs (Architecture Decision Records)
-
-### Direct SQLite Queries
-
-```bash
-# File info
-sqlite3 .claude/agentdb/db.sqlite "SELECT * FROM files WHERE path LIKE '%UDPServer%'"
-
-# Symbols in a file
-sqlite3 .claude/agentdb/db.sqlite "SELECT name, kind, line_start FROM symbols WHERE file_id = X"
-
-# File relations (includes)
-sqlite3 .claude/agentdb/db.sqlite "SELECT * FROM file_relations WHERE source_file_id = X"
-
-# Module summary
-sqlite3 .claude/agentdb/db.sqlite "SELECT module, COUNT(*) FROM files GROUP BY module"
+// Implementations:
+// - SFMLWindow (lib/sfml/)
+// - SDL2Window (lib/sdl2/)
 ```
 
-### AgentDB Maintenance Scripts
+### Scene System
 
-```bash
-# Initial setup / re-index entire codebase
-python .claude/scripts/bootstrap.py
+```cpp
+// IScene interface
+class IScene {
+    virtual void handleEvent(const events::Event& event) = 0;
+    virtual void update(float deltatime) = 0;
+    virtual void render() = 0;
+    SceneContext _context;  // window, udpClient
+};
 
-# Update database with recent changes
-python .claude/scripts/update.py
-
-# Database maintenance (cleanup, optimization)
-python .claude/scripts/maintenance.py
-
-# Run agentDB tests
-pytest .claude/tests/
+// GameScene implements: HUD, players, missiles rendering
 ```
 
-## Architecture (Hexagonal)
+### Event System
 
-### Layers
+```cpp
+// events::Event is a std::variant
+using Event = std::variant<None, WindowClosed, KeyPressed, KeyReleased>;
 
-1. **Domain Layer** (`domain/`) - Pure business logic, no external dependencies
-   - Entities: `Player`, `User`
-   - Value Objects: `Position`, `Health`, `PlayerId`, `UserId`
-   - Exceptions: `DomainException`, `PositionException`, etc.
-
-2. **Application Layer** (`application/`) - Use cases, orchestration
-   - Use Cases: `MovePlayerUseCase`, `LoginUseCase`
-   - Ports IN: `IGameCommands`
-   - Ports OUT: `IPlayerRepository`, `IUserRepository`
-
-3. **Infrastructure Layer** (`infrastructure/`) - Technical implementations
-   - Adapters IN: `UDPServer`, `TCPServer`, `CLIGameController`
-   - Adapters OUT: `MongoDBConfiguration`, `MongoDBPlayerRepository`
-
-### Key Principle: Dependency Rule
-
-```
-Infrastructure → Application → Domain → (nothing)
+// Key enum: A-Z, Num0-9, Space, Enter, Escape, Arrows, Modifiers
 ```
 
-- Domain NEVER depends on Application or Infrastructure
-- Application NEVER depends on Infrastructure
-- Dependencies flow inward only
+### Network Client
+
+```cpp
+// UDPClient handles:
+// - Connection (sendJoin, sendHeartbeat)
+// - Player movement (movePlayer)
+// - Missiles (shootMissile)
+// - State sync (getPlayers, getMissiles, getLocalPlayerId)
+```
+
+## Server Architecture (Hexagonal)
+
+### GameWorld
+
+Central game state manager (`src/server/infrastructure/game/GameWorld.hpp`):
+
+```cpp
+class GameWorld {
+    // Players
+    void addPlayer(uint8_t id);
+    void removePlayer(uint8_t id);
+    void updatePlayerPosition(uint8_t id, uint16_t x, uint16_t y);
+
+    // Missiles
+    void spawnMissile(uint8_t playerId);       // Creates missile at player pos
+    void updateMissiles(float deltaTime);      // Moves missiles, removes OOB
+    std::vector<uint16_t> getDestroyedMissiles();
+
+    GameSnapshot getSnapshot() const;          // For broadcast
+};
+```
+
+### UDPServer
+
+Network adapter (`src/server/infrastructure/adapters/in/network/UDPServer.hpp`):
+
+- Handles incoming messages (MovePlayer, ShootMissile)
+- Broadcasts GameSnapshot at 20Hz
+- Broadcasts MissileSpawned/MissileDestroyed events
+
+## Game Constants
+
+| Constant | Value | Location |
+|----------|-------|----------|
+| `MOVE_SPEED` | 200.0f | GameScene.hpp |
+| `SHIP_WIDTH/HEIGHT` | 50.0f / 30.0f | GameScene.hpp, Hitboxes |
+| `MISSILE_WIDTH/HEIGHT` | 32.0f / 16.0f (render), 16/8 (hitbox) | GameScene.hpp, Hitboxes |
+| `MISSILE_SPEED` | 600.0f | GameWorld.hpp |
+| `SHOOT_COOLDOWN` | 0.3f seconds | GameScene.hpp |
+| `MAX_HEALTH` | 100 | GameScene.hpp |
+| `MAX_PLAYERS` | 4 | Protocol.hpp |
+| `MAX_MISSILES` | 32 | Protocol.hpp |
+| `BROADCAST_RATE` | 20Hz (50ms) | UDPServer.cpp |
+
+## Assets
+
+| Asset | Path | Size |
+|-------|------|------|
+| Ship sprite | `assets/spaceship/Ship1.png` | 64x64 |
+| Missile sprite | `assets/spaceship/missile.png` | 32x32 |
+
+Loaded in GameScene via:
+```cpp
+_context.window->loadTexture("ship", "assets/spaceship/Ship1.png");
+_context.window->loadTexture("missile", "assets/spaceship/missile.png");
+```
+
+## Key Files
+
+| Purpose | Path |
+|---------|------|
+| **Protocol** | `src/common/protocol/Protocol.hpp` |
+| **Collision** | `src/common/collision/AABB.hpp` |
+| **Server main** | `src/server/main.cpp` |
+| **UDP Server** | `src/server/infrastructure/adapters/in/network/UDPServer.cpp` |
+| **GameWorld** | `src/server/infrastructure/game/GameWorld.cpp` |
+| **Player entity** | `src/server/include/domain/entities/Player.hpp` |
+| **Client main** | `src/client/main.cpp` |
+| **GameScene** | `src/client/src/scenes/GameScene.cpp` |
+| **UDPClient** | `src/client/src/network/UDPClient.cpp` |
+| **IWindow** | `src/client/include/graphics/IWindow.hpp` |
+| **SFMLWindow** | `src/client/lib/sfml/src/SFMLWindow.cpp` |
+| **SDL2Window** | `src/client/lib/sdl2/src/SDL2Window.cpp` |
 
 ## Coding Conventions
 
@@ -230,52 +319,21 @@ Infrastructure → Application → Domain → (nothing)
   - Private members: `_prefixedWithUnderscore`
   - Constants: `SCREAMING_SNAKE_CASE`
 - **Headers**: `.hpp` for headers, `.cpp` for implementations
-- **Namespaces**: Match directory structure (`domain::entities::Player`)
+- **Namespaces**: Match directory structure (`collision::AABB`, `events::Key`)
 
-### Value Objects
+### Architecture Rules
 
-- Always validate in constructor
-- Immutable: methods return new instances
-- Example: `Position::move()` returns a new `Position`
-
-### Repositories
-
-- Define interface in Application layer (`IPlayerRepository`)
-- Implement in Infrastructure layer (`MongoDBPlayerRepository`)
-- Inject dependencies via constructor
-
-## Key Files
-
-| Purpose | Path |
-|---------|------|
-| Server main | `src/server/main.cpp` |
-| UDP Server | `src/server/infrastructure/adapters/in/network/UDPServer.cpp` |
-| TCP Server | `src/server/infrastructure/adapters/in/network/TCPServer.cpp` |
-| Player entity | `src/server/include/domain/entities/Player.hpp` |
-| Position VO | `src/server/include/domain/value_objects/Position.hpp` |
-| Move use case | `src/server/include/application/use_cases/MovePlayerUseCase.hpp` |
-| Binary protocol | `src/common/protocol/` |
-
-## Testing
-
-```bash
-# Run all tests
-./artifacts/server/linux/server_tests
-
-# Run specific test
-./artifacts/server/linux/server_tests --gtest_filter=PlayerTest.*
-
-# With verbose output
-./artifacts/server/linux/server_tests --gtest_verbose
-```
+1. **Domain NEVER depends on Infrastructure**
+2. **Value Objects are immutable** - return new instances
+3. **Interfaces in headers, implementations in source files**
+4. **Network protocol uses network byte order** (big-endian)
 
 ## Dependencies (vcpkg)
 
-- **boost-asio**: Async networking
+- **boost-asio**: Async networking (server)
 - **gtest**: Testing framework
-- **mongo-cxx-driver**: MongoDB driver
-- **nlohmann-json**: JSON parsing
-- **sfml**: Client graphics (SFML)
+- **sfml**: Client graphics (SFML backend)
+- **sdl2**, **sdl2-image**: Client graphics (SDL2 backend)
 
 ## Git Conventions
 
@@ -286,63 +344,52 @@ Commit format: `TYPE: Description`
 | FEAT | New feature |
 | FIX | Bug fix |
 | DOCS | Documentation |
-| STYLE | Formatting, no code change |
 | REFACTOR | Code refactoring |
 | TEST | Adding tests |
-| CHORE | Maintenance, build, deps |
 | BUILD | Build system changes |
 
-## Documentation
+## MCP & AgentDB
+
+The project includes Claude Code tooling in `.claude/`:
+
+### Analysis Agents
+
+| Agent | Use Case |
+|-------|----------|
+| **analyzer** | Impact analysis before changes |
+| **security** | Security audit |
+| **reviewer** | Code review |
+| **risk** | Risk evaluation before merge |
+| **synthesis** | Final reports |
+
+### AgentDB MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_file_context` | Full view of a file (symbols, deps, errors) |
+| `get_symbol_callers` | Find all callers of a function |
+| `get_symbol_callees` | Find all functions called by a symbol |
+| `get_file_impact` | Calculate impact of modifying a file |
+| `get_error_history` | Historical bugs for a file/module |
+| `search_symbols` | Search symbols by pattern |
+
+### Commands
 
 ```bash
-# Serve docs locally
-mkdocs serve
+# Slash command for full analysis
+/analyze
 
-# Or with Docker
-cd ci_cd/docker && docker-compose -f docker-compose.docs.yml up
+# AgentDB maintenance
+python .claude/scripts/bootstrap.py   # Initial setup
+python .claude/scripts/update.py      # Update database
 ```
-
-Access at http://localhost:8000
-
-## Environment
-
-- **OS**: Linux (Ubuntu 22.04 recommended), Windows via WSL2
-- **Compiler**: GCC 11+ or Clang 15+ with C++23 support
-- **CMake**: 3.30+
-- **Build**: Ninja (faster) or Make
-
-## Debugging
-
-```bash
-# GDB
-gdb ./artifacts/server/linux/rtype_server
-
-# Valgrind (memory leaks)
-valgrind --leak-check=full ./artifacts/server/linux/rtype_server
-```
-
-Debug builds include AddressSanitizer by default.
-
-## Common Issues
-
-| Problem | Solution |
-|---------|----------|
-| `CMake version too old` | Install CMake 3.30+ from official site |
-| `undefined reference to boost::...` | Reconfigure: `rm -rf build && ./scripts/build.sh` |
-| `vcpkg dependencies missing` | Run `./third_party/vcpkg/vcpkg install` |
-| `std::ranges not declared` | Upgrade GCC to 11+ |
 
 ## Notes for Claude
 
-1. **Always use agentDB MCP tools** to understand file context before modifications
-2. **Follow Hexagonal Architecture** - never add infrastructure code to domain
-3. **Value Objects are immutable** - return new instances, don't modify
-4. **Separate .hpp/.cpp** - declarations in headers, implementations in source files
-5. **Check file relations** before refactoring to understand impact
-6. **Review error history** for files with past issues
-7. **Use analysis agents** for code reviews:
-   - `analyzer` for impact analysis before changes
-   - `security` for security-sensitive code
-   - `reviewer` for code quality checks
-   - `risk` before merging to evaluate risk
-   - `synthesis` for final reports
+1. **Read files before modifying** - Use `Read` tool to understand context
+2. **Follow Hexagonal Architecture** - Domain has no external dependencies
+3. **Protocol is binary** - Use `to_bytes()`/`from_bytes()` with byte swap
+4. **Multi-backend graphics** - Changes to IWindow require both SFML and SDL2
+5. **Missiles are server-authoritative** - Client sends request, server spawns
+6. **GameSnapshot is the source of truth** - Broadcast at 20Hz
+7. **Use agentDB** - Query file context and impact before refactoring

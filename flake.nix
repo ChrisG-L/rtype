@@ -28,7 +28,9 @@
             openal flac libvorbis freetype
             gcc.cc.lib cacert openssl
             # SDL2/SDL3 dependencies (sdl2-compat requires SDL3)
-            SDL2 SDL2_image sdl3
+            SDL2 SDL2_image SDL2_ttf SDL2_mixer sdl3
+            # Dependencies for SDL2_image and SDL2_ttf
+            libtiff harfbuzz
           ];
           hardeningDisable = [ "fortify" ];
           
@@ -69,7 +71,11 @@
               pkgs.systemd
               pkgs.SDL2
               pkgs.SDL2_image
+              pkgs.SDL2_ttf
+              pkgs.SDL2_mixer
               pkgs.sdl3
+              pkgs.libtiff
+              pkgs.harfbuzz
             ]}:$LD_LIBRARY_PATH"
 
             echo "🚀 Environnement Clang + SDL2 (Flake) chargé !"
