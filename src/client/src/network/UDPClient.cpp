@@ -18,7 +18,7 @@
 namespace client::network
 {
     UDPClient::UDPClient()
-        : _socket(_ioContext), _connected(false), _isWriting(false)
+        : _socket(_ioContext), _connected(false), _isWriting(false), _localPlayerId(std::nullopt)
     {
         client::logging::Logger::getNetworkLogger()->debug("UDPClient created");
     }
@@ -48,41 +48,57 @@ namespace client::network
         _onError = callback;
     }
 
-    void UDPClient::connect(std::shared_ptr<client::network::TCPClient> tcpClient, const std::string &host, std::uint16_t port)
+    void UDPClient::setOnSnapshot(const OnSnapshotCallback& callback)
+    {
+        _onSnapshot = callback;
+    }
+
+    void UDPClient::connect(const std::string &host, std::uint16_t port)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
-        _tcpClient = tcpClient;
         if (_connected) {
             logger->warn("Already connected, disconnecting...");
             disconnect();
         }
         logger->info("Connecting to {}:{}...", host, port);
-        
+
         try {
-        
             udp::resolver resolver(_ioContext);
             auto results = resolver.resolve(host, std::to_string(port));
             _endpoint = *results.begin();
-            
+
             _socket.open(udp::v4());
-            
+
             _connected = true;
-            
+
             asyncReceiveFrom();
-            
+
             _ioThread = std::jthread([this, logger]() {
                 logger->debug("IO thread started");
                 _ioContext.run();
                 logger->debug("IO thread terminated");
             });
-            
-            logger->info("Connected to server UDP at {}:{}", 
+
+            logger->info("Connected to server UDP at {}:{}",
                         _endpoint.address().to_string(), _endpoint.port());
-                        
+
+            UDPHeader head{
+                .type = static_cast<uint16_t>(MessageType::HeartBeat),
+                .sequence_num = 0,
+                .timestamp = UDPHeader::getTimestamp()
+            };
+            auto buf = std::make_shared<std::vector<uint8_t>>(UDPHeader::WIRE_SIZE);
+            head.to_bytes(buf->data());
+            asyncSendTo(buf, UDPHeader::WIRE_SIZE);
+
+            if (_onConnected) {
+                _onConnected();
+            }
+
         } catch (const std::exception &e) {
             logger->error("Connection error: {}", e.what());
             if (_onError) {
-                _onError(std::string("Connexion échouée: ") + e.what());
+                _onError(std::string("Connexion echouee: ") + e.what());
             }
         }
     }
@@ -105,6 +121,12 @@ namespace client::network
             _socket.close(ec);
         }
 
+        {
+            std::lock_guard<std::mutex> plock(_playersMutex);
+            _localPlayerId = std::nullopt;
+            _players.clear();
+        }
+
         if (_onDisconnected) {
             _onDisconnected();
         }
@@ -117,16 +139,21 @@ namespace client::network
         return _connected && _socket.is_open();
     }
 
-    bool UDPClient::isAuthenticated() const
+    std::optional<uint8_t> UDPClient::getLocalPlayerId() const
     {
-        std::scoped_lock lock(_mutex);
-        return isConnected() && _tcpClient->isAuthenticated();
+        std::lock_guard<std::mutex> lock(_playersMutex);
+        return _localPlayerId;
+    }
+
+    std::vector<NetworkPlayer> UDPClient::getPlayers() const
+    {
+        std::lock_guard<std::mutex> lock(_playersMutex);
+        return _players;
     }
 
     void UDPClient::asyncReceiveFrom()
     {
-        if (!isAuthenticated()) {
-            client::logging::Logger::getNetworkLogger()->warn("User not authenticated");
+        if (!isConnected()) {
             return;
         }
         _socket.async_receive_from(
@@ -139,8 +166,8 @@ namespace client::network
     }
 
     void UDPClient::asyncSendTo(std::shared_ptr<std::vector<uint8_t>>& buf, size_t totalSize) {
-        if (!isAuthenticated()) {
-            client::logging::Logger::getNetworkLogger()->warn("User not authenticated");
+        if (!isConnected()) {
+            client::logging::Logger::getNetworkLogger()->warn("Not connected");
             return;
         }
         _socket.async_send_to(
@@ -154,6 +181,60 @@ namespace client::network
         );
     }
 
+    void UDPClient::handlePlayerJoin(const uint8_t* payload, size_t size) {
+        auto pjOpt = PlayerJoin::from_bytes(payload, size);
+        if (!pjOpt) return;
+
+        std::lock_guard<std::mutex> lock(_playersMutex);
+        _localPlayerId = pjOpt->player_id;
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Joined game as player {}", static_cast<int>(*_localPlayerId));
+    }
+
+    void UDPClient::handlePlayerLeave(const uint8_t* payload, size_t size) {
+        auto plOpt = PlayerLeave::from_bytes(payload, size);
+        if (!plOpt) return;
+
+        std::lock_guard<std::mutex> lock(_playersMutex);
+        _players.erase(
+            std::remove_if(_players.begin(), _players.end(),
+                [&](const NetworkPlayer& p) { return p.id == plOpt->player_id; }),
+            _players.end()
+        );
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Player {} left the game", static_cast<int>(plOpt->player_id));
+    }
+
+    void UDPClient::handleSnapshot(const uint8_t* payload, size_t size) {
+        auto gsOpt = GameSnapshot::from_bytes(payload, size);
+        if (!gsOpt) return;
+
+        std::vector<NetworkPlayer> newPlayers;
+        newPlayers.reserve(gsOpt->player_count);
+
+        for (uint8_t i = 0; i < gsOpt->player_count; ++i) {
+            const auto& ps = gsOpt->players[i];
+            newPlayers.push_back(NetworkPlayer{
+                .id = ps.id,
+                .x = ps.x,
+                .y = ps.y,
+                .alive = ps.alive != 0
+            });
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(_playersMutex);
+            _players = std::move(newPlayers);
+        }
+
+        if (_onSnapshot) {
+            std::lock_guard<std::mutex> lock(_playersMutex);
+            _onSnapshot(_players);
+        }
+    }
+
     void UDPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
@@ -165,8 +246,21 @@ namespace client::network
                     return;
                 }
                 UDPHeader head = *headOpt;
+                size_t payload_size = bytes - UDPHeader::WIRE_SIZE;
+                const uint8_t* payload = reinterpret_cast<const uint8_t*>(_readBuffer) + UDPHeader::WIRE_SIZE;
 
-                if (head.type == static_cast<uint16_t>(MessageType::Snapshot)) {
+                switch (static_cast<MessageType>(head.type)) {
+                    case MessageType::PlayerJoin:
+                        handlePlayerJoin(payload, payload_size);
+                        break;
+                    case MessageType::PlayerLeave:
+                        handlePlayerLeave(payload, payload_size);
+                        break;
+                    case MessageType::Snapshot:
+                        handleSnapshot(payload, payload_size);
+                        break;
+                    default:
+                        break;
                 }
                 asyncReceiveFrom();
             }

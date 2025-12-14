@@ -10,7 +10,6 @@
 
 #include <memory>
 
-#include "../network/TCPClient.hpp"
 #include "../network/UDPClient.hpp"
 #include "../core/Engine.hpp"
 
@@ -20,7 +19,6 @@ class Boot {
         void core();
 
     private:
-        std::shared_ptr<client::network::TCPClient> tcpClient;
         std::shared_ptr<client::network::UDPClient> udpClient;
         std::unique_ptr<core::Engine> engine;
 };

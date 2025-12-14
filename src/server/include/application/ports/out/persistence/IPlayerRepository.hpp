@@ -10,6 +10,7 @@
 
 #include "domain/entities/Player.hpp"
 #include <optional>
+#include <vector>
 
 namespace application::ports::out::persistence {
     using domain::entities::Player;

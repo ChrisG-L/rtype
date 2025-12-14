@@ -9,7 +9,7 @@
 #define PLAYERNAME_HPP_
 
 #include "domain/exceptions/player/PlayerNameException.hpp"
-#include <bsoncxx/exception/exception.hpp>
+// #include <bsoncxx/exception/exception.hpp>
 
 namespace domain::value_objects::player {
     class PlayerName {

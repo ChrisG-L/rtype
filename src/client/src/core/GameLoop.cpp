@@ -7,6 +7,7 @@
 
 #include "core/GameLoop.hpp"
 #include "events/Event.hpp"
+#include "scenes/GameScene.hpp"
 #include <chrono>
 #include <ctime>
 #include <variant>
@@ -15,15 +16,14 @@ namespace core {
     GameLoop::GameLoop(
         std::shared_ptr<graphics::IWindow> window,
         graphics::IGraphicPlugin* _graphicPlugin,
-        std::shared_ptr<client::network::TCPClient> tcpClient,
         std::shared_ptr<client::network::UDPClient> udpClient
-    ): _deltatime(0.0f), _window(window), _renderer{}, _tcpClient(tcpClient), _udpClient(udpClient)
+    ): _deltatime(0.0f), _window(window), _renderer{}, _udpClient(udpClient)
     {
-        _renderer = _graphicPlugin->createRenderer(_window); // DLOpe
-        
+        _renderer = _graphicPlugin->createRenderer(_window);
+
         _sceneManager = std::make_unique<SceneManager>();
-        _sceneManager->setTCPClient(_tcpClient);
-        _sceneManager->changeScene(std::make_unique<LoginScene>(_renderer)); // avec le DLOpen
+        _sceneManager->setContext(GameContext{.window = _window, .udpClient = _udpClient});
+        _sceneManager->changeScene(std::make_unique<GameScene>());
     }
 
     GameLoop::~GameLoop()
@@ -47,12 +47,6 @@ namespace core {
                 event = _window->pollEvent();
                 if (std::holds_alternative<events::None>(event))
                     break;
-                if (std::holds_alternative<events::KeyPressed>(event)) {
-                    auto& key = std::get<events::KeyPressed>(event);
-                    if (key.key == events::Key::Down) {
-                        _udpClient->movePlayer(10, 15);
-                    }
-                }
                 _sceneManager->handleEvent(event);
             }
             _sceneManager->update(deltaTime);

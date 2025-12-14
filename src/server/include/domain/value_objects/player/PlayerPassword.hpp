@@ -9,7 +9,7 @@
 #define PLAYERPASSWORD_HPP_
 
 #include "domain/exceptions/player/PlayerPasswordException.hpp"
-#include <bsoncxx/exception/exception.hpp>
+// #include <bsoncxx/exception/exception.hpp>
 
 namespace domain::value_objects::player {
     class PlayerPassword {

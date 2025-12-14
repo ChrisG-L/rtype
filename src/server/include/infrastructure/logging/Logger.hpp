@@ -23,17 +23,13 @@ namespace server::logging {
 
         // Get loggers for different server components
         static std::shared_ptr<spdlog::logger> getNetworkLogger();
-        static std::shared_ptr<spdlog::logger> getAuthLogger();
         static std::shared_ptr<spdlog::logger> getDomainLogger();
-        static std::shared_ptr<spdlog::logger> getPersistenceLogger();
         static std::shared_ptr<spdlog::logger> getGameLogger();
         static std::shared_ptr<spdlog::logger> getMainLogger();
 
     private:
         static std::shared_ptr<spdlog::logger> s_networkLogger;
-        static std::shared_ptr<spdlog::logger> s_authLogger;
         static std::shared_ptr<spdlog::logger> s_domainLogger;
-        static std::shared_ptr<spdlog::logger> s_persistenceLogger;
         static std::shared_ptr<spdlog::logger> s_gameLogger;
         static std::shared_ptr<spdlog::logger> s_mainLogger;
     };

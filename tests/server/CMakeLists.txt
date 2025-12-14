@@ -93,7 +93,7 @@ target_link_libraries(server_tests PRIVATE
     Boost::system
     GTest::gtest
     GTest::gtest_main
-    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
+    # $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     OpenSSL::SSL
     OpenSSL::Crypto
     rtype_proto  # Bibliothèque Protobuf générée

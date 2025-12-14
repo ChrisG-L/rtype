@@ -9,7 +9,6 @@
 #include "core/Logger.hpp"
 
 Boot::Boot():
-    tcpClient(std::make_unique<client::network::TCPClient>()),
     udpClient(std::make_unique<client::network::UDPClient>()),
     engine(std::make_unique<core::Engine>())
 {
@@ -21,14 +20,6 @@ void Boot::core()
 
     logger->info("R-Type client starting...");
 
-    tcpClient->setOnConnected([logger]() {
-        logger->info("Connected to server TCP!");
-    });
-    tcpClient->setOnDisconnected([logger]() {
-        logger->info("Disconnected from server TCP!");
-    });
-    tcpClient->connect("127.0.0.1", 4123);
-
     udpClient->setOnConnected([logger]() {
         logger->info("Connected to server UDP!");
     });
@@ -36,9 +27,9 @@ void Boot::core()
         logger->info("Disconnected from server UDP");
     });
 
-    udpClient->connect(tcpClient, "127.0.0.1", 4124);
+    udpClient->connect("127.0.0.1", 4124);
 
-    engine->initialize(tcpClient, udpClient);
+    engine->initialize(udpClient);
     engine->run();
 
     logger->info("R-Type client shutting down...");

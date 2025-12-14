@@ -9,10 +9,7 @@
 
 namespace domain::value_objects::player {
     void PlayerId::validate(const std::string &id) {
-        try {
-            bsoncxx::oid _{id};
-        }
-        catch(const bsoncxx::exception& ex) {
+        if (id.empty()) {
             throw exceptions::player::PlayerIdException(id);
         }
     }

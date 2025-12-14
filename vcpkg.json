@@ -5,11 +5,6 @@
   "dependencies": [
     "boost-asio",
     "gtest",
-    {
-      "name": "mongo-c-driver",
-      "features": ["openssl"]
-    },
-    "mongo-cxx-driver",
     "openssl",
     "protobuf",
     "spdlog"

@@ -6,43 +6,25 @@ add_executable(rtype_server
     domain/exceptions/HealthException.cpp
     domain/exceptions/PositionException.cpp
     domain/exceptions/player/PlayerIdException.cpp
-    domain/exceptions/user/UserIdException.cpp
-    domain/exceptions/user/UsernameException.cpp
-    domain/exceptions/user/EmailException.cpp
-    domain/exceptions/user/PasswordException.cpp
-    domain/exceptions/persistence/MongoDBException.cpp
 
     # Domain - Value Objects
     domain/value_objects/Health.cpp
     domain/value_objects/Position.cpp
     domain/value_objects/player/PlayerId.cpp
-    domain/value_objects/user/UserId.cpp
-    domain/value_objects/user/Username.cpp
-    domain/value_objects/user/Email.cpp
-    domain/value_objects/user/Password.cpp
-    domain/value_objects/user/utils/PasswordUtils.cpp
 
     # Domain - Entities
     domain/entities/Player.cpp
-    domain/entities/User.cpp
 
     # Application - Use Cases
-
-    #Player
     application/use_cases/player/Move.cpp
-    #User
-    application/use_cases/auth/Login.cpp
-    application/use_cases/auth/Register.cpp
 
     # Infrastructure - Adapters
     infrastructure/adapters/in/cli/CLIGameController.cpp
     infrastructure/adapters/in/network/UDPServer.cpp
-    infrastructure/adapters/in/network/TCPServer.cpp
     infrastructure/adapters/in/network/protocol/CommandParser.cpp
-    infrastructure/adapters/in/network/execute/Execute.cpp
-    infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
-    infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
-    infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
+
+    # Infrastructure - Game
+    infrastructure/game/GameWorld.cpp
 
     # Infrastructure - Logging
     infrastructure/logging/Logger.cpp
@@ -100,12 +82,9 @@ target_include_directories(rtype_server PRIVATE
     )
 
 target_link_libraries(rtype_server PRIVATE
-    # rtype_proto
     Boost::system
     OpenSSL::SSL
     OpenSSL::Crypto
-    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
-    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     spdlog::spdlog
 )
 

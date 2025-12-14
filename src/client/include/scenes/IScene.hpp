@@ -1,6 +1,6 @@
 /*
 ** EPITECH PROJECT, 2025
-** rtype [WSL : Ubuntu-24.04]
+** rtype [WSL : Ubuntu-24.04]
 ** File description:
 ** IScene
 */
@@ -9,13 +9,16 @@
 #define ISCENE_HPP_
 
 #include "graphics/IWindow.hpp"
+#include "network/UDPClient.hpp"
 #include "events/Event.hpp"
 #include <memory>
 
 class SceneManager;
-namespace client::network {
-    class TCPClient;
-}
+
+struct GameContext {
+    std::shared_ptr<graphics::IWindow> window;
+    std::shared_ptr<client::network::UDPClient> udpClient;
+};
 
 class IScene
 {
@@ -27,11 +30,11 @@ public:
     virtual void render() = 0;
 
     void setSceneManager(SceneManager* manager) { _sceneManager = manager; }
-    void setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient) { _tcpClient = tcpClient; }
+    void setContext(const GameContext& ctx) { _context = ctx; }
 
 protected:
     SceneManager* _sceneManager = nullptr;
-    std::shared_ptr<client::network::TCPClient> _tcpClient;
+    GameContext _context;
 };
 
 #endif /* !ISCENE_HPP_ */

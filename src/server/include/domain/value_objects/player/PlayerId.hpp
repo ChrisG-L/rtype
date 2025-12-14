@@ -9,8 +9,7 @@
 #define PLAYERID_HPP_
 
 #include "domain/exceptions/player/PlayerIdException.hpp"
-#include <bsoncxx/oid.hpp>
-#include <bsoncxx/exception/exception.hpp>
+#include <string>
 
 namespace domain::value_objects::player {
     class PlayerId {

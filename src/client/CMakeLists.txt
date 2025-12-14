@@ -57,10 +57,8 @@ add_executable(rtype_client
     src/core/Logger.cpp
     src/core/DynamicLib.cpp
     src/graphics/Graphics.cpp
-    src/network/TCPClient.cpp
     src/network/UDPClient.cpp
     src/scenes/SceneManager.cpp
-    src/scenes/LoginScene.cpp
     src/scenes/GameScene.cpp
 
     src/gameplay/GameObject.cpp
@@ -117,12 +115,9 @@ target_include_directories(rtype_client PRIVATE
     )
 
 target_link_libraries(rtype_client PRIVATE
-    # rtype_proto
     Boost::system
     OpenSSL::SSL
     OpenSSL::Crypto
-    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
-    $<IF:$<TARGET_EXISTS:mongo::mongocxx_static>,mongo::mongocxx_static,mongo::mongocxx_shared>
     spdlog::spdlog
     rtype_sdl2
 )

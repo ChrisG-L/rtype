@@ -12,9 +12,7 @@
 namespace server::logging {
 
     std::shared_ptr<spdlog::logger> Logger::s_networkLogger = nullptr;
-    std::shared_ptr<spdlog::logger> Logger::s_authLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_domainLogger = nullptr;
-    std::shared_ptr<spdlog::logger> Logger::s_persistenceLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_gameLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_mainLogger = nullptr;
 
@@ -34,14 +32,8 @@ namespace server::logging {
             s_networkLogger = std::make_shared<spdlog::logger>("Network", sinks.begin(), sinks.end());
             s_networkLogger->set_level(spdlog::level::debug);
 
-            s_authLogger = std::make_shared<spdlog::logger>("Auth", sinks.begin(), sinks.end());
-            s_authLogger->set_level(spdlog::level::info);
-
             s_domainLogger = std::make_shared<spdlog::logger>("Domain", sinks.begin(), sinks.end());
             s_domainLogger->set_level(spdlog::level::info);
-
-            s_persistenceLogger = std::make_shared<spdlog::logger>("Persistence", sinks.begin(), sinks.end());
-            s_persistenceLogger->set_level(spdlog::level::info);
 
             s_gameLogger = std::make_shared<spdlog::logger>("Game", sinks.begin(), sinks.end());
             s_gameLogger->set_level(spdlog::level::info);
@@ -50,9 +42,7 @@ namespace server::logging {
             s_mainLogger->set_level(spdlog::level::info);
 
             spdlog::register_logger(s_networkLogger);
-            spdlog::register_logger(s_authLogger);
             spdlog::register_logger(s_domainLogger);
-            spdlog::register_logger(s_persistenceLogger);
             spdlog::register_logger(s_gameLogger);
             spdlog::register_logger(s_mainLogger);
 
@@ -77,16 +67,8 @@ namespace server::logging {
         return s_networkLogger;
     }
 
-    std::shared_ptr<spdlog::logger> Logger::getAuthLogger() {
-        return s_authLogger;
-    }
-
     std::shared_ptr<spdlog::logger> Logger::getDomainLogger() {
         return s_domainLogger;
-    }
-
-    std::shared_ptr<spdlog::logger> Logger::getPersistenceLogger() {
-        return s_persistenceLogger;
     }
 
     std::shared_ptr<spdlog::logger> Logger::getGameLogger() {

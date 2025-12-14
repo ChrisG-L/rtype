@@ -14,13 +14,11 @@
 #include <chrono>
 
 #include "scenes/SceneManager.hpp"
-#include "network/TCPClient.hpp"
 #include "network/UDPClient.hpp"
 #include "IGameLoop.hpp"
 #include "core/IRenderer.hpp"
 #include "events/Event.hpp"
 #include "events/Signal.hpp"
-#include "scenes/LoginScene.hpp"
 #include "../graphics/Graphics.hpp"
 #include "graphics/IGraphicPlugin.hpp"
 
@@ -30,7 +28,6 @@ namespace core {
             GameLoop(
                 std::shared_ptr<graphics::IWindow> window,
                 graphics::IGraphicPlugin* _graphicPlugin,
-                std::shared_ptr<client::network::TCPClient> tcpClient = nullptr,
                 std::shared_ptr<client::network::UDPClient> udpClient = nullptr
             );
             ~GameLoop();
@@ -41,11 +38,9 @@ namespace core {
 
         private:
             float _deltatime;
-            // std::chrono::duration _clock;
             std::shared_ptr<graphics::IWindow> _window;
             std::shared_ptr<IRenderer> _renderer;
             std::unique_ptr<SceneManager> _sceneManager;
-            std::shared_ptr<client::network::TCPClient> _tcpClient;
             std::shared_ptr<client::network::UDPClient> _udpClient;
     };
 }

@@ -1,6 +1,6 @@
 /*
 ** EPITECH PROJECT, 2025
-** rtype [WSL : Ubuntu-24.04]
+** rtype [WSL : Ubuntu-24.04]
 ** File description:
 ** SceneManager
 */
@@ -16,12 +16,20 @@ SceneManager::~SceneManager()
 {
 }
 
+void SceneManager::setContext(const GameContext& ctx)
+{
+    _context = ctx;
+    if (_currentScene) {
+        _currentScene->setContext(_context);
+    }
+}
+
 void SceneManager::changeScene(std::unique_ptr<IScene> newScene)
 {
     _currentScene = std::move(newScene);
     if (_currentScene) {
         _currentScene->setSceneManager(this);
-        _currentScene->setTCPClient(_tcpClient);
+        _currentScene->setContext(_context);
     }
 }
 
@@ -29,11 +37,6 @@ void SceneManager::handleEvent(const events::Event& event) {
     if (_currentScene)  {
         _currentScene->handleEvent(event);
     }
-}
-
-void SceneManager::setTCPClient(std::shared_ptr<client::network::TCPClient> tcpClient)
-{
-    _tcpClient = tcpClient;
 }
 
 void SceneManager::update(float _deltatime)

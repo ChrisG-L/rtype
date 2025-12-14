@@ -35,7 +35,7 @@ enable_testing()
 # Trouver les paquets nécessaires
 find_package(Boost CONFIG REQUIRED COMPONENTS system)
 find_package(GTest CONFIG REQUIRED)
-find_package(mongocxx CONFIG REQUIRED)
+# find_package(mongocxx CONFIG REQUIRED)
 find_package(OpenSSL CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)

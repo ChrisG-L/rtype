@@ -29,20 +29,18 @@ namespace core {
 
     void Engine::initialize()
     {
-        initialize(nullptr, nullptr);
+        initialize(nullptr);
     }
 
     void Engine::initialize(
-        std::shared_ptr<client::network::TCPClient> tcpClient,
         std::shared_ptr<client::network::UDPClient> udpClient
     )
     {
-        _tcpClient = tcpClient;
         _udpClient = udpClient;
 
         _graphicPlugin = _dynamicLib->openGraphicLib("librtype_sdl2.so");
         _window = _graphicPlugin->createWindow({.x = 1920, .y = 1080}, "rtype");
-        _gameLoop = std::make_unique<GameLoop>(_window, _graphicPlugin, _tcpClient, _udpClient);
+        _gameLoop = std::make_unique<GameLoop>(_window, _graphicPlugin, _udpClient);
     }
 
     void Engine::run()
@@ -50,4 +48,3 @@ namespace core {
         _gameLoop->run();
     }
 }
-
