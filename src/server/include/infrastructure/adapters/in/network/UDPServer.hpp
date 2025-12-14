@@ -32,6 +32,11 @@ namespace infrastructure::adapters::in::network {
             void sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId);
             void sendPlayerLeave(uint8_t playerId);
             void broadcastSnapshot();
+            void broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId);
+            void broadcastMissileDestroyed(uint16_t missileId);
+            void broadcastEnemyDestroyed(uint16_t enemyId);
+            void broadcastPlayerDamaged(uint8_t playerId, uint8_t damage);
+            void broadcastPlayerDied(uint8_t playerId);
             void scheduleBroadcast();
 
             void do_read();

@@ -79,6 +79,7 @@ target_include_directories(rtype_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/common/protocol
+    ${PROJECT_SOURCE_DIR}/src/common
     )
 
 target_link_libraries(rtype_server PRIVATE
