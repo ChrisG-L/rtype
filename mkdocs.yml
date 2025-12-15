@@ -171,6 +171,7 @@ nav:
 
   - Développement:
       - development/index.md
+      - Claude Code Tooling: development/claude-code.md
       - Roadmap Complète: development/roadmap.md
       - Contribuer: development/contributing.md
       - Système de Logging: development/logging.md

@@ -2,6 +2,35 @@
 
 Bienvenue dans la section développement! Cette partie de la documentation est destinée aux contributeurs du projet R-Type, qu'ils soient débutants ou expérimentés.
 
+## 🤖 Claude Code Tooling
+
+### [Claude Code - Analyse de Code](claude-code.md)
+**Système d'analyse automatisée avec 8 agents spécialisés**
+
+Le projet intègre un système complet d'analyse de code basé sur Claude Code :
+
+- **Commande `/analyze`** - Analyse incrémentale intelligente
+- **8 agents spécialisés** (analyzer, security, reviewer, risk, synthesis, sonar, meta-synthesis, web-synthesizer)
+- **AgentDB** - Base SQLite pour le contexte du projet
+- **MCP Servers** - Intégration Jira et AgentDB
+- **Rapports automatiques** avec verdicts (APPROVE, REVIEW, CAREFUL, REJECT)
+
+**Usage rapide:**
+```bash
+# Analyse incrémentale
+/analyze
+
+# Analyse complète
+/analyze --all
+
+# Fichiers spécifiques
+/analyze --files src/server/UDPServer.cpp
+```
+
+[→ Documentation complète Claude Code](claude-code.md)
+
+---
+
 ## 📚 Guides Essentiels
 
 ### [Contribuer au Projet](contributing.md)

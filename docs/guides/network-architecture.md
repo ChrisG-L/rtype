@@ -1,8 +1,8 @@
 # Architecture Reseau R-Type
 
 **Etat:** Implemente - Protocole binaire TCP/UDP operationnel
-**Version:** 0.5.0
-**Derniere mise a jour:** 02 decembre 2025
+**Version:** 1.0.0
+**Derniere mise a jour:** 15 decembre 2025
 
 ---
 
@@ -93,15 +93,26 @@ Total: 12 bytes (WIRE_SIZE)
 | Type | Code | Direction | Description |
 |------|------|-----------|-------------|
 | HeartBeat | 0x0001 | Bidirectionnel | Keep-alive |
-| Login | 0x0010 | Server -> Client | Demande de login |
-| LoginAck | 0x0011 | Client -> Server | Reponse login avec credentials |
-| Register | 0x0020 | Server -> Client | Demande d'inscription |
-| RegisterAck | 0x0021 | Client -> Server | Reponse inscription |
+| Login | 0x0010 | Server -> Client | Demande de login (TCP) |
+| LoginAck | 0x0011 | Client -> Server | Reponse login avec credentials (TCP) |
+| Register | 0x0020 | Server -> Client | Demande d'inscription (TCP) |
+| RegisterAck | 0x0021 | Client -> Server | Reponse inscription (TCP) |
 | Basic | 0x0030 | - | Reserve |
 | BasicAck | 0x0031 | - | Reserve |
-| Snapshot | 0x0040 | Server -> Client | Etat du jeu (UDP) |
+| Snapshot | 0x0040 | S → C | Etat complet du jeu (20Hz) |
 | Player | 0x0050 | - | Reserve |
-| MovePlayer | 0x0060 | Client -> Server | Mouvement joueur (UDP) |
+| MovePlayer | 0x0060 | C → S | Position joueur (4 bytes) |
+| PlayerJoin | 0x0070 | S → C | Nouveau joueur connecte (1 byte) |
+| PlayerLeave | 0x0071 | S → C | Joueur deconnecte (1 byte) |
+| ShootMissile | 0x0080 | C → S | Demande de tir (0 byte) |
+| MissileSpawned | 0x0081 | S → C | Missile cree (7 bytes) |
+| MissileDestroyed | 0x0082 | S → C | Missile detruit (2 bytes) |
+| EnemySpawned | 0x0090 | S → C | Ennemi apparu (8 bytes) |
+| EnemyDestroyed | 0x0091 | S → C | Ennemi detruit (2 bytes) |
+| PlayerDamaged | 0x00A0 | S → C | Joueur blesse (3 bytes) |
+| PlayerDied | 0x00A1 | S → C | Joueur mort (1 byte) |
+| GameStart | 0x00B0 | S → C | Debut de partie (0 byte) |
+| LobbyStatus | 0x00B1 | S → C | Etat du lobby (2 bytes) |
 
 ### Structures de Messages
 
@@ -131,6 +142,242 @@ struct MovePlayer {
     uint16_t x;  // 2 bytes, Big-endian
     uint16_t y;  // 2 bytes, Big-endian
 };
+```
+
+#### PlayerJoin (1 byte)
+
+```cpp
+struct PlayerJoin {
+    uint8_t player_id;  // ID du nouveau joueur (0-3)
+};
+```
+
+#### PlayerLeave (1 byte)
+
+```cpp
+struct PlayerLeave {
+    uint8_t player_id;  // ID du joueur qui quitte
+};
+```
+
+#### ShootMissile (0 byte)
+
+```cpp
+struct ShootMissile {
+    // Pas de payload - le serveur utilise la position du joueur
+};
+```
+
+#### MissileState (7 bytes)
+
+Structure commune pour representer l'etat d'un missile (joueur ou ennemi).
+
+```cpp
+struct MissileState {
+    uint16_t id;        // 2 bytes - ID unique du missile
+    uint8_t owner_id;   // 1 byte - ID proprietaire (0xFF = ennemi)
+    uint16_t x;         // 2 bytes - Position X
+    uint16_t y;         // 2 bytes - Position Y
+};
+```
+
+#### MissileSpawned (7 bytes)
+
+```cpp
+struct MissileSpawned {
+    uint16_t missile_id;  // 2 bytes - ID du missile cree
+    uint8_t owner_id;     // 1 byte - ID du joueur tireur
+    uint16_t x;           // 2 bytes - Position initiale X
+    uint16_t y;           // 2 bytes - Position initiale Y
+};
+```
+
+#### MissileDestroyed (2 bytes)
+
+```cpp
+struct MissileDestroyed {
+    uint16_t missile_id;  // ID du missile detruit
+};
+```
+
+#### PlayerState (7 bytes)
+
+```cpp
+struct PlayerState {
+    uint8_t id;       // 1 byte - ID joueur (0-3)
+    uint16_t x;       // 2 bytes - Position X
+    uint16_t y;       // 2 bytes - Position Y
+    uint8_t health;   // 1 byte - Points de vie (0-100)
+    uint8_t alive;    // 1 byte - 0=mort, 1=vivant
+};
+```
+
+#### EnemyState (8 bytes)
+
+```cpp
+struct EnemyState {
+    uint16_t id;          // 2 bytes - ID unique ennemi
+    uint16_t x;           // 2 bytes - Position X
+    uint16_t y;           // 2 bytes - Position Y
+    uint8_t health;       // 1 byte - Points de vie
+    uint8_t enemy_type;   // 1 byte - Type d'ennemi (0=basic, 1=fast, etc.)
+};
+```
+
+#### EnemyDestroyed (2 bytes)
+
+```cpp
+struct EnemyDestroyed {
+    uint16_t enemy_id;  // ID de l'ennemi detruit
+};
+```
+
+#### PlayerDamaged (3 bytes)
+
+```cpp
+struct PlayerDamaged {
+    uint8_t player_id;   // ID du joueur touche
+    uint8_t damage;      // Degats infliges
+    uint8_t new_health;  // Points de vie restants
+};
+```
+
+#### PlayerDied (1 byte)
+
+```cpp
+struct PlayerDied {
+    uint8_t player_id;  // ID du joueur mort
+};
+```
+
+#### GameStart (0 byte)
+
+```cpp
+struct GameStart {
+    // Pas de payload - signal de debut de partie
+};
+```
+
+#### LobbyStatus (2 bytes)
+
+```cpp
+struct LobbyStatus {
+    uint8_t player_count;    // Nombre de joueurs actuels
+    uint8_t players_needed;  // Nombre de joueurs requis pour demarrer
+};
+```
+
+#### GameSnapshot (taille variable)
+
+Structure principale contenant l'etat complet du jeu, diffusee a 20Hz.
+
+```cpp
+struct GameSnapshot {
+    uint8_t player_count;                       // 1 byte
+    PlayerState players[MAX_PLAYERS];           // 7 * player_count bytes
+    uint8_t missile_count;                      // 1 byte
+    MissileState missiles[MAX_MISSILES];        // 7 * missile_count bytes
+    uint8_t enemy_count;                        // 1 byte
+    EnemyState enemies[MAX_ENEMIES];            // 8 * enemy_count bytes
+    uint8_t enemy_missile_count;                // 1 byte
+    MissileState enemy_missiles[MAX_MISSILES];  // 7 * enemy_missile_count bytes
+};
+
+// Constantes
+static constexpr uint8_t MAX_PLAYERS = 4;
+static constexpr uint8_t MAX_MISSILES = 32;
+static constexpr uint8_t MAX_ENEMIES = 16;
+static constexpr uint8_t MAX_ENEMY_MISSILES = 32;
+static constexpr uint8_t ENEMY_OWNER_ID = 0xFF;  // Identifie les missiles ennemis
+```
+
+**Calcul de la taille:**
+```
+wire_size = 1 + player_count * 7
+          + 1 + missile_count * 7
+          + 1 + enemy_count * 8
+          + 1 + enemy_missile_count * 7
+```
+
+---
+
+## Flux de Gameplay UDP
+
+### Sequence de Jeu
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant GW as GameWorld
+
+    Note over C,S: Connexion et Lobby
+    C->>S: HeartBeat (join)
+    S->>C: PlayerJoin(player_id)
+    S->>C: LobbyStatus(count, needed)
+
+    Note over C,S: Demarrage Partie
+    S->>C: GameStart
+
+    loop Game Loop (20Hz)
+        Note over C,S: Mouvement
+        C->>S: MovePlayer(x, y)
+        S->>GW: updatePlayerPosition()
+
+        Note over C,S: Tir
+        C->>S: ShootMissile
+        S->>GW: spawnMissile(playerId)
+        S->>C: MissileSpawned(id, owner, x, y)
+
+        Note over C,S: Broadcast Etat
+        GW->>S: getSnapshot()
+        S->>C: Snapshot(players, missiles, enemies)
+
+        Note over C,S: Evenements
+        alt Missile detruit
+            S->>C: MissileDestroyed(missile_id)
+        end
+        alt Joueur touche
+            S->>C: PlayerDamaged(id, dmg, health)
+        end
+        alt Joueur mort
+            S->>C: PlayerDied(player_id)
+        end
+        alt Ennemi detruit
+            S->>C: EnemyDestroyed(enemy_id)
+        end
+    end
+
+    Note over C,S: Deconnexion
+    S->>C: PlayerLeave(player_id)
+```
+
+### Format Binaire sur le Fil
+
+Chaque message UDP suit ce format:
+
+```
++------------------+------------------+
+|    UDPHeader     |     Payload      |
+|    (12 bytes)    |   (variable)     |
++------------------+------------------+
+
+UDPHeader:
++--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+
+| type_h | type_l | seq_h  | seq_l  |            timestamp (8 bytes, big-endian)                           |
++--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+
+   0        1        2        3        4        5        6        7        8        9       10       11
+```
+
+**Exemple: Message MovePlayer**
+```
+Offset  Valeur   Description
+------  -------  -----------
+0-1     0x00 60  type = MovePlayer (0x0060)
+2-3     0x00 0A  sequence_num = 10
+4-11    ...      timestamp (ms depuis epoch)
+12-13   0x01 90  x = 400
+14-15   0x00 C8  y = 200
 ```
 
 ---
@@ -440,14 +687,18 @@ TEST(UDPIntegrationTest, MovePlayer) {
 
 ## Evolutions Futures
 
-1. **Snapshots UDP** - Envoi etat jeu complet aux clients
-2. **Interpolation** - Prediction cote client
-3. **Reconnexion** - Gestion deconnexion/reconnexion
-4. **Chiffrement** - TLS pour TCP
-5. **Compression** - Delta compression pour snapshots
+1. ~~**Snapshots UDP** - Envoi etat jeu complet aux clients~~ ✅ Implemente
+2. ~~**Missiles et Combat** - Systeme de tir et collisions~~ ✅ Implemente
+3. ~~**Ennemis** - Spawn et destruction d'ennemis~~ ✅ Implemente
+4. ~~**Systeme de Lobby** - Attente des joueurs avant partie~~ ✅ Implemente
+5. **Interpolation** - Prediction cote client
+6. **Reconnexion** - Gestion deconnexion/reconnexion
+7. **Chiffrement** - TLS pour TCP
+8. **Compression** - Delta compression pour snapshots
+9. **Power-ups** - Bonus et ameliorations temporaires
 
 ---
 
-**Derniere revision:** 02/12/2025
+**Derniere revision:** 15/12/2025
 **Auteur:** General + Claude Code
-**Statut:** A jour avec le code (v0.5.0)
+**Statut:** A jour avec le code (v1.0.0)

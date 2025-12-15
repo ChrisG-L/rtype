@@ -352,37 +352,71 @@ Commit format: `TYPE: Description`
 
 The project includes Claude Code tooling in `.claude/`:
 
-### Analysis Agents
+### Analysis Agents (8 agents)
 
-| Agent | Use Case |
-|-------|----------|
-| **analyzer** | Impact analysis before changes |
-| **security** | Security audit |
-| **reviewer** | Code review |
-| **risk** | Risk evaluation before merge |
-| **synthesis** | Final reports |
+| Agent | Phase | Use Case |
+|-------|-------|----------|
+| **analyzer** | 1 | Impact analysis (LOCAL/MODULE/GLOBAL) |
+| **security** | 1 | Security audit, CWE detection, regressions |
+| **reviewer** | 1 | Code review, patterns, conventions |
+| **risk** | 2 | Risk score calculation (0-100) |
+| **synthesis** | 2 | Aggregates reports from 4 agents |
+| **sonar** | 2 | Enriches SonarQube issues with AgentDB |
+| **meta-synthesis** | 3 | Deduplicates and merges all findings |
+| **web-synthesizer** | 4 | Exports JSON for web interface |
 
 ### AgentDB MCP Tools
 
 | Tool | Description |
 |------|-------------|
 | `get_file_context` | Full view of a file (symbols, deps, errors) |
-| `get_symbol_callers` | Find all callers of a function |
+| `get_symbol_callers` | Find all callers of a function (recursive) |
 | `get_symbol_callees` | Find all functions called by a symbol |
 | `get_file_impact` | Calculate impact of modifying a file |
 | `get_error_history` | Historical bugs for a file/module |
+| `get_patterns` | Code patterns applicable to a file |
+| `get_architecture_decisions` | ADRs for a module |
 | `search_symbols` | Search symbols by pattern |
+| `get_file_metrics` | Complexity, lines, coverage |
+| `get_module_summary` | Overview of a module |
+
+### Jira MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_issue` | Get Jira ticket by key |
+| `search_issues` | JQL search |
+| `get_issue_from_text` | Extract tickets from commit message |
+| `get_project_info` | Project metadata |
 
 ### Commands
 
 ```bash
-# Slash command for full analysis
+# Incremental analysis (from last checkpoint)
 /analyze
 
+# Full analysis (from merge-base)
+/analyze --all
+
+# Reset checkpoint to HEAD
+/analyze --reset
+
+# Analyze specific files
+/analyze --files src/server/UDPServer.cpp
+
 # AgentDB maintenance
-python .claude/scripts/bootstrap.py   # Initial setup
-python .claude/scripts/update.py      # Update database
+python .claude/scripts/bootstrap.py            # Initial setup
+python .claude/scripts/bootstrap.py --incremental  # Update
 ```
+
+### Verdicts
+
+| Score | Verdict | Action |
+|-------|---------|--------|
+| ≥80 | 🟢 APPROVE | Can merge |
+| ≥60 | 🟡 REVIEW | Human review recommended |
+| ≥40 | 🟠 CAREFUL | Deep review required |
+| <40 | 🔴 REJECT | Do not merge |
 
 ## Notes for Claude
 
