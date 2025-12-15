@@ -113,8 +113,11 @@ void GameScene::update(float deltatime)
         initAudio();
     }
 
+    auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+    float adjustedDeltaTime = deltatime * accessConfig.getGameSpeedMultiplier();
+
     for (auto& star : _stars) {
-        star.x -= star.speed * deltatime;
+        star.x -= star.speed * adjustedDeltaTime;
         if (star.x < 0) {
             star.x = SCREEN_WIDTH;
         }
@@ -127,20 +130,18 @@ void GameScene::update(float deltatime)
     float dx = 0.0f;
     float dy = 0.0f;
 
-    auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
-
     for (const auto& key : _keysPressed) {
         if (accessConfig.isActionKey(accessibility::GameAction::MoveUp, key)) {
-            dy -= MOVE_SPEED * deltatime;
+            dy -= MOVE_SPEED * adjustedDeltaTime;
         }
         if (accessConfig.isActionKey(accessibility::GameAction::MoveDown, key)) {
-            dy += MOVE_SPEED * deltatime;
+            dy += MOVE_SPEED * adjustedDeltaTime;
         }
         if (accessConfig.isActionKey(accessibility::GameAction::MoveLeft, key)) {
-            dx -= MOVE_SPEED * deltatime;
+            dx -= MOVE_SPEED * adjustedDeltaTime;
         }
         if (accessConfig.isActionKey(accessibility::GameAction::MoveRight, key)) {
-            dx += MOVE_SPEED * deltatime;
+            dx += MOVE_SPEED * adjustedDeltaTime;
         }
     }
 
@@ -158,7 +159,7 @@ void GameScene::update(float deltatime)
     }
 
     if (_shootCooldown > 0.0f) {
-        _shootCooldown -= deltatime;
+        _shootCooldown -= adjustedDeltaTime;
     }
 
     bool shootPressed = false;

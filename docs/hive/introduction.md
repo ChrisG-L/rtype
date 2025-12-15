@@ -332,5 +332,161 @@ flowchart TD
 
 ---
 
+## Structure du Dossier `.claude/`
+
+Le dossier `.claude/` contient toute l'infrastructure technique du système d'agents. Voici son organisation :
+
+```
+.claude/
+├── agents/                    # Définitions des 8 agents d'analyse
+│   ├── analyzer.md            # Agent d'analyse d'impact
+│   ├── security.md            # Agent de sécurité (CWE, vulnérabilités)
+│   ├── reviewer.md            # Agent de code review
+│   ├── risk.md                # Agent de calcul de risque
+│   ├── synthesis.md           # Agent de synthèse des rapports
+│   ├── sonar.md               # Agent d'enrichissement SonarQube
+│   ├── meta-synthesis.md      # Agent de fusion/dédoublonnage
+│   └── web-synthesizer.md     # Agent d'export JSON pour le web
+│
+├── commands/                  # Commandes slash personnalisées
+│   └── analyze.md             # /analyze - Lance l'analyse incrémentale
+│
+├── config/                    # Configuration
+│   └── agentdb.yaml           # Config AgentDB (seuils, pénalités, etc.)
+│
+├── mcp/                       # Serveurs MCP (Model Context Protocol)
+│   ├── agentdb/               # Serveur MCP pour AgentDB
+│   │   ├── server.py          # Point d'entrée du serveur
+│   │   └── tools.py           # Outils exposés (file_context, etc.)
+│   └── jira/                  # Serveur MCP pour Jira
+│       ├── server.py
+│       └── tools.py
+│
+├── scripts/                   # Scripts Python utilitaires
+│   ├── bootstrap.py           # Initialisation/mise à jour AgentDB
+│   ├── transform-sonar.py     # Transformation des rapports SonarQube
+│   ├── import-bug-history.py  # Import de l'historique des bugs
+│   ├── maintenance.py         # Nettoyage et maintenance
+│   └── update.py              # Mise à jour incrémentale
+│
+├── agentdb/                   # Base de données AgentDB
+│   ├── db.sqlite              # Base SQLite (symboles, métriques, etc.)
+│   └── query.sh               # Script d'interface pour les agents
+│
+├── reports/                   # Rapports générés par /analyze
+│   └── YYYY-MM-DD-<commit>/   # Un dossier par analyse
+│       ├── analyzer.md
+│       ├── security.md
+│       ├── reviewer.md
+│       ├── risk.md
+│       ├── REPORT.md          # Rapport de synthèse principal
+│       ├── sonar.md           # Rapport SonarQube (si disponible)
+│       └── meta-synthesis.json
+│
+├── sonar/                     # Intégration SonarQube
+│   └── issues.json            # Export des issues SonarQube
+│
+├── logs/                      # Logs des agents et scripts
+├── tests/                     # Tests du système
+├── settings.json              # Configuration Claude Code
+└── settings.local.json        # Secrets locaux (non commité)
+```
+
+---
+
+### Les 8 Agents d'Analyse
+
+Le système utilise 8 agents spécialisés exécutés en 4 phases :
+
+<div class="grid cards" markdown>
+
+-   :material-magnify:{ .lg .middle } **Phase 1 - Parallèle**
+
+    ---
+
+    | Agent | Rôle |
+    |-------|------|
+    | **ANALYZER** | Analyse d'impact (appelants, dépendances) |
+    | **SECURITY** | Audit sécurité (CWE, régressions) |
+    | **REVIEWER** | Code review (patterns, conventions) |
+
+-   :material-calculator:{ .lg .middle } **Phase 2 - Séquentiel puis Parallèle**
+
+    ---
+
+    | Agent | Rôle |
+    |-------|------|
+    | **RISK** | Calcul du score de risque (0-100) |
+    | **SYNTHESIS** | Agrégation des 4 rapports |
+    | **SONAR** | Enrichissement des issues SonarQube |
+
+-   :material-merge:{ .lg .middle } **Phase 3 - Fusion**
+
+    ---
+
+    | Agent | Rôle |
+    |-------|------|
+    | **META-SYNTHESIS** | Dédoublonnage et fusion finale |
+
+-   :material-export:{ .lg .middle } **Phase 4 - Export**
+
+    ---
+
+    | Agent | Rôle |
+    |-------|------|
+    | **WEB-SYNTHESIZER** | Export JSON pour l'interface web |
+
+</div>
+
+---
+
+### Outils AgentDB (MCP)
+
+AgentDB expose des outils via le protocole MCP que les agents utilisent :
+
+| Outil | Description |
+|-------|-------------|
+| `get_file_context` | Contexte complet d'un fichier (symboles, deps, erreurs) |
+| `get_symbol_callers` | Trouve tous les appelants d'un symbole |
+| `get_symbol_callees` | Trouve ce qu'un symbole appelle |
+| `get_file_impact` | Calcule l'impact d'une modification |
+| `get_error_history` | Historique des bugs d'un fichier/module |
+| `get_patterns` | Patterns de code applicables |
+| `get_architecture_decisions` | ADRs pour un module |
+| `search_symbols` | Recherche de symboles par pattern |
+| `get_file_metrics` | Métriques (complexité, lignes) |
+| `get_module_summary` | Vue d'ensemble d'un module |
+
+---
+
+### Commande `/analyze`
+
+La commande principale pour lancer l'analyse :
+
+```bash
+# Analyse incrémentale (depuis le dernier checkpoint)
+/analyze
+
+# Analyse complète (depuis le merge-base)
+/analyze --all
+
+# Reset du checkpoint à HEAD
+/analyze --reset
+
+# Analyse de fichiers spécifiques
+/analyze --files src/server/UDPServer.cpp
+```
+
+**Verdicts possibles :**
+
+| Score | Verdict | Action |
+|-------|---------|--------|
+| ≥80 | 🟢 APPROVE | Peut être mergé |
+| ≥60 | 🟡 REVIEW | Review humaine recommandée |
+| ≥40 | 🟠 CAREFUL | Review approfondie requise |
+| <40 | 🔴 REJECT | Ne pas merger |
+
+---
+
 !!! success "Bienvenue dans Army2077"
     Le système d'agents IA est conçu pour vous assister, pas vous remplacer. Vous restez le décideur final. Les agents sont là pour augmenter votre productivité et garantir la qualité du projet.
