@@ -1,17 +1,18 @@
 # Démarrage Rapide
 
-Ce guide vous permet de lancer rapidement le projet R-Type en quelques commandes.
+Ce guide vous permet de lancer rapidement le projet R-Type (serveur + client) en quelques commandes.
 
 ## Prérequis
 
 Avant de commencer, assurez-vous d'avoir :
 
 - **Système :** Linux (Ubuntu 22.04 recommandé) ou WSL2
-- **Outils :** Git, Docker, Docker Compose
+- **Outils :** Git, CMake 3.30+, GCC 11+, Ninja
+- **Dépendances :** SDL2, SDL2_image, SDL2_mixer, SDL2_ttf, SFML, Boost.ASIO
 - **Espace disque :** Au moins 5 GB libre
 
 !!! tip "Installation des prérequis"
-    Si vous n'avez pas Docker, consultez le [Guide d'installation complet](installation.md)
+    Les dépendances sont gérées automatiquement par vcpkg. Consultez le [Guide d'installation complet](installation.md) si besoin.
 
 ## Lancement en 4 commandes
 
@@ -52,21 +53,33 @@ cd rtype
 !!! note "Alternative CI/CD"
     Pour utiliser l'infrastructure CI/CD complète (Jenkins + Builder permanent), consultez le [Guide CI/CD](../development/ci-cd.md).
 
-## Lancer le serveur
+## Lancer le jeu
+
+### 1. Lancer le serveur
 
 ```bash
 # Depuis la racine du projet
 ./artifacts/server/linux/rtype_server
 ```
 
-Sortie attendue :
+Le serveur démarre sur le port UDP **4124** et broadcast l'état de jeu à 20Hz.
 
-```
-Hello world
+### 2. Lancer le client
+
+```bash
+# Dans un autre terminal
+./artifacts/client/linux/rtype_client
 ```
 
-!!! info "Note"
-Le serveur est actuellement en développement initial. Les fonctionnalités complètes seront disponibles prochainement.
+Le client se connecte automatiquement à `127.0.0.1:4124`.
+
+!!! success "Gameplay"
+    - **Flèches** : Déplacer le vaisseau
+    - **Espace** : Tirer des missiles
+    - **Échap** : Quitter
+
+!!! info "Multijoueur"
+    Jusqu'à 4 joueurs peuvent se connecter simultanément. Lancez plusieurs clients pour tester le multijoueur.
 
 ## Lancer les tests
 
@@ -122,28 +135,40 @@ Après compilation, voici ce que vous trouverez :
 
 ```
 artifacts/
-└── server/
+├── server/
+│   └── linux/
+│       ├── rtype_server      # Binaire du serveur (UDP 4124)
+│       └── server_tests      # Suite de tests serveur
+└── client/
     └── linux/
-        ├── rtype_server      # Binaire du serveur
-        └── server_tests      # Suite de tests
+        ├── rtype_client      # Binaire du client
+        ├── librtype_sdl2.so  # Plugin SDL2 (défaut)
+        └── librtype_sfml.so  # Plugin SFML (alternatif)
 ```
 
 ## Workflow de développement
 
 ### 1. Faire des modifications
 
-Éditez les fichiers source dans `src/server/` :
+Éditez les fichiers source :
 
 ```bash
-# Exemple : éditer le serveur
+# Éditer le serveur
 nano src/server/main.cpp
+
+# Éditer le client
+nano src/client/src/scenes/GameScene.cpp
 ```
 
 ### 2. Recompiler
 
 ```bash
-# Compilation rapide (ne reconfigure pas CMake)
+# Compilation complète (serveur + client)
 ./scripts/compile.sh
+
+# Ou compilation spécifique
+cmake --build build --target rtype_server  # Serveur uniquement
+cmake --build build --target rtype_client  # Client uniquement
 ```
 
 ### 3. Tester
@@ -152,8 +177,11 @@ nano src/server/main.cpp
 # Lancer les tests
 ./artifacts/server/linux/server_tests
 
-# Lancer le serveur
+# Lancer le serveur (terminal 1)
 ./artifacts/server/linux/rtype_server
+
+# Lancer le client (terminal 2)
+./artifacts/client/linux/rtype_client
 ```
 
 ### 4. Nettoyer si nécessaire
@@ -175,14 +203,14 @@ rm -rf build*/
 
 | Commande                                | Description                                        |
 | --------------------------------------- | -------------------------------------------------- |
-| `./scripts/launch_ci_cd.sh`             | Lance Jenkins + Documentation (http://localhost)   |
 | `./scripts/build.sh`                    | Configure CMake et installe les dépendances        |
-| `./scripts/compile.sh`                  | Compile le projet                                  |
-| `./artifacts/server/linux/rtype_server` | Lance le serveur                                   |
+| `./scripts/compile.sh`                  | Compile le projet (serveur + client)               |
+| `./artifacts/server/linux/rtype_server` | Lance le serveur (UDP 4124)                        |
+| `./artifacts/client/linux/rtype_client` | Lance le client                                    |
 | `./artifacts/server/linux/server_tests` | Lance les tests                                    |
+| `./scripts/launch_ci_cd.sh`             | Lance Jenkins + Documentation (http://localhost)   |
 | `./third_party/vcpkg/vcpkg list`        | Liste les dépendances installées                   |
 | `cmake --build build --target clean`    | Nettoie les objets compilés                        |
-| `docker-compose -f ci_cd/docker/docker-compose.yml down` | Arrête Jenkins + Docs |
 
 ## Modes de compilation
 

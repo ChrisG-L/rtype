@@ -1,69 +1,72 @@
 # État du Projet R-Type
 
-**Dernière mise à jour:** 3 décembre 2025
-**Version:** 0.5.0 (Phase: Gameplay Foundation)
+**Dernière mise à jour:** 15 décembre 2025
+**Version:** 0.5.1 (Phase: Gameplay Foundation)
 
 ---
 
 ## 📊 Vue d'Ensemble
 
-Le projet R-Type est en phase de **développement actif** avec un client graphique fonctionnel, un serveur avec architecture hexagonale complète, et un module gameplay opérationnel.
+Le projet R-Type est en phase de **gameplay actif** avec un client multi-backend (SDL2/SFML) complet, un serveur avec GameWorld fonctionnel (missiles, ennemis, collisions), et une librairie ECS prête à intégrer.
 
 ### Phase Actuelle
 
-🚧 **Phase 4: Gameplay Foundation** (85% complété)
+✅ **Phase 4: Gameplay Foundation** (95% complété)
 
 **Réalisations:**
 - ✅ Architecture hexagonale serveur complète (Domain/Application/Infrastructure)
-- ✅ Client graphique SFML fonctionnel (Boot, Engine, GameLoop, Scenes)
-- ✅ Système de scènes (LoginScene, GameScene)
-- ✅ Communication TCP client-serveur (Boost.Asio)
-- ✅ Authentification complète (Login, Register, MongoDBUserRepository)
-- ✅ Système de logging professionnel (spdlog) - 12 loggers
-- ✅ Gestionnaire d'assets avec Z-index (AssetManager)
-- ✅ **Module Gameplay** (GameObject, Missile, EntityManager)
-- ✅ **Système d'événements abstrait** (découplage SFML)
-- ✅ **GameLoop avec deltaTime correct** (std::chrono)
-- ✅ **Contrôles joueur** (flèches + tir)
-- 🚧 ECS complet en cours
+- ✅ Client multi-backend (SDL2 par défaut, SFML via plugin dynamique)
+- ✅ UDPClient temps réel (Boost.ASIO, thread-safe)
+- ✅ GameScene complet avec HUD, missiles, ennemis, parallax stars
+- ✅ AudioManager (SDL2_mixer) - musique + effets sonores
+- ✅ AccessibilityConfig - remapping clavier, modes daltonien, vitesse de jeu
+- ✅ GameWorld serveur - joueurs, missiles, 5 types d'ennemis avec IA
+- ✅ Système de collision AABB avec damage events
+- ✅ Wave spawning - vagues d'ennemis automatiques
+- ✅ Protocol binaire - 14 types de messages (network byte order)
+- ✅ Broadcast à 20Hz avec état de jeu complet
+- ✅ **Blob-ECS** - Librairie ECS complète (51.3M ops/s, non intégrée)
 
-**Prochaine phase:** ECS complet et Multijoueur
+**Prochaine phase:** Intégration ECS et Polish
 
 ---
 
 ## 📈 Progression par Composant
 
-| Composant | État | Avancement | Ticket Linear | Notes |
-|-----------|------|------------|---------------|-------|
-| **Infrastructure CI/CD** | ✅ Terminé | 100% | [EPI-9](https://linear.app/epitech-study/issue/EPI-9) | Pipeline complet |
-| **Documentation** | 🚧 En cours | 85% | [EPI-15](https://linear.app/epitech-study/issue/EPI-15) | Mise à jour en cours |
-| **Architecture Hexagonale** | ✅ Terminé | 100% | [EPI-22](https://linear.app/epitech-study/issue/EPI-22) | 3 couches complètes |
-| ├─ Séparation .hpp/.cpp | ✅ Terminé | 100% | [EPI-23](https://linear.app/epitech-study/issue/EPI-23) | 40+ fichiers .cpp |
-| └─ Serveurs Réseau | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | UDP + TCP |
-| **Domain Layer** | ✅ Terminé | 95% | - | Entités et Value Objects |
-| ├─ Entité Player | ✅ Terminé | 100% | - | Position, Health, PlayerId |
-| ├─ Entité User | ✅ Terminé | 100% | - | Auth (Username, Email, Password) |
-| ├─ Value Objects | ✅ Terminé | 100% | - | 9 Value Objects (incl. Email) |
-| └─ Exceptions | ✅ Terminé | 100% | - | 10 Exceptions métier |
-| **Application Layer** | ✅ Terminé | 90% | - | Use Cases |
-| ├─ MovePlayerUseCase | ✅ Terminé | 100% | - | Déplacement joueur |
-| ├─ LoginUseCase | ✅ Terminé | 100% | - | Authentification par email |
-| └─ RegisterUseCase | ✅ Terminé | 100% | - | Inscription utilisateur |
-| **Infrastructure Layer** | 🚧 En cours | 80% | - | Adapters |
-| ├─ UDPServer | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | Port 4123 |
-| ├─ TCPServer | ✅ Terminé | 100% | [EPI-24](https://linear.app/epitech-study/issue/EPI-24) | Port 3000 |
-| ├─ MongoDBConfiguration | ✅ Terminé | 100% | - | Connexion DB |
-| ├─ MongoDBUserRepository | ✅ Terminé | 100% | - | CRUD utilisateurs |
-| └─ MongoDBPlayerRepository | 🚧 En cours | 30% | - | Stub implémentation |
-| **Client Graphique** | 🚧 En cours | 65% | [EPI-11](https://linear.app/epitech-study/issue/EPI-11) | SFML fonctionnel |
-| ├─ Boot/Engine/GameLoop | ✅ Terminé | 100% | - | Architecture complète |
-| ├─ SceneManager | ✅ Terminé | 100% | - | LoginScene, GameScene |
-| ├─ SFMLRenderer/Window | ✅ Terminé | 90% | - | Rendu fonctionnel |
-| ├─ AssetManager | ✅ Terminé | 95% | - | Cache textures/sprites |
-| ├─ TCPClient | ✅ Terminé | 85% | - | Communication async |
-| └─ UI Components | 🚧 En cours | 20% | - | TextField en cours |
-| **Module Gameplay** | 🚧 En cours | 25% | [KAN-65](https://epitech-team-w5qkn5hj.atlassian.net) | GameObject, Missile, EntityManager |
-| **Architecture ECS** | 🚧 En cours | 20% | [KAN-12](https://epitech-team-w5qkn5hj.atlassian.net) | Foundation via EntityManager |
+| Composant | État | Avancement | Notes |
+|-----------|------|------------|-------|
+| **Infrastructure CI/CD** | ✅ Terminé | 100% | Pipeline complet |
+| **Documentation** | 🚧 En cours | 90% | 81 pages, mise à jour en cours |
+| **Architecture Hexagonale** | ✅ Terminé | 100% | 3 couches complètes |
+| ├─ Séparation .hpp/.cpp | ✅ Terminé | 100% | 110+ fichiers |
+| └─ Serveurs Réseau | ✅ Terminé | 100% | UDP 4124 + TCP 3000 |
+| **Domain Layer** | ✅ Terminé | 100% | Entités et Value Objects |
+| ├─ Entité Player | ✅ Terminé | 100% | Position, Health, PlayerId |
+| ├─ Entité User | ✅ Terminé | 100% | Auth (Username, Email, Password) |
+| ├─ Value Objects | ✅ Terminé | 100% | 9 Value Objects (incl. Email) |
+| └─ Exceptions | ✅ Terminé | 100% | 10 Exceptions métier |
+| **Application Layer** | ✅ Terminé | 100% | Use Cases |
+| ├─ MovePlayerUseCase | ✅ Terminé | 100% | Déplacement joueur |
+| ├─ LoginUseCase | ✅ Terminé | 100% | Authentification par email |
+| └─ RegisterUseCase | ✅ Terminé | 100% | Inscription utilisateur |
+| **Infrastructure Layer** | ✅ Terminé | 95% | Adapters |
+| ├─ UDPServer | ✅ Terminé | 100% | Port 4124, broadcast 20Hz |
+| ├─ GameWorld | ✅ Terminé | 100% | Joueurs, missiles, ennemis, collisions |
+| ├─ Protocol | ✅ Terminé | 100% | 14 types de messages |
+| └─ Collision System | ✅ Terminé | 100% | AABB hitboxes |
+| **Client Graphique** | ✅ Terminé | 90% | Multi-backend SDL2/SFML |
+| ├─ Boot/Engine/GameLoop | ✅ Terminé | 100% | Architecture complète, 60 FPS |
+| ├─ SceneManager | ✅ Terminé | 100% | GameScene complet |
+| ├─ UDPClient | ✅ Terminé | 100% | Thread-safe, async |
+| ├─ SDL2/SFML Backends | ✅ Terminé | 100% | Plugins dynamiques |
+| ├─ AudioManager | ✅ Terminé | 100% | SDL2_mixer, musique + SFX |
+| └─ AccessibilityConfig | ✅ Terminé | 100% | Remapping, daltonisme |
+| **Module Gameplay** | ✅ Terminé | 95% | Complet côté serveur et client |
+| ├─ GameScene | ✅ Terminé | 100% | HUD, missiles, ennemis, stars |
+| ├─ 5 Types d'Ennemis | ✅ Terminé | 100% | Basic, Tracker, Zigzag, Fast, Bomber |
+| ├─ Wave Spawning | ✅ Terminé | 100% | 6-12s, 2-6 ennemis |
+| └─ EntityManager | ✅ Terminé | 100% | Template spawn<T>() |
+| **Blob-ECS Library** | ✅ Terminé | 100% | 51.3M ops/s, non intégré |
 
 ### Légende des États
 
@@ -76,95 +79,87 @@ Le projet R-Type est en phase de **développement actif** avec un client graphiq
 
 ## 💻 Statistiques Code
 
-### Lignes de Code (Mise à jour 25/11/2025)
+### Lignes de Code (Mise à jour 15/12/2025)
 
 | Catégorie | Fichiers | Lignes | Pourcentage |
 |-----------|----------|--------|-------------|
-| **Code Source Serveur** | 50+ | ~3,500 | 35% |
-| ├─ Headers (.hpp) | 25+ | ~1,500 | 15% |
-| └─ Implémentations (.cpp) | 25+ | ~2,000 | 20% |
-| **Code Source Client** | 30+ | ~2,500 | 25% |
-| ├─ Headers (.hpp) | 20+ | ~1,200 | 12% |
-| └─ Implémentations (.cpp) | 14 | ~1,300 | 13% |
-| **Documentation** | 42 | ~7,500 | 35% |
-| **Tests** | 5+ | 200+ | 2% |
-| **Total Projet** | 120+ | ~13,700 | 100% |
+| **Code Source Serveur** | 45 | ~4,500 | 30% |
+| ├─ Headers (.hpp) | 31 | ~2,000 | 13% |
+| └─ Implémentations (.cpp) | 14 | ~2,500 | 17% |
+| **Code Source Client** | 62 | ~5,000 | 33% |
+| ├─ Headers (.hpp) | 32 | ~2,000 | 13% |
+| └─ Implémentations (.cpp) | 28 | ~3,000 | 20% |
+| **Code Common** | 2 | ~600 | 4% |
+| **Blob-ECS Library** | 6 | ~800 | 5% |
+| **Documentation** | 81 | ~8,000 | 28% |
+| **Total Projet** | 200+ | ~15,000 | 100% |
 
-**Ratio Documentation/Code:** 1.25:1
+**Ratio Documentation/Code:** 0.8:1
 
 ### Architecture du Code Source
 
 ```
 src/
-├── server/                          # Serveur de jeu (Architecture Hexagonale)
+├── server/                          # Serveur de jeu (45 fichiers)
 │   ├── domain/
-│   │   ├── entities/
-│   │   │   ├── Player.hpp/.cpp ✅
-│   │   │   └── User.hpp/.cpp ✅
-│   │   ├── value_objects/
-│   │   │   ├── Health.hpp/.cpp ✅
-│   │   │   ├── Position.hpp/.cpp ✅
-│   │   │   ├── player/PlayerId.hpp/.cpp ✅
-│   │   │   └── user/ ✅
-│   │   │       ├── UserId, Username, Password.hpp/.cpp
-│   │   │       ├── Email.hpp/.cpp ✅ (nouveau)
-│   │   │       └── utils/PasswordUtils.hpp/.cpp ✅
+│   │   ├── entities/Player.hpp/.cpp ✅
+│   │   ├── value_objects/ ✅ (Health, Position, PlayerId, etc.)
+│   │   ├── services/GameRule.hpp ✅
 │   │   └── exceptions/ ✅ (10 exceptions métier)
 │   ├── application/
-│   │   ├── use_cases/
-│   │   │   ├── MovePlayerUseCase.hpp/.cpp ✅
-│   │   │   ├── Login.hpp/.cpp ✅
-│   │   │   └── Register.hpp/.cpp ✅
-│   │   └── ports/ (IGameCommands, IUserRepository, IPlayerRepository) ✅
-│   ├── infrastructure/
-│   │   ├── adapters/
-│   │   │   ├── in/network/
-│   │   │   │   ├── TCPServer.hpp/.cpp ✅
-│   │   │   │   ├── UDPServer.hpp/.cpp ✅
-│   │   │   │   ├── Execute.hpp/.cpp ✅
-│   │   │   │   └── ExecuteAuth.hpp/.cpp ✅
-│   │   │   └── out/persistence/
-│   │   │       ├── MongoDBConfiguration.hpp/.cpp ✅
-│   │   │       ├── MongoDBUserRepository.hpp/.cpp ✅
-│   │   │       └── MongoDBPlayerRepository.hpp 🚧
-│   │   ├── logging/Logger.hpp/.cpp ✅
-│   │   └── boostrap/GameBootstrap.hpp ✅
+│   │   ├── use_cases/ (Move, Login, Register) ✅
+│   │   ├── ports/in/IGameCommands.hpp ✅
+│   │   └── ports/out/IPlayerRepository.hpp ✅
+│   └── infrastructure/
+│       ├── game/
+│       │   └── GameWorld.hpp/.cpp ✅  # Joueurs, missiles, ennemis, collisions
+│       ├── adapters/in/network/
+│       │   ├── UDPServer.hpp/.cpp ✅  # Port 4124, broadcast 20Hz
+│       │   └── protocol/CommandParser.hpp ✅
+│       ├── logging/Logger.hpp/.cpp ✅
+│       └── bootstrap/GameBootstrap.hpp ✅
+│
+├── client/                          # Client de jeu (62 fichiers)
+│   ├── include/
+│   │   ├── core/ (Engine, GameLoop, Logger, DynamicLib)
+│   │   ├── graphics/ (IWindow, IDrawable, Graphics, Asset)
+│   │   ├── scenes/ (IScene, GameScene, SceneManager)
+│   │   ├── network/ (UDPClient) ✅
+│   │   ├── gameplay/ (EntityManager, GameObject, Missile)
+│   │   ├── audio/ (AudioManager - SDL2_mixer) ✅
+│   │   ├── accessibility/ (AccessibilityConfig) ✅
+│   │   └── events/ (Event, Signal)
+│   ├── lib/
+│   │   ├── sfml/ (SFMLWindow, SFMLRenderer, SFMLPlugin)
+│   │   └── sdl2/ (SDL2Window, SDL2Renderer, SDL2Plugin) ✅ défaut
 │   └── main.cpp ✅
 │
-└── client/                          # Client de jeu (SFML)
-    ├── boot/Boot.hpp/.cpp ✅
-    ├── core/
-    │   ├── Engine.hpp/.cpp ✅
-    │   ├── GameLoop.hpp/.cpp ✅
-    │   └── Logger.hpp/.cpp ✅
-    ├── scenes/
-    │   ├── SceneManager.hpp/.cpp ✅
-    │   ├── LoginScene.hpp/.cpp ✅
-    │   └── GameScene.hpp/.cpp ✅
-    ├── graphics/Graphics.hpp/.cpp ✅
-    ├── network/TCPClient.hpp/.cpp ✅
-    ├── implementations/sfml/
-    │   ├── SFMLWindow.hpp/.cpp ✅
-    │   ├── SFMLRenderer.hpp/.cpp ✅
-    │   ├── SFMLTexture.hpp/.cpp ✅
-    │   └── utils/AssetManager.hpp/.cpp ✅
-    ├── include/
-    │   ├── core/ (IEngine, IGameLoop, IRenderer)
-    │   ├── graphics/ (IWindow, ITexture, IDrawable, Asset, GraphicTexture)
-    │   ├── scenes/ (IScene)
-    │   ├── ui/ (IUIElement, Button, TextInput) 🚧
-    │   └── utils/ (Vecs, TextField)
-    └── main.cpp ✅
+├── common/                          # Code partagé (2 fichiers)
+│   ├── protocol/Protocol.hpp ✅     # 14 types de messages
+│   └── collision/AABB.hpp ✅        # Hitboxes
+│
+└── ECS/                             # Blob-ECS (6 fichiers, non intégré)
+    ├── ECS.hpp ✅
+    ├── Registry.hpp ✅
+    ├── Component.hpp ✅
+    ├── System.hpp ✅
+    ├── Errors.hpp ✅
+    └── Includes.hpp ✅
 ```
 
 ### Dépendances Utilisées
 
 | Dépendance | Version | Statut | Utilisation |
 |------------|---------|--------|-------------|
-| Boost.ASIO | Via vcpkg | ✅ Utilisé | UDPServer, TCPServer (actif) |
-| MongoDB C++ Driver | Via vcpkg | ✅ Utilisé | MongoDBConfiguration (actif) |
-| Google Test | Via vcpkg | ✅ Installé | Tests unitaires (à développer) |
-| bsoncxx | Via vcpkg | ✅ Utilisé | Validation UUID, serialization |
+| Boost.ASIO | Via vcpkg | ✅ Utilisé | UDPServer, UDPClient (async I/O) |
+| SDL2 | Via vcpkg | ✅ Utilisé | Backend graphique par défaut |
+| SDL2_image | Via vcpkg | ✅ Utilisé | Chargement textures (PNG, etc.) |
+| SDL2_mixer | Via vcpkg | ✅ Utilisé | AudioManager (musique, SFX) |
+| SDL2_ttf | Via vcpkg | ✅ Utilisé | Rendu de texte (fonts) |
+| SFML 3.0 | Via vcpkg | ✅ Utilisé | Backend graphique alternatif |
+| spdlog | Via vcpkg | ✅ Utilisé | Logging (12 loggers) |
+| MongoDB C++ Driver | Via vcpkg | ✅ Utilisé | MongoDBConfiguration (auth) |
+| Google Test | Via vcpkg | ✅ Installé | Tests unitaires |
 
 ---
 
@@ -395,35 +390,42 @@ src/
 ### Serveur
 - ✅ Build automatisé avec CMake
 - ✅ Pipeline Jenkins fonctionnel
-- ✅ Serveur UDP écoute sur port 4123
-- ✅ Serveur TCP accepte connexions (port 3000)
-- ✅ Entités Player et User complètes
-- ✅ Value Objects avec validation (9 VOs dont Email)
-- ✅ Exceptions métier (10 exceptions)
-- ✅ MongoDB configuré avec MongoDBUserRepository
+- ✅ UDPServer sur port 4124 avec broadcast 20Hz
+- ✅ GameWorld complet (joueurs, missiles, ennemis, collisions)
+- ✅ 5 types d'ennemis avec IA unique (Basic, Tracker, Zigzag, Fast, Bomber)
+- ✅ Wave spawning automatique (6-12s, 2-6 ennemis)
+- ✅ Système de collision AABB avec damage events
+- ✅ Protocol binaire - 14 types de messages
 - ✅ Architecture hexagonale respectée
-- ✅ Use Cases complets (Login, Register, MovePlayer)
 - ✅ Système de logging (6 loggers serveur)
 
 ### Client
-- ✅ Client SFML fonctionnel
+- ✅ Client multi-backend (SDL2 par défaut, SFML alternatif)
 - ✅ Architecture modulaire (Boot, Engine, GameLoop)
-- ✅ Système de scènes (LoginScene, GameScene)
-- ✅ SFMLRenderer et SFMLWindow
-- ✅ AssetManager avec cache textures/sprites
-- ✅ TCPClient asynchrone
+- ✅ UDPClient thread-safe (Boost.ASIO)
+- ✅ GameScene complet (HUD, missiles, ennemis, parallax stars)
+- ✅ AudioManager (SDL2_mixer) - musique + effets sonores
+- ✅ AccessibilityConfig (remapping clavier, modes daltonien)
+- ✅ EntityManager avec template spawn<T>()
+- ✅ Event system (std::variant)
+- ✅ Death screen et health bar HUD
 - ✅ Système de logging (6 loggers client)
 
+### Blob-ECS Library
+- ✅ Sparse set architecture (51.3M ops/s)
+- ✅ Entity/Component/System framework complet
+- ✅ Type-safe avec C++20 concepts
+- ✅ Documentation complète
+
 **Ce qui reste à faire:**
-- 🚧 UI Components (TextField, Button)
-- 🚧 Intégration complète auth client-serveur
-- 📋 Architecture ECS
-- 📋 Protocole réseau gameplay (UDP)
-- 📋 Gameplay (vaisseau, tir, ennemis)
-- 📋 Audio et effets
-- 📋 Multijoueur complet
+- 🚧 Intégration Blob-ECS dans gameplay
+- 📋 UI Components avancés (menus, lobby)
+- 📋 Power-ups et bonus
+- 📋 Niveaux et progression
+- 📋 Matchmaking et lobby
+- 📋 Polish et optimisations
 
 ---
 
-**Dernière révision:** 03/12/2025 par le Général Army2077 ⭐
-**Prochaine mise à jour:** Après implémentation ECS complet
+**Dernière révision:** 15/12/2025
+**Prochaine mise à jour:** Après intégration ECS

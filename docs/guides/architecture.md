@@ -1,41 +1,50 @@
 # Architecture du Projet
 
-> ⚠️ **État d'Implémentation:** Cette documentation décrit l'architecture **CIBLE** du projet R-Type.
-> De nombreuses fonctionnalités décrites sont encore en phase de **planification** ou de **développement actif**.
-> Consultez la [page d'état du projet](../project-status.md) pour connaître l'avancement réel.
+> **État d'Implémentation:** Cette documentation décrit l'architecture **ACTUELLE** du projet R-Type v0.5.1.
+> Le projet dispose d'un client gameplay complet et d'un serveur avec GameWorld fonctionnel.
+> Consultez la [page d'état du projet](../project-status.md) pour plus de détails.
 >
 > **Légende:**
 > - ✅ **Implémenté** - Code fonctionnel et testé
 > - 🚧 **En cours** - Développement actif
 > - 📋 **Planifié** - Conception faite, code à venir
 
-## ✅ État Actuel (v0.2.0 - Janvier 2025)
+## ✅ État Actuel (v0.5.1 - Décembre 2025)
 
-**Ce qui est réellement implémenté aujourd'hui:**
+**Ce qui est implémenté aujourd'hui (95% du gameplay) :**
 
 ### Infrastructure Réseau ✅
-- **UDPServer** - Serveur UDP asynchrone sur port 4123 (gameplay temps réel)
-- **TCPServer + Session** - Serveur TCP asynchrone sur port 4123 (authentification)
-- **Boost.Asio** - Event loop avec io_context
+- **UDPServer** - Serveur UDP asynchrone sur port **4124** (gameplay temps réel, broadcast 20Hz)
+- **UDPClient** - Client UDP thread-safe (Boost.ASIO)
+- **Protocol binaire** - 14 types de messages avec network byte order
 - **Documentation complète:** [Network Architecture](network-architecture.md)
 
 ### Architecture Hexagonale ✅
-- **Domain Layer** - Entités (Player, User), Value Objects (Health, Position, PlayerId, UserId, Username, Password), Exceptions
-- **Application Layer** - Use Cases (MovePlayerUseCase), Ports (IGameCommands, IPlayerRepository)
-- **Infrastructure Layer** - Adapters IN (UDPServer, TCPServer, CLI), Adapters OUT (MongoDBConfiguration)
-- **Documentation complète:** [Hexagonal Architecture](hexagonal-architecture.md), [Domain API](../api/domain.md), [Adapters API](../api/adapters.md)
+- **Domain Layer** - Entités (Player, User), Value Objects (9 VOs), Exceptions (10)
+- **Application Layer** - Use Cases (Move, Login, Register), Ports (IGameCommands, IPlayerRepository)
+- **Infrastructure Layer** - GameWorld, UDPServer, Collision System
+- **Documentation complète:** [Hexagonal Architecture](hexagonal-architecture.md)
 
-### Séparation .hpp/.cpp ✅
-- **46 fichiers sources** - 23 headers (.hpp) + 23 implementations (.cpp)
-- **Compilation incrémentale** - Build incrémental ~15s (vs ~45s avant)
-- **Documentation complète:** [C++ Header/Implementation Guide](cpp-header-implementation.md)
+### Client Graphique Multi-Backend ✅
+- **SDL2 Backend** (défaut) - SDL2Window, SDL2Renderer, SDL2Plugin
+- **SFML Backend** (alternatif) - SFMLWindow, SFMLRenderer, SFMLPlugin
+- **Chargement dynamique** - DynamicLib avec dlopen()
+- **GameScene complet** - HUD, missiles, ennemis, parallax stars, death screen
+- **AudioManager** - SDL2_mixer (musique + SFX)
+- **AccessibilityConfig** - Remapping clavier, modes daltonien, vitesse de jeu
 
-### Base de Données ✅
-- **MongoDBConfiguration** - Connexion MongoDB avec bsoncxx/mongocxx
-- **DBConfig** - Configuration centralisée
-- Repositories en cours de développement
+### Gameplay Serveur ✅
+- **GameWorld** - Joueurs, missiles, ennemis, collisions
+- **5 types d'ennemis** - Basic, Tracker, Zigzag, Fast, Bomber (IA unique)
+- **Wave spawning** - Vagues automatiques (6-12s, 2-6 ennemis)
+- **Collision AABB** - Détection et damage events
 
-**Prochaines étapes:** Architecture ECS, protocole réseau R-Type, gameplay serveur
+### Blob-ECS Library ✅
+- **Sparse set architecture** - 51.3M ops/s
+- **Entity/Component/System** - Framework complet
+- **Non intégré** - Prêt pour future refactorisation
+
+**Prochaines étapes:** Intégration ECS, UI avancée, power-ups
 
 ---
 
@@ -43,31 +52,33 @@ Ce document présente l'architecture technique du projet R-Type et son organisat
 
 ## Vue d'ensemble
 
-R-Type est un projet C++ moderne structuré en architecture client-serveur avec une séparation claire des responsabilités.
+R-Type est un projet C++23 moderne structuré en architecture client-serveur avec communication UDP temps réel à 20Hz.
 
 ```mermaid
 graph TB
-    subgraph "Client (À venir)"
-        CL[Client Application]
-        CR[Renderer]
-        CI[Input Handler]
+    subgraph "Client (62 fichiers)"
+        Boot[Boot] --> Engine
+        Engine --> GameLoop[GameLoop 60 FPS]
+        GameLoop --> SceneManager
+        SceneManager --> GameScene
+        GameScene --> UDPClient
+        GameScene --> AudioManager
+        GameScene --> AccessConfig[AccessibilityConfig]
     end
 
-    subgraph "Serveur"
-        SRV[Server Core]
-        NET[Network Layer]
-        GAME[Game Logic]
-        DB[(MongoDB)]
+    subgraph "Serveur (45 fichiers)"
+        UDPServer[UDPServer :4124]
+        UDPServer --> GameWorld
+        GameWorld --> Collision[AABB Collision]
+        GameWorld --> Domain[Domain Layer]
     end
 
-    CL -->|Boost.ASIO| NET
-    NET --> SRV
-    SRV --> GAME
-    GAME --> DB
+    UDPClient -->|UDP 20Hz| UDPServer
 
-    style CL fill:#e1f5ff
-    style SRV fill:#fff4e1
-    style DB fill:#f0f0f0
+    style Boot fill:#4CAF50
+    style UDPClient fill:#2196F3
+    style UDPServer fill:#2196F3
+    style GameWorld fill:#9C27B0
 ```
 
 ## Structure des Répertoires
@@ -204,14 +215,23 @@ graph TB
 - `src/server/main.cpp` - Point d'entrée
 - `src/server/CMakeLists.txt` - Configuration build
 
-### Client (En développement)
+### Client (✅ Implémenté - 62 fichiers)
 
-**Responsabilités futures :**
+**Responsabilités :**
 
-- Interface utilisateur
-- Rendu graphique
-- Gestion des entrées
-- Communication avec le serveur
+- **Rendu graphique** multi-backend (SDL2/SFML via plugins dynamiques)
+- **GameScene** complet avec HUD, missiles, ennemis, parallax stars
+- **UDPClient** thread-safe pour synchronisation temps réel
+- **AudioManager** (SDL2_mixer) pour musique et effets sonores
+- **AccessibilityConfig** pour remapping clavier et modes daltonien
+- **Event system** avec std::variant (KeyPressed, KeyReleased, WindowClosed)
+
+**Technologies :**
+
+- **SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf** : Backend graphique par défaut
+- **SFML 3.0+** : Backend graphique alternatif
+- **Boost.ASIO** : UDPClient asynchrone
+- **spdlog** : 6 loggers (Network, Engine, Graphics, Scene, UI, Boot)
 
 ## Stack Technique
 
@@ -263,7 +283,13 @@ graph LR
 
 | Dépendance             | Version   | Utilisation            |
 | ---------------------- | --------- | ---------------------- |
-| **Boost.ASIO**         | Via vcpkg | Réseau asynchrone, I/O |
+| **Boost.ASIO**         | Via vcpkg | UDPServer, UDPClient (async I/O) |
+| **SDL2**               | Via vcpkg | Backend graphique par défaut |
+| **SDL2_image**         | Via vcpkg | Chargement textures (PNG) |
+| **SDL2_mixer**         | Via vcpkg | AudioManager (musique, SFX) |
+| **SDL2_ttf**           | Via vcpkg | Rendu de texte |
+| **SFML 3.0**           | Via vcpkg | Backend graphique alternatif |
+| **spdlog**             | Via vcpkg | Logging (12 loggers) |
 | **Google Test**        | Via vcpkg | Tests unitaires        |
 | **MongoDB C++ Driver** | Via vcpkg | Base de données NoSQL  |
 
@@ -509,24 +535,26 @@ docker-compose -f ci_cd/docker/docker-compose.docs.yml up
 
 ### Court terme
 
-- [ ] Implémentation complète du serveur
-- [ ] Architecture ECS (Entity Component System)
-- [ ] Système de networking robuste
-- [ ] Tests d'intégration
+- [x] ~~Implémentation complète du serveur~~ ✅
+- [x] ~~Architecture ECS~~ ✅ (Blob-ECS, non intégré)
+- [x] ~~Système de networking robuste~~ ✅ (UDP 20Hz)
+- [ ] Intégration Blob-ECS dans gameplay
+- [ ] Tests d'intégration UDP
 
 ### Moyen terme
 
-- [ ] Client graphique (SFML/SDL)
-- [ ] Protocole réseau custom
-- [ ] Matchmaking
-- [ ] Persistence des scores
+- [x] ~~Client graphique (SFML/SDL)~~ ✅ Multi-backend
+- [x] ~~Protocole réseau custom~~ ✅ (14 types de messages)
+- [ ] Power-ups et bonus
+- [ ] Niveaux et progression
+- [ ] Matchmaking et lobby
 
 ### Long terme
 
-- [ ] Support multi-plateforme complet
+- [ ] Support multi-plateforme complet (Windows via cross-compile)
 - [ ] Mode spectateur
 - [ ] Replays
-- [ ] Modding support
+- [ ] UI avancée (menus, settings)
 
 ## Diagrammes Techniques
 

@@ -1,13 +1,13 @@
 # Vue d'Ensemble - Référence API
 
-**Version:** 0.3.0
-**Dernière mise à jour:** 17 janvier 2025
+**Version:** 0.5.1
+**Dernière mise à jour:** Décembre 2025
 
 ---
 
 ## 📚 Introduction
 
-Cette section contient la documentation de référence complète de l'API R-Type. Elle est organisée selon l'architecture hexagonale du projet.
+Cette section contient la documentation de référence complète de l'API R-Type. Elle est organisée selon l'architecture hexagonale du projet avec un focus sur le **protocole binaire UDP** pour le gameplay temps réel.
 
 ## 🗺️ Navigation
 
@@ -32,9 +32,10 @@ Documentation complète de la couche domaine (logique métier pure).
 Documentation des adaptateurs (infrastructure et points d'entrée).
 
 **Contenu:**
-- **Adapters IN** - TCPServer, UDPServer, CommandParser
+- **Adapters IN** - UDPServer (port 4124), GameWorld, Protocol binaire
 - **Adapters OUT** - MongoDBConfiguration, Repositories
-- **Network Protocol** - Protocole de communication
+- **Network Protocol** - 14 types de messages, broadcast 20Hz
+- **Collision System** - AABB hitboxes
 
 **État:** ✅ Implémenté et Documenté
 
@@ -128,12 +129,12 @@ graph TB
 
 | Adaptateur | Type | Description | Statut |
 |------------|------|-------------|--------|
-| **TCPServer** | IN | Serveur TCP (port 4123) | ✅ Implémenté |
-| **UDPServer** | IN | Serveur UDP (port 4123) | ✅ Implémenté |
-| **CommandParser** | IN | Parsing commandes réseau | ✅ Implémenté |
-| **ExecuteAuth** | IN | Handler commandes AUTH | ✅ Implémenté |
+| **UDPServer** | IN | Serveur UDP gameplay (port 4124, 20Hz) | ✅ Implémenté |
+| **GameWorld** | IN | État de jeu (joueurs, missiles, ennemis) | ✅ Implémenté |
+| **Protocol** | IN | 14 types de messages binaires | ✅ Implémenté |
+| **AABB Collision** | IN | Système de collision | ✅ Implémenté |
+| **TCPServer** | IN | Serveur TCP auth (port 3000) | ✅ Implémenté |
 | **MongoDBConfig** | OUT | Configuration MongoDB | ✅ Implémenté |
-| **MongoDBUserRepo** | OUT | Persistence utilisateurs | ✅ Implémenté |
 
 [→ Documentation complète Adapters Layer](adapters.md)
 
@@ -256,4 +257,4 @@ infrastructure::adapters  // Adapters
 
 ---
 
-*Dernière mise à jour: 17 janvier 2025 | Version 0.3.0*
+*Dernière mise à jour: Décembre 2025 | Version 0.5.1*

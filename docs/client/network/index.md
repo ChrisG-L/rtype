@@ -1,52 +1,58 @@
 # Network - Communication Réseau Client
 
-Le module **Network** gère toute la communication réseau du client R-Type avec le serveur, principalement via TCP pour les messages critiques et UDP pour le gameplay temps réel (planifié).
+Le module **Network** gère toute la communication réseau du client R-Type avec le serveur via **UDP temps réel** pour le gameplay avec synchronisation à 20Hz.
 
 ## Vue d'Ensemble
 
 ```mermaid
 graph LR
-    A[Client] -->|TCP Auth/Commands| B[Server]
-    A -->|UDP Gameplay| B
-    B -->|TCP Responses| A
-    B -->|UDP State Updates| A
+    A[Client] -->|UDP :4124| B[Server]
+    A -->|MovePlayer, ShootMissile| B
+    B -->|GameSnapshot 20Hz| A
+    B -->|MissileSpawned, PlayerDied| A
 ```
 
 ## Composants
 
-### [TCPClient](tcp-client.md) - Client TCP Asynchrone
-**Communication fiable avec le serveur**
+### [UDPClient](tcp-client.md) - Client UDP Temps Réel
+**Communication gameplay avec le serveur**
 
 **Fonctionnalités:**
 - Connexion asynchrone via Boost.ASIO
-- Envoi/Réception non-bloquant
+- Thread-safe (mutex + jthread)
+- Synchronisation état de jeu à 20Hz
+- Protocol binaire (14 types de messages)
 - Callbacks pour événements réseau
-- **Thread-safe** (corrections EPI-37)
-- **Logging intégré** (NetworkLogger)
 
 **Utilisation:**
 ```cpp
-auto tcpClient = std::make_unique<TCPClient>();
+auto udpClient = std::make_shared<UDPClient>();
 
 // Callbacks
-tcpClient->setOnConnected([]() {
+udpClient->setOnConnected([]() {
     logger->info("Connected!");
 });
 
-tcpClient->setOnReceive([](const std::string& data) {
-    logger->debug("Received: {}", data);
+udpClient->setOnSnapshot([](const GameSnapshot& snap) {
+    // État de jeu reçu du serveur
 });
 
 // Connexion
-tcpClient->connect("127.0.0.1", 4123);
+udpClient->connect("127.0.0.1", 4124);
 
-// Envoi
-tcpClient->send("LOGIN user password");
+// Gameplay
+udpClient->movePlayer(x, y);
+udpClient->shootMissile();
+
+// Récupérer l'état (thread-safe)
+auto players = udpClient->getPlayers();
+auto missiles = udpClient->getMissiles();
+auto enemies = udpClient->getEnemies();
 ```
 
 **Fichiers:**
-- `src/client/network/TCPClient.cpp`
-- `src/client/include/network/TCPClient.hpp`
+- `src/client/src/network/UDPClient.cpp`
+- `src/client/include/network/UDPClient.hpp`
 
 ---
 
@@ -56,24 +62,16 @@ tcpClient->send("LOGIN user password");
 
 | Protocole | Port | Utilisation | État |
 |-----------|------|-------------|------|
-| **TCP** | 4123 | Authentification, commandes | ✅ Implémenté |
-| **UDP** | 4242 | Gameplay temps réel | 📋 Planifié |
+| **UDP** | 4124 | Gameplay temps réel | ✅ Implémenté |
+| **TCP** | 3000 | Authentification (optionnel) | ✅ Implémenté |
 
-### TCP vs UDP
+### UDP pour Gameplay
 
-**TCP (Implémenté):**
-- ✅ Fiable (garantie de livraison)
-- ✅ Ordre préservé
-- ✅ Gestion connexion/déconnexion
-- ❌ Plus de latence
-- **Usage:** Login, commandes, chat
-
-**UDP (Planifié):**
-- ✅ Faible latence
+**Pourquoi UDP ?**
+- ✅ Faible latence (<1ms local)
 - ✅ Moins d'overhead
-- ❌ Pas de garantie livraison
-- ❌ Ordre non garanti
-- **Usage:** Positions, actions gameplay
+- ✅ Parfait pour données temps réel
+- **Usage:** Positions, missiles, ennemis, état de jeu
 
 ## Système de Logging
 
@@ -226,14 +224,14 @@ sequenceDiagram
 
 ## État d'Implémentation
 
-| Composant | État | Complétude | Priorité |
-|-----------|------|------------|----------|
-| TCPClient | ✅ Implémenté | 85% | - |
-| Thread Safety | ✅ Amélioré | 70% | Haute |
-| Logging | ✅ Intégré | 100% | - |
-| UDP Client | 📋 Planifié | 0% | Haute |
-| Protocol Buffers | 📋 Planifié | 0% | Moyenne |
-| Compression | 📋 Planifié | 0% | Basse |
+| Composant | État | Complétude | Notes |
+|-----------|------|------------|-------|
+| UDPClient | ✅ Implémenté | 100% | Thread-safe, async |
+| Protocol binaire | ✅ Implémenté | 100% | 14 types de messages |
+| Thread Safety | ✅ Implémenté | 100% | mutex + jthread |
+| Logging | ✅ Intégré | 100% | NetworkLogger |
+| GameSnapshot | ✅ Implémenté | 100% | Players, missiles, enemies |
+| Callbacks | ✅ Implémenté | 100% | onSnapshot, onPlayerDied, etc. |
 
 ## Gestion d'Erreurs
 

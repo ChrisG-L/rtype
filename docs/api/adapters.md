@@ -1,8 +1,8 @@
 # API Reference - Infrastructure Adapters
 
-**État:** ✅ Implémenté (Network + Persistence)
-**Version:** 0.2.0
-**Dernière mise à jour:** 11 janvier 2025
+**État:** ✅ Implémenté (Network + GameWorld + Collision)
+**Version:** 0.5.1
+**Dernière mise à jour:** Décembre 2025
 
 ---
 
@@ -48,17 +48,18 @@ Les Adapters de l'Infrastructure Layer implémentent les **Ports** définis dans
 
 **Fichier:** `infrastructure/adapters/in/network/UDPServer.hpp`
 **Namespace:** `infrastructure::adapters::in::network`
-**Port:** 4123 (UDP)
+**Port:** 4124 (UDP)
 
-**Description:** Serveur UDP asynchrone pour les données de gameplay temps réel (positions, actions). Utilise Boost.Asio avec pattern asynchrone.
+**Description:** Serveur UDP asynchrone pour le gameplay temps réel. Gère les connexions clients, reçoit les commandes (MovePlayer, ShootMissile) et broadcast l'état de jeu à 20Hz via GameSnapshot.
 
 #### Caractéristiques
 
-- **Protocole:** UDP (non fiable, rapide)
-- **Port:** 4123
-- **Buffer:** 1024 bytes
-- **Pattern:** Async receive loop
-- **Use Case:** Positions joueurs, tirs, mouvements
+- **Protocole:** UDP binaire (14 types de messages)
+- **Port:** 4124
+- **Broadcast:** 20Hz (50ms)
+- **GameWorld:** Joueurs, missiles, 5 types d'ennemis
+- **Collision:** AABB hitboxes avec damage events
+- **Use Case:** Positions joueurs, tirs, spawns ennemis
 
 #### Attributs Privés
 
@@ -79,7 +80,7 @@ explicit UDPServer(boost::asio::io_context& io_ctx);
 **Paramètres:**
 - `io_ctx` - Référence au contexte I/O Boost.Asio (event loop)
 
-**Action:** Initialise le socket UDP sur port 4123.
+**Action:** Initialise le socket UDP sur port 4124.
 
 #### Méthodes Publiques
 
@@ -144,7 +145,7 @@ int main() {
     // 3. Démarrer l'écoute
     udpServer.start(io_ctx);
 
-    std::cout << "Serveur UDP prêt sur port 4123" << std::endl;
+    std::cout << "Serveur UDP prêt sur port 4124" << std::endl;
 
     // 4. Lancer boucle événementielle (bloque ici)
     udpServer.run();
@@ -156,15 +157,18 @@ int main() {
 #### État Actuel
 
 **Implémenté:**
-- ✅ Socket UDP sur port 4123
-- ✅ Réception asynchrone de paquets
-- ✅ Echo de test (renvoie les données reçues)
+- ✅ Socket UDP sur port 4124
+- ✅ Protocole binaire (14 types de messages)
+- ✅ GameWorld (joueurs, missiles, ennemis)
+- ✅ Broadcast GameSnapshot à 20Hz
+- ✅ 5 types d'ennemis avec IA unique
+- ✅ Collision AABB avec damage events
+- ✅ Wave spawning automatique
 
-**À implémenter:**
-- ❌ Protocole réseau R-Type (sérialisation)
-- ❌ Intégration avec Use Cases (MovePlayerUseCase, etc.)
-- ❌ Broadcast aux clients connectés
-- ❌ Validation des paquets
+**Fonctionnalités:**
+- MovePlayer, ShootMissile, PlayerJoin/Leave
+- MissileSpawned/Destroyed, EnemySpawned/Destroyed
+- GameSnapshot synchronisation temps réel
 
 ---
 
@@ -172,9 +176,9 @@ int main() {
 
 **Fichiers:** `infrastructure/adapters/in/network/TCPServer.hpp`
 **Namespace:** `infrastructure::adapters::in::network`
-**Port:** 4123 (TCP)
+**Port:** 3000 (TCP)
 
-**Description:** Serveur TCP asynchrone pour les communications fiables (authentification, chat, synchronisation). Chaque connexion crée une `Session`.
+**Description:** Serveur TCP asynchrone pour l'authentification et les communications fiables. Chaque connexion crée une `Session`. Optionnel pour le gameplay (UDP principal).
 
 #### Architecture
 
@@ -284,7 +288,7 @@ explicit TCPServer(boost::asio::io_context& io_ctx);
 **Paramètres:**
 - `io_ctx` - Référence au contexte I/O Boost.Asio
 
-**Action:** Initialise l'acceptor TCP sur port 4123.
+**Action:** Initialise l'acceptor TCP sur port 3000.
 
 #### Méthodes Publiques
 
@@ -350,7 +354,7 @@ int main() {
     // Démarrer l'acceptation
     tcpServer.start(io_ctx);
 
-    std::cout << "Serveur TCP prêt sur port 4123" << std::endl;
+    std::cout << "Serveur TCP prêt sur port 3000" << std::endl;
 
     // Lancer boucle événementielle (bloque)
     tcpServer.run();
@@ -370,14 +374,14 @@ int main() {
 int main() {
     boost::asio::io_context io_ctx;
 
-    // Serveurs UDP et TCP partagent le même io_context
-    UDPServer udpServer(io_ctx);
-    TCPServer tcpServer(io_ctx);
+    // Serveurs UDP (gameplay) et TCP (auth) séparés
+    UDPServer udpServer(io_ctx);  // Port 4124
+    TCPServer tcpServer(io_ctx);  // Port 3000
 
     udpServer.start(io_ctx);
     tcpServer.start(io_ctx);
 
-    std::cout << "Serveurs UDP/TCP prêts sur port 4123" << std::endl;
+    std::cout << "UDP :4124 (gameplay) | TCP :3000 (auth)" << std::endl;
 
     // Un seul io_context.run() gère les deux serveurs
     io_ctx.run();
@@ -386,23 +390,20 @@ int main() {
 }
 ```
 
-**Note:** Un seul `io_context.run()` suffit pour gérer UDP et TCP en parallèle.
+**Note:** Le gameplay utilise principalement UDP (port 4124). TCP (port 3000) est optionnel pour l'authentification.
 
 #### État Actuel
 
 **Implémenté:**
-- ✅ Acceptor TCP sur port 4123
+- ✅ Acceptor TCP sur port 3000
 - ✅ Création de Session par connexion
 - ✅ Lecture/écriture asynchrone
-- ✅ Echo de test (renvoie les données reçues)
 - ✅ Pattern `shared_from_this` pour gestion du cycle de vie
+- ✅ Intégration avec Use Cases auth (Login, Register)
 
-**À implémenter:**
-- ❌ Protocole réseau R-Type (JSON ou binaire)
-- ❌ Intégration avec Use Cases (LoginUserUseCase, RegisterUserUseCase)
-- ❌ SessionManager (tracker les clients connectés)
-- ❌ Heartbeat (ping/pong) pour détecter déconnexions
-- ❌ Chiffrement TLS
+**Optionnel (gameplay via UDP):**
+- TCP utilisé uniquement pour l'authentification
+- Gameplay principal via UDPServer (port 4124)
 
 ---
 
@@ -760,8 +761,9 @@ int main() {
 
 | Adapter | Type | Port | Protocole | Statut | Use Case |
 |---------|------|------|-----------|--------|----------|
-| **UDPServer** | Network | 4123 | UDP | ✅ Implémenté | Gameplay temps réel |
-| **TCPServer** | Network | 4123 | TCP | ✅ Implémenté | Auth, chat, sync |
+| **UDPServer** | Network | 4124 | UDP binaire | ✅ Implémenté | Gameplay temps réel (20Hz) |
+| **GameWorld** | Game | - | - | ✅ Implémenté | État de jeu, missiles, ennemis |
+| **TCPServer** | Network | 3000 | TCP | ✅ Implémenté | Authentification |
 | **CLIGameController** | CLI | - | CLI | ✅ Implémenté | Tests et debug |
 
 ### Adapters OUT (Driven)
@@ -852,10 +854,10 @@ RTYPE_MONGODB_URI=mongodb://localhost:27017
 RTYPE_MONGODB_DB=rtype
 
 # Network
-RTYPE_UDP_PORT=4123
-RTYPE_TCP_PORT=4123
-RTYPE_MAX_CLIENTS=100
-RTYPE_BUFFER_SIZE=1024
+RTYPE_UDP_PORT=4124
+RTYPE_TCP_PORT=3000
+RTYPE_MAX_CLIENTS=4
+RTYPE_BROADCAST_RATE=20
 ```
 
 ### Fichier de Configuration (Futur)
@@ -863,10 +865,11 @@ RTYPE_BUFFER_SIZE=1024
 ```json
 {
   "network": {
-    "udp_port": 4123,
-    "tcp_port": 4123,
-    "buffer_size": 1024,
-    "max_clients": 100
+    "udp_port": 4124,
+    "tcp_port": 3000,
+    "broadcast_rate_hz": 20,
+    "max_players": 4,
+    "max_missiles": 32
   },
   "database": {
     "uri": "mongodb://localhost:27017",
@@ -967,5 +970,5 @@ TEST(MongoDBConfigurationTest, ConnectsToMongoDB) {
 
 ---
 
-**Dernière révision:** 11/01/2025 par Agent Documentation
-**Statut:** ✅ Complet et à jour avec le code (v0.2.0)
+**Dernière révision:** Décembre 2025 par Agent Documentation
+**Statut:** ✅ Complet et à jour avec le code (v0.5.1)

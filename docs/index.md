@@ -15,7 +15,7 @@ git clone https://github.com/Pluenet-Killian/rtype.git && cd rtype
 **Accès:**
 - 📚 Documentation: http://localhost:8000
 - 🔧 Jenkins CI/CD: http://localhost:8081
-- 🎮 Serveur: localhost:4123 (TCP)
+- 🎮 Serveur: localhost:4124 (UDP gameplay) / localhost:3000 (TCP auth)
 
 [→ Guide complet de démarrage](getting-started/index.md){ .md-button .md-button--primary }
 
@@ -23,14 +23,15 @@ git clone https://github.com/Pluenet-Killian/rtype.git && cd rtype
 
 ## 🚧 État du Projet
 
-!!! success "Phase Actuelle: Développement Actif - v0.3.0"
-    Le projet est en **phase d'intégration client-serveur** avec architecture complète et client SFML fonctionnel.
+!!! success "Phase Actuelle: Gameplay Foundation - v0.5.0"
+    Le projet est en **phase gameplay** avec client SDL2/SFML multi-backend fonctionnel et serveur de jeu complet.
 
     **Infrastructure:** ✅ 100% complété
     **Système de Logging:** ✅ 100% complété (12 loggers)
-    **Serveur (Domain, Auth, Network):** ✅ 90% complété
-    **Client (Core, Graphics, Network):** 🚧 65% complété
-    **Gameplay/ECS:** 📋 En planification
+    **Serveur (Domain, Auth, Network, Gameplay):** ✅ 95% complété
+    **Client (Core, Graphics, Network, Audio):** ✅ 85% complété
+    **Gameplay (Missiles, Enemies, Collisions):** ✅ 90% complété
+    **ECS Library:** ✅ 100% (Blob-ECS - non intégré)
 
 📊 [Voir l'état détaillé du projet](project-status.md)
 
@@ -159,12 +160,14 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph "Client (C++23)"
+    subgraph "Client (C++23 - SDL2/SFML)"
         Boot[Boot] --> Engine[Engine]
         Engine --> GameLoop[GameLoop]
-        GameLoop --> Scenes[Scenes]
-        GameLoop --> Renderer[Renderer]
-        GameLoop --> TCPClient[TCPClient]
+        GameLoop --> SceneManager[SceneManager]
+        SceneManager --> GameScene[GameScene]
+        GameScene --> UDPClient[UDPClient]
+        GameScene --> AudioManager[AudioManager]
+        GameScene --> AccessConfig[AccessibilityConfig]
     end
 
     subgraph "Infrastructure"
@@ -173,23 +176,23 @@ graph TB
         SonarCloud[SonarCloud]
     end
 
-    subgraph "Serveur (C++23)"
-        TCP[TCPServer]
-        UDP[UDPServer]
+    subgraph "Serveur (C++23 - Hexagonal)"
+        UDP[UDPServer :4124]
+        GameWorld[GameWorld]
         Domain[Domain Layer]
-        Persistence[MongoDB]
+        Collision[Collision System]
     end
 
-    TCPClient -.TCP.-> TCP
-    GameLoop -.UDP.-> UDP
-    TCP --> Domain
-    UDP --> Domain
-    Domain --> Persistence
+    UDPClient -.UDP 20Hz.-> UDP
+    UDP --> GameWorld
+    GameWorld --> Collision
+    GameWorld --> Domain
 
     style Boot fill:#4CAF50
-    style TCPClient fill:#2196F3
-    style TCP fill:#2196F3
+    style UDPClient fill:#2196F3
+    style UDP fill:#2196F3
     style Domain fill:#FF9800
+    style GameWorld fill:#9C27B0
 ```
 
 ### Organisation du Code
@@ -197,21 +200,36 @@ graph TB
 ```
 rtype/
 ├── src/
-│   ├── client/              # Client de jeu
-│   │   ├── core/           # Engine, GameLoop, Boot
-│   │   ├── graphics/       # Rendu, AssetManager
-│   │   ├── network/        # TCPClient
-│   │   └── scenes/         # LoginScene, GameScene
+│   ├── client/                    # Client de jeu (62 fichiers)
+│   │   ├── include/
+│   │   │   ├── core/             # Engine, GameLoop, Boot, Logger
+│   │   │   ├── graphics/         # IWindow, IDrawable, Graphics
+│   │   │   ├── scenes/           # IScene, GameScene, SceneManager
+│   │   │   ├── network/          # UDPClient
+│   │   │   ├── gameplay/         # EntityManager, GameObject, Missile
+│   │   │   ├── audio/            # AudioManager (SDL_mixer)
+│   │   │   ├── accessibility/    # AccessibilityConfig
+│   │   │   └── events/           # Event, Signal
+│   │   └── lib/
+│   │       ├── sfml/             # Backend SFML
+│   │       └── sdl2/             # Backend SDL2 (défaut)
 │   │
-│   └── server/              # Serveur de jeu
-│       ├── domain/         # Entités, Value Objects
-│       ├── application/    # Use Cases, Services
-│       └── infrastructure/ # Repositories, Network, Logging
+│   ├── server/                    # Serveur de jeu (45 fichiers)
+│   │   ├── domain/               # Entités, Value Objects, Exceptions
+│   │   ├── application/          # Use Cases, Ports
+│   │   └── infrastructure/
+│   │       ├── game/             # GameWorld (missiles, enemies, collisions)
+│   │       └── adapters/in/network/  # UDPServer
+│   │
+│   ├── common/                    # Code partagé
+│   │   ├── protocol/             # Protocol.hpp (14 message types)
+│   │   └── collision/            # AABB.hpp (hitboxes)
+│   │
+│   └── ECS/                       # Blob-ECS (non intégré)
 │
-├── tests/                   # Tests unitaires (Google Test)
-├── docs/                    # Documentation (vous êtes ici!)
-├── ci_cd/                   # Infrastructure Jenkins/Docker
-└── scripts/                 # Scripts de build/déploiement
+├── tests/                         # Tests unitaires (Google Test)
+├── docs/                          # Documentation (vous êtes ici!)
+└── scripts/                       # Scripts de build/déploiement
 ```
 
 [→ Architecture détaillée](guides/architecture.md)
@@ -345,8 +363,9 @@ rtype/
 | **Langage** | C++23 | GCC 11+ / Clang 15+ |
 | **Build** | CMake, Ninja, vcpkg | 3.30+ |
 | **Réseau** | Boost.ASIO | Latest |
-| **Graphics** | SFML 3.0+ | 3.0.1 |
-| **Logging** | spdlog 🆕 | Latest |
+| **Graphics** | SDL2 + SDL2_image (défaut), SFML 3.0+ | Multi-backend |
+| **Audio** | SDL2_mixer | Latest |
+| **Logging** | spdlog | Latest |
 | **Database** | MongoDB C++ Driver | Latest |
 | **Tests** | Google Test, Sanitizers | Latest |
 | **CI/CD** | Jenkins, Docker | LTS |
@@ -365,15 +384,15 @@ rtype/
 
 | Métrique | Valeur |
 |----------|--------|
-| **Lignes de code** | ~13,700+ |
-| **Fichiers sources** | 80+ |
-| **Tests unitaires** | 30+ tests |
-| **Couverture tests** | 60%+ |
+| **Lignes de code** | ~15,000+ |
+| **Fichiers sources** | 110+ (client: 62, server: 45, common: 2, ECS: 6) |
+| **Types de messages** | 14 (Protocol.hpp) |
+| **Types d'ennemis** | 5 (Basic, Tracker, Zigzag, Fast, Bomber) |
 | **Loggers implémentés** | 12 (6 client + 6 serveur) |
 | **Value Objects** | 9 (avec validation) |
 | **Use Cases** | 3 (Login, Register, MovePlayer) |
-| **Commits** | 100+ |
-| **Documentation** | 42 pages |
+| **Commits** | 150+ |
+| **Documentation** | 81 pages |
 
 </div>
 
@@ -384,40 +403,42 @@ rtype/
 ### Client
 
 - [x] **Boot System** - Initialisation et connexion serveur
-- [x] **Engine** - Orchestration générale
-- [x] **GameLoop** - Boucle de jeu update/render
-- [x] **SceneManager** - Gestion des scènes (Login, Game)
-- [x] **TCPClient** - Communication réseau asynchrone (thread-safe)
-- [x] **AssetManager** - Gestion textures et sprites avec cache
+- [x] **Engine** - Orchestration + chargement dynamique de plugins graphiques
+- [x] **GameLoop** - Boucle de jeu 60 FPS avec deltaTime (std::chrono)
+- [x] **SceneManager** - Gestion des scènes avec GameContext
+- [x] **UDPClient** - Communication temps réel (thread-safe, Boost.ASIO)
+- [x] **Multi-Backend Graphics** - SDL2 (défaut) et SFML via plugins dynamiques
+- [x] **AudioManager** - Musique + effets sonores (SDL2_mixer)
+- [x] **AccessibilityConfig** - Remapping clavier, modes daltonien, vitesse de jeu
+- [x] **GameScene** - Gameplay complet avec HUD, missiles, ennemis, étoiles animées
+- [x] **EntityManager** - Gestion entités avec template spawn<T>()
+- [x] **Event System** - std::variant (KeyPressed, KeyReleased, WindowClosed)
 - [x] **Logging** - Système centralisé spdlog (6 loggers)
-- [x] **SFML Renderer** - Backend graphique SFML 3.x
-- [x] **GraphicTexture** - Système de textures avec std::variant
-- [ ] **UDP Client** - Gameplay temps réel (planifié)
-- [ ] **ECS** - Entity Component System (planifié)
-- [ ] **UI System** - Interface utilisateur (en cours - TextField)
+- [x] **Death Screen** - Overlay quand le joueur meurt
+- [x] **Health Bar HUD** - Barre de vie colorée (vert/jaune/rouge)
+- [x] **Blob-ECS** - Librairie ECS complète (51.3M ops/s, non intégrée)
 
 ### Serveur
 
-- [x] **TCPServer** - Serveur TCP asynchrone (Boost.Asio)
-- [x] **UDPServer** - Serveur UDP asynchrone
+- [x] **UDPServer** - Serveur UDP asynchrone (port 4124, broadcast 20Hz)
+- [x] **GameWorld** - État de jeu centralisé (joueurs, missiles, ennemis)
 - [x] **Architecture Hexagonale** - Domain, Application, Infrastructure
-- [x] **User Entity** - Avec Email, Username, Password (bcrypt)
+- [x] **5 Types d'Ennemis** - Basic, Tracker, Zigzag, Fast, Bomber (IA unique)
+- [x] **Système de Missiles** - Joueur et ennemis, destruction automatique
+- [x] **Collision System** - AABB avec damage events et death broadcasts
+- [x] **Wave Spawning** - Vagues d'ennemis (6-12s, 2-6 ennemis)
+- [x] **Protocol Binaire** - 14 types de messages avec byte order network
 - [x] **Player Entity** - Position, Health, PlayerId
 - [x] **Value Objects** - 9 VOs avec validation
 - [x] **Use Cases** - Login, Register, MovePlayer
-- [x] **MongoDB Integration** - MongoDBUserRepository complet
 - [x] **Logging** - Système centralisé spdlog (6 loggers)
-- [x] **ExecuteAuth** - Routage commandes d'authentification
-- [ ] **Game Logic** - Logique de jeu (planifié)
-- [ ] **Matchmaking** - Système de matchmaking (planifié)
-- [ ] **ECS Serveur** - Synchronisation d'état (planifié)
 
 ### Infrastructure
 
 - [x] **Jenkins CI/CD** - Pipeline automatisé
 - [x] **Builder Permanent** - Workspaces isolés, cache vcpkg
 - [x] **Docker** - Conteneurisation complète
-- [x] **MkDocs** - Documentation exhaustive
+- [x] **MkDocs** - Documentation exhaustive (81 pages)
 - [x] **SonarCloud** - Analyse qualité de code
 - [x] **Google Test** - Framework de tests
 - [x] **Sanitizers** - ASan, TSan, LSan, UBSan
@@ -461,8 +482,8 @@ Cette documentation est organisée en plusieurs sections pour faciliter la navig
 === "Client"
     - **[Architecture Client](client/index.md)** - Vue d'ensemble
     - **[Core](client/core/index.md)** - Engine, GameLoop, Scenes
-    - **[Graphics](client/graphics/index.md)** - Rendu, AssetManager
-    - **[Network](client/network/index.md)** - TCPClient, protocoles
+    - **[Graphics](client/graphics/index.md)** - Multi-backend SDL2/SFML
+    - **[Network](client/network/index.md)** - UDPClient temps réel
 
 === "Guides"
     - **[Architecture Générale](guides/architecture.md)** - Vue d'ensemble du système
