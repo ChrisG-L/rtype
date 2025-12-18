@@ -14,50 +14,60 @@ set_target_properties(rtype_sdl2 PROPERTIES
     CXX_EXTENSIONS NO
 )
 
-# Find SDL2 from system (NixOS provides it via flake.nix)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
-pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
+# Find SDL2 packages - try vcpkg (CONFIG) first, fallback to pkg-config (system/Nix)
+find_package(SDL2 CONFIG QUIET)
+find_package(SDL2_image CONFIG QUIET)
+find_package(SDL2_ttf CONFIG QUIET)
+find_package(SDL2_mixer CONFIG QUIET)
 
-# SDL2_ttf - find directly to avoid pkg-config transitive dependency issues on NixOS
-find_library(SDL2_TTF_LIBRARY NAMES SDL2_ttf REQUIRED)
-find_path(SDL2_TTF_INCLUDE_DIR SDL_ttf.h PATH_SUFFIXES SDL2 REQUIRED)
+# Check if vcpkg found all packages
+if(TARGET SDL2::SDL2 OR TARGET SDL2::SDL2-static)
+    set(SDL2_FOUND_VIA_VCPKG TRUE)
+    message(STATUS "SDL2 found via vcpkg")
+else()
+    set(SDL2_FOUND_VIA_VCPKG FALSE)
+    message(STATUS "SDL2 not found via vcpkg, trying pkg-config...")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+    pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
+    # SDL2_ttf and SDL2_mixer via find_library for NixOS compatibility
+    find_library(SDL2_TTF_LIBRARY NAMES SDL2_ttf REQUIRED)
+    find_path(SDL2_TTF_INCLUDE_DIR SDL_ttf.h PATH_SUFFIXES SDL2 REQUIRED)
+    find_library(SDL2_MIXER_LIBRARY NAMES SDL2_mixer REQUIRED)
+    find_path(SDL2_MIXER_INCLUDE_DIR SDL_mixer.h PATH_SUFFIXES SDL2 REQUIRED)
 
-# SDL2_mixer - for audio support
-find_library(SDL2_MIXER_LIBRARY NAMES SDL2_mixer REQUIRED)
-find_path(SDL2_MIXER_INCLUDE_DIR SDL_mixer.h PATH_SUFFIXES SDL2 REQUIRED)
-
-# Fix for NixOS: pkg-config returns include/SDL2 but we need include for <SDL2/SDL.h>
-# Get parent directory for SDL2_mixer to allow #include <SDL2/SDL_mixer.h>
-get_filename_component(SDL2_MIXER_PARENT_INCLUDE_DIR "${SDL2_MIXER_INCLUDE_DIR}" DIRECTORY)
-set(SDL2_PARENT_INCLUDE_DIRS "")
-foreach(dir ${SDL2_INCLUDE_DIRS})
-    get_filename_component(parent_dir "${dir}" DIRECTORY)
-    list(APPEND SDL2_PARENT_INCLUDE_DIRS "${parent_dir}")
-endforeach()
-list(REMOVE_DUPLICATES SDL2_PARENT_INCLUDE_DIRS)
-
-set(SDL2_IMAGE_PARENT_INCLUDE_DIRS "")
-foreach(dir ${SDL2_IMAGE_INCLUDE_DIRS})
-    get_filename_component(parent_dir "${dir}" DIRECTORY)
-    list(APPEND SDL2_IMAGE_PARENT_INCLUDE_DIRS "${parent_dir}")
-endforeach()
-list(REMOVE_DUPLICATES SDL2_IMAGE_PARENT_INCLUDE_DIRS)
+    # Fix for NixOS: get parent directories for includes
+    get_filename_component(SDL2_MIXER_PARENT_INCLUDE_DIR "${SDL2_MIXER_INCLUDE_DIR}" DIRECTORY)
+    set(SDL2_PARENT_INCLUDE_DIRS "")
+    foreach(dir ${SDL2_INCLUDE_DIRS})
+        get_filename_component(parent_dir "${dir}" DIRECTORY)
+        list(APPEND SDL2_PARENT_INCLUDE_DIRS "${parent_dir}")
+    endforeach()
+    list(REMOVE_DUPLICATES SDL2_PARENT_INCLUDE_DIRS)
+endif()
 
 target_include_directories(rtype_sdl2 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/sdl2/include
-    ${SDL2_PARENT_INCLUDE_DIRS}
-    ${SDL2_IMAGE_PARENT_INCLUDE_DIRS}
-    ${SDL2_TTF_INCLUDE_DIR}
+    $<$<NOT:$<BOOL:${SDL2_FOUND_VIA_VCPKG}>>:${SDL2_PARENT_INCLUDE_DIRS}>
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(rtype_sdl2 PRIVATE
-    PkgConfig::SDL2
-    PkgConfig::SDL2_IMAGE
-    ${SDL2_TTF_LIBRARY}
-    spdlog::spdlog
-)
+if(SDL2_FOUND_VIA_VCPKG)
+    target_link_libraries(rtype_sdl2 PRIVATE
+        $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
+        $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+        $<IF:$<TARGET_EXISTS:SDL2_image::SDL2_image>,SDL2_image::SDL2_image,SDL2_image::SDL2_image-static>
+        $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
+        spdlog::spdlog
+    )
+else()
+    target_link_libraries(rtype_sdl2 PRIVATE
+        PkgConfig::SDL2
+        PkgConfig::SDL2_IMAGE
+        ${SDL2_TTF_LIBRARY}
+        spdlog::spdlog
+    )
+endif()
 
 
 add_executable(rtype_client
@@ -81,14 +91,56 @@ add_executable(rtype_client
     src/audio/AudioManager.cpp
 )
 
+# Détection du compilateur
+set(IS_CLANG FALSE)
+set(IS_GCC FALSE)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(IS_CLANG TRUE)
+    message(STATUS "Compilateur détecté: Clang")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(IS_GCC TRUE)
+    message(STATUS "Compilateur détecté: GCC")
+endif()
+
+# Options communes à tous les compilateurs
+set(COMMON_WARNINGS -Wall -Wextra -Wpedantic)
+
+# Options spécifiques Clang
+set(CLANG_EXTRA_WARNINGS
+    -Wno-unused-command-line-argument  # Évite warnings sur flags non utilisés
+    -Wconversion                        # Conversions implicites
+    -Wshadow                            # Variables masquées
+    -Wnon-virtual-dtor                  # Destructeurs non virtuels
+)
+
+set(CLANG_OPTIMIZATIONS
+    -fcolor-diagnostics                 # Messages colorés
+)
+
+set(CLANG_RELEASE_OPTIMIZATIONS
+    -flto=thin                          # Link Time Optimization (rapide)
+    -fstrict-aliasing                   # Optimisations d'aliasing
+    -fomit-frame-pointer                # Optimisation des registres
+)
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_options(rtype_client PRIVATE
-        -O0                         # Pas d'optimisation en debug
-        -g3                         # Niveau de debug maximum
-        -Wall                       # Activer tous les warnings
-        -Wextra                     # Activer les warnings supplémentaires
-        -Wpedantic                  # Rendre le standard strict
+        -O0                             # Pas d'optimisation en debug
+        -g3                             # Niveau de debug maximum
+        ${COMMON_WARNINGS}
+        -fno-omit-frame-pointer         # Garde les pointeurs de pile pour traçabilité
     )
+
+    # Options spécifiques Clang en debug
+    if(IS_CLANG)
+        target_compile_options(rtype_client PRIVATE
+            ${CLANG_EXTRA_WARNINGS}
+            ${CLANG_OPTIMIZATIONS}
+            -fstandalone-debug          # Debug complet (pas de références externes)
+        )
+    endif()
+
+    # Sanitizers : uniquement pour builds natifs Linux/macOS (pas MinGW cross-compilation)
     if(NOT CMAKE_CROSSCOMPILING AND NOT MINGW)
         target_compile_options(rtype_client PRIVATE
             -fsanitize=address          # Détecte erreurs mémoire
@@ -99,8 +151,16 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
             -fsanitize=address
             -fsanitize=undefined
             -fsanitize=leak
-            -static-libasan
         )
+
+        # Linkage statique des sanitizers (spécifique à chaque compilateur)
+        if(IS_GCC)
+            target_link_options(rtype_client PRIVATE -static-libasan)
+        elseif(IS_CLANG)
+            # Clang utilise -static-libsan (sans le 'a')
+            target_link_options(rtype_client PRIVATE -static-libsan)
+        endif()
+
         message(STATUS "Sanitizers activés (build natif)")
     else()
         message(STATUS "Sanitizers désactivés (cross-compilation ou MinGW)")
@@ -116,27 +176,59 @@ endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options(rtype_client PRIVATE
-        -O3                         # Optimisation maximale en release
-        -Wall                       # Activer tous les warnings
-        -Wextra                     # Activer les warnings supplémentaires
-        -Wpedantic                  # Rendre le standard strict
+        -O3                             # Optimisation maximale
+        ${COMMON_WARNINGS}
+        -DNDEBUG                        # Désactive les assertions
     )
+
+    # Optimisations spécifiques Clang en release
+    if(IS_CLANG)
+        target_compile_options(rtype_client PRIVATE
+            ${CLANG_OPTIMIZATIONS}
+            ${CLANG_RELEASE_OPTIMIZATIONS}
+        )
+        target_link_options(rtype_client PRIVATE
+            -flto=thin                  # LTO aussi au linkage
+            -fuse-ld=lld                # Linker LLVM (plus rapide)
+        )
+    elseif(IS_GCC)
+        target_compile_options(rtype_client PRIVATE
+            -flto                       # LTO standard GCC
+            -fstrict-aliasing
+        )
+        target_link_options(rtype_client PRIVATE
+            -flto
+        )
+    endif()
 endif()
 
 target_include_directories(rtype_client PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/common/protocol
-    ${SDL2_PARENT_INCLUDE_DIRS}
-    ${SDL2_MIXER_PARENT_INCLUDE_DIR}
+    $<$<NOT:$<BOOL:${SDL2_FOUND_VIA_VCPKG}>>:${SDL2_PARENT_INCLUDE_DIRS}>
+    $<$<NOT:$<BOOL:${SDL2_FOUND_VIA_VCPKG}>>:${SDL2_MIXER_PARENT_INCLUDE_DIR}>
     )
 
-target_link_libraries(rtype_client PRIVATE
-    Boost::system
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    spdlog::spdlog
-    rtype_sdl2
-    PkgConfig::SDL2
-    ${SDL2_MIXER_LIBRARY}
-)
+if(SDL2_FOUND_VIA_VCPKG)
+    target_link_libraries(rtype_client PRIVATE
+        Boost::system
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        spdlog::spdlog
+        rtype_sdl2
+        $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
+        $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+        $<IF:$<TARGET_EXISTS:SDL2_mixer::SDL2_mixer>,SDL2_mixer::SDL2_mixer,SDL2_mixer::SDL2_mixer-static>
+    )
+else()
+    target_link_libraries(rtype_client PRIVATE
+        Boost::system
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        spdlog::spdlog
+        rtype_sdl2
+        PkgConfig::SDL2
+        ${SDL2_MIXER_LIBRARY}
+    )
+endif()
