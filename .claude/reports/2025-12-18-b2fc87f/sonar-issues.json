@@ -1,0 +1,434 @@
+[
+  {
+    "id": "SONAR-001",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Fill this compound statement, remove it, or add a nested comment explaining why it is empty.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/UDPClient.cpp",
+    "line": 169,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/src/network/UDPClient.cpp` à la ligne 169.\n\n```cpp\n// Code à la ligne 169\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Fill this compound statement, remove it, or add a nested comment explaining why \n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S108**.\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 169\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nFill this compound statement, remove it, or add a nested comment explaining why it is empty.\n\n**Règle SonarQube** : [cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Fill this compound statement, ))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Implémenter le code manquant\n2. Ajouter un commentaire justifiant le bloc vide\n3. Supprimer le bloc vide si inutile\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/src/network/UDPClient.cpp:169`\n2. **Comprendre** la règle [cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S108"
+  },
+  {
+    "id": "SONAR-002",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Do not throw uncaught exceptions in a destructor.",
+    "severity": "Critical",
+    "category": "Reliability",
+    "status": "pending",
+    "isBug": true,
+    "file": "src/client/src/network/UDPClient.cpp",
+    "line": 28,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/src/network/UDPClient.cpp` à la ligne 28.\n\n```cpp\n// Code à la ligne 28\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Do not throw uncaught exceptions in a destructor.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1048**.\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 28\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDo not throw uncaught exceptions in a destructor.\n\n**Règle SonarQube** : [cpp:S1048](https://rules.sonarsource.com/cpp/RSPEC-1048)\n**Catégorie** : Reliability\n**Sévérité** : Critical\n**Effort estimé** : 30min\n\n### Visualisation du problème\n\n```mermaid\ngraph TD\n    A[Entrée problématique] --> B[Code vulnérable]\n    B --> C{Condition d'erreur}\n    C -->|Oui| D[❌ Comportement indéfini]\n    C -->|Non| E[✅ OK]\n    style D fill:#f66,stroke:#333\n```\n\n### Impact\n\nCe problème peut causer des bugs, crashes ou comportements inattendus.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Encapsuler le code du destructeur dans un try/catch\n2. Logger l'erreur au lieu de la propager\n3. Marquer le destructeur avec noexcept\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/src/network/UDPClient.cpp:28`\n2. **Comprendre** la règle [cpp:S1048](https://rules.sonarsource.com/cpp/RSPEC-1048)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1048](https://rules.sonarsource.com/cpp/RSPEC-1048)\n\n### Temps estimé\n\n**30min** pour corriger cette issue.",
+    "effort": "30min",
+    "rule": "cpp:S1048"
+  },
+  {
+    "id": "SONAR-003",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Remove the unused lambda capture \"buf\".",
+    "severity": "Minor",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/UDPClient.cpp",
+    "line": 149,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/src/network/UDPClient.cpp` à la ligne 149.\n\n```cpp\n// Code à la ligne 149\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Remove the unused lambda capture \"buf\".\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1481**.\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 149\n**Sévérité** : Minor\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nRemove the unused lambda capture \"buf\".\n\n**Règle SonarQube** : [cpp:S1481](https://rules.sonarsource.com/cpp/RSPEC-1481)\n**Catégorie** : Maintainability\n**Sévérité** : Minor\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Remove the unused lambda captu))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Supprimer la variable inutilisée\n2. Utiliser [[maybe_unused]] si intentionnel\n3. Vérifier si la variable devait être utilisée\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/src/network/UDPClient.cpp:149`\n2. **Comprendre** la règle [cpp:S1481](https://rules.sonarsource.com/cpp/RSPEC-1481)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1481](https://rules.sonarsource.com/cpp/RSPEC-1481)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1481"
+  },
+  {
+    "id": "SONAR-004",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Replace this use of \"void *\" with a more meaningful type.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/common/protocol/Protocol.hpp",
+    "line": 88,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/common/protocol/Protocol.hpp` à la ligne 88.\n\n```cpp\n// Code à la ligne 88\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Replace this use of \"void *\" with a more meaningful type.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S5008**.\n\n**Fichier** : `src/common/protocol/Protocol.hpp`\n**Ligne** : 88\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nReplace this use of \"void *\" with a more meaningful type.\n\n**Règle SonarQube** : [cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Replace this use of \"void *\" w))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Utiliser des templates pour la généricité typée\n2. Utiliser std::any ou std::variant selon le cas\n3. Préférer les types concrets aux void*\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/common/protocol/Protocol.hpp:88`\n2. **Comprendre** la règle [cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S5008"
+  },
+  {
+    "id": "SONAR-005",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Replace this use of \"void *\" with a more meaningful type.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/common/protocol/Protocol.hpp",
+    "line": 182,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/common/protocol/Protocol.hpp` à la ligne 182.\n\n```cpp\n// Code à la ligne 182\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Replace this use of \"void *\" with a more meaningful type.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S5008**.\n\n**Fichier** : `src/common/protocol/Protocol.hpp`\n**Ligne** : 182\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nReplace this use of \"void *\" with a more meaningful type.\n\n**Règle SonarQube** : [cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Replace this use of \"void *\" w))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Utiliser des templates pour la généricité typée\n2. Utiliser std::any ou std::variant selon le cas\n3. Préférer les types concrets aux void*\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/common/protocol/Protocol.hpp:182`\n2. **Comprendre** la règle [cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S5008"
+  },
+  {
+    "id": "SONAR-006",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+    "line": 79,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp` à la ligne 79.\n\n```cpp\n// Code à la ligne 79\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Refactor this code to not nest more than 3 if|for|do|while|switch statements.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S134**.\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Ligne** : 79\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nRefactor this code to not nest more than 3 if|for|do|while|switch statements.\n\n**Règle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Refactor this code to not nest))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Extraire les blocs imbriqués dans des fonctions dédiées\n2. Utiliser des early returns pour réduire l'imbrication\n3. Appliquer le pattern Guard Clause\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp:79`\n2. **Comprendre** la règle [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S134"
+  },
+  {
+    "id": "SONAR-007",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Merge this \"if\" statement with the enclosing one.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+    "line": 79,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp` à la ligne 79.\n\n```cpp\n// Code à la ligne 79\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Merge this \"if\" statement with the enclosing one.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1066**.\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Ligne** : 79\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nMerge this \"if\" statement with the enclosing one.\n\n**Règle SonarQube** : [cpp:S1066](https://rules.sonarsource.com/cpp/RSPEC-1066)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Merge this \"if\" statement with))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Fusionner les conditions avec && ou ||\n2. Simplifier la logique conditionnelle\n3. Extraire en méthode si la condition est complexe\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp:79`\n2. **Comprendre** la règle [cpp:S1066](https://rules.sonarsource.com/cpp/RSPEC-1066)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1066](https://rules.sonarsource.com/cpp/RSPEC-1066)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1066"
+  },
+  {
+    "id": "SONAR-008",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Use the init-statement to declare \"sdlEvent\" inside the if statement.",
+    "severity": "Minor",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 131,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 131.\n\n```cpp\n// Code à la ligne 131\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Use the init-statement to declare \"sdlEvent\" inside the if statement.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S6004**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 131\n**Sévérité** : Minor\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nUse the init-statement to declare \"sdlEvent\" inside the if statement.\n\n**Règle SonarQube** : [cpp:S6004](https://rules.sonarsource.com/cpp/RSPEC-6004)\n**Catégorie** : Maintainability\n**Sévérité** : Minor\n**Effort estimé** : 2min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Use the init-statement to decl))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Consulter la documentation SonarQube pour cette règle\n2. Analyser le contexte spécifique du code\n3. Appliquer les bonnes pratiques recommandées\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:131`\n2. **Comprendre** la règle [cpp:S6004](https://rules.sonarsource.com/cpp/RSPEC-6004)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S6004](https://rules.sonarsource.com/cpp/RSPEC-6004)\n\n### Temps estimé\n\n**2min** pour corriger cette issue.",
+    "effort": "2min",
+    "rule": "cpp:S6004"
+  },
+  {
+    "id": "SONAR-009",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Customize this class' copy constructor to participate in resource management. Customize or delete it...",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/include/SDL2Window.hpp",
+    "line": 18,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/include/SDL2Window.hpp` à la ligne 18.\n\n```cpp\n// Code à la ligne 18\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Customize this class' copy constructor to participate in resource management. Cu\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S3624**.\n\n**Fichier** : `src/client/lib/sdl2/include/SDL2Window.hpp`\n**Ligne** : 18\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nCustomize this class' copy constructor to participate in resource management. Customize or delete its copy assignment operator. Also consider whether move operations should be customized.\n\n**Règle SonarQube** : [cpp:S3624](https://rules.sonarsource.com/cpp/RSPEC-3624)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 30min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Customize this class' copy con))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Implémenter le copy constructor et copy assignment\n2. Implémenter le move constructor et move assignment\n3. Ou déclarer ces méthodes comme = delete\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/include/SDL2Window.hpp:18`\n2. **Comprendre** la règle [cpp:S3624](https://rules.sonarsource.com/cpp/RSPEC-3624)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3624](https://rules.sonarsource.com/cpp/RSPEC-3624)\n\n### Temps estimé\n\n**30min** pour corriger cette issue.",
+    "effort": "30min",
+    "rule": "cpp:S3624"
+  },
+  {
+    "id": "SONAR-010",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Annotate this function with \"override\" or \"final\".",
+    "severity": "Minor",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/include/SDL2Window.hpp",
+    "line": 21,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/include/SDL2Window.hpp` à la ligne 21.\n\n```cpp\n// Code à la ligne 21\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Annotate this function with \"override\" or \"final\".\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S3471**.\n\n**Fichier** : `src/client/lib/sdl2/include/SDL2Window.hpp`\n**Ligne** : 21\n**Sévérité** : Minor\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nAnnotate this function with \"override\" or \"final\".\n\n**Règle SonarQube** : [cpp:S3471](https://rules.sonarsource.com/cpp/RSPEC-3471)\n**Catégorie** : Maintainability\n**Sévérité** : Minor\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Annotate this function with \"o))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Consulter la documentation SonarQube pour cette règle\n2. Analyser le contexte spécifique du code\n3. Appliquer les bonnes pratiques recommandées\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/include/SDL2Window.hpp:21`\n2. **Comprendre** la règle [cpp:S3471](https://rules.sonarsource.com/cpp/RSPEC-3471)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3471](https://rules.sonarsource.com/cpp/RSPEC-3471)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S3471"
+  },
+  {
+    "id": "SONAR-011",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Reduce verbosity with \"using enum\" for \"events::Key\".",
+    "severity": "Minor",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 15,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 15.\n\n```cpp\n// Code à la ligne 15\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Reduce verbosity with \"using enum\" for \"events::Key\".\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S6177**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 15\n**Sévérité** : Minor\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nReduce verbosity with \"using enum\" for \"events::Key\".\n\n**Règle SonarQube** : [cpp:S6177](https://rules.sonarsource.com/cpp/RSPEC-6177)\n**Catégorie** : Maintainability\n**Sévérité** : Minor\n**Effort estimé** : 2min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Reduce verbosity with \"using e))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Consulter la documentation SonarQube pour cette règle\n2. Analyser le contexte spécifique du code\n3. Appliquer les bonnes pratiques recommandées\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:15`\n2. **Comprendre** la règle [cpp:S6177](https://rules.sonarsource.com/cpp/RSPEC-6177)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S6177](https://rules.sonarsource.com/cpp/RSPEC-6177)\n\n### Temps estimé\n\n**2min** pour corriger cette issue.",
+    "effort": "2min",
+    "rule": "cpp:S6177"
+  },
+  {
+    "id": "SONAR-012",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Reduce the number of switch cases from 52 to at most 30.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 15,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 15.\n\n```cpp\n// Code à la ligne 15\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Reduce the number of switch cases from 52 to at most 30.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1479**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 15\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nReduce the number of switch cases from 52 to at most 30.\n\n**Règle SonarQube** : [cpp:S1479](https://rules.sonarsource.com/cpp/RSPEC-1479)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 30min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Reduce the number of switch ca))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Consulter la documentation SonarQube pour cette règle\n2. Analyser le contexte spécifique du code\n3. Appliquer les bonnes pratiques recommandées\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:15`\n2. **Comprendre** la règle [cpp:S1479](https://rules.sonarsource.com/cpp/RSPEC-1479)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1479](https://rules.sonarsource.com/cpp/RSPEC-1479)\n\n### Temps estimé\n\n**30min** pour corriger cette issue.",
+    "effort": "30min",
+    "rule": "cpp:S1479"
+  },
+  {
+    "id": "SONAR-013",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Do not use the constructor's initializer list for data member \"_renderer\". Use the in-class initiali...",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 72,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 72.\n\n```cpp\n// Code à la ligne 72\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Do not use the constructor's initializer list for data member \"_renderer\". Use t\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S3230**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 72\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDo not use the constructor's initializer list for data member \"_renderer\". Use the in-class initializer instead.\n\n**Règle SonarQube** : [cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Do not use the constructor's i))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Utiliser l'initialisation in-class\n2. Simplifier les constructeurs\n3. Centraliser les valeurs par défaut\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:72`\n2. **Comprendre** la règle [cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S3230"
+  },
+  {
+    "id": "SONAR-014",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Do not use the constructor's initializer list for data member \"_isOpen\". Use the in-class initialize...",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 72,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 72.\n\n```cpp\n// Code à la ligne 72\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Do not use the constructor's initializer list for data member \"_isOpen\". Use the\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S3230**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 72\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDo not use the constructor's initializer list for data member \"_isOpen\". Use the in-class initializer instead.\n\n**Règle SonarQube** : [cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Do not use the constructor's i))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Utiliser l'initialisation in-class\n2. Simplifier les constructeurs\n3. Centraliser les valeurs par défaut\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:72`\n2. **Comprendre** la règle [cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S3230"
+  },
+  {
+    "id": "SONAR-015",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Do not use the constructor's initializer list for data member \"_window\". Use the in-class initialize...",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 72,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 72.\n\n```cpp\n// Code à la ligne 72\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Do not use the constructor's initializer list for data member \"_window\". Use the\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S3230**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 72\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDo not use the constructor's initializer list for data member \"_window\". Use the in-class initializer instead.\n\n**Règle SonarQube** : [cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Do not use the constructor's i))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Utiliser l'initialisation in-class\n2. Simplifier les constructeurs\n3. Centraliser les valeurs par défaut\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:72`\n2. **Comprendre** la règle [cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3230](https://rules.sonarsource.com/cpp/RSPEC-3230)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S3230"
+  },
+  {
+    "id": "SONAR-016",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Define and throw a dedicated exception instead of using a generic one.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 75,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 75.\n\n```cpp\n// Code à la ligne 75\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Define and throw a dedicated exception instead of using a generic one.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S112**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 75\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDefine and throw a dedicated exception instead of using a generic one.\n\n**Règle SonarQube** : [cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 20min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Define and throw a dedicated e))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Créer une exception dédiée héritant de std::runtime_error\n2. Utiliser std::system_error pour les erreurs système\n3. Documenter les exceptions dans la signature\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:75`\n2. **Comprendre** la règle [cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n\n### Temps estimé\n\n**20min** pour corriger cette issue.",
+    "effort": "20min",
+    "rule": "cpp:S112"
+  },
+  {
+    "id": "SONAR-017",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Define and throw a dedicated exception instead of using a generic one.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 89,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 89.\n\n```cpp\n// Code à la ligne 89\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Define and throw a dedicated exception instead of using a generic one.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S112**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 89\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDefine and throw a dedicated exception instead of using a generic one.\n\n**Règle SonarQube** : [cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 20min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Define and throw a dedicated e))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Créer une exception dédiée héritant de std::runtime_error\n2. Utiliser std::system_error pour les erreurs système\n3. Documenter les exceptions dans la signature\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:89`\n2. **Comprendre** la règle [cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n\n### Temps estimé\n\n**20min** pour corriger cette issue.",
+    "effort": "20min",
+    "rule": "cpp:S112"
+  },
+  {
+    "id": "SONAR-018",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Define and throw a dedicated exception instead of using a generic one.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 96,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 96.\n\n```cpp\n// Code à la ligne 96\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Define and throw a dedicated exception instead of using a generic one.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S112**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 96\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDefine and throw a dedicated exception instead of using a generic one.\n\n**Règle SonarQube** : [cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 20min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Define and throw a dedicated e))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Créer une exception dédiée héritant de std::runtime_error\n2. Utiliser std::system_error pour les erreurs système\n3. Documenter les exceptions dans la signature\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:96`\n2. **Comprendre** la règle [cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S112](https://rules.sonarsource.com/cpp/RSPEC-112)\n\n### Temps estimé\n\n**20min** pour corriger cette issue.",
+    "effort": "20min",
+    "rule": "cpp:S112"
+  },
+  {
+    "id": "SONAR-019",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Define each identifier in a dedicated statement.",
+    "severity": "Minor",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 113,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 113.\n\n```cpp\n// Code à la ligne 113\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Define each identifier in a dedicated statement.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1659**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 113\n**Sévérité** : Minor\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDefine each identifier in a dedicated statement.\n\n**Règle SonarQube** : [cpp:S1659](https://rules.sonarsource.com/cpp/RSPEC-1659)\n**Catégorie** : Maintainability\n**Sévérité** : Minor\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Define each identifier in a de))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Consulter la documentation SonarQube pour cette règle\n2. Analyser le contexte spécifique du code\n3. Appliquer les bonnes pratiques recommandées\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:113`\n2. **Comprendre** la règle [cpp:S1659](https://rules.sonarsource.com/cpp/RSPEC-1659)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1659](https://rules.sonarsource.com/cpp/RSPEC-1659)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1659"
+  },
+  {
+    "id": "SONAR-020",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Use braces to initialize the aggregate.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 115,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 115.\n\n```cpp\n// Code à la ligne 115\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Use braces to initialize the aggregate.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S6872**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 115\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nUse braces to initialize the aggregate.\n\n**Règle SonarQube** : [cpp:S6872](https://rules.sonarsource.com/cpp/RSPEC-6872)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 1min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Use braces to initialize the a))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Consulter la documentation SonarQube pour cette règle\n2. Analyser le contexte spécifique du code\n3. Appliquer les bonnes pratiques recommandées\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:115`\n2. **Comprendre** la règle [cpp:S6872](https://rules.sonarsource.com/cpp/RSPEC-6872)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S6872](https://rules.sonarsource.com/cpp/RSPEC-6872)\n\n### Temps estimé\n\n**1min** pour corriger cette issue.",
+    "effort": "1min",
+    "rule": "cpp:S6872"
+  },
+  {
+    "id": "SONAR-021",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Replace this use of \"void *\" with a more meaningful type.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 150,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 150.\n\n```cpp\n// Code à la ligne 150\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Replace this use of \"void *\" with a more meaningful type.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S5008**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 150\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nReplace this use of \"void *\" with a more meaningful type.\n\n**Règle SonarQube** : [cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Replace this use of \"void *\" w))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Utiliser des templates pour la généricité typée\n2. Utiliser std::any ou std::variant selon le cas\n3. Préférer les types concrets aux void*\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:150`\n2. **Comprendre** la règle [cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S5008](https://rules.sonarsource.com/cpp/RSPEC-5008)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S5008"
+  },
+  {
+    "id": "SONAR-022",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Add a nested comment explaining why this method is empty, or complete the implementation.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 156,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 156.\n\n```cpp\n// Code à la ligne 156\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Add a nested comment explaining why this method is empty, or complete the implem\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1186**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 156\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nAdd a nested comment explaining why this method is empty, or complete the implementation.\n\n**Règle SonarQube** : [cpp:S1186](https://rules.sonarsource.com/cpp/RSPEC-1186)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Add a nested comment explainin))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Implémenter la logique manquante\n2. Ajouter un commentaire expliquant pourquoi le bloc est vide\n3. Supprimer le bloc s'il n'est pas nécessaire\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:156`\n2. **Comprendre** la règle [cpp:S1186](https://rules.sonarsource.com/cpp/RSPEC-1186)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1186](https://rules.sonarsource.com/cpp/RSPEC-1186)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1186"
+  },
+  {
+    "id": "SONAR-023",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Pass polymorphic object \"drawable\" by reference to const.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 166,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 166.\n\n```cpp\n// Code à la ligne 166\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Pass polymorphic object \"drawable\" by reference to const.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1238**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 166\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nPass polymorphic object \"drawable\" by reference to const.\n\n**Règle SonarQube** : [cpp:S1238](https://rules.sonarsource.com/cpp/RSPEC-1238)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Pass polymorphic object \"drawa))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Passer par référence constante (const T&)\n2. Éviter la copie d'objets coûteux\n3. Utiliser std::move si transfert de propriété\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:166`\n2. **Comprendre** la règle [cpp:S1238](https://rules.sonarsource.com/cpp/RSPEC-1238)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1238](https://rules.sonarsource.com/cpp/RSPEC-1238)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1238"
+  },
+  {
+    "id": "SONAR-024",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Add a nested comment explaining why this method is empty, or complete the implementation.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/lib/sdl2/src/SDL2Window.cpp",
+    "line": 167,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/lib/sdl2/src/SDL2Window.cpp` à la ligne 167.\n\n```cpp\n// Code à la ligne 167\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Add a nested comment explaining why this method is empty, or complete the implem\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1186**.\n\n**Fichier** : `src/client/lib/sdl2/src/SDL2Window.cpp`\n**Ligne** : 167\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nAdd a nested comment explaining why this method is empty, or complete the implementation.\n\n**Règle SonarQube** : [cpp:S1186](https://rules.sonarsource.com/cpp/RSPEC-1186)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Add a nested comment explainin))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Implémenter la logique manquante\n2. Ajouter un commentaire expliquant pourquoi le bloc est vide\n3. Supprimer le bloc s'il n'est pas nécessaire\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/lib/sdl2/src/SDL2Window.cpp:167`\n2. **Comprendre** la règle [cpp:S1186](https://rules.sonarsource.com/cpp/RSPEC-1186)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1186](https://rules.sonarsource.com/cpp/RSPEC-1186)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1186"
+  }
+]

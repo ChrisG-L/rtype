@@ -80,11 +80,31 @@ DB_PATH="$SCRIPT_DIR/db.sqlite"
 LOG_DIR="${SCRIPT_DIR}/../logs"
 LOG_FILE="${LOG_DIR}/agentdb_queries.log"
 
+# Taille max du fichier de log en octets (50KB)
+LOG_MAX_SIZE="${AGENTDB_LOG_MAX_SIZE:-51200}"
+
 # Créer le répertoire de logs s'il n'existe pas
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 
 # Niveau de log: 0=off, 1=basic, 2=verbose (inclut les résultats)
 LOG_LEVEL="${AGENTDB_LOG_LEVEL:-1}"
+
+# Rotation des logs si le fichier dépasse la taille max
+rotate_log_if_needed() {
+    if [[ -f "$LOG_FILE" ]]; then
+        local file_size
+        file_size=$(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
+        if [[ "$file_size" -gt "$LOG_MAX_SIZE" ]]; then
+            # Rotation: garder les 100 dernières lignes
+            tail -n 100 "$LOG_FILE" > "${LOG_FILE}.tmp" 2>/dev/null && \
+            mv "${LOG_FILE}.tmp" "$LOG_FILE" 2>/dev/null
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] [system] LOG ROTATED (was ${file_size} bytes)" >> "$LOG_FILE" 2>/dev/null || true
+        fi
+    fi
+}
+
+# Rotation au démarrage du script (vérifie une seule fois)
+rotate_log_if_needed
 
 # Fonction de logging
 log_entry() {

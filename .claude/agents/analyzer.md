@@ -302,13 +302,143 @@ Pénalités (valeurs par défaut, voir config pour personnaliser) :
 - AgentDB vide (pas de données) : -5 (no_agentdb_data)
 ```
 
+## QUALITÉ DES ISSUES - RÈGLES OBLIGATOIRES
+
+### Règle 1 : Snippet de code dans `where`
+
+Le champ `where` DOIT contenir un snippet de code de 5-15 lignes montrant exactement le problème.
+
+**Format obligatoire** :
+```markdown
+## Localisation
+
+Le problème se trouve dans `{fichier}` à la ligne {ligne}.
+
+```{langage}
+// Code problématique avec contexte
+{snippet de 5-15 lignes}
+```
+
+{Explication de ce que fait ce code et pourquoi il est problématique}
+```
+
+### Règle 2 : Diagramme Mermaid dans `why`
+
+Le champ `why` DOIT contenir au moins un diagramme Mermaid pour visualiser l'impact.
+
+**Types de diagrammes recommandés** :
+- `graph TD` : Pour montrer l'arbre d'impact (appelants/appelés)
+- `sequenceDiagram` : Pour montrer le flux d'exécution problématique
+- `graph LR` : Pour montrer la chaîne de propagation
+
+**Format obligatoire** :
+```markdown
+## Pourquoi c'est un problème
+
+{Explication textuelle du problème}
+
+### Visualisation de l'impact
+
+```mermaid
+graph TD
+    A[Fonction modifiée] --> B[Appelant 1]
+    A --> C[Appelant 2]
+    B --> D[Impact transitif]
+    style A fill:#f66
+```
+
+### Conséquences
+
+- Point 1
+- Point 2
+```
+
+### Règle 3 : isBug = crash uniquement
+
+**DÉFINITION STRICTE** :
+- `isBug: true` : Le code CRASHE l'application (segfault, exception fatale, freeze, app qui ne démarre pas)
+- `isBug: false` : TOUT LE RESTE (erreur de compilation, mauvaises pratiques, dette technique)
+
+**Exemples** :
+| Problème | isBug | Justification |
+|----------|-------|---------------|
+| Changement de signature cassant la compilation | `false` | Erreur de compilation, pas de crash runtime |
+| Fichier critique modifié | `false` | Risque, pas de crash |
+| Déréférencement null potentiel | `true` | Segfault = crash |
+
+### Règle 4 : Issues utiles uniquement
+
+**NE PAS générer d'issues pour** :
+- Changements de formatting/whitespace
+- Renommage de variables
+- Ajout/suppression d'imports
+- Commentaires modifiés
+- `std::cout` ou `console.log` ajoutés/supprimés
+
+**GARDER les issues pour** :
+- Changements de signature avec impact (appelants à mettre à jour)
+- Fichiers critiques touchés
+- Impact GLOBAL (cross-module)
+- Régressions potentielles
+
+### Règle 5 : Issues indépendantes
+
+Chaque issue DOIT être compréhensible seule.
+
+**INTERDIT** :
+- "Voir aussi l'issue ANA-002"
+- "En lien avec le problème ci-dessus"
+- "Comme mentionné dans..."
+
+**OBLIGATOIRE** :
+- Chaque issue contient toutes les informations nécessaires
+- Pas de références croisées entre issues
+
+### Règle 6 : Markdown professionnel
+
+Utiliser une structure riche :
+- Titres H2 et H3
+- Tableaux pour les données structurées
+- Listes à puces pour les points clés
+- Blocs de code avec langage spécifié
+- Diagrammes Mermaid pour la visualisation
+
+### Règle 7 : Contenu verbeux et explicatif
+
+**Longueur minimale** :
+- `where` : 100-200 mots + snippet de code
+- `why` : 150-300 mots + diagramme Mermaid
+- `how` : 150-300 mots + code corrigé ou étapes
+
+**Format des findings avec where/why/how** :
+
+```json
+{
+  "id": "ANA-001",
+  "source": ["analyzer"],
+  "severity": "Critical",
+  "category": "Reliability",
+  "isBug": false,
+  "file": "src/server/UDPServer.cpp",
+  "line": 42,
+  "symbol": "sendPacket",
+  "message": "Changement de signature à fort impact",
+  "blocking": true,
+  "time_estimate_min": 30,
+  "where": "## Localisation\n\nLe problème se trouve dans `src/server/UDPServer.cpp` à la ligne 42.\n\n```cpp\n// Ancienne signature\nvoid sendPacket(const Buffer& data);\n\n// Nouvelle signature (paramètre ajouté)\nvoid sendPacket(const Buffer& data, int timeout);\n```\n\nCette modification de signature ajoute un paramètre obligatoire `timeout` qui n'existait pas avant. Tous les appelants existants doivent être mis à jour.",
+  "why": "## Pourquoi c'est un problème\n\nCe changement de signature impacte **8 appelants** répartis dans 5 modules différents. Sans mise à jour, le code ne compilera pas.\n\n### Graphe d'impact\n\n```mermaid\ngraph TD\n    A[sendPacket - MODIFIÉ] --> B[handleConnection]\n    A --> C[processRequest]\n    A --> D[NetworkManager::broadcast]\n    B --> E[main.cpp]\n    C --> F[APIServer - CRITIQUE]\n    style A fill:#f66\n    style F fill:#ff0\n```\n\n### Conséquences\n\n- **Compilation cassée** : Les 8 appelants doivent être mis à jour\n- **Fichier critique** : `APIServer.cpp` est impacté\n- **Cross-module** : Impact sur 5 modules différents",
+  "how": "## Comment corriger\n\n### Option 1 : Mettre à jour tous les appelants\n\n```cpp\n// Avant\nsendPacket(buffer);\n\n// Après (avec timeout par défaut)\nsendPacket(buffer, DEFAULT_TIMEOUT);\n```\n\n### Option 2 : Ajouter une surcharge\n\n```cpp\n// Garder l'ancienne signature comme surcharge\nvoid sendPacket(const Buffer& data) {\n    sendPacket(data, DEFAULT_TIMEOUT);\n}\n```\n\n### Étapes de correction\n\n1. Mettre à jour `handleConnection` (TCPServer.cpp:120)\n2. Mettre à jour `processRequest` (RequestHandler.cpp:89)\n3. Mettre à jour `NetworkManager::broadcast` (Manager.cpp:234)\n4. ... (5 autres appelants)\n5. Faire reviewer par senior (fichier critique impacté)"
+}
+```
+
 ## Règles
 
 1. **OBLIGATOIRE** : Appeler AgentDB pour CHAQUE fichier modifié
 2. **OBLIGATOIRE** : Appeler symbol_callers pour CHAQUE fonction modifiée
 3. **OBLIGATOIRE** : Logger les queries AgentDB dans le rapport
-4. **OBLIGATOIRE** : Produire le JSON final pour synthesis
+4. **OBLIGATOIRE** : Produire le JSON final pour synthesis avec where/why/how
 5. **Signaler** si AgentDB ne retourne rien (⚠️ EMPTY)
 6. **Toujours** inclure les numéros de ligne exacts
 7. **Toujours** classifier l'impact : LOCAL/MODULE/GLOBAL
 8. **Toujours** générer le graphe ASCII pour les fonctions à impact HIGH
+9. **Toujours** inclure where/why/how complets pour chaque finding

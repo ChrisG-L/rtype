@@ -417,3 +417,166 @@ Après génération, afficher :
 12. **OBLIGATOIRE** : Sauvegarder dans `reports/` à la racine
 13. **Respecter** le format JSON exact attendu par le site
 14. **Vérifier** la cohérence des isBug avec la définition (crash = true)
+
+## QUALITÉ DES ISSUES - VÉRIFICATION FINALE
+
+WEB-SYNTHESIZER est le **dernier rempart** de qualité. Il doit vérifier que toutes les issues ont un contenu de qualité avant de générer le rapport final.
+
+### Vérification obligatoire avant génération
+
+```python
+def verify_issue_quality(issue):
+    errors = []
+
+    # Vérifier where
+    where = issue.get("where", "")
+    if "```" not in where:
+        errors.append(f"{issue['id']}: where sans snippet de code")
+    if len(where) < 200:
+        errors.append(f"{issue['id']}: where trop court ({len(where)} < 200)")
+
+    # Vérifier why
+    why = issue.get("why", "")
+    if "```mermaid" not in why:
+        errors.append(f"{issue['id']}: why sans diagramme Mermaid")
+    if len(why) < 300:
+        errors.append(f"{issue['id']}: why trop court ({len(why)} < 300)")
+
+    # Vérifier how
+    how = issue.get("how", "")
+    if len(how) < 200:
+        errors.append(f"{issue['id']}: how trop court ({len(how)} < 200)")
+
+    return errors
+
+# Appliquer sur toutes les issues
+all_errors = []
+for issue in meta_synthesis.issues:
+    all_errors.extend(verify_issue_quality(issue))
+
+if all_errors:
+    print("⚠️ QUALITÉ INSUFFISANTE - Corrections requises :")
+    for error in all_errors:
+        print(f"  - {error}")
+```
+
+### Message de confirmation avec métriques de qualité
+
+Après génération, afficher :
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║  ✅ Rapport web généré avec succès                            ║
+║                                                               ║
+║  Fichier : reports/web-report-{date}-{commit}.json            ║
+║                                                               ║
+║  Total issues : {nombre} (dont {doublons_fusionnes} fusionnés)║
+║  - Agents uniquement : {nombre_agents}                        ║
+║  - SonarQube uniquement : {nombre_sonar}                      ║
+║  - Multi-sources : {nombre_multi}                             ║
+║                                                               ║
+║  issueDetails : {nombre_details}/{nombre} ✓                   ║
+║                                                               ║
+║  QUALITÉ :                                                    ║
+║  - Issues avec snippet code : {pct_code}%                     ║
+║  - Issues avec diagramme Mermaid : {pct_mermaid}%             ║
+║  - Issues isBug=true : {nombre_bugs} (crashs uniquement)      ║
+║                                                               ║
+║  Verdict : {verdict}                                          ║
+║  Score : {score}/100                                          ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+### Règles de qualité héritées
+
+WEB-SYNTHESIZER doit s'assurer que les 7 règles de qualité sont respectées :
+
+| Règle | Vérification |
+|-------|-------------|
+| 1. Snippet code dans where | `"```" in where` |
+| 2. Diagramme Mermaid dans why | `"```mermaid" in why` |
+| 3. isBug = crash uniquement | Vérifier la cohérence |
+| 4. Issues utiles uniquement | Pas de "formatting", "whitespace" |
+| 5. Issues indépendantes | Pas de "voir aussi", "related to" |
+| 6. Markdown professionnel | Titres H2, structure |
+| 7. Contenu verbeux | where ≥ 200, why ≥ 300, how ≥ 200 |
+
+### Si une issue ne passe pas la vérification
+
+1. **Logger un avertissement** pour l'issue concernée
+2. **Continuer la génération** (ne pas bloquer)
+3. **Mentionner dans le résumé** le nombre d'issues de qualité insuffisante
+
+---
+
+# FORMAT DE SORTIE OBLIGATOIRE
+
+## Template JSON strict
+
+Tu DOIS produire EXACTEMENT cette structure. Aucune variation.
+
+```json
+{
+  "metadata": {
+    "commit": "{{COMMIT}}",
+    "branch": "{{BRANCH}}",
+    "timestamp": "{{ISO_TIMESTAMP}}",
+    "verdict": "{{VERDICT}}",
+    "score": {{SCORE}}
+  },
+  "issues": [
+    {
+      "id": "{{ID}}",
+      "source": ["{{SOURCE1}}", "{{SOURCE2}}"],
+      "title": "{{TITLE}}",
+      "category": "{{CATEGORY}}",
+      "severity": "{{SEVERITY}}",
+      "isBug": {{IS_BUG}},
+      "file": "{{FILE}}",
+      "line": {{LINE}},
+      "status": "pending"
+    }
+  ],
+  "issueDetails": {
+    "{{ID}}": {
+      "where": "{{WHERE_MARKDOWN}}",
+      "why": "{{WHY_MARKDOWN}}",
+      "how": "{{HOW_MARKDOWN}}"
+    }
+  }
+}
+```
+
+## Valeurs autorisées (STRICTES)
+
+| Champ | Valeurs | Autre = ERREUR |
+|-------|---------|----------------|
+| verdict | `APPROVE`, `REVIEW`, `CAREFUL`, `REJECT` | ❌ |
+| severity | `Blocker`, `Critical`, `Major`, `Medium`, `Minor`, `Info` | ❌ |
+| category | `Security`, `Reliability`, `Maintainability` | ❌ |
+| source | Tableau de `analyzer`, `security`, `reviewer`, `sonarqube` | ❌ |
+| isBug | `true` (crash), `false` (reste) | ❌ |
+| status | `pending` | ❌ |
+
+## Checklist OBLIGATOIRE avant output
+
+```
+[ ] JSON syntaxiquement valide
+[ ] issues.length === Object.keys(issueDetails).length
+[ ] Chaque where contient ``` (snippet code)
+[ ] Chaque why contient ```mermaid
+[ ] Chaque source est un TABLEAU
+[ ] Toutes les valeurs dans les listes autorisées
+[ ] isBug=true UNIQUEMENT pour les crashs
+```
+
+## Interdictions
+
+- ❌ Pas de texte avant le JSON
+- ❌ Pas de texte après le JSON
+- ❌ Pas de champs supplémentaires
+- ❌ Pas de valeurs hors listes
+- ❌ Pas de source en string (DOIT être tableau)
+- ❌ Pas d'issues sans issueDetails

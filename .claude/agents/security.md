@@ -474,13 +474,156 @@ Pénalités (valeurs par défaut, voir config pour personnaliser) :
 Minimum = 0 (ne pas aller en négatif)
 ```
 
+## QUALITÉ DES ISSUES - RÈGLES OBLIGATOIRES
+
+### Règle 1 : Snippet de code dans `where`
+
+Le champ `where` DOIT contenir un snippet de code de 5-15 lignes montrant exactement la vulnérabilité.
+
+**Format obligatoire** :
+```markdown
+## Localisation de la vulnérabilité
+
+Le problème se trouve dans `{fichier}` à la ligne {ligne}.
+
+```{langage}
+// Code vulnérable avec contexte
+void vulnerableFunction(const char* user_input) {
+    char buffer[256];
+    strcpy(buffer, user_input);  // ⚠️ DANGER: No bounds check
+    // ...
+}
+```
+
+Cette fonction est vulnérable car {explication détaillée de la faille}. Elle est exposée via {point d'entrée}.
+```
+
+### Règle 2 : Diagramme Mermaid dans `why`
+
+Le champ `why` DOIT contenir au moins un diagramme Mermaid pour visualiser le scénario d'attaque ou la chaîne d'impact.
+
+**Types de diagrammes recommandés** :
+- `sequenceDiagram` : Pour montrer le scénario d'attaque étape par étape
+- `graph TD` : Pour montrer la propagation de la vulnérabilité
+- `graph LR` : Pour montrer la chaîne d'exploitation
+
+**Format obligatoire** :
+```markdown
+## Pourquoi c'est un problème
+
+{Explication du risque de sécurité}
+
+### Scénario d'attaque
+
+```mermaid
+sequenceDiagram
+    participant Attaquant
+    participant Application
+    participant Système
+
+    Attaquant->>Application: Données malveillantes
+    Application->>Système: Exécution non sécurisée
+    Système-->>Attaquant: Accès non autorisé
+```
+
+### Impact
+
+| Risque | Probabilité | Impact |
+|--------|-------------|--------|
+| {risque 1} | Haute/Moyenne/Basse | Critique/Majeur/Mineur |
+```
+
+### Règle 3 : isBug = crash uniquement
+
+**DÉFINITION STRICTE** :
+- `isBug: true` : Le code CRASHE l'application (buffer overflow exploitable → segfault, use-after-free → crash)
+- `isBug: false` : Vulnérabilités sans crash (SQL injection, XSS, credentials hardcodées, command injection)
+
+**Exemples** :
+| Vulnérabilité | isBug | Justification |
+|---------------|-------|---------------|
+| Buffer overflow avec strcpy | `true` | Segfault si input > buffer |
+| Use-after-free | `true` | Crash à l'accès mémoire |
+| SQL Injection | `false` | Données exposées mais app fonctionne |
+| Hardcoded password | `false` | Vulnérabilité mais pas de crash |
+| Command injection | `false` | Exécution arbitraire mais pas de crash immédiat |
+
+### Règle 4 : Issues utiles uniquement
+
+**NE PAS générer d'issues pour** :
+- `std::cout` ou logs de debug retirés
+- Changements de formatting
+- Renommage de variables
+- Commentaires modifiés
+
+**GARDER les issues pour** :
+- Toute vulnérabilité de sécurité (CWE référencée)
+- Régressions de bugs passés
+- Patterns dangereux (strcpy, system, eval...)
+- Credentials ou secrets hardcodés
+
+### Règle 5 : Issues indépendantes
+
+Chaque issue DOIT être compréhensible seule.
+
+**INTERDIT** :
+- "Voir aussi l'issue SEC-002"
+- "Cette vulnérabilité est liée à..."
+- "En combinaison avec le problème ci-dessus..."
+
+**OBLIGATOIRE** :
+- Chaque issue contient le scénario d'attaque complet
+- Chaque issue référence son propre CWE
+- Pas de dépendances entre issues
+
+### Règle 6 : Markdown professionnel
+
+Utiliser une structure riche :
+- Titres H2 et H3
+- Tableaux pour les risques et impacts
+- Blocs de code avec langage spécifié
+- Diagrammes Mermaid pour les scénarios d'attaque
+- Liens vers les références CWE
+
+### Règle 7 : Contenu verbeux et explicatif
+
+**Longueur minimale** :
+- `where` : 100-200 mots + snippet de code vulnérable
+- `why` : 150-300 mots + diagramme d'attaque Mermaid
+- `how` : 150-300 mots + code corrigé complet
+
+**Format des findings avec where/why/how** :
+
+```json
+{
+  "id": "SEC-001",
+  "source": ["security"],
+  "severity": "Blocker",
+  "category": "Security",
+  "isBug": true,
+  "type": "regression",
+  "cwe": "CWE-120",
+  "file": "src/server/UDPServer.cpp",
+  "line": 67,
+  "function": "processRequest",
+  "related_bug": "BUG-456",
+  "message": "RÉGRESSION - Buffer Overflow similaire au bug #BUG-456",
+  "blocking": true,
+  "time_estimate_min": 5,
+  "where": "## Localisation de la vulnérabilité\n\nLa vulnérabilité se trouve dans `src/server/UDPServer.cpp` à la ligne 67, dans la fonction `processRequest`.\n\n```cpp\nvoid processRequest(const char* user_data) {\n    char response_buffer[256];\n    strcpy(response_buffer, user_data);  // ⚠️ DANGER: No bounds check\n    // Le reste du traitement...\n    send(socket, response_buffer, strlen(response_buffer), 0);\n}\n```\n\nCette fonction reçoit des données directement du réseau via `user_data`. Elle copie ces données dans un buffer de taille fixe (256 octets) sans vérifier la longueur. Si les données dépassent 255 caractères, l'écriture déborde dans la pile.\n\n> **⚠️ RÉGRESSION** : Ce code est similaire au bug #BUG-456 corrigé le 2025-10-15. Le même pattern dangereux a été réintroduit.",
+  "why": "## Pourquoi c'est un problème\n\nCe buffer overflow est **critique** car il est exposé au réseau et peut être exploité à distance.\n\n### Scénario d'attaque\n\n```mermaid\nsequenceDiagram\n    participant Attaquant\n    participant Serveur UDP\n    participant Mémoire\n\n    Attaquant->>Serveur UDP: Paquet avec 1000 octets\n    Serveur UDP->>Mémoire: strcpy copie tout\n    Note over Mémoire: Débordement de pile\n    Mémoire-->>Serveur UDP: Crash (SIGSEGV)\n    Note over Serveur UDP: Serveur down\n```\n\n### Impact\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Crash du serveur | Haute | Critique |\n| Exécution de code arbitraire | Moyenne | Critique |\n| Déni de service permanent | Haute | Majeur |\n\n### Référence\n\n- **CWE-120** : Buffer Copy without Checking Size of Input\n- **Bug similaire** : #BUG-456 (corrigé 2025-10-15, régression détectée)",
+  "how": "## Comment corriger\n\n### Solution recommandée\n\nUtiliser `strncpy` avec une limite explicite et garantir la terminaison null.\n\n```cpp\nvoid processRequest(const char* user_data) {\n    char response_buffer[256];\n    \n    // ✅ Copie sécurisée avec limite\n    strncpy(response_buffer, user_data, sizeof(response_buffer) - 1);\n    response_buffer[sizeof(response_buffer) - 1] = '\\0';\n    \n    send(socket, response_buffer, strlen(response_buffer), 0);\n}\n```\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier strcpy] --> B[Remplacer par strncpy]\n    B --> C[Ajouter null terminator]\n    C --> D[Tester avec fuzzer]\n    D --> E[Code review sécurité]\n```\n\n### Validation\n\n1. Tester avec des inputs de 255, 256, 500 et 1000 caractères\n2. Vérifier avec Valgrind ou ASan qu'il n'y a plus de débordement\n3. Ajouter un test de régression pour ce cas\n\n### Références\n\n- [CWE-120](https://cwe.mitre.org/data/definitions/120.html)\n- Ticket original : #BUG-456"
+}
+```
+
 ## Règles
 
 1. **OBLIGATOIRE** : Consulter error_history EN PREMIER
 2. **OBLIGATOIRE** : Comparer le nouveau code aux bugs passés
 3. **OBLIGATOIRE** : Référencer les CWE pour chaque vulnérabilité
-4. **OBLIGATOIRE** : Fournir code actuel + correction pour chaque issue
-5. **OBLIGATOIRE** : Produire le JSON final pour synthesis
+4. **OBLIGATOIRE** : Fournir code actuel + correction pour chaque issue avec where/why/how
+5. **OBLIGATOIRE** : Produire le JSON final pour synthesis avec where/why/how complets
 6. **Toujours** tracer la propagation des vulnérabilités (symbol_callers)
 7. **Toujours** marquer les régressions comme BLOQUANTES
-8. **Jamais** de faux positifs - en cas de doute, mentionner l'incertitude
+8. **Toujours** inclure un diagramme Mermaid dans `why`
+9. **Jamais** de faux positifs - en cas de doute, mentionner l'incertitude

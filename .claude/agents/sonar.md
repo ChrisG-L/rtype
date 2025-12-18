@@ -336,13 +336,135 @@ L'agent SONAR ne calcule pas de score propre. Le score sera calculé par META-SY
 - Issues par sévérité
 - Issues par catégorie
 
+## QUALITÉ DES ISSUES - RÈGLES OBLIGATOIRES
+
+### Règle 1 : Snippet de code dans `where`
+
+Le champ `where` DOIT contenir un snippet de code de 5-15 lignes. **L'agent SONAR doit lire le fichier source pour extraire le code.**
+
+**Format obligatoire** :
+```markdown
+## Localisation
+
+Le problème se trouve dans `{fichier}` à la ligne {ligne}.
+
+```{langage}
+// Code problématique extrait du fichier source
+{snippet de 5-15 lignes lu depuis le fichier}
+```
+
+### Contexte du fichier
+
+{Description du rôle du fichier depuis file_context}
+
+Ce fichier est utilisé par :
+- {liste des dépendants}
+```
+
+**IMPORTANT** : L'agent SONAR doit utiliser `cat` ou `Read` pour extraire le snippet de code réel du fichier source.
+
+### Règle 2 : Diagramme Mermaid dans `why`
+
+Le champ `why` DOIT contenir au moins un diagramme Mermaid.
+
+**Types de diagrammes à utiliser selon la catégorie** :
+
+| Catégorie | Type de diagramme |
+|-----------|-------------------|
+| Security | `sequenceDiagram` (scénario d'attaque) |
+| Reliability | `graph TD` (flux d'erreur) |
+| Maintainability | `mindmap` (impacts de la complexité) |
+
+**Format obligatoire** :
+```markdown
+## Pourquoi c'est un problème
+
+{Message original SonarQube enrichi}
+
+### Visualisation du problème
+
+```mermaid
+{diagramme approprié selon la catégorie}
+```
+
+### Impact dans le projet
+
+{Impact basé sur file_context et dépendances}
+```
+
+### Règle 3 : isBug = crash uniquement
+
+**DÉFINITION STRICTE** :
+- `isBug: true` : Reliability + (Blocker|Critical) ET provoque un crash réel
+- `isBug: false` : TOUT LE RESTE
+
+**Le script transform-sonar.py applique déjà cette règle** : `is_bug = issue.category == "Reliability" and issue.severity in ("Blocker", "Critical")`
+
+### Règle 4 : Issues utiles uniquement
+
+Le filtrage est déjà fait par `transform-sonar.py`. L'agent SONAR doit enrichir toutes les issues reçues.
+
+### Règle 5 : Issues indépendantes
+
+Chaque issue DOIT être compréhensible seule.
+
+**INTERDIT** :
+- "Voir aussi SONAR-002"
+- "Ce problème est lié à..."
+- "En combinaison avec..."
+
+### Règle 6 : Markdown professionnel
+
+L'enrichissement doit produire un markdown riche :
+- Titres H2 et H3
+- Tableaux pour les impacts
+- Blocs de code avec langage
+- Diagrammes Mermaid
+- Liens vers la documentation SonarQube
+
+### Règle 7 : Contenu verbeux et explicatif
+
+**Longueur minimale après enrichissement** :
+- `where` : 100-200 mots + snippet de code **extrait du fichier**
+- `why` : 150-300 mots + diagramme Mermaid
+- `how` : 150-300 mots + code corrigé ou étapes
+
+**Format enrichi pour chaque issue** :
+
+```json
+{
+  "id": "SONAR-001",
+  "source": ["sonarqube"],
+  "title": "Cognitive Complexity too high (25)",
+  "severity": "Critical",
+  "category": "Maintainability",
+  "status": "pending",
+  "isBug": false,
+  "file": "src/server/UDPServer.cpp",
+  "line": 145,
+  "rule": "cpp:S3776",
+  "effort": "30min",
+  "agentdb_context": {
+    "module": "server",
+    "is_critical": true,
+    "patterns_violated": ["complexity"],
+    "adr_applicable": "ADR-007"
+  },
+  "where": "## Localisation\n\nLe problème se trouve dans `src/server/UDPServer.cpp` à la ligne 145.\n\n```cpp\n// Code extrait du fichier source\nvoid processMultipleRequests(const std::vector<Request>& requests) {\n    for (const auto& req : requests) {\n        if (req.type == RequestType::GET) {\n            if (req.authenticated) {\n                if (req.hasPermission(\"read\")) {\n                    // ... logique complexe ...\n                }\n            }\n        }\n    }\n}\n```\n\n### Contexte du fichier\n\nCe fichier (`UDPServer.cpp`) est le composant principal du serveur UDP. Il est marqué comme **critique** dans AgentDB car il gère toutes les connexions réseau.\n\n**Module** : server\n**Utilisé par** : main.cpp, APIServer.cpp, WebSocket.cpp\n\n> **Note** : Fichier marqué `is_critical` dans AgentDB.",
+  "why": "## Pourquoi c'est un problème\n\nCognitive Complexity of this function is 25 (maximum allowed: 15).\n\n**Règle SonarQube** : [cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)\n**Catégorie** : Maintainability\n**Effort estimé** : 30min\n\n### Visualisation de l'impact\n\n```mermaid\nmindmap\n  root((Complexité 25))\n    Tests difficiles\n      25 chemins à couvrir\n      Couverture actuelle < 60%\n    Bugs latents\n      Cas limites oubliés\n    Maintenance coûteuse\n      Fichier CRITIQUE\n      7 dépendants\n```\n\n### Impact dans le projet\n\nCe fichier critique est utilisé par 7 autres fichiers. Une complexité élevée dans ce composant central augmente le risque de bugs en cascade.\n\n### Pattern du projet concerné\n\nCe code viole le pattern **complexity** du projet : maximum recommandé 15, actuel 25.",
+  "how": "## Solution suggérée\n\n### Refactoring recommandé\n\n```cpp\n// APRÈS refactoring\nvoid processMultipleRequests(const std::vector<Request>& requests) {\n    for (const auto& req : requests) {\n        processRequest(req);\n    }\n}\n\nvoid processRequest(const Request& req) {\n    if (!validateRequest(req)) return;\n    \n    switch (req.type) {\n        case RequestType::GET:  handleGet(req);  break;\n        case RequestType::POST: handlePost(req); break;\n    }\n}\n```\n\n### Étapes de correction\n\n```mermaid\ngraph LR\n    A[Identifier blocs] --> B[Extraire fonctions]\n    B --> C[Ajouter tests]\n    C --> D[Valider complexité < 15]\n```\n\n1. Extraire la validation dans `validateRequest()`\n2. Créer des handlers séparés `handleGet()`, `handlePost()`\n3. Ajouter des tests unitaires pour chaque handler\n\n### Exemples dans le projet\n\nVoir l'implémentation correcte dans `src/server/TCPServer.cpp:120` qui suit le pattern recommandé.\n\n### Ressources\n\n- [Documentation SonarQube cpp:S3776](https://rules.sonarsource.com/cpp/RSPEC-3776)\n- ADR-007 : Error codes over exceptions"
+}
+```
+
 ## Règles
 
 1. **OBLIGATOIRE** : Appeler AgentDB pour CHAQUE fichier ayant des issues
-2. **OBLIGATOIRE** : Enrichir where/why/how avec le contexte du projet
-3. **OBLIGATOIRE** : Vérifier que CHAQUE issue a where/why/how non vides
-4. **OBLIGATOIRE** : Produire le JSON enrichi pour META-SYNTHESIS
-5. **OBLIGATOIRE** : Logger les queries AgentDB dans le rapport
-6. **Si AgentDB échoue** : Conserver les données basiques du script
-7. **Toujours** inclure le contexte module et criticité
-8. **Toujours** référencer les patterns et ADRs applicables
+2. **OBLIGATOIRE** : Lire le fichier source pour extraire le snippet de code réel
+3. **OBLIGATOIRE** : Enrichir where/why/how avec le contexte du projet ET diagrammes Mermaid
+4. **OBLIGATOIRE** : Vérifier que CHAQUE issue a where/why/how non vides et de qualité
+5. **OBLIGATOIRE** : Produire le JSON enrichi pour META-SYNTHESIS
+6. **OBLIGATOIRE** : Logger les queries AgentDB dans le rapport
+7. **Si AgentDB échoue** : Conserver les données basiques du script mais ajouter le snippet de code
+8. **Toujours** inclure le contexte module et criticité
+9. **Toujours** référencer les patterns et ADRs applicables
+10. **Toujours** inclure un diagramme Mermaid dans `why`

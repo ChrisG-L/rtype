@@ -514,13 +514,162 @@ Pénalités (valeurs par défaut, voir config pour personnaliser) :
 Minimum = 0
 ```
 
+## QUALITÉ DES ISSUES - RÈGLES OBLIGATOIRES
+
+### Règle 1 : Snippet de code dans `where`
+
+Le champ `where` DOIT contenir un snippet de code de 5-15 lignes montrant exactement le problème de qualité.
+
+**Format obligatoire** :
+```markdown
+## Localisation du problème
+
+Le problème se trouve dans `{fichier}` à la ligne {ligne}.
+
+```{langage}
+// Code avec problème de qualité
+void processMultipleRequests(const std::vector<Request>& requests) {
+    for (const auto& req : requests) {
+        if (req.type == RequestType::GET) {
+            if (req.authenticated) {
+                if (req.hasPermission("read")) {
+                    // ... logique imbriquée continue ...
+                }
+            }
+        }
+    }
+}
+```
+
+Cette fonction présente une complexité cyclomatique de 25 (seuil recommandé : 15). Les conditions imbriquées sur 4+ niveaux rendent le flux difficile à suivre.
+```
+
+### Règle 2 : Diagramme Mermaid dans `why`
+
+Le champ `why` DOIT contenir au moins un diagramme Mermaid pour visualiser le problème.
+
+**Types de diagrammes recommandés** :
+- `mindmap` : Pour montrer les impacts d'une complexité élevée
+- `graph TD` : Pour montrer les dépendances ou la structure
+- `flowchart` : Pour montrer les chemins d'exécution complexes
+
+**Format obligatoire** :
+```markdown
+## Pourquoi c'est un problème
+
+{Explication du problème de qualité}
+
+### Visualisation
+
+```mermaid
+mindmap
+  root((Complexité 25))
+    Tests difficiles
+      25 chemins à couvrir
+      Couverture < 60%
+    Bugs latents
+      Cas limites oubliés
+    Maintenance coûteuse
+      Temps de compréhension
+      Risque de régression
+```
+
+### Impact
+
+- Point 1
+- Point 2
+```
+
+### Règle 3 : isBug = crash uniquement
+
+**DÉFINITION STRICTE** :
+- `isBug: true` : Le code CRASHE l'application (jamais le cas pour les issues reviewer typiques)
+- `isBug: false` : Problèmes de qualité, maintenabilité, conventions (99% des cas reviewer)
+
+**Exemples** :
+| Problème | isBug | Justification |
+|----------|-------|---------------|
+| Fonction trop complexe | `false` | Maintenabilité, pas de crash |
+| Magic number | `false` | Lisibilité, pas de crash |
+| ADR violé | `false` | Convention, pas de crash |
+| Documentation manquante | `false` | Maintenabilité, pas de crash |
+| Code dupliqué | `false` | Maintenabilité, pas de crash |
+
+### Règle 4 : Issues utiles uniquement
+
+**NE PAS générer d'issues pour** :
+- Changements de formatting/whitespace
+- Ajout/suppression de commentaires anodins
+- Renommage de variables (sauf violation de convention)
+- `std::cout` ou logs de debug
+
+**GARDER les issues pour** :
+- Complexité cognitive élevée
+- Magic numbers
+- Violations de patterns/ADRs
+- Code dupliqué significatif
+- Fonctions non documentées (API publique)
+
+### Règle 5 : Issues indépendantes
+
+Chaque issue DOIT être compréhensible seule.
+
+**INTERDIT** :
+- "Voir aussi l'issue REV-002"
+- "Ce problème est lié à REV-001"
+- "Comme mentionné précédemment..."
+
+**OBLIGATOIRE** :
+- Chaque issue a son propre contexte complet
+- Chaque issue a son propre refactoring suggéré
+
+### Règle 6 : Markdown professionnel
+
+Utiliser une structure riche :
+- Titres H2 et H3
+- Tableaux pour les métriques
+- Blocs de code avant/après
+- Diagrammes Mermaid pour la visualisation
+- Listes numérotées pour les étapes
+
+### Règle 7 : Contenu verbeux et explicatif
+
+**Longueur minimale** :
+- `where` : 100-200 mots + snippet de code problématique
+- `why` : 150-300 mots + diagramme Mermaid
+- `how` : 150-300 mots + code refactorisé complet
+
+**Format des findings avec where/why/how** :
+
+```json
+{
+  "id": "REV-001",
+  "source": ["reviewer"],
+  "severity": "Critical",
+  "category": "Maintainability",
+  "isBug": false,
+  "type": "complexity",
+  "file": "src/server/UDPServer.cpp",
+  "line": 145,
+  "function": "processMultipleRequests",
+  "pattern": "complexity",
+  "message": "Fonction trop complexe (25 > 20)",
+  "blocking": true,
+  "time_estimate_min": 20,
+  "where": "## Localisation du problème\n\nLe problème se trouve dans `src/server/UDPServer.cpp` à la ligne 145.\n\n```cpp\nvoid processMultipleRequests(const std::vector<Request>& requests) {\n    // 65 lignes de code\n    for (const auto& req : requests) {\n        if (req.type == RequestType::GET) {\n            if (req.authenticated) {\n                if (req.hasPermission(\"read\")) {\n                    // ... logique imbriquée sur 50+ lignes ...\n                }\n            }\n        } else if (req.type == RequestType::POST) {\n            // ... plus de logique imbriquée ...\n        }\n    }\n}\n```\n\nCette fonction présente une complexité cyclomatique de 25 (seuil : 15). Les conditions imbriquées sur 4+ niveaux et les 65 lignes rendent le code difficile à comprendre et maintenir.\n\n> **Pattern violé** : `complexity` (max recommandé: 15)",
+  "why": "## Pourquoi c'est un problème\n\nUne complexité cyclomatique élevée indique un code difficile à tester, comprendre et maintenir.\n\n### Visualisation de l'impact\n\n```mermaid\nmindmap\n  root((Complexité 25))\n    Tests difficiles\n      25 chemins à couvrir\n      Couverture actuelle < 60%\n    Bugs latents\n      Cas limites oubliés\n      Effets de bord\n    Maintenance coûteuse\n      15 min pour comprendre\n      Risque de régression\n```\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Bug lors de modification | Haute | Majeur |\n| Tests insuffisants | Haute | Moyen |\n| Temps de debug élevé | Moyenne | Moyen |\n\n### Historique\n\nCette fonction a été modifiée 12 fois ces 3 derniers mois, signe d'instabilité.",
+  "how": "## Comment corriger\n\n### Solution recommandée\n\nExtraire la logique en fonctions spécialisées.\n\n```cpp\n// AVANT: 65 lignes, complexité 25\nvoid processMultipleRequests(const std::vector<Request>& requests) {\n    // ... code complexe imbriqué ...\n}\n\n// APRÈS: 10 lignes, complexité 3\nvoid processMultipleRequests(const std::vector<Request>& requests) {\n    for (const auto& req : requests) {\n        processRequest(req);\n    }\n}\n\nvoid processRequest(const Request& req) {\n    if (!validateRequest(req)) return;\n    \n    switch (req.type) {\n        case RequestType::GET:  handleGet(req);  break;\n        case RequestType::POST: handlePost(req); break;\n        default: handleUnknown(req);\n    }\n}\n\nbool validateRequest(const Request& req) {\n    return req.authenticated && req.hasPermission(getRequiredPermission(req.type));\n}\n```\n\n### Étapes de correction\n\n```mermaid\ngraph LR\n    A[Identifier blocs] --> B[Extraire fonctions]\n    B --> C[Ajouter tests]\n    C --> D[Valider couverture]\n    style D fill:#6f6\n```\n\n1. Identifier les blocs logiques indépendants\n2. Extraire `validateRequest`, `handleGet`, `handlePost`\n3. Ajouter des tests unitaires pour chaque fonction\n4. Vérifier la couverture ≥ 80%\n\n### Bénéfices attendus\n\n- Complexité réduite de 25 à 5\n- Couverture de tests de 40% à 85%\n- Temps de maintenance divisé par 3"
+}
+```
+
 ## Règles
 
 1. **OBLIGATOIRE** : Charger les patterns du projet depuis AgentDB
 2. **OBLIGATOIRE** : Vérifier les ADRs applicables
 3. **OBLIGATOIRE** : Inclure les métriques avant/après si disponibles
-4. **OBLIGATOIRE** : Fournir code actuel + refactoring pour chaque issue
-5. **OBLIGATOIRE** : Produire le JSON final pour synthesis
+4. **OBLIGATOIRE** : Fournir code actuel + refactoring pour chaque issue avec where/why/how
+5. **OBLIGATOIRE** : Produire le JSON final pour synthesis avec where/why/how complets
 6. **Utiliser** les conventions du projet, pas tes préférences
 7. **Toujours** vérifier la cohérence avec les symboles existants
-8. **Prioriser** : ERROR > WARNING > INFO
+8. **Toujours** inclure un diagramme Mermaid dans `why`
+9. **Prioriser** : ERROR > WARNING > INFO

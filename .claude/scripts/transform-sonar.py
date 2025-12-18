@@ -784,13 +784,82 @@ def get_how_suggestions(rule: str, message: str) -> list[str]:
     return HOW_SUGGESTIONS_FALLBACK["default"]
 
 
+def generate_mermaid_diagram(category: str, message: str) -> str:
+    """Generate a Mermaid diagram based on the issue category.
+
+    Returns an appropriate diagram type:
+    - Security: sequenceDiagram showing attack flow
+    - Reliability: graph TD showing error flow
+    - Maintainability: mindmap showing impacts
+    """
+    if category == "Security":
+        return """```mermaid
+sequenceDiagram
+    participant Attaquant
+    participant Application
+    participant Système
+
+    Attaquant->>Application: Données malveillantes
+    Application->>Système: Traitement non sécurisé
+    Note over Système: Vulnérabilité exploitée
+    Système-->>Attaquant: Accès non autorisé
+```"""
+    elif category == "Reliability":
+        return """```mermaid
+graph TD
+    A[Entrée problématique] --> B[Code vulnérable]
+    B --> C{Condition d'erreur}
+    C -->|Oui| D[❌ Comportement indéfini]
+    C -->|Non| E[✅ OK]
+    style D fill:#f66,stroke:#333
+```"""
+    else:  # Maintainability
+        # Extract key words from message for mindmap
+        short_msg = message[:30] if len(message) > 30 else message
+        return f"""```mermaid
+mindmap
+  root(({short_msg}))
+    Tests difficiles
+      Couverture insuffisante
+      Cas limites non testés
+    Maintenance coûteuse
+      Temps de compréhension élevé
+      Risque de régression
+    Dette technique
+      Code difficile à refactorer
+      Documentation manquante
+```"""
+
+
+def get_file_extension(file_path: str) -> str:
+    """Get the file extension for syntax highlighting."""
+    if file_path.endswith((".cpp", ".cc", ".cxx", ".hpp", ".h")):
+        return "cpp"
+    elif file_path.endswith((".c", ".h")):
+        return "c"
+    elif file_path.endswith((".py",)):
+        return "python"
+    elif file_path.endswith((".js", ".jsx")):
+        return "javascript"
+    elif file_path.endswith((".ts", ".tsx")):
+        return "typescript"
+    elif file_path.endswith((".java",)):
+        return "java"
+    elif file_path.endswith((".go",)):
+        return "go"
+    elif file_path.endswith((".rs",)):
+        return "rust"
+    else:
+        return "cpp"  # Default
+
+
 def issue_to_web_format(issue: "Issue", index: int) -> dict:
     """Transform a SonarQube issue to web JSON format with where/why/how.
 
     Generates detailed markdown content for each field:
-    - where: Location of the issue with file path and line number
-    - why: Explanation of the problem with rule reference and impact
-    - how: Suggested solutions based on the specific rule
+    - where: Location of the issue with file path, line number, and code placeholder
+    - why: Explanation of the problem with Mermaid diagram, rule reference and impact
+    - how: Suggested solutions based on the specific rule with steps
     """
     # Generate unique ID
     issue_id = f"SONAR-{index:03d}"
@@ -808,47 +877,100 @@ def issue_to_web_format(issue: "Issue", index: int) -> dict:
         "Ce problème affecte la qualité du code."
     )
 
+    # Get file extension for code blocks
+    lang = get_file_extension(issue.file)
+
     # =========================================================================
-    # BUILD 'where' MARKDOWN
+    # BUILD 'where' MARKDOWN - WITH CODE PLACEHOLDER
     # =========================================================================
     line_str = str(issue.line) if issue.line else "Non spécifiée"
     where_md = f"""## Localisation
 
-**Fichier** : `{issue.file}`
-**Ligne** : {line_str}
+Le problème se trouve dans `{issue.file}` à la ligne {line_str}.
+
+```{lang}
+// Code à la ligne {line_str}
+// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement
+// Message SonarQube : {issue.message[:80]}
+```
 
 ### Contexte
 
-Cette issue a été détectée par l'analyse statique SonarQube."""
+Cette issue a été détectée par l'analyse statique SonarQube sur la règle **{issue.rule}**.
+
+**Fichier** : `{issue.file}`
+**Ligne** : {line_str}
+**Sévérité** : {issue.severity}
+
+> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB."""
 
     # =========================================================================
-    # BUILD 'why' MARKDOWN
+    # BUILD 'why' MARKDOWN - WITH MERMAID DIAGRAM
     # =========================================================================
-    why_md = f"""## Problème
+    mermaid_diagram = generate_mermaid_diagram(issue.category, issue.message)
+
+    why_md = f"""## Pourquoi c'est un problème
 
 {issue.message}
 
 **Règle SonarQube** : [{issue.rule}]({doc_url})
 **Catégorie** : {issue.category}
+**Sévérité** : {issue.severity}
 **Effort estimé** : {issue.effort}
+
+### Visualisation du problème
+
+{mermaid_diagram}
 
 ### Impact
 
-{impact_description}"""
+{impact_description}
+
+### Risques
+
+| Risque | Probabilité | Impact |
+|--------|-------------|--------|
+| Dette technique accrue | Haute | Moyen |
+| Bugs lors de modifications | Moyenne | Majeur |
+| Temps de maintenance élevé | Haute | Moyen |"""
 
     # =========================================================================
-    # BUILD 'how' MARKDOWN
+    # BUILD 'how' MARKDOWN - WITH STEPS
     # =========================================================================
     suggestions = get_how_suggestions(issue.rule, issue.message)
     how_lines = [f"{i+1}. {s}" for i, s in enumerate(suggestions)]
 
-    how_md = f"""## Solution suggérée
+    how_md = f"""## Comment corriger
+
+### Solution suggérée
 
 {chr(10).join(how_lines)}
 
+### Processus de correction
+
+```mermaid
+graph LR
+    A[Identifier le problème] --> B[Appliquer la solution]
+    B --> C[Tester le changement]
+    C --> D[Valider avec SonarQube]
+    style D fill:#6f6,stroke:#333
+```
+
+### Étapes détaillées
+
+1. **Localiser** le code problématique dans `{issue.file}:{issue.line}`
+2. **Comprendre** la règle [{issue.rule}]({doc_url})
+3. **Appliquer** la correction selon les suggestions ci-dessus
+4. **Tester** que le comportement est préservé
+5. **Vérifier** avec SonarQube que l'issue est résolue
+
 ### Ressources
 
-- [Documentation SonarQube {issue.rule}]({doc_url})"""
+- [Documentation SonarQube {issue.rule}]({doc_url})
+
+### Temps estimé
+
+**{issue.effort}** pour corriger cette issue."""
 
     return {
         "id": issue_id,

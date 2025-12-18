@@ -598,6 +598,148 @@ Pour les FICHIERS CRITIQUES :
     Union de tous les fichiers mentionnés par les agents
 ```
 
+## QUALITÉ DES ISSUES - RÈGLES OBLIGATOIRES
+
+SYNTHESIS doit s'assurer que les findings des agents ont des where/why/how de qualité. Si un agent n'a pas fourni ces champs, SYNTHESIS doit les générer.
+
+### Règle 1 : Vérifier/Générer `where` avec snippet de code
+
+Pour chaque finding, vérifier que `where` contient un snippet de code. Sinon, le générer :
+
+```python
+def ensure_where_quality(finding):
+    if "where" not in finding or "```" not in finding.get("where", ""):
+        # Générer un where de qualité
+        finding["where"] = f"""## Localisation du problème
+
+Le problème se trouve dans `{finding['file']}` à la ligne {finding['line']}.
+
+```{get_language(finding['file'])}
+// Code à la ligne {finding['line']}
+// {finding.get('message', 'Problème détecté')}
+```
+
+### Contexte
+
+{finding.get('message', '')}
+
+> Source : {finding.get('source', ['unknown'])[0]}
+"""
+    return finding
+```
+
+### Règle 2 : Vérifier/Générer `why` avec diagramme Mermaid
+
+Pour chaque finding, vérifier que `why` contient un diagramme Mermaid. Sinon, le générer :
+
+```python
+def ensure_why_quality(finding):
+    if "why" not in finding or "```mermaid" not in finding.get("why", ""):
+        diagram = generate_mermaid_for_category(finding['category'])
+        finding["why"] = f"""## Pourquoi c'est un problème
+
+{finding.get('message', '')}
+
+**Catégorie** : {finding['category']}
+**Sévérité** : {finding['severity']}
+{"**Bloquant** : Oui" if finding.get('blocking') else ""}
+
+### Visualisation
+
+```mermaid
+{diagram}
+```
+
+### Impact
+
+{get_impact_for_category(finding['category'])}
+"""
+    return finding
+```
+
+### Règle 3 : Vérifier/Générer `how`
+
+Pour chaque finding, vérifier que `how` existe. Sinon, le générer :
+
+```python
+def ensure_how_quality(finding):
+    if "how" not in finding or len(finding.get("how", "")) < 100:
+        finding["how"] = f"""## Comment corriger
+
+### Solution suggérée
+
+{get_suggestion_for_type(finding)}
+
+### Temps estimé
+
+{finding.get('time_estimate_min', 'Non estimé')} minutes
+
+### Validation
+
+- [ ] Appliquer la correction
+- [ ] Vérifier que le problème est résolu
+- [ ] S'assurer qu'aucune régression n'est introduite
+"""
+    return finding
+```
+
+### Génération de diagrammes Mermaid
+
+```python
+def generate_mermaid_for_category(category):
+    if category == 'Security':
+        return """sequenceDiagram
+    participant Attaquant
+    participant Application
+    participant Système
+
+    Attaquant->>Application: Données malveillantes
+    Application->>Système: Traitement vulnérable
+    Système-->>Attaquant: Accès compromis"""
+
+    elif category == 'Reliability':
+        return """graph TD
+    A[Input] --> B[Code problématique]
+    B --> C{Erreur?}
+    C -->|Oui| D[❌ Crash/Bug]
+    C -->|Non| E[✅ OK]
+    style D fill:#f66"""
+
+    else:  # Maintainability
+        return """mindmap
+  root((Problème))
+    Tests
+      Couverture insuffisante
+    Maintenance
+      Temps de compréhension
+      Risque de régression
+    Équipe
+      Formation"""
+```
+
+### Format des findings avec where/why/how
+
+Les findings produits par SYNTHESIS doivent inclure ces champs :
+
+```json
+{
+  "id": "SEC-001",
+  "source": ["security"],
+  "severity": "Blocker",
+  "category": "Security",
+  "isBug": true,
+  "title": "Buffer Overflow (CWE-120)",
+  "file": "src/server/UDPServer.cpp",
+  "line": 67,
+  "message": "RÉGRESSION - Buffer Overflow similaire au bug #BUG-456",
+  "blocking": true,
+  "time_estimate_min": 5,
+  "where": "## Localisation...\n\n```cpp\n// code\n```\n\n...",
+  "why": "## Pourquoi...\n\n```mermaid\nsequenceDiagram\n...\n```\n\n...",
+  "how": "## Comment corriger...\n\n```cpp\n// code corrigé\n```\n\n..."
+}
+```
+
 ## Règles
 
 1. **OBLIGATOIRE** : Parser les JSON de TOUS les agents
@@ -605,6 +747,8 @@ Pour les FICHIERS CRITIQUES :
 3. **OBLIGATOIRE** : Produire l'executive summary en 3 lignes max
 4. **OBLIGATOIRE** : Générer la checklist avec cases à cocher
 5. **OBLIGATOIRE** : Calculer et expliquer le score global
-6. **Cohérence** : Si SECURITY dit CRITICAL → ne jamais dire APPROVE
-7. **Temps** : Toujours inclure les estimations de temps
-8. **Actionnable** : Chaque issue → une action concrète
+6. **OBLIGATOIRE** : Chaque finding DOIT avoir where/why/how de qualité
+7. **OBLIGATOIRE** : Chaque `why` DOIT contenir un diagramme Mermaid
+8. **Cohérence** : Si SECURITY dit CRITICAL → ne jamais dire APPROVE
+9. **Temps** : Toujours inclure les estimations de temps
+10. **Actionnable** : Chaque issue → une action concrète

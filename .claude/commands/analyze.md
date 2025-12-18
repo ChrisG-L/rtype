@@ -21,9 +21,21 @@ $ARGUMENTS
 
 ---
 
-## ÉTAPE 0 : Mettre à jour AgentDB (incrémental)
+## ÉTAPE 0 : Initialisation (logs + AgentDB)
 
-**Avant toute analyse, s'assurer que la base AgentDB est à jour avec les derniers fichiers.**
+**Avant toute analyse, nettoyer les logs et mettre à jour AgentDB.**
+
+### 0a. Nettoyer les logs de la session précédente
+
+```bash
+# Réinitialiser le fichier de log pour cette session d'analyse
+# Garde un header avec la date de début
+LOG_FILE=".claude/logs/agentdb_queries.log"
+mkdir -p .claude/logs 2>/dev/null || true
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [system] === NEW ANALYSIS SESSION ===" > "$LOG_FILE"
+```
+
+### 0b. Mettre à jour AgentDB (incrémental)
 
 ```bash
 # Mettre à jour AgentDB de manière incrémentale
@@ -32,7 +44,8 @@ python .claude/scripts/bootstrap.py --incremental 2>/dev/null || true
 ```
 
 **Comportement** :
-- Si la base n'existe pas : affiche un avertissement mais continue (l'analyse fonctionnera sans AgentDB)
+- Logs : Réinitialisés à chaque analyse (garde uniquement la session courante)
+- AgentDB : Si la base n'existe pas, affiche un avertissement mais continue
 - Si aucun changement : retourne instantanément "Base already up to date"
 - Si des fichiers ont changé : les réindexe en quelques secondes
 - En cas d'erreur : continue l'analyse (AgentDB est optionnel)
@@ -591,6 +604,43 @@ mkdir -p "$REPORT_DIR"
 └── meta-synthesis-report.md # Phase 3 - Agent META-SYNTHESIS (rapport lisible)
 ```
 
+## ÉTAPE 9b : Valider le rapport web
+
+**Après la génération du rapport web par WEB-SYNTHESIZER, valider le format JSON.**
+
+```bash
+# Valider le rapport web
+DATE=$(date +%Y-%m-%d)
+COMMIT_SHORT=$(git rev-parse --short HEAD)
+WEB_REPORT="reports/web-report-${DATE}-${COMMIT_SHORT}.json"
+
+echo "Validation du rapport web..."
+python .claude/scripts/validate-web-report.py "$WEB_REPORT"
+
+if [ $? -ne 0 ]; then
+    echo "❌ ERREUR: Le rapport web ne respecte pas le format attendu"
+    echo "Voir les erreurs ci-dessus et corriger"
+    exit 1
+fi
+
+echo "✅ Rapport web validé avec succès"
+```
+
+**Règles de validation** :
+- Structure JSON correcte (metadata, issues, issueDetails)
+- `issues.length === Object.keys(issueDetails).length`
+- Chaque `where` contient un snippet de code (```)
+- Chaque `why` contient un diagramme Mermaid (```mermaid)
+- `source` est toujours un tableau
+- Toutes les valeurs sont dans les listes autorisées (verdict, severity, category)
+- `isBug=true` uniquement pour les crashs
+
+**Si la validation échoue** :
+1. Identifier les erreurs dans le rapport
+2. Corriger les issues problématiques
+3. Re-générer le rapport web
+4. Re-valider
+
 ## ÉTAPE 10 : Mettre à jour le checkpoint et enregistrer l'analyse
 
 **APRÈS** avoir généré le rapport final et obtenu le verdict :
@@ -981,5 +1031,6 @@ Maintenant, exécute l'analyse en suivant les étapes ci-dessus.
    - **PHASE 3** : meta-synthesis (fusionne et dédoublonne)
    - **PHASE 4** : web-synthesizer (produit le JSON final)
 8. Vérifie que CHAQUE issue a where/why/how
-9. Mets à jour le checkpoint avec le verdict
-10. Affiche le verdict final
+9. **Valide le rapport web** (`python .claude/scripts/validate-web-report.py`)
+10. Mets à jour le checkpoint avec le verdict
+11. Affiche le verdict final

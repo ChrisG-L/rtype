@@ -494,13 +494,267 @@ Données manquantes = 0
 Fichier généré : `.claude/reports/{date}-{commit}/meta-synthesis.json`
 ```
 
+## QUALITÉ DES ISSUES - RÈGLES OBLIGATOIRES
+
+META-SYNTHESIS est le **gardien de la qualité**. Il doit vérifier et compléter les where/why/how pour garantir le niveau de qualité exigé.
+
+### Règle 1 : Vérifier les snippets de code dans `where`
+
+**Vérification** : Chaque `where` DOIT contenir un bloc de code.
+
+```python
+def validate_where(where_content):
+    # Doit contenir un bloc de code markdown
+    if "```" not in where_content:
+        return False, "Pas de snippet de code"
+    # Doit avoir une longueur minimale
+    if len(where_content) < 200:
+        return False, "Trop court (< 200 caractères)"
+    return True, "OK"
+```
+
+**Si le `where` est invalide** : Générer un where de qualité en utilisant AgentDB et la lecture du fichier source.
+
+### Règle 2 : Vérifier les diagrammes Mermaid dans `why`
+
+**Vérification** : Chaque `why` DOIT contenir au moins un diagramme Mermaid.
+
+```python
+def validate_why(why_content):
+    # Doit contenir un diagramme mermaid
+    if "```mermaid" not in why_content:
+        return False, "Pas de diagramme Mermaid"
+    # Doit avoir une longueur minimale
+    if len(why_content) < 300:
+        return False, "Trop court (< 300 caractères)"
+    return True, "OK"
+```
+
+**Si le `why` est invalide** : Générer un diagramme Mermaid approprié :
+- Security → `sequenceDiagram` (scénario d'attaque)
+- Reliability → `graph TD` (flux d'erreur)
+- Maintainability → `mindmap` (impacts)
+
+### Règle 3 : isBug cohérent
+
+**Vérification** : `isBug` doit être cohérent avec la définition.
+
+```python
+def validate_is_bug(issue):
+    # isBug = true uniquement pour les crashs
+    crash_patterns = ["crash", "segfault", "exception", "freeze", "null pointer"]
+
+    if issue["isBug"]:
+        # Vérifier que c'est vraiment un crash
+        message = issue.get("message", "").lower()
+        if not any(pattern in message for pattern in crash_patterns):
+            # Probablement une erreur de classification
+            return False, f"isBug=true mais pas de pattern de crash détecté"
+
+    return True, "OK"
+```
+
+### Règle 4 : Filtrer les issues sans valeur
+
+**Vérification** : Les issues doivent apporter de la valeur.
+
+```python
+USELESS_PATTERNS = [
+    "std::cout removed",
+    "console.log removed",
+    "variable renamed",
+    "formatting change",
+    "whitespace",
+    "import added",
+    "import removed"
+]
+
+def is_useful_issue(issue):
+    title = issue.get("title", "").lower()
+    message = issue.get("message", "").lower()
+
+    for pattern in USELESS_PATTERNS:
+        if pattern in title or pattern in message:
+            return False, f"Issue sans valeur : {pattern}"
+
+    return True, "OK"
+```
+
+**Si une issue est inutile** : La supprimer de la liste finale.
+
+### Règle 5 : Vérifier l'indépendance des issues
+
+**Vérification** : Pas de références croisées.
+
+```python
+CROSS_REF_PATTERNS = [
+    "voir aussi",
+    "see also",
+    "en lien avec",
+    "related to",
+    "comme mentionné",
+    "as mentioned",
+    "issue SEC-",
+    "issue ANA-",
+    "issue REV-",
+    "issue SONAR-"
+]
+
+def validate_independence(issue):
+    content = f"{issue.get('where', '')} {issue.get('why', '')} {issue.get('how', '')}"
+    content_lower = content.lower()
+
+    for pattern in CROSS_REF_PATTERNS:
+        if pattern in content_lower:
+            return False, f"Référence croisée détectée : {pattern}"
+
+    return True, "OK"
+```
+
+### Règle 6 : Markdown professionnel
+
+**Vérification** : Structure markdown riche.
+
+```python
+def validate_markdown(content, section_name):
+    errors = []
+
+    # Doit avoir des titres H2
+    if "## " not in content:
+        errors.append(f"{section_name}: Pas de titre H2")
+
+    # where doit avoir du code
+    if section_name == "where" and "```" not in content:
+        errors.append("where: Pas de bloc de code")
+
+    # why doit avoir un diagramme
+    if section_name == "why" and "```mermaid" not in content:
+        errors.append("why: Pas de diagramme Mermaid")
+
+    return len(errors) == 0, errors
+```
+
+### Règle 7 : Contenu verbeux
+
+**Longueur minimale** :
+
+| Section | Minimum | Éléments obligatoires |
+|---------|---------|----------------------|
+| `where` | 200 caractères | Titre H2, snippet de code, explication |
+| `why` | 300 caractères | Titre H2, diagramme Mermaid, impact |
+| `how` | 250 caractères | Titre H2, code corrigé ou étapes |
+
+### Template de génération pour issues agents sans where/why/how
+
+Si une issue agent n'a pas de where/why/how de qualité, générer :
+
+```python
+def generate_quality_where(issue):
+    return f"""## Localisation du problème
+
+Le problème se trouve dans `{issue['file']}` à la ligne {issue['line']}.
+
+```{get_language(issue['file'])}
+{read_code_snippet(issue['file'], issue['line'], context=5)}
+```
+
+### Contexte
+
+{issue['message']}
+
+{f"**Ce problème provoque un crash de l'application.**" if issue['isBug'] else ""}
+"""
+
+def generate_quality_why(issue):
+    diagram = generate_mermaid_diagram(issue)
+    return f"""## Pourquoi c'est un problème
+
+### Description
+
+{issue['message']}
+
+**Catégorie** : {issue['category']}
+**Sévérité** : {issue['severity']}
+
+### Visualisation
+
+```mermaid
+{diagram}
+```
+
+### Impact
+
+{get_impact_description(issue['category'])}
+"""
+
+def generate_quality_how(issue):
+    return f"""## Comment corriger
+
+### Solution suggérée
+
+{get_suggestion_for_category(issue['category'])}
+
+### Temps estimé
+
+{issue.get('time_estimate_min', 'Non estimé')} minutes
+
+### Validation
+
+- [ ] Vérifier que la correction résout le problème
+- [ ] S'assurer qu'aucune régression n'est introduite
+- [ ] Faire valider par un pair
+"""
+```
+
+### Génération de diagrammes Mermaid par catégorie
+
+```python
+def generate_mermaid_diagram(issue):
+    category = issue.get('category', 'Maintainability')
+
+    if category == 'Security':
+        return f"""sequenceDiagram
+    participant Attaquant
+    participant Application
+    participant Système
+
+    Attaquant->>Application: Données malveillantes
+    Application->>Système: Traitement non sécurisé
+    Note over Système: Vulnérabilité exploitée
+    Système-->>Attaquant: Accès non autorisé"""
+
+    elif category == 'Reliability':
+        return f"""graph TD
+    A[Entrée problématique] --> B[Code vulnérable]
+    B --> C{{Condition d'erreur}}
+    C -->|Oui| D[❌ Comportement indéfini]
+    C -->|Non| E[✅ OK]
+    style D fill:#f66"""
+
+    else:  # Maintainability
+        return f"""mindmap
+  root(({issue.get('message', 'Problème')[:30]}))
+    Tests
+      Couverture insuffisante
+      Cas limites
+    Maintenance
+      Temps de compréhension
+      Risque de régression
+    Équipe
+      Formation nécessaire
+      Documentation"""
+```
+
 ## Règles
 
 1. **OBLIGATOIRE** : Détecter et fusionner tous les doublons
-2. **OBLIGATOIRE** : Chaque issue DOIT avoir where/why/how NON VIDES
-3. **OBLIGATOIRE** : Vérifier l'équation `issues.length === issueDetails.count` avant output
-4. **OBLIGATOIRE** : Combiner les `source` lors de la fusion
-5. **OBLIGATOIRE** : Garder l'ID agent en priorité sur SonarQube
-6. **OBLIGATOIRE** : Garder la sévérité la plus haute lors de la fusion
-7. **Si données manquantes** : Utiliser AgentDB pour les récupérer
-8. **Ne JAMAIS** produire un rapport avec des issues orphelines
+2. **OBLIGATOIRE** : Chaque issue DOIT avoir where/why/how NON VIDES ET DE QUALITÉ
+3. **OBLIGATOIRE** : Vérifier les 7 règles de qualité sur chaque issue
+4. **OBLIGATOIRE** : Générer les where/why/how manquants avec diagrammes Mermaid
+5. **OBLIGATOIRE** : Vérifier l'équation `issues.length === issueDetails.count` avant output
+6. **OBLIGATOIRE** : Combiner les `source` lors de la fusion
+7. **OBLIGATOIRE** : Garder l'ID agent en priorité sur SonarQube
+8. **OBLIGATOIRE** : Garder la sévérité la plus haute lors de la fusion
+9. **Si données manquantes** : Utiliser AgentDB ET lire le fichier source
+10. **Supprimer** les issues sans valeur ajoutée (formatting, whitespace, etc.)
+11. **Ne JAMAIS** produire un rapport avec des issues orphelines ou de mauvaise qualité
