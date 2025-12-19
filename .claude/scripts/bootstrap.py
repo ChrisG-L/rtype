@@ -92,6 +92,7 @@ class BootstrapConfig:
         # Dependencies
         "third_party/**", "external/**", "deps/**",
         "vendor/**", "node_modules/**", ".venv/**", "venv/**",
+        "vcpkg_installed/**",
         # Caches
         ".cache/**", ".direnv/**", ".ccache/**",
         "__pycache__/**", "*.pyc", "*.egg-info/**",

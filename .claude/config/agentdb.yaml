@@ -80,6 +80,7 @@ indexing:
     # Dependencies
     - "vendor/**"
     - "node_modules/**"
+    - "third_party/**"
     - ".venv/**"
     - "venv/**"
     - "__pycache__/**"
