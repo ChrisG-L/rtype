@@ -35,6 +35,10 @@ RUN apt-get update && \
         python3 \
         rsync \
         clang \
+        autoconf \
+        autoconf-archive \
+        automake \
+        libtool \
         # Outils de cross-compilation Windows
         mingw-w64 \
         g++-mingw-w64-x86-64 \
