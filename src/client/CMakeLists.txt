@@ -1,4 +1,5 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR})
 
 # Common library (shared between client and plugins)
 add_library(rtype_client_common STATIC
@@ -108,6 +109,13 @@ add_executable(rtype_client
 
     src/accessibility/AccessibilityConfig.cpp
     src/audio/AudioManager.cpp
+)
+
+# RPATH configuration: chercher les .so dans le même répertoire que l'exécutable
+set_target_properties(rtype_client PROPERTIES
+    BUILD_RPATH_USE_ORIGIN ON
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_RPATH "$ORIGIN"
 )
 
 # Détection du compilateur
