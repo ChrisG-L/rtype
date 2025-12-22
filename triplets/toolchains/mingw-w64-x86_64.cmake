@@ -27,8 +27,9 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
 set(CMAKE_CXX_FLAGS_INIT "")
 set(CMAKE_C_FLAGS_INIT "")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "-static -static-libgcc -static-libstdc++")
-# DLLs cannot use -static-libstdc++ (causes multiple definition errors)
-set(CMAKE_SHARED_LINKER_FLAGS_INIT "-Wl,--allow-multiple-definition")
+# DLLs: liaison statique avec symboles cachés pour éviter les conflits ABI
+# --exclude-libs empêche l'export des symboles de libstdc++/libgcc
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "-static-libgcc -static-libstdc++ -Wl,--exclude-libs,libstdc++.a -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libgcc_eh.a")
 
 # Thread model
 set(CMAKE_THREAD_LIBS_INIT "-lpthread")

@@ -36,6 +36,19 @@ set_target_properties(rtype_sdl2 PROPERTIES
     CXX_EXTENSIONS NO
 )
 
+# MinGW: liaison statique du runtime C++ avec symboles cachés
+# Évite le conflit ABI avec l'exécutable qui a aussi libstdc++ statique
+if(MINGW)
+    target_link_options(rtype_sdl2 PRIVATE
+        -static-libgcc
+        -static-libstdc++
+        -Wl,--exclude-libs,libstdc++.a
+        -Wl,--exclude-libs,libgcc.a
+        -Wl,--exclude-libs,libgcc_eh.a
+    )
+    message(STATUS "rtype_sdl2: liaison statique C++ runtime avec symboles cachés (MinGW)")
+endif()
+
 # Find SDL2 packages - try vcpkg (CONFIG) first, fallback to pkg-config (system/Nix)
 find_package(SDL2 CONFIG QUIET)
 find_package(SDL2_image CONFIG QUIET)
