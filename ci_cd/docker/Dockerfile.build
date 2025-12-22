@@ -36,6 +36,9 @@ RUN apt-get update && \
         libudev-dev \
         libgl1-mesa-dev \
         pkg-config \
+        python3-full \
+        python3-pip \
+        python3-venv \
         python3 \
         rsync \
         clang \
