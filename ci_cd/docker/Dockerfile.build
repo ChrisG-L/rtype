@@ -5,6 +5,10 @@ LABEL maintainer="Killian Pluenet"
 LABEL project="R-Type"
 LABEL description="Dockerfile to build R-Type project"
 
+# FIX : Prioriser les binaires système standard (GNU) pour éviter les conflits avec Nix
+# Cela garantit que /usr/bin/install est utilisé au lieu de /nix/forwarding/bin/install
+ENV PATH="/usr/bin:/bin:${PATH}"
+
 # Installer les dépendances nécessaires pour la construction
 RUN apt-get update && \
     apt-get install -y \
