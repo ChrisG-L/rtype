@@ -12,8 +12,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <unistd.h>
 #include <vector>
+
+#ifndef _WIN32
+    #include <unistd.h>
+#else
+    #include <winsock2.h>
+    #include <mstcpip.h>
+#endif
 
 namespace client::network
 {
@@ -83,6 +89,20 @@ namespace client::network
             _endpoint = *results.begin();
 
             _socket.open(udp::v4());
+
+            // Bind à un port local (nécessaire sur Windows avant async_receive_from)
+            _socket.bind(udp::endpoint(udp::v4(), 0));
+
+            // Windows: désactiver ICMP Port Unreachable qui cause des erreurs sur UDP
+            #ifdef _WIN32
+                BOOL bNewBehavior = FALSE;
+                DWORD dwBytesReturned = 0;
+                WSAIoctl(
+                    _socket.native_handle(), SIO_UDP_CONNRESET,
+                    &bNewBehavior, sizeof(bNewBehavior),
+                    NULL, 0, &dwBytesReturned, NULL, NULL
+                );
+            #endif
 
             _connected = true;
 

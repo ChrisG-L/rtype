@@ -11,6 +11,11 @@
 #include <cstdint>
 #include <iostream>
 
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <mstcpip.h>
+#endif
+
 namespace infrastructure::adapters::in::network {
 
     static constexpr int BROADCAST_INTERVAL_MS = 50;
@@ -19,6 +24,16 @@ namespace infrastructure::adapters::in::network {
         : _io_ctx(io_ctx),
           _socket(io_ctx, udp::endpoint(udp::v4(), 4124)),
           _broadcastTimer(io_ctx) {
+        // Windows: désactiver ICMP Port Unreachable qui cause des erreurs sur UDP
+        #ifdef _WIN32
+            BOOL bNewBehavior = FALSE;
+            DWORD dwBytesReturned = 0;
+            WSAIoctl(
+                _socket.native_handle(), SIO_UDP_CONNRESET,
+                &bNewBehavior, sizeof(bNewBehavior),
+                NULL, 0, &dwBytesReturned, NULL, NULL
+            );
+        #endif
     }
 
     void UDPServer::start() {

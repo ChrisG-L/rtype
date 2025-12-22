@@ -73,6 +73,10 @@ static events::Key scancodeToKey(SDL_Scancode scancode)
 SDL2Window::SDL2Window(Vec2u winSize, const std::string& name)
     : _window(nullptr), _renderer(nullptr), _isOpen(true)
 {
+    // Windows: désactiver le DPI scaling pour avoir des pixels 1:1
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "0");
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         throw std::runtime_error("Failed to initialize SDL: " + std::string(SDL_GetError()));
     }
