@@ -28,8 +28,9 @@ set(CMAKE_CXX_FLAGS_INIT "")
 set(CMAKE_C_FLAGS_INIT "")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "-static -static-libgcc -static-libstdc++")
 # DLLs: liaison statique avec symboles cachés pour éviter les conflits ABI
-# --exclude-libs empêche l'export des symboles de libstdc++/libgcc
-set(CMAKE_SHARED_LINKER_FLAGS_INIT "-static-libgcc -static-libstdc++ -Wl,--exclude-libs,libstdc++.a -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libgcc_eh.a")
+# --allow-multiple-definition: résout conflits inline vs static lib (type_info, etc.)
+# --exclude-libs: empêche l'export des symboles de libstdc++/libgcc
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "-static-libgcc -static-libstdc++ -Wl,--allow-multiple-definition -Wl,--exclude-libs,libstdc++.a -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libgcc_eh.a")
 
 # Thread model
 set(CMAKE_THREAD_LIBS_INIT "-lpthread")

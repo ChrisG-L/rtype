@@ -34,14 +34,24 @@ set_target_properties(rtype_sdl2 PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS NO
+    # Assurer que la DLL/so va dans le même répertoire que l'exécutable
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR}
 )
+
+# Windows: enlever le préfixe "lib" pour avoir rtype_sdl2.dll (pas librtype_sdl2.dll)
+if(WIN32 OR MINGW)
+    set_target_properties(rtype_sdl2 PROPERTIES PREFIX "")
+endif()
 
 # MinGW: liaison statique du runtime C++ avec symboles cachés
 # Évite le conflit ABI avec l'exécutable qui a aussi libstdc++ statique
+# --allow-multiple-definition résout les conflits inline vs static lib
 if(MINGW)
     target_link_options(rtype_sdl2 PRIVATE
         -static-libgcc
         -static-libstdc++
+        -Wl,--allow-multiple-definition
         -Wl,--exclude-libs,libstdc++.a
         -Wl,--exclude-libs,libgcc.a
         -Wl,--exclude-libs,libgcc_eh.a
