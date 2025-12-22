@@ -1,0 +1,311 @@
+{
+  "metadata": {
+    "commit": "b0d4558",
+    "branch": "main",
+    "timestamp": "2025-12-19T17:00:00Z",
+    "verdict": "CAREFUL",
+    "score": 58
+  },
+  "issues": [
+    {
+      "id": "SEC-001",
+      "source": ["security", "reviewer"],
+      "title": "Race Condition potentielle (CWE-362)",
+      "category": "Reliability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/client/src/network/UDPClient.cpp",
+      "line": 123,
+      "status": "pending"
+    },
+    {
+      "id": "REV-001",
+      "source": ["reviewer"],
+      "title": "std::rand() non thread-safe",
+      "category": "Reliability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/server/infrastructure/game/GameWorld.cpp",
+      "line": 17,
+      "status": "pending"
+    },
+    {
+      "id": "SONAR-002",
+      "source": ["sonarqube"],
+      "title": "Exception dans destructeur (CWE-703)",
+      "category": "Reliability",
+      "severity": "Critical",
+      "isBug": true,
+      "file": "src/client/src/network/UDPClient.cpp",
+      "line": 28,
+      "status": "pending",
+      "rule": "cpp:S1048",
+      "effort": "30min"
+    },
+    {
+      "id": "SONAR-004",
+      "source": ["sonarqube"],
+      "title": "Imbrication >3 niveaux",
+      "category": "Maintainability",
+      "severity": "Critical",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 79,
+      "status": "pending",
+      "rule": "cpp:S134",
+      "effort": "10min"
+    },
+    {
+      "id": "ANA-001",
+      "source": ["analyzer"],
+      "title": "Impact GLOBAL cross-module",
+      "category": "Reliability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "multiple",
+      "line": 0,
+      "status": "pending"
+    },
+    {
+      "id": "ANA-002",
+      "source": ["analyzer"],
+      "title": "Violation architecture hexagonale",
+      "category": "Maintainability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 122,
+      "status": "pending"
+    },
+    {
+      "id": "REV-002",
+      "source": ["reviewer"],
+      "title": "Code duplique broadcast*",
+      "category": "Maintainability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 160,
+      "status": "pending"
+    },
+    {
+      "id": "SONAR-005",
+      "source": ["sonarqube"],
+      "title": "If imbriques fusionnables",
+      "category": "Maintainability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 79,
+      "status": "pending",
+      "rule": "cpp:S1066",
+      "effort": "5min"
+    },
+    {
+      "id": "SONAR-001",
+      "source": ["sonarqube"],
+      "title": "Bloc vide non documente",
+      "category": "Maintainability",
+      "severity": "Major",
+      "isBug": false,
+      "file": "src/client/src/network/UDPClient.cpp",
+      "line": 169,
+      "status": "pending",
+      "rule": "cpp:S108",
+      "effort": "5min"
+    },
+    {
+      "id": "SEC-003",
+      "source": ["security"],
+      "title": "Retours non verifies (CWE-252)",
+      "category": "Reliability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 44,
+      "status": "pending"
+    },
+    {
+      "id": "SEC-004",
+      "source": ["security"],
+      "title": "Subprocess sans validation (CWE-78)",
+      "category": "Security",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "claude.py",
+      "line": 42,
+      "status": "pending"
+    },
+    {
+      "id": "REV-003",
+      "source": ["reviewer"],
+      "title": "Magic numbers dans GameScene",
+      "category": "Maintainability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "src/client/src/scenes/GameScene.cpp",
+      "line": 344,
+      "status": "pending"
+    },
+    {
+      "id": "REV-004",
+      "source": ["reviewer"],
+      "title": "Variable wasDead toujours false",
+      "category": "Maintainability",
+      "severity": "Medium",
+      "isBug": false,
+      "file": "src/server/infrastructure/game/GameWorld.cpp",
+      "line": 501,
+      "status": "pending"
+    },
+    {
+      "id": "SONAR-003",
+      "source": ["sonarqube"],
+      "title": "Lambda capture non utilisee",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": "src/client/src/network/UDPClient.cpp",
+      "line": 149,
+      "status": "pending",
+      "rule": "cpp:S1481",
+      "effort": "5min"
+    },
+    {
+      "id": "ANA-003",
+      "source": ["analyzer"],
+      "title": "Champ health ajoute a NetworkPlayer",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": "src/client/include/network/UDPClient.hpp",
+      "line": 31,
+      "status": "pending"
+    },
+    {
+      "id": "REV-006",
+      "source": ["reviewer"],
+      "title": "std::cout utilise pour logging",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+      "line": 71,
+      "status": "pending"
+    },
+    {
+      "id": "REV-007",
+      "source": ["reviewer"],
+      "title": "Changement casse fichier font",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": "src/client/lib/sfml/include/utils/TextField.hpp",
+      "line": 19,
+      "status": "pending"
+    },
+    {
+      "id": "REV-008",
+      "source": ["reviewer"],
+      "title": "Documentation manquante",
+      "category": "Maintainability",
+      "severity": "Minor",
+      "isBug": false,
+      "file": "multiple",
+      "line": 0,
+      "status": "pending"
+    }
+  ],
+  "issueDetails": {
+    "SEC-001": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Lignes** : 121-163\n**Source** : security, risk, reviewer (issue REV-005 fusionnee)\n\n### Code problematique\n\n```cpp\nvoid UDPClient::disconnect()\n{\n    std::scoped_lock lock(_mutex);  // Premier lock (ligne 123)\n    if (!_connected) {\n        return;\n    }\n\n    auto logger = client::logging::Logger::getNetworkLogger();\n    logger->info(\"Disconnecting UDP...\");\n\n    _connected = false;\n    _ioContext.stop();\n\n    boost::system::error_code ec;\n    if (_socket.is_open()) {\n        _socket.close(ec);\n    }\n\n    {   // Ligne 139-144\n        std::lock_guard<std::mutex> plock(_playersMutex);  // Lock 2\n        _localPlayerId = std::nullopt;\n        _players.clear();\n        _isLocalPlayerDead = false;\n    }\n    {   // Ligne 145-148\n        std::lock_guard<std::mutex> mlock(_missilesMutex);  // Lock 3\n        _missiles.clear();\n    }\n    {   // Ligne 149-152\n        std::lock_guard<std::mutex> elock(_enemiesMutex);  // Lock 4\n        _enemies.clear();\n    }\n    {   // Ligne 153-156\n        std::lock_guard<std::mutex> emlock(_enemyMissilesMutex);  // Lock 5\n        _enemyMissiles.clear();\n    }\n}\n```\n\n### Contexte\n\nCette fonction acquiert plusieurs mutex sequentiellement. Si `handleSnapshot()` (ligne 262) acquiert ces memes mutex dans un ordre different, un deadlock peut survenir.\n\n**Ce probleme provoque un potentiel freeze de l'application.**",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nL'acquisition non-ordonnee de plusieurs mutex peut causer un deadlock lorsque deux threads tentent d'acquerir les memes locks dans un ordre different.\n\n**Categorie** : Reliability\n**Severite** : Major\n**Bloquant** : Oui\n\n### Visualisation\n\n```mermaid\nsequenceDiagram\n    participant T1 as Thread 1 (disconnect)\n    participant T2 as Thread 2 (handleSnapshot)\n    participant MA as _mutex\n    participant MP as _playersMutex\n    participant MM as _missilesMutex\n\n    T1->>MA: scoped_lock(_mutex)\n    Note over T1: Acquis\n    T2->>MP: lock_guard(_playersMutex)\n    Note over T2: Acquis\n    T1->>MP: lock_guard(_playersMutex)\n    Note over T1: BLOQUE - attend T2\n    T2->>MA: (besoin indirect via callback)\n    Note over T2: BLOQUE - attend T1\n    Note over T1,T2: DEADLOCK POTENTIEL\n```\n\n### Impact\n\n| Scenario | Consequence |\n|----------|-------------|\n| Deconnexion pendant snapshot | Gel du client |\n| Multi-threading intensif | Deadlock aleatoire |\n| Debug en production | Impossible a reproduire |\n\n### Risques\n\n| Risque | Probabilite | Impact |\n|--------|-------------|--------|\n| Freeze application | Moyenne | Critique |\n| Non-reproductibilite | Haute | Majeur |\n| Debug difficile | Haute | Majeur |",
+      "how": "## Comment corriger\n\n### Solution 1 : std::scoped_lock multi-mutex (Recommandee)\n\n```cpp\nvoid UDPClient::disconnect()\n{\n    // Acquerir tous les mutex simultanement - evite les deadlocks\n    std::scoped_lock lock(_mutex, _playersMutex, _missilesMutex, \n                          _enemiesMutex, _enemyMissilesMutex);\n    \n    if (!_connected) {\n        return;\n    }\n\n    auto logger = client::logging::Logger::getNetworkLogger();\n    logger->info(\"Disconnecting UDP...\");\n\n    _connected = false;\n    _ioContext.stop();\n\n    boost::system::error_code ec;\n    if (_socket.is_open()) {\n        _socket.close(ec);\n    }\n\n    _localPlayerId = std::nullopt;\n    _players.clear();\n    _isLocalPlayerDead = false;\n    _missiles.clear();\n    _enemies.clear();\n    _enemyMissiles.clear();\n\n    if (_onDisconnected) {\n        _onDisconnected();\n    }\n}\n```\n\n### Solution 2 : Ordre d'acquisition documente\n\n```cpp\n// Dans UDPClient.hpp - Documenter l'ordre obligatoire\n// Lock order: _mutex -> _playersMutex -> _missilesMutex -> _enemiesMutex -> _enemyMissilesMutex\n```\n\n### Temps estime\n\n120 minutes\n\n### Validation\n\n- [ ] Appliquer std::scoped_lock multi-mutex\n- [ ] Documenter l'ordre d'acquisition dans le header\n- [ ] Verifier handleSnapshot() respecte le meme ordre\n- [ ] Ajouter test de stress multi-thread\n- [ ] Tester deconnexion pendant reception intensive"
+    },
+    "REV-001": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/game/GameWorld.cpp`\n**Lignes** : 17-18 (initialisation) et multiples utilisations\n**Source** : reviewer, risk\n\n### Code problematique - Initialisation\n\n```cpp\nGameWorld::GameWorld() : _nextPlayerId(1) {\n    std::srand(static_cast<unsigned>(std::time(nullptr)));  // Ligne 18\n}\n```\n\n### Utilisations de std::rand() dans le fichier\n\n```cpp\n// Ligne 250 - Phase offset pour ennemis\nenemy.phaseOffset = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 6.28f;\n\n// Ligne 252 - Cooldown de tir\nenemy.shootCooldown = shootInterval * (0.3f + 0.7f * static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));\n\n// Ligne 255 - Direction zigzag\nenemy.zigzagUp = (std::rand() % 2) == 0;\n\n// Ligne 272 - Intervalle de vague\n_currentWaveInterval = WAVE_INTERVAL_MIN + static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * (...);\n\n// Ligne 275 - Nombre d'ennemis\nstatic_cast<uint8_t>(std::rand() % (ENEMIES_PER_WAVE_MAX - ENEMIES_PER_WAVE_MIN + 1));\n\n// Et plusieurs autres occurrences...\n```\n\n### Contexte\n\n`std::rand()` utilise un etat global partage. Dans un serveur multi-thread comme celui-ci, plusieurs threads peuvent appeler `std::rand()` simultanement, corrompant l'etat interne.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\n`std::rand()` et `std::srand()` ne sont pas thread-safe. Leur utilisation dans un serveur multi-thread peut provoquer des resultats imprevisibles voire une corruption de l'etat interne.\n\n**Categorie** : Reliability\n**Severite** : Major\n**Bloquant** : Oui\n\n### Visualisation\n\n```mermaid\ngraph TD\n    A[Thread 1: updateWaveSpawning] --> B[std::rand]\n    C[Thread 2: updateEnemies] --> B\n    D[Thread 3: checkCollisions] --> B\n    B --> E{Etat Global Partage}\n    E --> F[Data Race]\n    F --> G[Corruption Etat]\n    G --> H[Valeurs Incorrectes]\n    \n    style E fill:#f96,stroke:#333\n    style F fill:#f66,stroke:#333\n    style G fill:#f66,stroke:#333\n```\n\n### Impact\n\n| Consequence | Gravite |\n|-------------|--------|\n| Positions d'ennemis identiques | Moyen |\n| Vagues mal generees | Moyen |\n| Comportement non-deterministe | Eleve |\n| Bugs intermittents | Critique |\n\n### Standard C++\n\nSelon le standard C++, `rand()` n'est pas requis d'etre thread-safe. La plupart des implementations utilisent un etat global sans synchronisation.",
+      "how": "## Comment corriger\n\n### Solution recommandee : Generateur membre avec <random>\n\n```cpp\n// GameWorld.hpp - Ajouter membre\n#include <random>\n\nclass GameWorld {\nprivate:\n    std::mt19937 _rng;  // Mersenne Twister - thread-safe par instance\n    \n    // Helper pour distribution uniforme\n    float randomFloat(float min, float max) {\n        std::uniform_real_distribution<float> dist(min, max);\n        return dist(_rng);\n    }\n    \n    int randomInt(int min, int max) {\n        std::uniform_int_distribution<int> dist(min, max);\n        return dist(_rng);\n    }\n};\n\n// GameWorld.cpp\nGameWorld::GameWorld() : _nextPlayerId(1) {\n    std::random_device rd;\n    _rng.seed(rd());  // Seed avec entropie materielle\n}\n\n// Utilisation\nenemy.phaseOffset = randomFloat(0.0f, 6.28f);\nenemy.shootCooldown = shootInterval * randomFloat(0.3f, 1.0f);\nenemy.zigzagUp = randomInt(0, 1) == 0;\n```\n\n### Remplacements a effectuer\n\n| Ancien | Nouveau |\n|--------|--------|\n| `std::srand(...)` | `_rng.seed(std::random_device{}())` |\n| `std::rand() / RAND_MAX` | `randomFloat(0.0f, 1.0f)` |\n| `std::rand() % N` | `randomInt(0, N-1)` |\n\n### Temps estime\n\n60 minutes\n\n### Validation\n\n- [ ] Ajouter `std::mt19937 _rng` comme membre\n- [ ] Creer helpers `randomFloat()` et `randomInt()`\n- [ ] Remplacer tous les `std::rand()` (environ 10 occurrences)\n- [ ] Supprimer `std::srand()` du constructeur\n- [ ] Tester la distribution des valeurs generees\n- [ ] Verifier le comportement multi-thread"
+    },
+    "SONAR-002": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 26-29\n**Source** : sonarqube\n**Regle** : cpp:S1048\n\n### Code problematique\n\n```cpp\nUDPClient::~UDPClient()\n{\n    disconnect();  // Ligne 28 - PROBLEME: peut lever une exception\n}\n```\n\n### Methode disconnect() appelee\n\n```cpp\nvoid UDPClient::disconnect()\n{\n    std::scoped_lock lock(_mutex);  // Peut lever std::system_error\n    if (!_connected) {\n        return;\n    }\n    // ... operations sur socket et IO context\n    _ioContext.stop();              // Peut lever des exceptions\n    // ...\n}\n```\n\n### Contexte\n\nEn C++11+, les destructeurs sont implicitement `noexcept`. Si une exception est levee et non capturee dans un destructeur, le programme appelle `std::terminate()` et crash immediatement.\n\n**Ce probleme provoque un crash de l'application.**",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nEn C++11 et versions ulterieures, les destructeurs sont implicitement `noexcept`. Si une exception est levee dans un destructeur et n'est pas capturee, le programme appelle `std::terminate()` et crashe immediatement.\n\n**Regle SonarQube** : cpp:S1048\n**Categorie** : Reliability\n**Severite** : Critical\n**Bug** : Oui (crash potentiel)\n\n### Visualisation\n\n```mermaid\nsequenceDiagram\n    participant App as Application\n    participant UDPClient as ~UDPClient()\n    participant Disconnect as disconnect()\n    participant System as std::terminate\n\n    App->>UDPClient: Destruction\n    UDPClient->>Disconnect: Appel disconnect()\n    Disconnect->>Disconnect: std::scoped_lock lock(_mutex)\n    Note over Disconnect: Exception possible!\n    Disconnect--xUDPClient: Exception non capturee\n    UDPClient--xSystem: std::terminate()\n    Note over System: CRASH APPLICATION\n```\n\n### Scenarios de crash\n\n| Scenario | Cause | Resultat |\n|----------|-------|----------|\n| Mutex deja verrouille | std::system_error | Crash |\n| IO context deja arrete | Exception Boost | Crash |\n| Stack unwinding | Double exception | Crash |\n\n### Impact\n\n- Crash aleatoire a la fermeture du jeu\n- Ressources reseau non liberees\n- Experience utilisateur degradee",
+      "how": "## Comment corriger\n\n### Solution recommandee : Try-catch dans le destructeur\n\n```cpp\nUDPClient::~UDPClient() noexcept\n{\n    try {\n        disconnect();\n    } catch (const std::exception& e) {\n        // Logger l'erreur mais ne pas propager\n        try {\n            client::logging::Logger::getNetworkLogger()->error(\n                \"Exception in ~UDPClient: {}\", e.what());\n        } catch (...) {\n            // Ignorer les erreurs de logging\n        }\n    } catch (...) {\n        // Capturer toute exception inattendue\n    }\n}\n```\n\n### Solution alternative : disconnect() noexcept\n\n```cpp\nvoid UDPClient::disconnectNoexcept() noexcept\n{\n    try {\n        std::unique_lock<std::mutex> lock(_mutex, std::try_to_lock);\n        if (!lock.owns_lock() || !_connected) {\n            return;\n        }\n        _connected = false;\n        _ioContext.stop();\n        \n        boost::system::error_code ec;\n        if (_socket.is_open()) {\n            _socket.close(ec);  // Version avec error_code\n        }\n        // Nettoyage sans exception...\n    } catch (...) {\n        // Absorber silencieusement\n    }\n}\n\nUDPClient::~UDPClient() noexcept\n{\n    disconnectNoexcept();\n}\n```\n\n### Temps estime\n\n30 minutes\n\n### Validation\n\n- [ ] Envelopper disconnect() dans try-catch\n- [ ] Marquer le destructeur `noexcept` explicitement\n- [ ] Tester fermeture normale du client\n- [ ] Tester fermeture pendant connexion active\n- [ ] Valider avec SonarQube"
+    },
+    "ANA-001": {
+      "where": "## Localisation du probleme\n\n**Fichiers impactes** : Multiples (4 modules, 15+ fichiers)\n**Source** : analyzer\n\n### Modules touches\n\n```\nClient\n  src/client/src/network/UDPClient.cpp       [GLOBAL]\n  src/client/include/network/UDPClient.hpp   [GLOBAL]\n  src/client/src/scenes/GameScene.cpp        [MODULE]\n\nServer\n  src/server/infrastructure/game/GameWorld.cpp           [GLOBAL]\n  src/server/infrastructure/game/GameWorld.hpp           [GLOBAL]\n  src/server/infrastructure/adapters/in/network/UDPServer.cpp [GLOBAL]\n\nProtocol\n  src/common/protocol/Protocol.hpp           [GLOBAL]\n\n+ 8 autres fichiers modifies\n```\n\n### Fonctionnalites ajoutees\n\n- Systeme de missiles (spawn, destruction, collisions)\n- Systeme d'ennemis (types, vagues, IA)\n- Systeme de degats (health, mort joueur)\n- Synchronisation reseau etendue",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nCette modification touche 4 modules du systeme avec 35+ fonctions modifiees. L'impact est GLOBAL, ce qui augmente significativement le risque de regression.\n\n**Categorie** : Reliability\n**Severite** : Major\n\n### Visualisation\n\n```mermaid\nmindmap\n  root((Impact GLOBAL))\n    Client\n      UDPClient\n        getMissiles\n        getEnemies\n        handleSnapshot\n        handlePlayerDied\n      GameScene\n        renderMissiles\n        renderEnemies\n        renderDeathScreen\n        audio system\n    Server\n      GameWorld\n        spawnMissile\n        checkCollisions\n        updateEnemies\n        updateWaveSpawning\n      UDPServer\n        broadcast methods x6\n        game loop\n    Protocol\n      NetworkMissile\n      NetworkEnemy\n      health field\n      new message types\n```\n\n### Risques\n\n| Risque | Probabilite | Impact |\n|--------|-------------|--------|\n| Regression fonctionnelle | Haute | Majeur |\n| Bug de synchronisation | Moyenne | Critique |\n| Incompatibilite protocole | Moyenne | Majeur |",
+      "how": "## Comment corriger\n\n### Recommandations\n\n1. **Tests d'integration obligatoires**\n\n```cpp\n// test_missile_lifecycle.cpp\nTEST(Integration, MissileLifecycle) {\n    // 1. Client tire un missile\n    // 2. Serveur recoit ShootMissile\n    // 3. Serveur broadcast MissileSpawned\n    // 4. Missile touche ennemi\n    // 5. Serveur broadcast MissileDestroyed\n    // 6. Client met a jour affichage\n}\n```\n\n2. **Tests de compatibilite protocole**\n\n```cpp\nTEST(Protocol, BackwardCompatibility) {\n    // Verifier que les anciens messages sont toujours valides\n}\n```\n\n3. **Review par senior**\n\nAvec 4 modules impactes, une review senior est recommandee.\n\n### Temps estime\n\n180 minutes (review complete)\n\n### Validation\n\n- [ ] Ecrire tests d'integration missile lifecycle\n- [ ] Ecrire tests d'integration enemy lifecycle  \n- [ ] Ecrire tests d'integration damage system\n- [ ] Valider compatibilite protocole\n- [ ] Review par senior developer"
+    },
+    "ANA-002": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Lignes** : 121-157\n**Source** : analyzer, risk\n\n### Code problematique\n\n```cpp\nvoid UDPServer::scheduleBroadcast() {\n    _broadcastTimer.expires_after(std::chrono::milliseconds(BROADCAST_INTERVAL_MS));\n    _broadcastTimer.async_wait([this](boost::system::error_code ec) {\n        if (!ec) {\n            float deltaTime = BROADCAST_INTERVAL_MS / 1000.0f;\n\n            // LOGIQUE METIER DANS L'ADAPTER RESEAU\n            _gameWorld.updateMissiles(deltaTime);      // <- Violation!\n            _gameWorld.updateWaveSpawning(deltaTime);  // <- Violation!\n            _gameWorld.updateEnemies(deltaTime);       // <- Violation!\n            _gameWorld.checkCollisions();              // <- Violation!\n\n            auto destroyedMissiles = _gameWorld.getDestroyedMissiles();\n            for (uint16_t id : destroyedMissiles) {\n                broadcastMissileDestroyed(id);\n            }\n            // ... autres broadcasts\n            \n            broadcastSnapshot();\n            scheduleBroadcast();\n        }\n    });\n}\n```\n\n### Contexte\n\nDans une architecture hexagonale, l'adapter reseau (`UDPServer`) ne devrait faire QUE du reseau. La game loop devrait etre dans le domaine ou l'application.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLa logique de jeu (update, collisions, spawning) est couplee a l'adapter reseau au lieu d'etre dans le domaine/application. Ceci viole le principe de separation des preoccupations.\n\n**Categorie** : Maintainability\n**Severite** : Major\n\n### Visualisation\n\n```mermaid\ngraph LR\n    subgraph \"Architecture Actuelle - INCORRECTE\"\n        A[UDPServer Adapter] --> B[Game Logic]\n        A --> C[Network IO]\n        style A fill:#f96\n    end\n    \n    subgraph \"Architecture Hexagonale - CORRECTE\"\n        D[IGameLoop Port] --> E[GameLoopUseCase]\n        E --> F[GameWorld Domain]\n        G[UDPServer Adapter] --> H[Network IO Only]\n        G -.-> D\n        style G fill:#6f6\n    end\n```\n\n### Consequences\n\n| Probleme | Impact |\n|----------|--------|\n| Couplage fort | Difficile a modifier |\n| Tests complexes | Besoin de mock reseau pour tester logique |\n| Single Responsibility viole | Une classe, deux responsabilites |\n| Maintenance difficile | Changements cascadent |",
+      "how": "## Comment corriger\n\n### Solution : Extraire la game loop dans un use case\n\n```cpp\n// application/ports/in/IGameLoop.hpp\nclass IGameLoop {\npublic:\n    virtual ~IGameLoop() = default;\n    virtual void tick(float deltaTime) = 0;\n    \n    // Callbacks pour notifier des evenements\n    using OnMissileDestroyed = std::function<void(uint16_t)>;\n    using OnEnemyDestroyed = std::function<void(uint16_t)>;\n    using OnPlayerDied = std::function<void(uint8_t)>;\n    \n    virtual void setOnMissileDestroyed(OnMissileDestroyed cb) = 0;\n    virtual void setOnEnemyDestroyed(OnEnemyDestroyed cb) = 0;\n    virtual void setOnPlayerDied(OnPlayerDied cb) = 0;\n};\n\n// application/use_cases/GameLoopUseCase.cpp\nclass GameLoopUseCase : public IGameLoop {\npublic:\n    void tick(float deltaTime) override {\n        _gameWorld.updateMissiles(deltaTime);\n        _gameWorld.updateWaveSpawning(deltaTime);\n        _gameWorld.updateEnemies(deltaTime);\n        _gameWorld.checkCollisions();\n        \n        // Notifier via callbacks\n        for (auto id : _gameWorld.getDestroyedMissiles()) {\n            if (_onMissileDestroyed) _onMissileDestroyed(id);\n        }\n        // ...\n    }\n};\n\n// UDPServer.cpp - Refactored\nvoid UDPServer::scheduleBroadcast() {\n    // ...\n    _gameLoop->tick(deltaTime);  // Delegation!\n    broadcastSnapshot();\n    scheduleBroadcast();\n}\n```\n\n### Temps estime\n\n120 minutes\n\n### Validation\n\n- [ ] Creer IGameLoop interface\n- [ ] Implementer GameLoopUseCase\n- [ ] Injecter dans UDPServer\n- [ ] Migrer la logique\n- [ ] Ecrire tests unitaires du use case (sans reseau)"
+    },
+    "REV-002": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Lignes** : 160-283 (6 fonctions)\n**Source** : reviewer, risk\n\n### Pattern repete 6 fois\n\n```cpp\nvoid UDPServer::broadcastMissileSpawned(...) {\n    const size_t totalSize = UDPHeader::WIRE_SIZE + MissileSpawned::WIRE_SIZE;\n    std::vector<uint8_t> buf(totalSize);     // <- Pattern\n\n    UDPHeader head{                           // <- Pattern\n        .type = static_cast<uint16_t>(MessageType::MissileSpawned),\n        .sequence_num = 0,\n        .timestamp = UDPHeader::getTimestamp()\n    };\n    head.to_bytes(buf.data());               // <- Pattern\n    // ... payload specifique\n    \n    auto endpoints = _gameWorld.getAllEndpoints();  // <- Pattern\n    for (const auto& ep : endpoints) {              // <- Pattern\n        sendTo(ep, buf.data(), buf.size());         // <- Pattern\n    }\n}\n```\n\n### Fonctions dupliquees\n\n1. `broadcastSnapshot()` (ligne 98)\n2. `broadcastMissileSpawned()` (ligne 160)\n3. `broadcastMissileDestroyed()` (ligne 190)\n4. `broadcastEnemyDestroyed()` (ligne 210)\n5. `broadcastPlayerDamaged()` (ligne 230)\n6. `broadcastPlayerDied()` (ligne 263)",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLe meme pattern de serialisation/broadcast est repete dans 6 fonctions, violant le principe DRY (Don't Repeat Yourself).\n\n**Categorie** : Maintainability\n**Severite** : Major\n\n### Visualisation\n\n```mermaid\ngraph TD\n    A[broadcastSnapshot] --> G[Pattern Identique]\n    B[broadcastMissileSpawned] --> G\n    C[broadcastMissileDestroyed] --> G\n    D[broadcastEnemyDestroyed] --> G\n    E[broadcastPlayerDamaged] --> G\n    F[broadcastPlayerDied] --> G\n    G --> H{Modification?}\n    H --> I[6 endroits a modifier]\n    I --> J[Risque d'oubli]\n    J --> K[Inconsistance]\n    \n    style I fill:#f96\n    style J fill:#f66\n```\n\n### Consequences\n\n| Probleme | Impact |\n|----------|--------|\n| DRY viole | 6x le meme code |\n| Modification risquee | Oubli probable |\n| Inconsistance | Comportement different possible |\n| Maintenance | Temps x6 |",
+      "how": "## Comment corriger\n\n### Solution : Template function generique\n\n```cpp\n// UDPServer.hpp\ntemplate<typename Payload>\nvoid broadcast(MessageType type, const Payload& payload);\n\n// UDPServer.cpp\ntemplate<typename Payload>\nvoid UDPServer::broadcast(MessageType type, const Payload& payload) {\n    const size_t totalSize = UDPHeader::WIRE_SIZE + Payload::WIRE_SIZE;\n    std::vector<uint8_t> buf(totalSize);\n\n    UDPHeader head{\n        .type = static_cast<uint16_t>(type),\n        .sequence_num = _sequenceNum++,\n        .timestamp = UDPHeader::getTimestamp()\n    };\n    head.to_bytes(buf.data());\n    payload.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);\n\n    for (const auto& ep : _gameWorld.getAllEndpoints()) {\n        sendTo(ep, buf.data(), buf.size());\n    }\n}\n\n// Usage simplifie\nvoid UDPServer::broadcastMissileSpawned(uint16_t id, uint8_t owner) {\n    auto missileOpt = _gameWorld.getMissile(id);\n    if (!missileOpt) return;\n    \n    MissileSpawned ms{\n        .missile_id = id,\n        .owner_id = owner,\n        .x = static_cast<uint16_t>(missileOpt->x),\n        .y = static_cast<uint16_t>(missileOpt->y)\n    };\n    broadcast(MessageType::MissileSpawned, ms);\n}\n\nvoid UDPServer::broadcastMissileDestroyed(uint16_t id) {\n    broadcast(MessageType::MissileDestroyed, MissileDestroyed{.missile_id = id});\n}\n\nvoid UDPServer::broadcastPlayerDied(uint8_t playerId) {\n    broadcast(MessageType::PlayerDied, PlayerDied{.player_id = playerId});\n}\n```\n\n### Temps estime\n\n120 minutes\n\n### Validation\n\n- [ ] Creer template broadcast<T>\n- [ ] Refactorer les 6 fonctions\n- [ ] Tester chaque type de message\n- [ ] Verifier serialisation correcte"
+    },
+    "SONAR-004": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Lignes** : 295-352 (handle_receive)\n**Source** : sonarqube\n**Regle** : cpp:S134\n\n### Code problematique\n\n```cpp\nvoid UDPServer::handle_receive(const boost::system::error_code& error, std::size_t bytes) {\n    if (error) {                                  // Niveau 1\n        // ...\n    }\n    if (bytes < UDPHeader::WIRE_SIZE) {          // Niveau 1\n        // ...\n    }\n    // ...\n    if (!playerIdOpt) {                          // Niveau 1\n        auto newIdOpt = _gameWorld.addPlayer(_remote_endpoint);\n        if (newIdOpt) {                          // Niveau 2\n            // ...\n        } else {                                  // Niveau 2\n            // ...\n        }\n    }\n    // ...\n    if (head.type == ...) {                      // Niveau 1\n        if (payload_size >= MovePlayer::WIRE_SIZE) {  // Niveau 2\n            auto moveOpt = MovePlayer::from_bytes(...);\n            if (moveOpt) {                       // Niveau 3\n                if (someCondition) {             // Niveau 4 - VIOLATION!\n                    // ...\n                }\n            }\n        }\n    }\n}\n```\n\n### Contexte\n\nL'imbrication excessive rend le code difficile a lire et augmente la complexite cyclomatique.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nL'imbrication excessive de structures de controle (if/for/while) rend le code difficile a lire, tester et maintenir. La regle recommande un maximum de 3 niveaux.\n\n**Regle SonarQube** : cpp:S134\n**Categorie** : Maintainability\n**Severite** : Critical\n\n### Visualisation\n\n```mermaid\nmindmap\n  root((Imbrication >3))\n    Lisibilite\n      Code difficile a suivre\n      Logique complexe\n    Tests\n      Nombreux chemins\n      Couverture difficile\n    Maintenance\n      Bugs lors de modifications\n      Refactoring risque\n    Complexite\n      Cyclomatique elevee\n      Cognitive elevee\n```\n\n### Metriques\n\n| Metrique | Actuel | Objectif |\n|----------|--------|----------|\n| Niveaux d'imbrication | 4+ | 3 max |\n| Chemins d'execution | ~16+ | <8 |\n| Complexite cognitive | Elevee | Moyenne |",
+      "how": "## Comment corriger\n\n### Solution : Early return pattern + extraction\n\n```cpp\nvoid UDPServer::handle_receive(const boost::system::error_code& error, std::size_t bytes) {\n    // Early returns\n    if (error) {\n        std::cerr << \"Receive error: \" << error.message() << std::endl;\n        do_read();\n        return;\n    }\n\n    if (bytes < UDPHeader::WIRE_SIZE) {\n        do_read();\n        return;\n    }\n\n    auto headOpt = UDPHeader::from_bytes(_readBuffer, bytes);\n    if (!headOpt) {\n        do_read();\n        return;\n    }\n\n    uint8_t playerId = ensurePlayerRegistered();\n    if (playerId == 0) {\n        do_read();\n        return;\n    }\n\n    // Delegation a des methodes dediees\n    handleMessage(*headOpt, playerId, bytes);\n    do_read();\n}\n\nvoid UDPServer::handleMessage(const UDPHeader& head, uint8_t playerId, size_t bytes) {\n    const uint8_t* payload = _readBuffer + UDPHeader::WIRE_SIZE;\n    size_t payload_size = bytes - UDPHeader::WIRE_SIZE;\n\n    switch (static_cast<MessageType>(head.type)) {\n        case MessageType::MovePlayer:\n            handleMovePlayer(playerId, payload, payload_size);\n            break;\n        case MessageType::ShootMissile:\n            handleShootMissile(playerId);\n            break;\n        default:\n            break;\n    }\n}\n```\n\n### Temps estime\n\n10 minutes\n\n### Validation\n\n- [ ] Appliquer early return pattern\n- [ ] Extraire sous-fonctions si necessaire\n- [ ] Verifier imbrication <= 3\n- [ ] Valider avec SonarQube"
+    },
+    "SONAR-005": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Lignes** : 337-343\n**Source** : sonarqube\n**Regle** : cpp:S1066\n\n### Code problematique\n\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {\n    if (payload_size >= MovePlayer::WIRE_SIZE) {  // <- FUSIONNABLE\n        auto moveOpt = MovePlayer::from_bytes(payload, payload_size);\n        if (moveOpt) {\n            _gameWorld.movePlayer(playerId, moveOpt->x, moveOpt->y);\n        }\n    }\n}\n```\n\n### Contexte\n\nLes deux conditions consecutives sans `else` entre elles peuvent etre combinees avec `&&`.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nDes instructions `if` imbriquees sans `else` entre elles peuvent souvent etre fusionnees en une seule condition avec `&&`. Cela ameliore la lisibilite et reduit l'imbrication.\n\n**Regle SonarQube** : cpp:S1066\n**Categorie** : Maintainability\n**Severite** : Major\n\n### Visualisation\n\n```mermaid\ngraph TD\n    subgraph \"Avant\"\n        A1[if condition1] --> B1[if condition2]\n        B1 --> C1[action]\n    end\n\n    subgraph \"Apres\"\n        A2[\"if condition1 && condition2\"] --> C2[action]\n    end\n\n    style B1 fill:#f96\n    style A2 fill:#6f6\n```\n\n### Comparaison\n\n| Avant | Apres |\n|-------|-------|\n| 3 niveaux | 2 niveaux |\n| 6 lignes | 4 lignes |\n| Lisibilite moyenne | Lisibilite bonne |",
+      "how": "## Comment corriger\n\n### Solution : Fusionner avec &&\n\n**Avant** :\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {\n    if (payload_size >= MovePlayer::WIRE_SIZE) {\n        auto moveOpt = MovePlayer::from_bytes(payload, payload_size);\n        if (moveOpt) {\n            _gameWorld.movePlayer(playerId, moveOpt->x, moveOpt->y);\n        }\n    }\n}\n```\n\n**Apres** :\n```cpp\nif (head.type == static_cast<uint16_t>(MessageType::MovePlayer)\n    && payload_size >= MovePlayer::WIRE_SIZE) {\n    \n    auto moveOpt = MovePlayer::from_bytes(payload, payload_size);\n    if (moveOpt) {\n        _gameWorld.movePlayer(playerId, moveOpt->x, moveOpt->y);\n    }\n}\n```\n\n### Temps estime\n\n5 minutes\n\n### Validation\n\n- [ ] Fusionner les conditions\n- [ ] Tester comportement identique\n- [ ] Valider avec SonarQube"
+    },
+    "SEC-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Lignes** : 44-52\n**Source** : security\n\n### Code problematique\n\n```cpp\nvoid UDPServer::sendTo(const udp::endpoint& endpoint, const void* data, size_t size) {\n    auto buf = std::make_shared<std::vector<uint8_t>>(\n        static_cast<const uint8_t*>(data),\n        static_cast<const uint8_t*>(data) + size\n    );\n\n    _socket.async_send_to(\n        boost::asio::buffer(buf->data(), buf->size()),\n        endpoint,\n        [buf](boost::system::error_code ec, std::size_t) {\n            if (ec) {\n                std::cerr << \"Send error: \" << ec.message() << std::endl;\n                // PROBLEME: Erreur loggee mais pas geree!\n            }\n        }\n    );\n}\n```\n\n### Contexte\n\nLes erreurs d'envoi sont loggees sur stderr mais aucune action corrective n'est prise. Un joueur peut se retrouver desynchronise sans en etre notifie.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLes erreurs de fonction reseau sont loggees mais pas gerees, ce qui peut mener a des desynchronisations silencieuses.\n\n**CWE** : CWE-252 (Unchecked Return Value)\n**Categorie** : Reliability\n**Severite** : Medium\n\n### Visualisation\n\n```mermaid\ngraph TD\n    A[async_send_to] --> B{Erreur?}\n    B -->|Oui| C[Log stderr]\n    C --> D[Continue sans action]\n    B -->|Non| E[OK]\n    D --> F[Joueur perd des updates]\n    F --> G[Desynchronisation]\n    G --> H[Experience degradee]\n    \n    style D fill:#f96\n    style F fill:#f96\n    style G fill:#f66\n```\n\n### Consequences\n\n| Erreur | Consequence non geree |\n|--------|----------------------|\n| connection_refused | Joueur croit etre connecte |\n| host_unreachable | Paquets perdus silencieusement |\n| network_down | Aucune notification |",
+      "how": "## Comment corriger\n\n### Solution : Gerer les erreurs specifiques\n\n```cpp\n[buf, this, endpoint](boost::system::error_code ec, std::size_t) {\n    if (ec) {\n        // Logger avec niveau appropriate\n        std::cerr << \"Send error to \" << endpoint.address().to_string() \n                  << \":\" << endpoint.port() << \" - \" << ec.message() << std::endl;\n        \n        // Gerer les erreurs critiques\n        if (ec == boost::asio::error::connection_refused ||\n            ec == boost::asio::error::host_unreachable ||\n            ec == boost::asio::error::network_down) {\n            // Marquer le joueur pour deconnexion\n            schedulePlayerDisconnect(endpoint);\n        }\n        \n        // Incrementer compteur pour metriques\n        _sendErrorCount++;\n    }\n}\n```\n\n### Temps estime\n\n30 minutes\n\n### Validation\n\n- [ ] Gerer les codes d'erreur specifiques\n- [ ] Ajouter metriques de paquets perdus\n- [ ] Tester deconnexion brutale client\n- [ ] Logger avec niveau appropriate"
+    },
+    "SEC-004": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `claude.py`\n**Lignes** : 41-51\n**Source** : security, risk\n\n### Code problematique\n\n```python\ndef switch_branch(branch_name: str) -> bool:\n    \"\"\"Change de branche git.\"\"\"\n    log_to_stderr(f\"Switching to branch: {branch_name}\\n\")\n    result = subprocess.run(\n        [\"git\", \"checkout\", branch_name],  # branch_name non sanitize\n        capture_output=True,\n        text=True\n    )\n    if result.stdout:\n        log_to_stderr(result.stdout)\n    return result.returncode == 0\n```\n\n### Contexte\n\nLe parametre `branch_name` n'est pas valide avant d'etre passe a subprocess. Bien que l'utilisation d'une liste (pas shell=True) rende l'injection difficile, c'est une bonne pratique de valider les entrees.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLe parametre `branch_name` est utilise directement dans une commande subprocess sans validation. Bien que l'utilisation actuelle (liste d'arguments sans shell=True) soit relativement safe, c'est une bonne hygiene de securite.\n\n**CWE** : CWE-78 (OS Command Injection)\n**Categorie** : Security\n**Severite** : Medium\n\n### Visualisation\n\n```mermaid\nsequenceDiagram\n    participant User as Utilisateur\n    participant Script as claude.py\n    participant Shell as Subprocess\n\n    User->>Script: switch_branch(\"main; rm -rf /\")\n    Script->>Shell: git checkout \"main; rm -rf /\"\n    Note over Shell: Actuellement safe (pas shell=True)\n    Shell-->>Script: Erreur git\n    Note over Script: Mais pourrait devenir vulnerable\n```\n\n### Risque actuel\n\n| Aspect | Statut |\n|--------|--------|\n| shell=True | Non (safe) |\n| Liste d'arguments | Oui (safe) |\n| Validation input | Non (risque futur) |\n| Refactoring danger | Oui |",
+      "how": "## Comment corriger\n\n### Solution : Validation regex\n\n```python\nimport re\n\nGIT_BRANCH_PATTERN = re.compile(r'^[a-zA-Z0-9_\\-/.]+$')\n\ndef switch_branch(branch_name: str) -> bool:\n    \"\"\"Change de branche git avec validation.\"\"\"\n    # Valider le nom de branche\n    if not branch_name or not GIT_BRANCH_PATTERN.match(branch_name):\n        log_to_stderr(f\"Invalid branch name: {branch_name}\\n\")\n        return False\n    \n    # Longueur maximale (git limite a 255 caracteres)\n    if len(branch_name) > 255:\n        log_to_stderr(f\"Branch name too long: {len(branch_name)} chars\\n\")\n        return False\n    \n    log_to_stderr(f\"Switching to branch: {branch_name}\\n\")\n    result = subprocess.run(\n        [\"git\", \"checkout\", branch_name],\n        capture_output=True,\n        text=True\n    )\n    if result.stdout:\n        log_to_stderr(result.stdout)\n    return result.returncode == 0\n```\n\n### Temps estime\n\n30 minutes\n\n### Validation\n\n- [ ] Ajouter validation regex\n- [ ] Tester avec noms valides\n- [ ] Tester avec noms malveillants\n- [ ] Documenter le format attendu"
+    },
+    "REV-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/scenes/GameScene.cpp`\n**Lignes** : 340-352 et autres\n**Source** : reviewer\n\n### Code avec magic numbers\n\n```cpp\nvoid GameScene::renderEnemies()\n{\n    // ...\n    _context.window->drawRect(\n        static_cast<float>(enemy.x),\n        static_cast<float>(enemy.y),\n        ENEMY_WIDTH,    // OK - constante nommee\n        ENEMY_HEIGHT,   // OK - constante nommee\n        {c.r, c.g, c.b, c.a}\n    );\n    // ...\n}\n\n// Potentiels magic numbers detectes ailleurs:\n// - Valeurs de timing (cooldowns, delays)\n// - Offsets de position\n// - Tailles de HUD\n```\n\n### Contexte\n\nBien que le code montre utilise des constantes (ENEMY_WIDTH/HEIGHT), d'autres fonctions de rendu peuvent contenir des valeurs hardcodees.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nDes valeurs numeriques codees en dur rendent le code difficile a comprendre et maintenir.\n\n**Categorie** : Maintainability\n**Severite** : Medium\n\n### Visualisation\n\n```mermaid\nmindmap\n  root((Magic Numbers))\n    Problemes\n      Comprehension difficile\n      Signification obscure\n      Duplication probable\n    Solutions\n      Constantes nommees\n      Configuration\n      Header dedie\n```\n\n### Exemples typiques\n\n| Magic Number | Devrait etre |\n|--------------|-------------|\n| 0.3f | DEATH_SCREEN_ALPHA |\n| 10 | HUD_MARGIN_PX |\n| 200.0f | MOVE_SPEED |",
+      "how": "## Comment corriger\n\n### Solution : Header de constantes\n\n```cpp\n// GameConstants.hpp\n#pragma once\n\nnamespace game::constants {\n    // Rendu\n    constexpr float DEATH_SCREEN_ALPHA = 0.7f;\n    constexpr int HUD_MARGIN_PX = 10;\n    constexpr int HEALTH_BAR_WIDTH = 100;\n    constexpr int HEALTH_BAR_HEIGHT = 10;\n    \n    // Gameplay\n    constexpr float RESPAWN_DELAY_SECONDS = 3.0f;\n    constexpr float SHOOT_COOLDOWN_SECONDS = 0.3f;\n    \n    // Dimensions\n    constexpr float SHIP_WIDTH = 50.0f;\n    constexpr float SHIP_HEIGHT = 30.0f;\n}\n```\n\n### Temps estime\n\n15 minutes\n\n### Validation\n\n- [ ] Identifier tous les magic numbers\n- [ ] Creer GameConstants.hpp\n- [ ] Remplacer les valeurs hardcodees\n- [ ] Verifier compilation"
+    },
+    "REV-004": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/game/GameWorld.cpp`\n**Lignes** : 490-513\n**Source** : reviewer\n\n### Code problematique\n\n```cpp\nfor (auto& [playerId, player] : _players) {\n    if (!player.alive) continue;  // <-- Skip si mort\n\n    collision::AABB playerBox(...);\n\n    if (missileBox.intersects(playerBox)) {\n        bool wasDead = !player.alive;  // <-- Toujours false ici!\n        if (player.health > PLAYER_DAMAGE) {\n            player.health -= PLAYER_DAMAGE;\n        } else {\n            player.health = 0;\n            player.alive = false;\n        }\n\n        _playerDamageEvents.push_back({playerId, PLAYER_DAMAGE});\n\n        if (!wasDead && !player.alive) {  // <-- wasDead toujours false\n            _deadPlayers.push_back(playerId);\n        }\n        // ...\n    }\n}\n```\n\n### Contexte\n\nLa variable `wasDead` est initialisee apres le `continue` qui skip les joueurs morts. Elle sera donc toujours `false`.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLa variable `wasDead` est toujours `false` car on a un `if (!player.alive) continue;` avant. C'est du code mort qui ajoute de la confusion.\n\n**Categorie** : Maintainability\n**Severite** : Medium\n\n### Visualisation\n\n```mermaid\ngraph TD\n    A[\"for (player : _players)\"] --> B{player.alive?}\n    B -->|Non| C[continue - skip]\n    B -->|Oui| D[\"wasDead = !player.alive\"]\n    D --> E[\"wasDead est TOUJOURS false\"]\n    E --> F[\"Code mort / confusion\"]\n    \n    style E fill:#f96\n    style F fill:#f66\n```\n\n### Analyse\n\n| Variable | Valeur possible | Raison |\n|----------|----------------|--------|\n| wasDead | false uniquement | Le `continue` a filtre les morts |",
+      "how": "## Comment corriger\n\n### Solution : Simplifier la logique\n\n```cpp\nfor (auto& [playerId, player] : _players) {\n    if (!player.alive) continue;\n\n    collision::AABB playerBox(...);\n\n    if (missileBox.intersects(playerBox)) {\n        if (player.health > PLAYER_DAMAGE) {\n            player.health -= PLAYER_DAMAGE;\n        } else {\n            player.health = 0;\n            player.alive = false;\n            _deadPlayers.push_back(playerId);  // Simplifie!\n        }\n\n        _playerDamageEvents.push_back({playerId, PLAYER_DAMAGE});\n        // ...\n    }\n}\n```\n\n### Temps estime\n\n5 minutes\n\n### Validation\n\n- [ ] Supprimer variable wasDead\n- [ ] Simplifier la condition\n- [ ] Tester le comportement"
+    },
+    "SONAR-001": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 169 (environ)\n**Source** : sonarqube\n**Regle** : cpp:S108\n\n### Contexte du fichier\n\n```cpp\n// Lignes 165-174\nbool UDPClient::isConnected() const\n{\n    return _connected && _socket.is_open();\n}\n\nstd::optional<uint8_t> UDPClient::getLocalPlayerId() const\n{\n    std::lock_guard<std::mutex> lock(_playersMutex);\n    return _localPlayerId;\n}\n```\n\n### Note\n\nLa ligne exacte du bloc vide n'est pas clairement identifiable dans le code actuel. Il peut s'agir d'un bloc catch vide ou d'un if vide non visible dans l'extrait.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nSonarQube detecte un bloc compose vide (empty compound statement) qui n'est ni implemente ni commente.\n\n**Regle** : cpp:S108\n**Categorie** : Maintainability\n**Severite** : Major\n\n### Visualisation\n\n```mermaid\nmindmap\n  root((Bloc vide))\n    Intentions possibles\n      Code incomplet\n      Placeholder oublie\n      Intentionnel\n    Problemes\n      Intention peu claire\n      Confusion\n      Code smell\n```",
+      "how": "## Comment corriger\n\n### Solution 1 : Ajouter commentaire\n\n```cpp\nif (someCondition) {\n    // Intentionally empty: condition checked for side effects only\n}\n```\n\n### Solution 2 : Implementer\n\nSi le bloc devait contenir de la logique, l'implementer.\n\n### Solution 3 : Supprimer\n\nSi le bloc est inutile, le supprimer.\n\n### Temps estime\n\n5 minutes\n\n### Validation\n\n- [ ] Identifier le bloc vide exact\n- [ ] Determiner l'intention\n- [ ] Corriger selon le cas"
+    },
+    "SONAR-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Lignes** : 220-234\n**Source** : sonarqube\n**Regle** : cpp:S1481\n\n### Code concerne\n\n```cpp\nvoid UDPClient::asyncSendTo(std::shared_ptr<std::vector<uint8_t>>& buf, size_t totalSize) {\n    if (!isConnected()) {\n        client::logging::Logger::getNetworkLogger()->warn(\"Not connected\");\n        return;\n    }\n    _socket.async_send_to(\n        boost::asio::buffer(buf->data(), totalSize),\n        _endpoint,\n        [buf](const boost::system::error_code &error, std::size_t) {\n            // 'buf' capture pour maintenir le buffer en vie\n            // mais n'est pas utilise explicitement dans le corps\n            if (error) {\n                client::logging::Logger::getNetworkLogger()->error(\n                    \"UDP write error: {}\", error.message());\n            }\n        }\n    );\n}\n```\n\n### Contexte\n\nLa capture de `buf` est **intentionnelle** pour prolonger la duree de vie du shared_ptr pendant l'operation asynchrone. C'est un pattern courant avec Boost.ASIO.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nSonarQube detecte une capture lambda non utilisee. Cependant, dans ce cas, la capture est **intentionnelle** pour maintenir le buffer en vie.\n\n**Regle** : cpp:S1481\n**Categorie** : Maintainability\n**Severite** : Minor\n**Note** : FAUX POSITIF partiel - la capture est necessaire!\n\n### Visualisation\n\n```mermaid\nsequenceDiagram\n    participant Caller as Appelant\n    participant AsyncSend as asyncSendTo()\n    participant Lambda as Lambda callback\n    participant Buffer as shared_ptr<buf>\n\n    Caller->>AsyncSend: asyncSendTo(buf, size)\n    AsyncSend->>Lambda: Capture [buf]\n    AsyncSend-->>Caller: Retour immediat\n    Note over Buffer: buf maintenu en vie par capture!\n    Lambda->>Lambda: Operation complete\n    Lambda->>Buffer: Release (destruction)\n```\n\n### Analyse\n\n| Aspect | Statut |\n|--------|--------|\n| Capture necessaire? | **OUI** |\n| Utilisee explicitement? | Non |\n| Supprimer la capture? | **DANGEREUX** - use-after-free |",
+      "how": "## Comment corriger\n\n### Solution : Ajouter cast void ou commentaire\n\n```cpp\n[buf](const boost::system::error_code &error, std::size_t) {\n    // buf intentionally captured to extend buffer lifetime during async op\n    (void)buf;  // Suppress unused warning\n    if (error) {\n        client::logging::Logger::getNetworkLogger()->error(\n            \"UDP write error: {}\", error.message());\n    }\n}\n```\n\n### Alternative : Utiliser [[maybe_unused]] (C++17)\n\n```cpp\n[[maybe_unused]] auto buf_keeper = buf;  // Dans la lambda\n```\n\n### Temps estime\n\n5 minutes\n\n### Validation\n\n- [ ] Ajouter (void)buf ou commentaire\n- [ ] Ne PAS supprimer la capture!\n- [ ] Valider avec SonarQube"
+    },
+    "ANA-003": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/include/network/UDPClient.hpp`\n**Ligne** : 31\n**Source** : analyzer\n\n### Code concerne\n\n```cpp\nstruct NetworkPlayer {\n    uint8_t id;\n    uint16_t x, y;\n    uint8_t health;  // NOUVEAU - compatibilite arriere ?\n    bool alive;\n};\n```\n\n### Contexte\n\nL'ajout d'un nouveau champ modifie la structure des donnees echangees. Si des clients plus anciens se connectent, ils pourraient mal interpreter les donnees.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nL'ajout d'un champ modifie potentiellement la compatibilite du protocole reseau.\n\n**Categorie** : Maintainability (Compatibility)\n**Severite** : Minor\n\n```mermaid\ngraph LR\n    A[Ancien client] --> B[Serveur nouveau]\n    B --> C{Format compatible?}\n    C -->|Non| D[Erreur parsing]\n    C -->|Oui| E[OK]\n```\n\n### Questions\n\n- Les anciens clients peuvent-ils se connecter?\n- Le serveur gere-t-il les deux versions?\n- Le CHANGELOG documente-t-il ce changement?",
+      "how": "## Comment corriger\n\n### Actions\n\n1. Documenter le changement de protocole dans CHANGELOG\n2. Verifier que le serveur gere les anciens clients (si applicable)\n3. Bumper la version du protocole si necessaire\n\n### Temps estime\n\n5 minutes (documentation)\n\n### Validation\n\n- [ ] Documenter dans CHANGELOG\n- [ ] Verifier compatibilite"
+    },
+    "REV-006": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Lignes** : 71-73, 95, 282, 297\n**Source** : reviewer\n\n### Code problematique\n\n```cpp\n// Ligne 71-73\nstd::cout << \"Player \" << static_cast<int>(playerId)\n          << \" joined from \" << endpoint.address().to_string()\n          << \":\" << endpoint.port() << std::endl;\n\n// Ligne 95\nstd::cout << \"Player \" << static_cast<int>(playerId) << \" left\" << std::endl;\n\n// Ligne 282\nstd::cout << \"Player \" << static_cast<int>(playerId) << \" died\" << std::endl;\n\n// Ligne 297\nstd::cerr << \"Receive error: \" << error.message() << std::endl;\n```",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLe projet a un Logger existant mais le serveur utilise std::cout/cerr directement, creant une inconsistance.\n\n**Categorie** : Maintainability\n**Severite** : Minor\n\n```mermaid\ngraph LR\n    A[std::cout] --> B[Pas de niveaux]\n    A --> C[Pas thread-safe]\n    D[Logger] --> E[DEBUG/INFO/WARN]\n    D --> F[Thread-safe]\n    style A fill:#f96\n    style D fill:#6f6\n```\n\n### Consequences\n\n| Probleme | Impact |\n|----------|--------|\n| Pas de niveaux de log | Debug difficile |\n| Pas de rotation | Fichiers logs croissants |\n| Inconsistance | Deux systemes de log |",
+      "how": "## Comment corriger\n\n### Solution : Utiliser le Logger existant\n\n```cpp\n// Ajouter membre\n#include \"infrastructure/logging/Logger.hpp\"\n\n// Dans le constructeur\n_logger = infrastructure::logging::Logger::getServerLogger();\n\n// Usage\n_logger->info(\"Player {} joined from {}:{}\", \n    playerId, endpoint.address().to_string(), endpoint.port());\n\n_logger->info(\"Player {} left\", playerId);\n\n_logger->info(\"Player {} died\", playerId);\n\n_logger->error(\"Receive error: {}\", error.message());\n```\n\n### Temps estime\n\n10 minutes\n\n### Validation\n\n- [ ] Remplacer std::cout par Logger\n- [ ] Remplacer std::cerr par Logger\n- [ ] Verifier les niveaux de log"
+    },
+    "REV-007": {
+      "where": "## Localisation du probleme\n\n**Fichier** : `src/client/lib/sfml/include/utils/TextField.hpp`\n**Ligne** : 19\n**Source** : reviewer\n\n### Code concerne\n\n```cpp\n// TextField.hpp ligne 19\nm_font.openFromFile(\"assets/fonts/ARIAL.TTF\");\n```\n\n### Contexte\n\nPossible probleme de casse dans le chemin du fichier font. Sur Linux, les chemins sont sensibles a la casse.",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nSur Linux, les systemes de fichiers sont case-sensitive. Un chemin avec mauvaise casse fonctionnera sur Windows mais pas sur Linux.\n\n**Categorie** : Maintainability\n**Severite** : Minor\n\n```mermaid\ngraph TD\n    A[Chemin ARIAL.TTF] --> B{Systeme?}\n    B -->|Windows| C[OK - case insensitive]\n    B -->|Linux| D[Erreur si arial.ttf]\n    style D fill:#f96\n```\n\n### Exemple\n\n```\nassets/Fonts/arial.ttf  <- Windows OK\nassets/fonts/arial.ttf  <- Linux cherche ca\n```",
+      "how": "## Comment corriger\n\n### Solution\n\nVerifier que le chemin correspond exactement a la casse du fichier sur le systeme de fichiers.\n\n### Temps estime\n\n5 minutes\n\n### Validation\n\n- [ ] Verifier casse du chemin\n- [ ] Tester sur Linux"
+    },
+    "REV-008": {
+      "where": "## Localisation du probleme\n\n**Fichiers** : Multiples headers\n**Source** : reviewer\n\n### Headers sans documentation Doxygen\n\n```cpp\n// UDPClient.hpp - structures non documentees\nstruct NetworkMissile {\n    uint16_t id;\n    uint8_t owner_id;\n    uint16_t x, y;\n};\n\nstruct NetworkEnemy {\n    uint16_t id;\n    uint16_t x, y;\n    uint8_t health;\n    uint8_t enemy_type;\n};\n```\n\n- Nouvelles structures de donnees (NetworkEnemy, NetworkMissile)\n- Nouvelles methodes publiques\n- Nouveaux types de messages protocole",
+      "why": "## Pourquoi c'est un probleme\n\n### Description\n\nLes nouveaux headers et structures publiques n'ont pas de documentation Doxygen, rendant l'API difficile a comprendre.\n\n**Categorie** : Maintainability\n**Severite** : Minor\n\n```mermaid\nmindmap\n  root((Documentation))\n    Manquante\n      NetworkMissile\n      NetworkEnemy\n      Methodes publiques\n    Impact\n      Comprehension difficile\n      Onboarding lent\n```",
+      "how": "## Comment corriger\n\n### Solution : Ajouter Doxygen\n\n```cpp\n/**\n * @brief Represente un ennemi recu du serveur\n */\nstruct NetworkEnemy {\n    uint16_t id;       ///< Identifiant unique de l'ennemi\n    uint16_t x, y;     ///< Position en pixels\n    uint8_t health;    ///< Points de vie (0-255)\n    uint8_t enemy_type;///< Type d'ennemi (voir EnemyType)\n};\n```\n\n### Temps estime\n\n60 minutes\n\n### Validation\n\n- [ ] Documenter structures publiques\n- [ ] Documenter methodes publiques\n- [ ] Generer documentation Doxygen"
+    }
+  }
+}

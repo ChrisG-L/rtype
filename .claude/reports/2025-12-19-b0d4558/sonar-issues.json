@@ -1,0 +1,92 @@
+[
+  {
+    "id": "SONAR-001",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Fill this compound statement, remove it, or add a nested comment explaining why it is empty.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/UDPClient.cpp",
+    "line": 169,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/src/network/UDPClient.cpp` à la ligne 169.\n\n```cpp\n// Code à la ligne 169\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Fill this compound statement, remove it, or add a nested comment explaining why \n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S108**.\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 169\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nFill this compound statement, remove it, or add a nested comment explaining why it is empty.\n\n**Règle SonarQube** : [cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Fill this compound statement, ))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Implémenter le code manquant\n2. Ajouter un commentaire justifiant le bloc vide\n3. Supprimer le bloc vide si inutile\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/src/network/UDPClient.cpp:169`\n2. **Comprendre** la règle [cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S108](https://rules.sonarsource.com/cpp/RSPEC-108)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S108"
+  },
+  {
+    "id": "SONAR-002",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Do not throw uncaught exceptions in a destructor.",
+    "severity": "Critical",
+    "category": "Reliability",
+    "status": "pending",
+    "isBug": true,
+    "file": "src/client/src/network/UDPClient.cpp",
+    "line": 28,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/src/network/UDPClient.cpp` à la ligne 28.\n\n```cpp\n// Code à la ligne 28\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Do not throw uncaught exceptions in a destructor.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1048**.\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 28\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nDo not throw uncaught exceptions in a destructor.\n\n**Règle SonarQube** : [cpp:S1048](https://rules.sonarsource.com/cpp/RSPEC-1048)\n**Catégorie** : Reliability\n**Sévérité** : Critical\n**Effort estimé** : 30min\n\n### Visualisation du problème\n\n```mermaid\ngraph TD\n    A[Entrée problématique] --> B[Code vulnérable]\n    B --> C{Condition d'erreur}\n    C -->|Oui| D[❌ Comportement indéfini]\n    C -->|Non| E[✅ OK]\n    style D fill:#f66,stroke:#333\n```\n\n### Impact\n\nCe problème peut causer des bugs, crashes ou comportements inattendus.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Encapsuler le code du destructeur dans un try/catch\n2. Logger l'erreur au lieu de la propager\n3. Marquer le destructeur avec noexcept\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/src/network/UDPClient.cpp:28`\n2. **Comprendre** la règle [cpp:S1048](https://rules.sonarsource.com/cpp/RSPEC-1048)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1048](https://rules.sonarsource.com/cpp/RSPEC-1048)\n\n### Temps estimé\n\n**30min** pour corriger cette issue.",
+    "effort": "30min",
+    "rule": "cpp:S1048"
+  },
+  {
+    "id": "SONAR-003",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Remove the unused lambda capture \"buf\".",
+    "severity": "Minor",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/client/src/network/UDPClient.cpp",
+    "line": 149,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/client/src/network/UDPClient.cpp` à la ligne 149.\n\n```cpp\n// Code à la ligne 149\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Remove the unused lambda capture \"buf\".\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1481**.\n\n**Fichier** : `src/client/src/network/UDPClient.cpp`\n**Ligne** : 149\n**Sévérité** : Minor\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nRemove the unused lambda capture \"buf\".\n\n**Règle SonarQube** : [cpp:S1481](https://rules.sonarsource.com/cpp/RSPEC-1481)\n**Catégorie** : Maintainability\n**Sévérité** : Minor\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Remove the unused lambda captu))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Supprimer la variable inutilisée\n2. Utiliser [[maybe_unused]] si intentionnel\n3. Vérifier si la variable devait être utilisée\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/client/src/network/UDPClient.cpp:149`\n2. **Comprendre** la règle [cpp:S1481](https://rules.sonarsource.com/cpp/RSPEC-1481)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1481](https://rules.sonarsource.com/cpp/RSPEC-1481)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1481"
+  },
+  {
+    "id": "SONAR-004",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Refactor this code to not nest more than 3 if|for|do|while|switch statements.",
+    "severity": "Critical",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+    "line": 79,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp` à la ligne 79.\n\n```cpp\n// Code à la ligne 79\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Refactor this code to not nest more than 3 if|for|do|while|switch statements.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S134**.\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Ligne** : 79\n**Sévérité** : Critical\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nRefactor this code to not nest more than 3 if|for|do|while|switch statements.\n\n**Règle SonarQube** : [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n**Catégorie** : Maintainability\n**Sévérité** : Critical\n**Effort estimé** : 10min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Refactor this code to not nest))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Extraire les blocs imbriqués dans des fonctions dédiées\n2. Utiliser des early returns pour réduire l'imbrication\n3. Appliquer le pattern Guard Clause\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp:79`\n2. **Comprendre** la règle [cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S134](https://rules.sonarsource.com/cpp/RSPEC-134)\n\n### Temps estimé\n\n**10min** pour corriger cette issue.",
+    "effort": "10min",
+    "rule": "cpp:S134"
+  },
+  {
+    "id": "SONAR-005",
+    "source": [
+      "sonarqube"
+    ],
+    "title": "Merge this \"if\" statement with the enclosing one.",
+    "severity": "Major",
+    "category": "Maintainability",
+    "status": "pending",
+    "isBug": false,
+    "file": "src/server/infrastructure/adapters/in/network/UDPServer.cpp",
+    "line": 79,
+    "where": "## Localisation\n\nLe problème se trouve dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp` à la ligne 79.\n\n```cpp\n// Code à la ligne 79\n// Le snippet de code réel sera extrait par l'agent SONAR lors de l'enrichissement\n// Message SonarQube : Merge this \"if\" statement with the enclosing one.\n```\n\n### Contexte\n\nCette issue a été détectée par l'analyse statique SonarQube sur la règle **cpp:S1066**.\n\n**Fichier** : `src/server/infrastructure/adapters/in/network/UDPServer.cpp`\n**Ligne** : 79\n**Sévérité** : Major\n\n> **Note** : L'agent SONAR enrichira ce champ avec le code source réel et le contexte AgentDB.",
+    "why": "## Pourquoi c'est un problème\n\nMerge this \"if\" statement with the enclosing one.\n\n**Règle SonarQube** : [cpp:S1066](https://rules.sonarsource.com/cpp/RSPEC-1066)\n**Catégorie** : Maintainability\n**Sévérité** : Major\n**Effort estimé** : 5min\n\n### Visualisation du problème\n\n```mermaid\nmindmap\n  root((Merge this \"if\" statement with))\n    Tests difficiles\n      Couverture insuffisante\n      Cas limites non testés\n    Maintenance coûteuse\n      Temps de compréhension élevé\n      Risque de régression\n    Dette technique\n      Code difficile à refactorer\n      Documentation manquante\n```\n\n### Impact\n\nCe problème rend le code plus difficile à comprendre, modifier et maintenir.\n\n### Risques\n\n| Risque | Probabilité | Impact |\n|--------|-------------|--------|\n| Dette technique accrue | Haute | Moyen |\n| Bugs lors de modifications | Moyenne | Majeur |\n| Temps de maintenance élevé | Haute | Moyen |",
+    "how": "## Comment corriger\n\n### Solution suggérée\n\n1. Fusionner les conditions avec && ou ||\n2. Simplifier la logique conditionnelle\n3. Extraire en méthode si la condition est complexe\n\n### Processus de correction\n\n```mermaid\ngraph LR\n    A[Identifier le problème] --> B[Appliquer la solution]\n    B --> C[Tester le changement]\n    C --> D[Valider avec SonarQube]\n    style D fill:#6f6,stroke:#333\n```\n\n### Étapes détaillées\n\n1. **Localiser** le code problématique dans `src/server/infrastructure/adapters/in/network/UDPServer.cpp:79`\n2. **Comprendre** la règle [cpp:S1066](https://rules.sonarsource.com/cpp/RSPEC-1066)\n3. **Appliquer** la correction selon les suggestions ci-dessus\n4. **Tester** que le comportement est préservé\n5. **Vérifier** avec SonarQube que l'issue est résolue\n\n### Ressources\n\n- [Documentation SonarQube cpp:S1066](https://rules.sonarsource.com/cpp/RSPEC-1066)\n\n### Temps estimé\n\n**5min** pour corriger cette issue.",
+    "effort": "5min",
+    "rule": "cpp:S1066"
+  }
+]

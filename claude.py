@@ -97,6 +97,30 @@ class WebSocketNotifier:
         self.action_completed: bool = False
         self.agents_in_phase: dict[str, set] = {}  # phase -> set d'agents lancés
         self.report_path: Optional[str] = None     # Chemin du rapport final
+        self.completed_steps: set[str] = set()     # Étapes déjà complétées
+
+    def _get_next_step(self) -> Optional[str]:
+        """Retourne la prochaine étape dans l'ordre défini par STEPS."""
+        if not self.current_step:
+            return self.STEPS[0] if self.STEPS else None
+        try:
+            idx = self.STEPS.index(self.current_step)
+            if idx + 1 < len(self.STEPS):
+                return self.STEPS[idx + 1]
+        except ValueError:
+            pass
+        return None
+
+    def _is_valid_transition(self, from_step: Optional[str], to_step: str) -> bool:
+        """Vérifie si la transition est valide (pas de retour en arrière)."""
+        if not from_step:
+            return True
+        try:
+            from_idx = self.STEPS.index(from_step)
+            to_idx = self.STEPS.index(to_step)
+            return to_idx >= from_idx
+        except ValueError:
+            return True
 
     async def send(self, message: dict) -> None:
         """Envoie un message JSON au WebSocket."""
@@ -114,7 +138,15 @@ class WebSocketNotifier:
 
     async def step_started(self, step: str) -> None:
         """Notifie le début d'une étape."""
+        # Éviter de redémarrer une étape déjà complétée ou en cours
+        if step in self.completed_steps:
+            log_to_stderr(f"[WS] Step '{step}' already completed, skipping\n")
+            return
+        if self.current_step == step:
+            return  # Déjà sur cette étape
+
         self.current_step = step
+        log_to_stderr(f"\n▶️  Step started: {step}\n")
         await self.send({
             "type": "step_started",
             "step": step
@@ -131,18 +163,36 @@ class WebSocketNotifier:
             "stream": stream
         })
 
-    async def step_complete(self, status: str, output: str = "") -> None:
-        """Marque l'étape en cours comme terminée."""
+    async def step_complete(self, status: str, output: str = "", auto_next: bool = False) -> None:
+        """
+        Marque l'étape en cours comme terminée.
+
+        Args:
+            status: "success" ou "failure"
+            output: Message de sortie optionnel
+            auto_next: Si True, démarre automatiquement la prochaine étape
+        """
         if not self.current_step:
             return
         if status == "failure":
             self.action_status = "failure"
+
+        completed_step = self.current_step
+        self.completed_steps.add(completed_step)
+
+        log_to_stderr(f"\n✅ Step completed: {completed_step} ({status})\n")
         await self.send({
             "type": "step_complete",
-            "step": self.current_step,
+            "step": completed_step,
             "status": status,
             "output": output
         })
+
+        # Démarrer automatiquement la prochaine étape si demandé
+        if auto_next and status == "success":
+            next_step = self._get_next_step()
+            if next_step:
+                await self.step_started(next_step)
 
     async def action_complete(self) -> None:
         """Marque l'action comme terminée."""
@@ -155,9 +205,29 @@ class WebSocketNotifier:
         })
 
     async def transition_to(self, new_step: str, prev_output: str = "") -> None:
-        """Transition propre d'une étape à une autre."""
-        if self.current_step and self.current_step != new_step:
-            await self.step_complete("success", prev_output)
+        """
+        Transition propre d'une étape à une autre.
+        Valide que la transition est dans le bon sens (pas de retour en arrière).
+        """
+        # Vérifier si on est déjà sur cette étape
+        if self.current_step == new_step:
+            return
+
+        # Vérifier si l'étape cible est déjà complétée
+        if new_step in self.completed_steps:
+            log_to_stderr(f"[WS] Cannot transition to already completed step '{new_step}'\n")
+            return
+
+        # Valider la direction de la transition
+        if not self._is_valid_transition(self.current_step, new_step):
+            log_to_stderr(f"[WS] Invalid backward transition from '{self.current_step}' to '{new_step}'\n")
+            return
+
+        # Compléter l'étape actuelle (sans auto_next car on gère manuellement)
+        if self.current_step:
+            await self.step_complete("success", prev_output, auto_next=False)
+
+        # Démarrer la nouvelle étape
         await self.step_started(new_step)
 
     async def on_agent_started(self, agent_type: str) -> None:
@@ -467,9 +537,10 @@ async def launch_claude_stream_json(
             await notifier.action_started()
             await notifier.step_started("setup")
             await notifier.step_log("Initializing Claude stream-json...")
-            await notifier.step_complete("success", "Setup completed")
-            # Les phases (phase1, phase2_risk, etc.) démarrent automatiquement
-            # quand les agents Task sont détectés dans _handle_tool_use
+            # auto_next=True démarre automatiquement phase1 après setup
+            await notifier.step_complete("success", "Setup completed", auto_next=True)
+            # Les phases suivantes (phase2_risk, etc.) transitionnent automatiquement
+            # quand les agents Task sont détectés via on_agent_started()
 
             # Lancer le processus Claude
             # limit=1MB pour éviter "Separator is found, but chunk is longer than limit"

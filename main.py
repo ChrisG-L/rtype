@@ -61,8 +61,19 @@ app = FastAPI(
     title="Claude Analysis API",
     description="API pour déclencher des analyses de code avec Claude",
     version="1.0.0",
-    
 )
+
+
+# =============================================================================
+# Uvicorn config (pour --reload)
+# =============================================================================
+
+# Note: --reload cause une erreur de symlink loop dans vcpkg/buildtrees
+# Solutions:
+#   1. rm -rf third_party/vcpkg/buildtrees (peut être régénéré)
+#   2. Lancer sans reload: python main.py --no-reload
+#   3. Mettre ENABLE_RELOAD = True après avoir nettoyé buildtrees
+ENABLE_RELOAD = False
 
 
 # =============================================================================
@@ -227,3 +238,17 @@ def list_jobs():
         ],
         "total": len(jobs)
     }
+
+
+# =============================================================================
+# Point d'entrée pour développement
+# =============================================================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=ENABLE_RELOAD,
+    )
