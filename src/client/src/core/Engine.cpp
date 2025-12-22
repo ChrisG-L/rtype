@@ -6,7 +6,6 @@
 */
 
 #include "core/Engine.hpp"
-#include <dlfcn.h>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -38,7 +37,11 @@ namespace core {
     {
         _udpClient = udpClient;
 
-        _graphicPlugin = _dynamicLib->openGraphicLib("librtype_sdl2.so");
+        #ifdef _WIN32
+            _graphicPlugin = _dynamicLib->openGraphicLib("rtype_sdl2.dll");
+        #else
+            _graphicPlugin = _dynamicLib->openGraphicLib("librtype_sdl2.so");
+        #endif
         _window = _graphicPlugin->createWindow({.x = 1920, .y = 1080}, "rtype");
         _gameLoop = std::make_unique<GameLoop>(_window, _graphicPlugin, _udpClient);
     }

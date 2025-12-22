@@ -8,7 +8,6 @@
 #ifndef ENGINE_HPP_
 #define ENGINE_HPP_
 
-#include <dlfcn.h>
 #include <memory>
 
 #include "IEngine.hpp"

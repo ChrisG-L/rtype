@@ -12,6 +12,4 @@
 #include "boot/Boot.hpp"
 #include "events/Signal.hpp"
 
-#include <dlfcn.h>
-
 #endif /* !MAIN_HPP_ */

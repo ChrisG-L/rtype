@@ -1,5 +1,26 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR})
 
+# Common library (shared between client and plugins)
+add_library(rtype_client_common STATIC
+    src/core/Logger.cpp
+    src/graphics/Graphics.cpp
+)
+
+set_target_properties(rtype_client_common PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS NO
+    POSITION_INDEPENDENT_CODE ON
+)
+
+target_include_directories(rtype_client_common PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(rtype_client_common PUBLIC
+    spdlog::spdlog
+)
+
 # SDL2 Plugin Library
 add_library(rtype_sdl2 SHARED
     lib/sdl2/src/SDL2AssetManager.cpp
@@ -54,18 +75,18 @@ target_include_directories(rtype_sdl2 PRIVATE
 
 if(SDL2_FOUND_VIA_VCPKG)
     target_link_libraries(rtype_sdl2 PRIVATE
+        rtype_client_common
         $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
         $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
         $<IF:$<TARGET_EXISTS:SDL2_image::SDL2_image>,SDL2_image::SDL2_image,SDL2_image::SDL2_image-static>
         $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
-        spdlog::spdlog
     )
 else()
     target_link_libraries(rtype_sdl2 PRIVATE
+        rtype_client_common
         PkgConfig::SDL2
         PkgConfig::SDL2_IMAGE
         ${SDL2_TTF_LIBRARY}
-        spdlog::spdlog
     )
 endif()
 
@@ -76,9 +97,7 @@ add_executable(rtype_client
     src/boot/Boot.cpp
     src/core/Engine.cpp
     src/core/GameLoop.cpp
-    src/core/Logger.cpp
     src/core/DynamicLib.cpp
-    src/graphics/Graphics.cpp
     src/network/UDPClient.cpp
     src/scenes/SceneManager.cpp
     src/scenes/GameScene.cpp
@@ -212,23 +231,22 @@ target_include_directories(rtype_client PRIVATE
 
 if(SDL2_FOUND_VIA_VCPKG)
     target_link_libraries(rtype_client PRIVATE
+        rtype_client_common
         Boost::system
         OpenSSL::SSL
         OpenSSL::Crypto
-        spdlog::spdlog
         rtype_sdl2
-        $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
-        $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
         $<IF:$<TARGET_EXISTS:SDL2_mixer::SDL2_mixer>,SDL2_mixer::SDL2_mixer,SDL2_mixer::SDL2_mixer-static>
+        $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
     )
 else()
     target_link_libraries(rtype_client PRIVATE
+        rtype_client_common
         Boost::system
         OpenSSL::SSL
         OpenSSL::Crypto
-        spdlog::spdlog
         rtype_sdl2
-        PkgConfig::SDL2
         ${SDL2_MIXER_LIBRARY}
+        PkgConfig::SDL2
     )
 endif()

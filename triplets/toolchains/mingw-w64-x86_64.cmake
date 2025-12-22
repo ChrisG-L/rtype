@@ -23,11 +23,12 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
 
-# Static linking flags
-set(CMAKE_CXX_FLAGS_INIT "-static -static-libgcc -static-libstdc++")
-set(CMAKE_C_FLAGS_INIT "-static -static-libgcc")
+# Static linking flags (for executables only)
+set(CMAKE_CXX_FLAGS_INIT "")
+set(CMAKE_C_FLAGS_INIT "")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "-static -static-libgcc -static-libstdc++")
-set(CMAKE_SHARED_LINKER_FLAGS_INIT "-static -static-libgcc -static-libstdc++")
+# DLLs cannot use -static-libstdc++ (causes multiple definition errors)
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "-Wl,--allow-multiple-definition")
 
 # Thread model
 set(CMAKE_THREAD_LIBS_INIT "-lpthread")
