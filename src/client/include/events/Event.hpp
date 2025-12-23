@@ -10,6 +10,7 @@
 
 #include <variant>
 #include <optional>
+#include <cstdint>
 
 namespace events {
 
@@ -23,20 +24,57 @@ namespace events {
         LShift, RShift, LCtrl, RCtrl, LAlt, RAlt,
         Unknown
     };
-    
+
+    enum class MouseButton {
+        Left,
+        Right,
+        Middle,
+        Unknown
+    };
+
     struct KeyPressed {
         Key key;
     };
-    
+
     struct KeyReleased {
         Key key;
     };
-    
+
+    struct MouseMoved {
+        int x;
+        int y;
+    };
+
+    struct MouseButtonPressed {
+        MouseButton button;
+        int x;
+        int y;
+    };
+
+    struct MouseButtonReleased {
+        MouseButton button;
+        int x;
+        int y;
+    };
+
+    struct TextEntered {
+        uint32_t unicode;
+    };
+
     struct WindowClosed {};
-    
+
     struct None {};
-    
-    using Event = std::variant<None, KeyPressed, KeyReleased, WindowClosed>;
+
+    using Event = std::variant<
+        None,
+        KeyPressed,
+        KeyReleased,
+        MouseMoved,
+        MouseButtonPressed,
+        MouseButtonReleased,
+        TextEntered,
+        WindowClosed
+    >;
     
 }
 

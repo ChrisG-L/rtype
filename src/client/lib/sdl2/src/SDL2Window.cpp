@@ -149,6 +149,16 @@ void SDL2Window::close()
     _isOpen = false;
 }
 
+static events::MouseButton sdlButtonToMouseButton(Uint8 button)
+{
+    switch (button) {
+        case SDL_BUTTON_LEFT: return events::MouseButton::Left;
+        case SDL_BUTTON_RIGHT: return events::MouseButton::Right;
+        case SDL_BUTTON_MIDDLE: return events::MouseButton::Middle;
+        default: return events::MouseButton::Unknown;
+    }
+}
+
 events::Event SDL2Window::pollEvent()
 {
     SDL_Event sdlEvent;
@@ -163,6 +173,30 @@ events::Event SDL2Window::pollEvent()
                 break;
             case SDL_KEYUP:
                 return events::KeyReleased{scancodeToKey(sdlEvent.key.keysym.scancode)};
+            case SDL_MOUSEBUTTONDOWN:
+                return events::MouseButtonPressed{
+                    sdlButtonToMouseButton(sdlEvent.button.button),
+                    sdlEvent.button.x,
+                    sdlEvent.button.y
+                };
+            case SDL_MOUSEBUTTONUP:
+                return events::MouseButtonReleased{
+                    sdlButtonToMouseButton(sdlEvent.button.button),
+                    sdlEvent.button.x,
+                    sdlEvent.button.y
+                };
+            case SDL_MOUSEMOTION:
+                return events::MouseMoved{
+                    sdlEvent.motion.x,
+                    sdlEvent.motion.y
+                };
+            case SDL_TEXTINPUT:
+                if (sdlEvent.text.text[0] != '\0') {
+                    return events::TextEntered{
+                        static_cast<uint32_t>(static_cast<unsigned char>(sdlEvent.text.text[0]))
+                    };
+                }
+                break;
             default:
                 break;
         }
