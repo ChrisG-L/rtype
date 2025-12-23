@@ -7,7 +7,6 @@
 
 #include "infrastructure/adapters/in/network/execute/player/ExecutePlayer.hpp"
 #include "Protocol.hpp"
-#include "application/use_cases/auth/Login.hpp"
 
 namespace infrastructure::adapters::in::network::execute::player {
     ExecutePlayer::ExecutePlayer(

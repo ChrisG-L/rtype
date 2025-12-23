@@ -1,0 +1,43 @@
+# BUILD.bazel - Code partagé (common)
+# ====================================
+# Ce package contient le code utilisé par le client ET le serveur:
+# - Protocol: définitions du protocole réseau binaire
+# - Collision: système AABB pour les hitboxes
+
+# cc_library: crée une bibliothèque C++
+# -------------------------------------
+# Paramètres importants:
+#   - name: nom de la cible (utilisé avec //src/common:protocol)
+#   - hdrs: fichiers header publics (exposés aux dépendants)
+#   - srcs: fichiers sources (privés, compilés dans la lib)
+#   - visibility: qui peut dépendre de cette lib
+
+# Bibliothèque du protocole réseau (header-only)
+cc_library(
+    name = "protocol",
+    hdrs = ["protocol/Protocol.hpp"],
+    # includes: ajoute ces chemins aux -I du compilateur
+    # "protocol" permet: #include "Protocol.hpp"
+    # "." permet: #include "protocol/Protocol.hpp"
+    includes = [
+        "protocol",  # Pour #include "Protocol.hpp"
+        ".",         # Pour #include "protocol/Protocol.hpp"
+    ],
+    # visibility: rend cette lib accessible depuis tout le projet
+    visibility = ["//visibility:public"],
+)
+
+# Bibliothèque de collision AABB (header-only)
+cc_library(
+    name = "collision",
+    hdrs = ["collision/AABB.hpp"],
+    includes = [
+        "collision",  # Pour #include "AABB.hpp"
+        ".",          # Pour #include "collision/AABB.hpp"
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Note: ces deux libs sont "header-only" (pas de srcs)
+# car Protocol.hpp et AABB.hpp ne contiennent que des
+# définitions inline/constexpr.

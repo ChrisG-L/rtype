@@ -1,0 +1,202 @@
+"""Serveur R-Type - Configuration Bazel (Architecture Hexagonale)
+
+Structure des bibliothèques:
+    domain          <- Logique métier pure (aucune dépendance externe)
+         ↑
+    application     <- Use cases, ports (dépend de domain)
+         ↑
+    infrastructure  <- Adapters, I/O, réseau (dépend de domain + application)
+         ↑
+    rtype_server    <- Point d'entrée (dépend de infrastructure)
+
+Commandes:
+    bazel build //src/server:rtype_server       # Build debug
+    bazel build //src/server:rtype_server -c opt    # Build release
+    bazel run //src/server:rtype_server         # Build + lancer
+    bazel query "deps(//src/server:rtype_server)"   # Voir le graphe de dépendances
+"""
+
+# =============================================================================
+# OPTIONS COMMUNES
+# =============================================================================
+
+# Options de compilation partagées par toutes les libs
+COMMON_COPTS = [
+    "-std=c++23",
+    "-Wall",
+    "-Wextra",
+    "-Wpedantic",
+]
+
+# Alias pour la visibilité interne au package server
+package(default_visibility = ["//src/server:__subpackages__"])
+
+# =============================================================================
+# COUCHE DOMAIN (Logique métier pure)
+# =============================================================================
+# Cette couche ne dépend de RIEN d'externe (pas de Boost, pas de spdlog).
+# Elle contient les entités, value objects, exceptions et règles métier.
+# C'est le coeur de l'application, totalement indépendant de l'infrastructure.
+
+cc_library(
+    name = "domain",
+    srcs = [
+        # Exceptions
+        "domain/exceptions/DomainException.cpp",
+        "domain/exceptions/HealthException.cpp",
+        "domain/exceptions/PositionException.cpp",
+        "domain/exceptions/player/PlayerIdException.cpp",
+        "domain/exceptions/player/PlayerNameException.cpp",
+
+        # Value Objects (objets immuables)
+        "domain/value_objects/Health.cpp",
+        "domain/value_objects/Position.cpp",
+        "domain/value_objects/player/PlayerId.cpp",
+        "domain/value_objects/player/PlayerName.cpp",
+        "domain/value_objects/player/PlayerPassword.cpp",
+
+        # Entités
+        "domain/entities/Player.cpp",
+    ],
+    hdrs = glob(["include/domain/**/*.hpp"]),
+    copts = COMMON_COPTS,
+    includes = ["include"],
+    # Visible par application et infrastructure
+    visibility = ["//src/server:__pkg__"],
+)
+
+# =============================================================================
+# COUCHE APPLICATION (Use Cases, Orchestration)
+# =============================================================================
+# Cette couche contient les cas d'utilisation (use cases) et les ports.
+# Elle dépend uniquement de domain et définit les interfaces (ports)
+# que l'infrastructure devra implémenter.
+
+cc_library(
+    name = "application",
+    srcs = [
+        "application/use_cases/player/Move.cpp",
+    ],
+    hdrs = glob(["include/application/**/*.hpp"]),
+    copts = COMMON_COPTS,
+    includes = ["include"],
+    visibility = ["//src/server:__pkg__"],
+    deps = [":domain"],
+)
+
+# =============================================================================
+# COUCHE INFRASTRUCTURE (Adapters, I/O, Réseau)
+# =============================================================================
+# Cette couche contient les implémentations concrètes:
+# - Adapters réseau (UDP)
+# - Adapters CLI
+# - Game World (état du jeu)
+# - Logging
+# Elle dépend de domain, application, et des libs externes (Boost, spdlog).
+
+cc_library(
+    name = "infrastructure",
+    srcs = [
+        # Adapters réseau
+        "infrastructure/adapters/in/network/UDPServer.cpp",
+        "infrastructure/adapters/in/network/protocol/CommandParser.cpp",
+        "infrastructure/adapters/in/network/execute/player/ExecutePlayer.cpp",
+
+        # Adapters CLI
+        "infrastructure/adapters/in/cli/CLIGameController.cpp",
+
+        # Game World
+        "infrastructure/game/GameWorld.cpp",
+
+        # Logging
+        "infrastructure/logging/Logger.cpp",
+    ],
+    hdrs = glob([
+        "include/infrastructure/**/*.hpp",
+        "infrastructure/**/*.hpp",  # GameBootstrap.hpp, EnvLoader.hpp
+    ]),
+    copts = COMMON_COPTS,
+    includes = [
+        ".",        # Pour infrastructure/bootstrap/GameBootstrap.hpp
+        "include",  # Pour include/infrastructure/...
+    ],
+    linkopts = [
+        "-lssl",
+        "-lcrypto",
+        "-lpthread",
+    ],
+    visibility = ["//src/server:__pkg__"],
+    deps = [
+        # Libs internes (architecture hexagonale)
+        ":application",
+        ":domain",
+
+        # Libs partagées (common)
+        "//src/common:collision",
+        "//src/common:protocol",
+
+        # Libs externes
+        "@boost.asio",
+        "@boost.system",
+        "@spdlog",
+    ],
+)
+
+# =============================================================================
+# EXECUTABLE FINAL
+# =============================================================================
+# Point d'entrée de l'application. Ne contient que main.cpp.
+# Toute la logique est dans les bibliothèques ci-dessus.
+
+cc_binary(
+    name = "rtype_server",
+    srcs = ["main.cpp"],
+    copts = COMMON_COPTS,
+    includes = [
+        ".",
+        "include",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [":infrastructure"],
+)
+
+# =============================================================================
+# DOCUMENTATION DE L'ARCHITECTURE
+# =============================================================================
+#
+# RÈGLE D'OR: Les dépendances vont vers l'intérieur (domain au centre)
+#
+#     ┌─────────────────────────────────────────────────────┐
+#     │                   INFRASTRUCTURE                    │
+#     │  (UDPServer, Logger, GameWorld, Boost, spdlog)     │
+#     │     ┌─────────────────────────────────────────┐     │
+#     │     │              APPLICATION                │     │
+#     │     │         (Use Cases, Ports)              │     │
+#     │     │     ┌─────────────────────────────┐     │     │
+#     │     │     │           DOMAIN            │     │     │
+#     │     │     │  (Player, Health, Position) │     │     │
+#     │     │     │     Aucune dépendance       │     │     │
+#     │     │     └─────────────────────────────┘     │     │
+#     │     └─────────────────────────────────────────┘     │
+#     └─────────────────────────────────────────────────────┘
+#
+# AVANTAGES DE CETTE STRUCTURE:
+#
+# 1. CACHE INCRÉMENTAL
+#    - Modifier UDPServer.cpp → recompile seulement infrastructure
+#    - Modifier Player.cpp → recompile domain + application + infrastructure
+#    - Modifier main.cpp → recompile seulement rtype_server
+#
+# 2. PARALLÉLISATION
+#    - domain, common:protocol, common:collision compilent en parallèle
+#    - Puis application compile
+#    - Puis infrastructure compile
+#
+# 3. ENFORCEMENT ARCHITECTURAL
+#    - domain N'A PAS accès à Boost ou spdlog (pas dans ses deps)
+#    - Si quelqu'un essaie d'inclure <boost/asio.hpp> dans domain → ERREUR
+#    - Bazel FORCE le respect de l'architecture hexagonale
+#
+# 4. TESTABILITÉ
+#    - On peut écrire: cc_test(deps = [":domain"]) pour tester domain isolément
+#    - Pas besoin de linker Boost pour tester la logique métier

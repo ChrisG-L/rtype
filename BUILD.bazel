@@ -1,0 +1,21 @@
+# BUILD.bazel - Fichier BUILD racine
+# ===================================
+# Ce fichier fait de la racine un "package" Bazel.
+# Un package est un répertoire contenant un fichier BUILD.
+#
+# Structure Bazel de ce projet:
+#   rtype/
+#   ├── MODULE.bazel      <- Dépendances externes
+#   ├── BUILD.bazel       <- Ce fichier (racine)
+#   ├── .bazelrc          <- Options de compilation
+#   └── src/
+#       ├── common/
+#       │   └── BUILD.bazel   <- Bibliothèque partagée (protocol, collision)
+#       └── server/
+#           └── BUILD.bazel   <- Exécutable serveur
+
+# Ce fichier est volontairement vide car toutes les cibles
+# sont définies dans les sous-packages (src/common, src/server).
+#
+# Pour builder le serveur: bazel build //src/server:rtype_server
+# Pour tout builder:       bazel build //...

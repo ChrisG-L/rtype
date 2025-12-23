@@ -1,0 +1,35 @@
+"""R-Type - Configuration Bazel (MODULE.bazel)
+
+Ce fichier définit le module Bazel et ses dépendances externes.
+C'est l'équivalent moderne de WORKSPACE.bazel (depuis Bazel 6+).
+"""
+
+# Déclaration du module
+# ---------------------
+# - name: nom unique de ton projet
+# - version: version sémantique de ton projet
+module(
+    name = "rtype",
+    version = "0.0.1",
+)
+
+# Dépendances depuis le Bazel Central Registry (BCR)
+# --------------------------------------------------
+# bazel_dep() télécharge des modules depuis https://registry.bazel.build/
+
+# rules_cc: règles pour compiler du C/C++ (cc_binary, cc_library, etc.)
+bazel_dep(name = "rules_cc", version = "0.1.1")
+
+# Boost: dans BCR, chaque bibliothèque Boost est un module séparé
+# Cela évite de télécharger tout Boost (~150 MB) si on n'en a pas besoin
+bazel_dep(name = "boost.asio", version = "1.87.0")
+bazel_dep(name = "boost.system", version = "1.87.0")
+
+# spdlog: bibliothèque de logging rapide
+bazel_dep(name = "spdlog", version = "1.15.0")
+
+# Note sur les dépendances non disponibles dans BCR:
+# --------------------------------------------------
+# OpenSSL n'est pas dans BCR, donc on va utiliser la version système.
+# Pour un projet plus avancé, on pourrait utiliser rules_foreign_cc
+# pour compiler OpenSSL depuis les sources.

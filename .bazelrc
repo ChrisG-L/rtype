@@ -1,0 +1,74 @@
+# .bazelrc - Configuration Bazel
+# ================================
+# Ce fichier contient les options par défaut pour Bazel.
+# Chaque ligne "build --option" s'applique à toutes les commandes build.
+
+# ============================================================
+# OPTIONS GÉNÉRALES
+# ============================================================
+
+# Utiliser le nouveau système de modules (bzlmod) au lieu de WORKSPACE
+common --enable_bzlmod
+
+# Afficher les erreurs de compilation en couleur
+build --color=yes
+
+# Afficher les commandes exécutées (utile pour débugger)
+# build --subcommands  # Décommenter si besoin
+
+# ============================================================
+# COMPILATION C++
+# ============================================================
+
+# Standard C++23 par défaut
+build --cxxopt=-std=c++23
+
+# Warnings de base toujours actifs
+build --cxxopt=-Wall
+build --cxxopt=-Wextra
+
+# ============================================================
+# CONFIGURATIONS (sélectionnables avec -c ou --config)
+# ============================================================
+
+# Configuration DEBUG (par défaut)
+# Usage: bazel build //src/server:rtype_server
+# -----------------------------------------------
+build --compilation_mode=dbg
+
+# Configuration RELEASE (optimisée)
+# Usage: bazel build //src/server:rtype_server -c opt
+# -----------------------------------------------
+build:opt --cxxopt=-O3
+build:opt --cxxopt=-DNDEBUG
+build:opt --linkopt=-s
+
+# Configuration avec sanitizers (debug avancé)
+# Usage: bazel build //src/server:rtype_server --config=asan
+# -----------------------------------------------
+build:asan --cxxopt=-fsanitize=address
+build:asan --cxxopt=-fsanitize=undefined
+build:asan --cxxopt=-fno-omit-frame-pointer
+build:asan --linkopt=-fsanitize=address
+build:asan --linkopt=-fsanitize=undefined
+
+# ============================================================
+# CACHE ET PERFORMANCE
+# ============================================================
+
+# Nombre de jobs parallèles (auto = nombre de CPU)
+build --jobs=auto
+
+# Garder les outputs de compilation pour inspection
+build --verbose_failures
+
+# ============================================================
+# COMMANDES UTILES
+# ============================================================
+#
+# bazel build //src/server:rtype_server      <- Build debug
+# bazel build //src/server:rtype_server -c opt   <- Build release
+# bazel run //src/server:rtype_server        <- Build + run
+# bazel clean                                <- Nettoyer le cache
+# bazel query "deps(//src/server:rtype_server)"  <- Voir les dépendances
+# bazel build //...                          <- Tout builder
