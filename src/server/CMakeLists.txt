@@ -6,22 +6,42 @@ add_executable(rtype_server
     domain/exceptions/HealthException.cpp
     domain/exceptions/PositionException.cpp
     domain/exceptions/player/PlayerIdException.cpp
+    domain/exceptions/user/UserIdException.cpp
+    domain/exceptions/user/UsernameException.cpp
+    domain/exceptions/user/EmailException.cpp
+    domain/exceptions/user/PasswordException.cpp
+    domain/exceptions/persistence/MongoDBException.cpp
 
     # Domain - Value Objects
     domain/value_objects/Health.cpp
     domain/value_objects/Position.cpp
     domain/value_objects/player/PlayerId.cpp
+    domain/value_objects/user/UserId.cpp
+    domain/value_objects/user/Username.cpp
+    domain/value_objects/user/Email.cpp
+    domain/value_objects/user/Password.cpp
+    domain/value_objects/user/utils/PasswordUtils.cpp
 
     # Domain - Entities
     domain/entities/Player.cpp
+    domain/entities/User.cpp
 
     # Application - Use Cases
     application/use_cases/player/Move.cpp
+    application/use_cases/auth/Login.cpp
+    application/use_cases/auth/Register.cpp
 
-    # Infrastructure - Adapters
+    # Infrastructure - Adapters In
     infrastructure/adapters/in/cli/CLIGameController.cpp
     infrastructure/adapters/in/network/UDPServer.cpp
+    infrastructure/adapters/in/network/TCPAuthServer.cpp
     infrastructure/adapters/in/network/protocol/CommandParser.cpp
+    infrastructure/adapters/in/network/execute/Execute.cpp
+    infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
+
+    # Infrastructure - Adapters Out (Persistence)
+    infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
+    infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
 
     # Infrastructure - Game
     infrastructure/game/GameWorld.cpp
@@ -141,6 +161,10 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
     endif()
 endif()
 
+# Find MongoDB C++ driver
+find_package(mongocxx CONFIG REQUIRED)
+find_package(bsoncxx CONFIG REQUIRED)
+
 target_include_directories(rtype_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -153,6 +177,8 @@ target_link_libraries(rtype_server PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     spdlog::spdlog
+    $<IF:$<TARGET_EXISTS:mongo::mongocxx_shared>,mongo::mongocxx_shared,mongo::mongocxx_static>
+    $<IF:$<TARGET_EXISTS:mongo::bsoncxx_shared>,mongo::bsoncxx_shared,mongo::bsoncxx_static>
 )
 
 # Bibliothèques Windows supplémentaires pour Boost.Asio

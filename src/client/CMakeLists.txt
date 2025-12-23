@@ -114,6 +114,73 @@ else()
     )
 endif()
 
+# SFML Plugin Library
+add_library(rtype_sfml SHARED
+    lib/sfml/src/AssetManager.cpp
+    lib/sfml/src/SFMLRenderer.cpp
+    lib/sfml/src/SFMLWindow.cpp
+    lib/sfml/src/SFMLTexture.cpp
+    lib/sfml/src/plugins/SFMLPlugin.cpp
+)
+
+set_target_properties(rtype_sfml PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS NO
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/artifacts/client/${PLATFORM_DIR}
+)
+
+# Windows: enlever le préfixe "lib" pour avoir rtype_sfml.dll (pas librtype_sfml.dll)
+if(WIN32 OR MINGW)
+    set_target_properties(rtype_sfml PROPERTIES PREFIX "")
+endif()
+
+# MinGW: liaison statique du runtime C++
+if(MINGW)
+    target_link_options(rtype_sfml PRIVATE
+        -static-libgcc
+        -static-libstdc++
+        -Wl,--allow-multiple-definition
+        -Wl,--exclude-libs,libstdc++.a
+        -Wl,--exclude-libs,libgcc.a
+        -Wl,--exclude-libs,libgcc_eh.a
+    )
+    message(STATUS "rtype_sfml: liaison statique C++ runtime avec symboles cachés (MinGW)")
+endif()
+
+# Find SFML - try vcpkg (CONFIG) first, fallback to pkg-config
+find_package(SFML 3 COMPONENTS Graphics Window System CONFIG QUIET)
+
+if(TARGET SFML::Graphics)
+    set(SFML_FOUND_VIA_VCPKG TRUE)
+    message(STATUS "SFML found via vcpkg")
+else()
+    set(SFML_FOUND_VIA_VCPKG FALSE)
+    message(STATUS "SFML not found via vcpkg, trying pkg-config...")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SFML REQUIRED IMPORTED_TARGET sfml-graphics sfml-window sfml-system)
+endif()
+
+target_include_directories(rtype_sfml PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/sfml/include
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+if(SFML_FOUND_VIA_VCPKG)
+    target_link_libraries(rtype_sfml PRIVATE
+        rtype_client_common
+        SFML::Graphics
+        SFML::Window
+        SFML::System
+    )
+else()
+    target_link_libraries(rtype_sfml PRIVATE
+        rtype_client_common
+        PkgConfig::SFML
+    )
+endif()
 
 add_executable(rtype_client
     main.cpp
@@ -123,8 +190,14 @@ add_executable(rtype_client
     src/core/GameLoop.cpp
     src/core/DynamicLib.cpp
     src/network/UDPClient.cpp
+    src/network/TCPClient.cpp
     src/scenes/SceneManager.cpp
     src/scenes/GameScene.cpp
+    src/scenes/LoginScene.cpp
+    src/scenes/MainMenuScene.cpp
+
+    src/ui/Button.cpp
+    src/ui/TextInput.cpp
 
     src/gameplay/GameObject.cpp
     src/gameplay/Missile.cpp
