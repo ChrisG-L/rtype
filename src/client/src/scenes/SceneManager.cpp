@@ -9,6 +9,7 @@
 
 SceneManager::SceneManager()
     : _currentScene(nullptr)
+    , _pendingScene(nullptr)
 {
 }
 
@@ -26,10 +27,18 @@ void SceneManager::setContext(const GameContext& ctx)
 
 void SceneManager::changeScene(std::unique_ptr<IScene> newScene)
 {
-    _currentScene = std::move(newScene);
-    if (_currentScene) {
-        _currentScene->setSceneManager(this);
-        _currentScene->setContext(_context);
+    // Defer scene change to avoid destroying objects during event handling
+    _pendingScene = std::move(newScene);
+}
+
+void SceneManager::applyPendingSceneChange()
+{
+    if (_pendingScene) {
+        _currentScene = std::move(_pendingScene);
+        if (_currentScene) {
+            _currentScene->setSceneManager(this);
+            _currentScene->setContext(_context);
+        }
     }
 }
 
@@ -41,6 +50,7 @@ void SceneManager::handleEvent(const events::Event& event) {
 
 void SceneManager::update(float _deltatime)
 {
+    applyPendingSceneChange();
     if (_currentScene) {
         _currentScene->update(_deltatime);
     }

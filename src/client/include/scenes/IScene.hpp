@@ -10,14 +10,18 @@
 
 #include "graphics/IWindow.hpp"
 #include "network/UDPClient.hpp"
+#include "network/TCPClient.hpp"
 #include "events/Event.hpp"
 #include <memory>
+#include <string>
 
 class SceneManager;
 
 struct GameContext {
     std::shared_ptr<graphics::IWindow> window;
     std::shared_ptr<client::network::UDPClient> udpClient;
+    std::shared_ptr<client::network::TCPClient> tcpClient;
+    std::string sessionToken;
 };
 
 class IScene

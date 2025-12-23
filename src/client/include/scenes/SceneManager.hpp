@@ -24,7 +24,10 @@ class SceneManager
         void render();
 
     private:
+        void applyPendingSceneChange();
+
         std::unique_ptr<IScene> _currentScene;
+        std::unique_ptr<IScene> _pendingScene;
         std::shared_ptr<core::IRenderer> _renderer;
         GameContext _context;
 };
