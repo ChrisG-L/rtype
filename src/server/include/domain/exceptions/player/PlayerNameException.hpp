@@ -20,7 +20,7 @@ namespace domain::exceptions::player {
         private:
             static std::string buildMessage(std::string name) {
                 std::ostringstream oss;
-                oss << "The username has to be between 6 and 21 caracters " << name << std::endl;
+                oss << "The username has to be between 3 and 21 characters: " << name << ".";
                 return oss.str();
             }
     };

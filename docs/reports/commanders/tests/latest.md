@@ -190,7 +190,7 @@ class MongoDBUserRepositoryTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Connexion à MongoDB de test
-        testUri = "mongodb://localhost:27017/rtype_test";
+        testUri = "mongodb://localhost:8089/rtype_test";
         repo = std::make_unique<MongoDBUserRepository>(testUri);
     }
 

@@ -9,8 +9,6 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <stdexcept>
-#include <algorithm>
-#include <vector>
 
 AssetManager::AssetManager(): textures{}
 {
@@ -73,34 +71,23 @@ void AssetManager::removeTexture(const std::string& file)
     }
 }
 
-void AssetManager::addSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite, int zIndex)
+void AssetManager::addSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite)
 {
-    SpriteData spriteData = {.sprite = sprite, .zIndex  = zIndex};
+    SpriteData spriteData = {.sprite = sprite};
     spritePools[textureKey].insert_or_assign(spriteKey, spriteData);
 }
 
-void AssetManager::setSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite, int zIndex)
+void AssetManager::setSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite)
 {
-    SpriteData spriteData = {.sprite = sprite, .zIndex  = zIndex};
+    SpriteData spriteData = {.sprite = sprite};
     spritePools[textureKey].insert_or_assign(spriteKey, spriteData);
 }
 
 void AssetManager::drawAll(sf::RenderWindow* window)
 {
-    std::vector<const SpriteData*> sortedSprites;
-
     for (const auto& [texture, spritesPool] : spritePools) {
         for (const auto& [key, spriteData] : spritesPool) {
-            sortedSprites.push_back(&spriteData);
+            window->draw(spriteData.sprite);
         }
-    }
-
-    std::sort(sortedSprites.begin(), sortedSprites.end(),
-        [](const SpriteData* a, const SpriteData* b) {
-            return a->zIndex < b->zIndex;
-        });
-
-    for (const auto* spriteData : sortedSprites) {
-        window->draw(spriteData->sprite);
     }
 }

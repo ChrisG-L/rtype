@@ -1,5 +1,42 @@
-leak:libGLX
-leak:libglapi
+# LeakSanitizer suppressions for external libraries
+# These are known leaks in third-party libraries, not in our code
+
+# SDL2 internal allocations
+leak:libSDL2
+leak:SDL_Init
+leak:SDL_CreateWindow
+leak:SDL_CreateRenderer
+leak:SDL_GL_CreateContext
+
+# Mesa/OpenGL driver leaks
 leak:libGL
-leak:nvidia
+leak:libGLX
+leak:libEGL
 leak:mesa
+leak:radeonsi
+leak:nouveau
+leak:i965
+leak:iris
+leak:swrast
+leak:libdrm
+leak:libxcb
+leak:libX11
+
+# Font libraries
+leak:libfreetype
+leak:libfontconfig
+leak:FcConfigSubstitute
+leak:FcFontMatch
+
+# GTK/GLib (if using file dialogs)
+leak:libglib
+leak:libgio
+leak:libgobject
+
+# ALSA/PulseAudio (audio)
+leak:libasound
+leak:libpulse
+leak:snd_config
+
+# Boost.ASIO internals
+leak:boost::asio
