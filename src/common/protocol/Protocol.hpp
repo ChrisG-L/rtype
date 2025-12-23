@@ -35,6 +35,11 @@ enum class MessageType: uint16_t {
     EnemyDestroyed = 0x0091,
     PlayerDamaged = 0x00A0,
     PlayerDied = 0x00A1,
+    // TCP Authentication messages
+    Login = 0x0100,
+    LoginAck = 0x0101,
+    Register = 0x0102,
+    RegisterAck = 0x0103,
 };
 
 static constexpr uint8_t MAX_PLAYERS = 4;
@@ -42,6 +47,128 @@ static constexpr uint8_t MAX_MISSILES = 32;
 static constexpr uint8_t MAX_ENEMIES = 16;
 static constexpr uint8_t MAX_ENEMY_MISSILES = 32;
 static constexpr uint8_t ENEMY_OWNER_ID = 0xFF;
+
+// TCP Authentication Protocol structures
+struct Header {
+    bool isAuthenticated;
+    uint16_t type;
+    uint32_t payload_size;
+
+    static constexpr size_t WIRE_SIZE = 7;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = isAuthenticated ? 1 : 0;
+        uint16_t net_type = swap16(type);
+        uint32_t net_size = swap32(payload_size);
+        std::memcpy(ptr + 1, &net_type, 2);
+        std::memcpy(ptr + 3, &net_size, 4);
+    }
+
+    static std::optional<Header> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) {
+            return std::nullopt;
+        }
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        Header head;
+        head.isAuthenticated = (ptr[0] != 0);
+        uint16_t net_type;
+        uint32_t net_size;
+        std::memcpy(&net_type, ptr + 1, 2);
+        std::memcpy(&net_size, ptr + 3, 4);
+        head.type = swap16(net_type);
+        head.payload_size = swap32(net_size);
+        return head;
+    }
+};
+
+static constexpr size_t MAX_USERNAME_LEN = 32;
+static constexpr size_t MAX_PASSWORD_LEN = 64;
+static constexpr size_t MAX_EMAIL_LEN = 64;
+
+struct LoginMessage {
+    char username[MAX_USERNAME_LEN];
+    char password[MAX_PASSWORD_LEN];
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, username, MAX_USERNAME_LEN);
+        std::memcpy(ptr + MAX_USERNAME_LEN, password, MAX_PASSWORD_LEN);
+    }
+
+    static std::optional<LoginMessage> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < MAX_USERNAME_LEN + MAX_PASSWORD_LEN) {
+            return std::nullopt;
+        }
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        LoginMessage msg;
+        std::memcpy(msg.username, ptr, MAX_USERNAME_LEN);
+        std::memcpy(msg.password, ptr + MAX_USERNAME_LEN, MAX_PASSWORD_LEN);
+        msg.username[MAX_USERNAME_LEN - 1] = '\0';
+        msg.password[MAX_PASSWORD_LEN - 1] = '\0';
+        return msg;
+    }
+};
+
+struct RegisterMessage {
+    char username[MAX_USERNAME_LEN];
+    char email[MAX_EMAIL_LEN];
+    char password[MAX_PASSWORD_LEN];
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, username, MAX_USERNAME_LEN);
+        std::memcpy(ptr + MAX_USERNAME_LEN, email, MAX_EMAIL_LEN);
+        std::memcpy(ptr + MAX_USERNAME_LEN + MAX_EMAIL_LEN, password, MAX_PASSWORD_LEN);
+    }
+
+    static std::optional<RegisterMessage> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < MAX_USERNAME_LEN + MAX_EMAIL_LEN + MAX_PASSWORD_LEN) {
+            return std::nullopt;
+        }
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        RegisterMessage msg;
+        std::memcpy(msg.username, ptr, MAX_USERNAME_LEN);
+        std::memcpy(msg.email, ptr + MAX_USERNAME_LEN, MAX_EMAIL_LEN);
+        std::memcpy(msg.password, ptr + MAX_USERNAME_LEN + MAX_EMAIL_LEN, MAX_PASSWORD_LEN);
+        msg.username[MAX_USERNAME_LEN - 1] = '\0';
+        msg.email[MAX_EMAIL_LEN - 1] = '\0';
+        msg.password[MAX_PASSWORD_LEN - 1] = '\0';
+        return msg;
+    }
+};
+
+static constexpr size_t MAX_ERROR_CODE_LEN = 32;
+static constexpr size_t MAX_ERROR_MSG_LEN = 128;
+
+struct AuthResponse {
+    bool success;
+    char error_code[MAX_ERROR_CODE_LEN];
+    char message[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = success ? 1 : 0;
+        std::memcpy(ptr + 1, error_code, MAX_ERROR_CODE_LEN);
+        std::memcpy(ptr + 1 + MAX_ERROR_CODE_LEN, message, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<AuthResponse> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) {
+            return std::nullopt;
+        }
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        AuthResponse resp;
+        resp.success = (ptr[0] != 0);
+        std::memcpy(resp.error_code, ptr + 1, MAX_ERROR_CODE_LEN);
+        std::memcpy(resp.message, ptr + 1 + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
+        resp.error_code[MAX_ERROR_CODE_LEN - 1] = '\0';
+        resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return resp;
+    }
+};
 
 struct UDPHeader {
     uint16_t type;
