@@ -7,7 +7,7 @@
 
 #include "core/GameLoop.hpp"
 #include "events/Event.hpp"
-#include "scenes/GameScene.hpp"
+#include "scenes/LoginScene.hpp"
 #include <chrono>
 #include <ctime>
 #include <variant>
@@ -16,14 +16,19 @@ namespace core {
     GameLoop::GameLoop(
         std::shared_ptr<graphics::IWindow> window,
         graphics::IGraphicPlugin* _graphicPlugin,
-        std::shared_ptr<client::network::UDPClient> udpClient
-    ): _deltatime(0.0f), _window(window), _renderer{}, _udpClient(udpClient)
+        std::shared_ptr<client::network::UDPClient> udpClient,
+        std::shared_ptr<client::network::TCPClient> tcpClient
+    ): _deltatime(0.0f), _window(window), _renderer{}, _udpClient(udpClient), _tcpClient(tcpClient)
     {
         _renderer = _graphicPlugin->createRenderer(_window);
 
         _sceneManager = std::make_unique<SceneManager>();
-        _sceneManager->setContext(GameContext{.window = _window, .udpClient = _udpClient});
-        _sceneManager->changeScene(std::make_unique<GameScene>());
+        _sceneManager->setContext(GameContext{
+            .window = _window,
+            .udpClient = _udpClient,
+            .tcpClient = _tcpClient
+        });
+        _sceneManager->changeScene(std::make_unique<LoginScene>());
     }
 
     GameLoop::~GameLoop()
