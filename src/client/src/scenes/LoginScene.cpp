@@ -9,10 +9,20 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/MainMenuScene.hpp"
 #include <variant>
-#include <random>
 
 LoginScene::LoginScene()
 {
+}
+
+LoginScene::~LoginScene()
+{
+    // Unregister callbacks to prevent use-after-free
+    if (_context.tcpClient) {
+        _context.tcpClient->setOnConnected(nullptr);
+        _context.tcpClient->setOnDisconnected(nullptr);
+        _context.tcpClient->setOnError(nullptr);
+        _context.tcpClient->setOnReceive(nullptr);
+    }
 }
 
 void LoginScene::loadAssets()
@@ -21,32 +31,11 @@ void LoginScene::loadAssets()
 
     _context.window->loadFont(FONT_KEY, "assets/fonts/ARIA.TTF");
     _context.window->loadTexture(BG_TEXTURE_KEY, "assets/login/loginMenuBg.jpg");
+
+    // Initialize starfield
+    _starfield = std::make_unique<ui::StarfieldBackground>(SCREEN_WIDTH, SCREEN_HEIGHT, STAR_COUNT);
+
     _assetsLoaded = true;
-}
-
-void LoginScene::initStars()
-{
-    if (_starsInitialized) return;
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> xDist(0, SCREEN_WIDTH);
-    std::uniform_real_distribution<float> yDist(0, SCREEN_HEIGHT);
-    std::uniform_real_distribution<float> speedDist(15.0f, 60.0f);
-    std::uniform_real_distribution<float> sizeDist(1.0f, 2.5f);
-    std::uniform_int_distribution<int> brightnessDist(80, 200);
-
-    _stars.reserve(STAR_COUNT);
-    for (int i = 0; i < STAR_COUNT; ++i) {
-        _stars.push_back({
-            xDist(gen),
-            yDist(gen),
-            speedDist(gen),
-            sizeDist(gen),
-            brightnessDist(gen)
-        });
-    }
-    _starsInitialized = true;
 }
 
 void LoginScene::setupTCPCallbacks()
@@ -330,28 +319,15 @@ void LoginScene::handleEvent(const events::Event& event)
     }
 }
 
-void LoginScene::updateStars(float deltaTime)
-{
-    for (auto& star : _stars) {
-        star.x -= star.speed * deltaTime;
-        if (star.x < 0) {
-            star.x = SCREEN_WIDTH;
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_real_distribution<float> yDist(0, SCREEN_HEIGHT);
-            star.y = yDist(gen);
-        }
-    }
-}
-
 void LoginScene::update(float deltaTime)
 {
     if (!_assetsLoaded) loadAssets();
-    if (!_starsInitialized) initStars();
     if (!_uiInitialized) initUI();
     if (!_callbacksSetup) setupTCPCallbacks();
 
-    updateStars(deltaTime);
+    if (_starfield) {
+        _starfield->update(deltaTime);
+    }
 
     _usernameInput->update(deltaTime);
     _passwordInput->update(deltaTime);
@@ -375,9 +351,8 @@ void LoginScene::render()
     _context.window->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, {10, 10, 30, 255});
 
     // Draw stars
-    for (const auto& star : _stars) {
-        _context.window->drawRect(star.x, star.y, star.size, star.size,
-            {star.brightness, star.brightness, star.brightness, 255});
+    if (_starfield) {
+        _starfield->render(*_context.window);
     }
 
     // Draw title

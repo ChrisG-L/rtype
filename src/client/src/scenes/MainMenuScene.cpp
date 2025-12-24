@@ -9,7 +9,6 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/GameScene.hpp"
 #include <variant>
-#include <random>
 
 MainMenuScene::MainMenuScene()
 {
@@ -20,32 +19,11 @@ void MainMenuScene::loadAssets()
     if (_assetsLoaded || !_context.window) return;
 
     _context.window->loadFont(FONT_KEY, "assets/fonts/ARIA.TTF");
+
+    // Initialize starfield
+    _starfield = std::make_unique<ui::StarfieldBackground>(SCREEN_WIDTH, SCREEN_HEIGHT, STAR_COUNT);
+
     _assetsLoaded = true;
-}
-
-void MainMenuScene::initStars()
-{
-    if (_starsInitialized) return;
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> xDist(0, SCREEN_WIDTH);
-    std::uniform_real_distribution<float> yDist(0, SCREEN_HEIGHT);
-    std::uniform_real_distribution<float> speedDist(20.0f, 100.0f);
-    std::uniform_real_distribution<float> sizeDist(1.0f, 3.0f);
-    std::uniform_int_distribution<int> brightnessDist(100, 255);
-
-    _stars.reserve(STAR_COUNT);
-    for (int i = 0; i < STAR_COUNT; ++i) {
-        _stars.push_back({
-            xDist(gen),
-            yDist(gen),
-            speedDist(gen),
-            sizeDist(gen),
-            brightnessDist(gen)
-        });
-    }
-    _starsInitialized = true;
 }
 
 void MainMenuScene::initUI()
@@ -126,27 +104,14 @@ void MainMenuScene::handleEvent(const events::Event& event)
     _quitButton->handleEvent(event);
 }
 
-void MainMenuScene::updateStars(float deltaTime)
-{
-    for (auto& star : _stars) {
-        star.x -= star.speed * deltaTime;
-        if (star.x < 0) {
-            star.x = SCREEN_WIDTH;
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_real_distribution<float> yDist(0, SCREEN_HEIGHT);
-            star.y = yDist(gen);
-        }
-    }
-}
-
 void MainMenuScene::update(float deltaTime)
 {
     if (!_assetsLoaded) loadAssets();
-    if (!_starsInitialized) initStars();
     if (!_uiInitialized) initUI();
 
-    updateStars(deltaTime);
+    if (_starfield) {
+        _starfield->update(deltaTime);
+    }
 
     _playButton->update(deltaTime);
     _settingsButton->update(deltaTime);
@@ -161,9 +126,8 @@ void MainMenuScene::render()
     _context.window->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, {5, 5, 20, 255});
 
     // Draw stars
-    for (const auto& star : _stars) {
-        _context.window->drawRect(star.x, star.y, star.size, star.size,
-            {star.brightness, star.brightness, star.brightness, 255});
+    if (_starfield) {
+        _starfield->render(*_context.window);
     }
 
     // Draw title

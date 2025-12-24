@@ -198,6 +198,7 @@ add_executable(rtype_client
 
     src/ui/Button.cpp
     src/ui/TextInput.cpp
+    src/ui/StarfieldBackground.cpp
 
     src/gameplay/GameObject.cpp
     src/gameplay/Missile.cpp

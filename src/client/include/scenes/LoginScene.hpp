@@ -11,6 +11,7 @@
 #include "IScene.hpp"
 #include "ui/Button.hpp"
 #include "ui/TextInput.hpp"
+#include "ui/StarfieldBackground.hpp"
 #include "../utils/Vecs.hpp"
 #include <memory>
 #include <vector>
@@ -18,7 +19,7 @@
 class LoginScene : public IScene {
 public:
     LoginScene();
-    ~LoginScene() override = default;
+    ~LoginScene() override;
 
     void handleEvent(const events::Event& event) override;
     void update(float deltaTime) override;
@@ -34,8 +35,6 @@ private:
     void showError(const std::string& message);
     void showSuccess(const std::string& message);
     void setupTCPCallbacks();
-    void initStars();
-    void updateStars(float deltaTime);
 
     bool _assetsLoaded = false;
     bool _uiInitialized = false;
@@ -55,12 +54,7 @@ private:
     float _statusDisplayTimer = 0.0f;
 
     // Animated starfield
-    struct Star {
-        float x, y, speed, size;
-        int brightness;
-    };
-    std::vector<Star> _stars;
-    bool _starsInitialized = false;
+    std::unique_ptr<ui::StarfieldBackground> _starfield;
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;

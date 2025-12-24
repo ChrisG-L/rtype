@@ -10,10 +10,9 @@
 
 #include "IScene.hpp"
 #include "ui/Button.hpp"
+#include "ui/StarfieldBackground.hpp"
 #include "../utils/Vecs.hpp"
 #include <memory>
-#include <vector>
-#include <random>
 
 class MainMenuScene : public IScene {
 public:
@@ -30,8 +29,6 @@ private:
     void onPlayClick();
     void onSettingsClick();
     void onQuitClick();
-    void initStars();
-    void updateStars(float deltaTime);
 
     bool _assetsLoaded = false;
     bool _uiInitialized = false;
@@ -41,14 +38,7 @@ private:
     std::unique_ptr<ui::Button> _quitButton;
 
     // Animated starfield background
-    struct Star {
-        float x, y;
-        float speed;
-        float size;
-        int brightness;
-    };
-    std::vector<Star> _stars;
-    bool _starsInitialized = false;
+    std::unique_ptr<ui::StarfieldBackground> _starfield;
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;
