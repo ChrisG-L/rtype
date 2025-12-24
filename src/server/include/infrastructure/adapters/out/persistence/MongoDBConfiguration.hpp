@@ -9,7 +9,7 @@
 #define MONGODBCONFIGURATION_HPP_
 
 #include "../../../configuration/DBConfig.hpp"
-#include "domain/exceptions/persistence/MongoDBException.hpp"
+#include "infrastructure/exceptions/MongoDBException.hpp"
 
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/types.hpp>

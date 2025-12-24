@@ -10,7 +10,6 @@ add_executable(rtype_server
     domain/exceptions/user/UsernameException.cpp
     domain/exceptions/user/EmailException.cpp
     domain/exceptions/user/PasswordException.cpp
-    domain/exceptions/persistence/MongoDBException.cpp
 
     # Domain - Value Objects
     domain/value_objects/Health.cpp

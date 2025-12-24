@@ -16,7 +16,7 @@ namespace infrastructure::adapters::out::persistence {
             _instance = std::make_unique<mongocxx::instance>();
         }
         if (!pingServer()) {
-            throw domain::exceptions::persistence::MongoDBException();
+            throw infrastructure::exceptions::MongoDBException();
         }
     }
 

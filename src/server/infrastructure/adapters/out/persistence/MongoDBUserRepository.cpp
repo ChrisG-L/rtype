@@ -6,6 +6,8 @@
 */
 
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
+#include "domain/exceptions/user/UsernameAlreadyExistsException.hpp"
+#include "domain/exceptions/user/EmailAlreadyExistsException.hpp"
 
 namespace infrastructure::adapters::out::persistence {
     static std::unique_ptr<mongocxx::instance> _instance;
@@ -55,12 +57,11 @@ namespace infrastructure::adapters::out::persistence {
     void MongoDBUserRepository::save(const User& user) const {
         auto isUserExist = _collection->find_one(make_document(kvp("username", user.getUsername().value())));
         if (isUserExist.has_value()) {
-            return;
+            throw domain::exceptions::user::UsernameAlreadyExistsException(user.getUsername().value());
         }
         auto isEmailExist = _collection->find_one(make_document(kvp("email", user.getEmail().value())));
         if (isEmailExist.has_value()) {
-            std::cout << "EMAIL ALREADY EXIST!" << std::endl;
-            return;
+            throw domain::exceptions::user::EmailAlreadyExistsException(user.getEmail().value());
         }
         auto user_doc = make_document(
             kvp("username", user.getUsername().value()),
