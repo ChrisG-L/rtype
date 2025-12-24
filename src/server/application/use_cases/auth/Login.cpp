@@ -6,14 +6,15 @@
 */
 
 #include "application/use_cases/auth/Login.hpp"
-#include "infrastructure/logging/Logger.hpp"
 
 namespace application::use_cases::auth {
-    Login::Login(std::shared_ptr<IUserRepository> userRepository) : _userRepository(userRepository) {}
+    Login::Login(
+        std::shared_ptr<IUserRepository> userRepository,
+        std::shared_ptr<ILogger> logger
+    ) : _userRepository(userRepository), _logger(logger) {}
 
     std::optional<User> Login::execute(const std::string& username, const std::string& password) {
-        auto logger = server::logging::Logger::getMainLogger();
-        logger->info("[AUTH/LOGIN] Attempting login for username: '{}' with password: '{}'", username, password);
+        _logger->info("[AUTH/LOGIN] Attempting login for username: '{}'", username);
 
         auto playerOpt = _userRepository->findByName(username);
         if (!playerOpt.has_value()) {
@@ -27,7 +28,7 @@ namespace application::use_cases::auth {
 
         user.updateLastLogin();
         _userRepository->update(user);
-        return playerOpt;
+        return user;
     }
 }
 

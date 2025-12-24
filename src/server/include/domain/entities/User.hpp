@@ -8,8 +8,6 @@
 #ifndef USER_HPP_
 #define USER_HPP_
 
-#include <bsoncxx/oid.hpp>
-
 #include "domain/value_objects/user/UserId.hpp"
 #include "domain/value_objects/user/Username.hpp"
 #include "domain/value_objects/user/Email.hpp"

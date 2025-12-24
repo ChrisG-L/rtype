@@ -8,19 +8,21 @@
 #include "application/use_cases/auth/Register.hpp"
 #include "domain/exceptions/user/UsernameAlreadyExistsException.hpp"
 #include "domain/exceptions/user/EmailAlreadyExistsException.hpp"
-#include "infrastructure/logging/Logger.hpp"
 
 namespace application::use_cases::auth {
-    Register::Register(std::shared_ptr<IUserRepository> userRepository) : _userRepository(userRepository) {}
+    Register::Register(
+        std::shared_ptr<IUserRepository> userRepository,
+        std::shared_ptr<IIdGenerator> idGenerator,
+        std::shared_ptr<ILogger> logger
+    ) : _userRepository(userRepository), _idGenerator(idGenerator), _logger(logger) {}
 
     std::optional<User> Register::execute(
         const std::string& username,
         const std::string& email,
         const std::string& unHashedPassword
     ) {
-        auto logger = server::logging::Logger::getMainLogger();
-        logger->info("[AUTH/REGISTER] Attempting registration - username: '{}', email: '{}', password: '{}'",
-            username, email, unHashedPassword);
+        _logger->info("[AUTH/REGISTER] Attempting registration - username: '{}', email: '{}'",
+            username, email);
 
         auto playerOptByName = _userRepository->findByName(username);
         if (playerOptByName.has_value()) {
@@ -32,7 +34,7 @@ namespace application::use_cases::auth {
             throw domain::exceptions::user::EmailAlreadyExistsException(email);
         }
 
-        User user(domain::value_objects::user::UserId(bsoncxx::oid().to_string()),
+        User user(domain::value_objects::user::UserId(_idGenerator->generate()),
             domain::value_objects::user::Username(username),
             domain::value_objects::user::Email((email)),
             domain::value_objects::user::Password(domain::value_objects::user::utils::hashPassword(unHashedPassword)));
