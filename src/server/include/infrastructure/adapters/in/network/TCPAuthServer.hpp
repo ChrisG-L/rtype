@@ -19,7 +19,9 @@
 #include "protocol/CommandParser.hpp"
 #include "Protocol.hpp"
 
-#include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
+#include "application/ports/out/persistence/IUserRepository.hpp"
+#include "application/ports/out/IIdGenerator.hpp"
+#include "application/ports/out/ILogger.hpp"
 #include "infrastructure/adapters/in/network/execute/Execute.hpp"
 
 // Domain exceptions for error handling
@@ -30,11 +32,12 @@
 #include "domain/exceptions/user/UsernameAlreadyExistsException.hpp"
 #include "domain/exceptions/user/EmailAlreadyExistsException.hpp"
 #include "domain/exceptions/user/UserAlreadyLoggedException.hpp"
-#include "domain/exceptions/persistence/MongoDBException.hpp"
 
 namespace infrastructure::adapters::in::network {
     using boost::asio::ip::tcp;
-    using infrastructure::adapters::out::persistence::MongoDBUserRepository;
+    using application::ports::out::persistence::IUserRepository;
+    using application::ports::out::IIdGenerator;
+    using application::ports::out::ILogger;
     using domain::entities::User;
 
     class Session: public std::enable_shared_from_this<Session> {
@@ -46,6 +49,9 @@ namespace infrastructure::adapters::in::network {
             std::optional<User> _user;
             bool _isAuthenticated = false;
             std::function<void(const User&)> _onAuthSuccess;
+            std::shared_ptr<IUserRepository> _userRepository;
+            std::shared_ptr<IIdGenerator> _idGenerator;
+            std::shared_ptr<ILogger> _logger;
 
             void do_read();
             void do_write(const MessageType&, const std::string& message);
@@ -55,26 +61,34 @@ namespace infrastructure::adapters::in::network {
 
             public:
                 Session(tcp::socket socket,
-                    std::shared_ptr<MongoDBUserRepository> userRepository,
+                    std::shared_ptr<IUserRepository> userRepository,
+                    std::shared_ptr<IIdGenerator> idGenerator,
+                    std::shared_ptr<ILogger> logger,
                     std::unordered_map<std::string, User>&);
                 ~Session();
 
-                std::shared_ptr<MongoDBUserRepository> _userRepository;
                 void start();
         };
-        
+
     class TCPAuthServer {
             private:
                 boost::asio::io_context& _io_ctx;
-                std::shared_ptr<MongoDBUserRepository> _userRepository;
+                std::shared_ptr<IUserRepository> _userRepository;
+                std::shared_ptr<IIdGenerator> _idGenerator;
+                std::shared_ptr<ILogger> _logger;
                 tcp::acceptor _acceptor;
                 std::unordered_map<std::string, User> users;
                 void start_accept();
 
         public:
-            TCPAuthServer(boost::asio::io_context& io_ctx, std::shared_ptr<MongoDBUserRepository> userRepository);
+            TCPAuthServer(
+                boost::asio::io_context& io_ctx,
+                std::shared_ptr<IUserRepository> userRepository,
+                std::shared_ptr<IIdGenerator> idGenerator,
+                std::shared_ptr<ILogger> logger);
             void start();
             void run();
+            void stop();
         };
 }
 #endif /* !TCPAUTHSERVER_HPP_ */

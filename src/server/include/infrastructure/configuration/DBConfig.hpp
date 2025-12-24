@@ -8,10 +8,7 @@
 #ifndef DBCONFIG_HPP_
 #define DBCONFIG_HPP_
 
-#include <bsoncxx/json.hpp>
-#include <mongocxx/client.hpp>
-#include <mongocxx/instance.hpp>
-#include <mongocxx/uri.hpp>
+#include <string>
 
 struct DBConfig {
     std::string connexionString;

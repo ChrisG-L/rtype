@@ -17,13 +17,15 @@ namespace infrastructure::adapters::in::network::execute {
 
     Execute::Execute(
         const Command& cmd,
-        std::shared_ptr<MongoDBUserRepository> UserRepository,
+        std::shared_ptr<IUserRepository> userRepository,
+        std::shared_ptr<IIdGenerator> idGenerator,
+        std::shared_ptr<ILogger> logger,
         std::unordered_map<std::string, User>& users,
         std::function<void(const User& user)> onLoginSuccess
     )
     {
-        std::shared_ptr<Login> login = std::make_shared<Login>(UserRepository);
-        std::shared_ptr<Register> registerUser = std::make_shared<Register>(UserRepository);
+        std::shared_ptr<Login> login = std::make_shared<Login>(userRepository, logger);
+        std::shared_ptr<Register> registerUser = std::make_shared<Register>(userRepository, idGenerator, logger);
         _executeAuth = std::make_unique<auth::ExecuteAuth>(cmd, login, registerUser);
         std::optional<User> userOpt = _executeAuth->getUser();
         if (userOpt.has_value()) {

@@ -19,9 +19,12 @@ namespace infrastructure::adapters::in::network {
     // Session implementation
     Session::Session(
         tcp::socket socket,
-        std::shared_ptr<MongoDBUserRepository> userRepository,
+        std::shared_ptr<IUserRepository> userRepository,
+        std::shared_ptr<IIdGenerator> idGenerator,
+        std::shared_ptr<ILogger> logger,
         std::unordered_map<std::string, User>& users)
-    : _socket(std::move(socket)), _users(users), _isAuthenticated(false), _userRepository(userRepository)
+    : _socket(std::move(socket)), _users(users), _isAuthenticated(false),
+      _userRepository(userRepository), _idGenerator(idGenerator), _logger(logger)
     {
         _onAuthSuccess = [this](const User& user) { onLoginSuccess(user); };
     }
@@ -38,9 +41,8 @@ namespace infrastructure::adapters::in::network {
         }
     }
 
-    void Session::start() 
+    void Session::start()
     {
-        std::cout << "Je suis dans le start ! " << std::endl;
         do_write(MessageType::Login, "");
         do_read();
     }
@@ -142,7 +144,7 @@ namespace infrastructure::adapters::in::network {
 
     void Session::handle_command(const Header& head) {
         using infrastructure::adapters::in::network::execute::Execute;
-        auto logger = server::logging::Logger::getNetworkLogger();
+        auto networkLogger = server::logging::Logger::getNetworkLogger();
 
         Command cmd = {.type = head.type, .buf = std::vector<uint8_t>(_accumulator.begin() + Header::WIRE_SIZE, _accumulator.begin() + Header::WIRE_SIZE + head.payload_size)};
 
@@ -152,18 +154,18 @@ namespace infrastructure::adapters::in::network {
             : MessageType::RegisterAck;
 
         try {
-            Execute execute(cmd, _userRepository, _users, _onAuthSuccess);
+            Execute execute(cmd, _userRepository, _idGenerator, _logger, _users, _onAuthSuccess);
 
             // Check if authentication succeeded
             if (_isAuthenticated) {
-                logger->info("Authentication successful");
+                networkLogger->info("Authentication successful");
                 AuthResponse resp;
                 resp.success = true;
                 std::strncpy(resp.error_code, "", MAX_ERROR_CODE_LEN);
                 std::strncpy(resp.message, "Authentication successful", MAX_ERROR_MSG_LEN);
                 do_write_auth_response(responseType, resp);
             } else {
-                logger->info("Authentication failed - invalid credentials");
+                networkLogger->info("Authentication failed - invalid credentials");
                 AuthResponse resp;
                 resp.success = false;
                 std::strncpy(resp.error_code, "INVALID_CREDENTIALS", MAX_ERROR_CODE_LEN);
@@ -171,7 +173,7 @@ namespace infrastructure::adapters::in::network {
                 do_write_auth_response(responseType, resp);
             }
         } catch (const domain::exceptions::user::UsernameAlreadyExistsException& e) {
-            logger->warn("Username already exists: {}", e.what());
+            networkLogger->warn("Username already exists: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "USERNAME_EXISTS", MAX_ERROR_CODE_LEN);
@@ -179,7 +181,7 @@ namespace infrastructure::adapters::in::network {
             resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
             do_write_auth_response(MessageType::RegisterAck, resp);
         } catch (const domain::exceptions::user::EmailAlreadyExistsException& e) {
-            logger->warn("Email already exists: {}", e.what());
+            networkLogger->warn("Email already exists: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "EMAIL_EXISTS", MAX_ERROR_CODE_LEN);
@@ -187,7 +189,7 @@ namespace infrastructure::adapters::in::network {
             resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
             do_write_auth_response(MessageType::RegisterAck, resp);
         } catch (const domain::exceptions::user::UserAlreadyLoggedException& e) {
-            logger->warn("User already logged: {}", e.what());
+            networkLogger->warn("User already logged: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "USER_ALREADY_LOGGED", MAX_ERROR_CODE_LEN);
@@ -195,7 +197,7 @@ namespace infrastructure::adapters::in::network {
             resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
             do_write_auth_response(responseType, resp);
         } catch (const domain::exceptions::user::UsernameException& e) {
-            logger->warn("Username validation error: {}", e.what());
+            networkLogger->warn("Username validation error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "INVALID_USERNAME", MAX_ERROR_CODE_LEN);
@@ -203,7 +205,7 @@ namespace infrastructure::adapters::in::network {
             resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
             do_write_auth_response(responseType, resp);
         } catch (const domain::exceptions::user::EmailException& e) {
-            logger->warn("Email validation error: {}", e.what());
+            networkLogger->warn("Email validation error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "INVALID_EMAIL", MAX_ERROR_CODE_LEN);
@@ -211,7 +213,7 @@ namespace infrastructure::adapters::in::network {
             resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
             do_write_auth_response(MessageType::RegisterAck, resp);
         } catch (const domain::exceptions::user::PasswordException& e) {
-            logger->warn("Password validation error: {}", e.what());
+            networkLogger->warn("Password validation error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "INVALID_PASSWORD", MAX_ERROR_CODE_LEN);
@@ -219,7 +221,7 @@ namespace infrastructure::adapters::in::network {
             resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
             do_write_auth_response(responseType, resp);
         } catch (const domain::exceptions::DomainException& e) {
-            logger->error("Domain error: {}", e.what());
+            networkLogger->error("Domain error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "DOMAIN_ERROR", MAX_ERROR_CODE_LEN);
@@ -227,7 +229,7 @@ namespace infrastructure::adapters::in::network {
             resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
             do_write_auth_response(responseType, resp);
         } catch (const std::exception& e) {
-            logger->error("Server error: {}", e.what());
+            networkLogger->error("Server error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
             std::strncpy(resp.error_code, "SERVER_ERROR", MAX_ERROR_CODE_LEN);
@@ -238,11 +240,16 @@ namespace infrastructure::adapters::in::network {
     }
 
     // TCPAuthServer implementation
-    TCPAuthServer::TCPAuthServer(boost::asio::io_context& io_ctx, std::shared_ptr<MongoDBUserRepository> userRepository)
-        : _io_ctx(io_ctx), _userRepository(userRepository) ,
-        _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4125)) {
-        auto logger = server::logging::Logger::getNetworkLogger();
-        logger->info("TCP Auth Server started on port 4125");
+    TCPAuthServer::TCPAuthServer(
+        boost::asio::io_context& io_ctx,
+        std::shared_ptr<IUserRepository> userRepository,
+        std::shared_ptr<IIdGenerator> idGenerator,
+        std::shared_ptr<ILogger> logger)
+        : _io_ctx(io_ctx), _userRepository(userRepository),
+          _idGenerator(idGenerator), _logger(logger),
+          _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4125)) {
+        auto networkLogger = server::logging::Logger::getNetworkLogger();
+        networkLogger->info("TCP Auth Server started on port 4125");
     }
 
     void TCPAuthServer::start() {
@@ -253,15 +260,23 @@ namespace infrastructure::adapters::in::network {
         _io_ctx.run();
     }
 
+    void TCPAuthServer::stop() {
+        _acceptor.close();
+    }
+
     void TCPAuthServer::start_accept() {
-        auto logger = server::logging::Logger::getNetworkLogger();
+        auto networkLogger = server::logging::Logger::getNetworkLogger();
 
         _acceptor.async_accept(
-            [this, logger](boost::system::error_code ec, tcp::socket socket) {
-                if (!ec) {
-                    logger->info("TCP New connection accepted!");
-                    std::make_shared<Session>(std::move(socket), _userRepository, users)->start();
+            [this, networkLogger](boost::system::error_code ec, tcp::socket socket) {
+                if (ec) {
+                    if (ec != boost::asio::error::operation_aborted) {
+                        networkLogger->error("Accept error: {}", ec.message());
+                    }
+                    return;
                 }
+                networkLogger->info("TCP New connection accepted!");
+                std::make_shared<Session>(std::move(socket), _userRepository, _idGenerator, _logger, users)->start();
                 start_accept();
             }
         );

@@ -12,11 +12,14 @@
 #include "infrastructure/adapters/in/network/TCPAuthServer.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
+#include "infrastructure/adapters/out/MongoIdGenerator.hpp"
+#include "infrastructure/adapters/out/SpdLogAdapter.hpp"
 #include "infrastructure/configuration/DBConfig.hpp"
 
 #include <iostream>
 #include <memory>
 #include <cstdlib>
+#include <csignal>
 
 namespace infrastructure::bootstrap {
 
@@ -27,6 +30,8 @@ namespace infrastructure::bootstrap {
                 using adapters::in::network::TCPAuthServer;
                 using adapters::out::persistence::MongoDBConfiguration;
                 using adapters::out::persistence::MongoDBUserRepository;
+                using adapters::out::MongoIdGenerator;
+                using adapters::out::SpdLogAdapter;
 
                 std::cout << "=== Démarrage du serveur R-Type ===" << std::endl;
 
@@ -47,8 +52,12 @@ namespace infrastructure::bootstrap {
                 auto mongoConfig = std::make_shared<MongoDBConfiguration>(dbConfig);
                 auto userRepo = std::make_shared<MongoDBUserRepository>(mongoConfig);
 
+                // Create adapters for ports
+                auto idGenerator = std::make_shared<MongoIdGenerator>();
+                auto logger = std::make_shared<SpdLogAdapter>();
+
                 // Start TCP Auth Server on port 4125
-                TCPAuthServer tcpAuthServer(io_ctx, userRepo);
+                TCPAuthServer tcpAuthServer(io_ctx, userRepo, idGenerator, logger);
                 tcpAuthServer.start();
 
                 // Start UDP Game Server on port 4124
@@ -56,6 +65,15 @@ namespace infrastructure::bootstrap {
                 udpServer.start();
 
                 std::cout << "Serveur UDP prêt. En attente de connexions..." << std::endl;
+                std::cout << "Appuyez sur Ctrl+C pour arrêter le serveur proprement." << std::endl;
+
+                boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
+                signals.async_wait([&](const boost::system::error_code&, int signum) {
+                    std::cout << "\nSignal reçu (" << signum << "), arrêt du serveur..." << std::endl;
+                    udpServer.stop();
+                    tcpAuthServer.stop();
+                    io_ctx.stop();
+                });
 
                 io_ctx.run();
             }
