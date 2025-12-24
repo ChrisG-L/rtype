@@ -2,6 +2,9 @@
 
 set -e # Arreter en cas d'erreur
 
+# Nécessaire pour vcpkg lors de la reconfiguration automatique de CMake
+export VCPKG_FORCE_SYSTEM_BINARIES=1
+
 # ==============================================================================
 # Couleurs et Formatage
 # ==============================================================================
