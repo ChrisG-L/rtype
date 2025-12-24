@@ -15,6 +15,7 @@
 #include <mutex>
 #include <queue>
 #include <functional>
+#include <atomic>
 
 #include "Protocol.hpp"
 
@@ -71,7 +72,7 @@ namespace client::network
 
         // État
         bool _connected;
-        bool _isAuthenticated;
+        std::atomic<bool> _isAuthenticated;
         mutable std::mutex _mutex;
 
         // Queue d'envoi

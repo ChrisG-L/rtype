@@ -309,8 +309,10 @@ namespace infrastructure::adapters::in::network {
 
     void UDPServer::handle_receive(const boost::system::error_code& error, std::size_t bytes) {
         if (error) {
-            std::cerr << "Receive error: " << error.message() << std::endl;
-            do_read();
+            if (error != boost::asio::error::operation_aborted) {
+                std::cerr << "Receive error: " << error.message() << std::endl;
+                do_read();
+            }
             return;
         }
 

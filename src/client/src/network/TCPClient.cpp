@@ -103,13 +103,10 @@ namespace client::network
         _ioContext.restart();
         _socket = tcp::socket(_ioContext);
 
-        {
-            std::scoped_lock lock(_mutex);
-            while (!_sendQueue.empty()) {
-                _sendQueue.pop();
-            }
-            _isWriting = false;
+        while (!_sendQueue.empty()) {
+            _sendQueue.pop();
         }
+        _isWriting = false;
 
         logger->info("Disconnected successfully");
     }
