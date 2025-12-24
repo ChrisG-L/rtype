@@ -40,9 +40,9 @@ namespace core {
         private:
             std::string buildLibraryName(const std::string& name) const;
 
+            std::unique_ptr<DynamicLib> _dynamicLib;
             std::shared_ptr<graphics::IWindow>  _window;
             std::unique_ptr<GameLoop> _gameLoop;
-            std::unique_ptr<DynamicLib> _dynamicLib;
             std::shared_ptr<client::network::UDPClient> _udpClient = nullptr;
             std::shared_ptr<client::network::TCPClient> _tcpClient = nullptr;
             graphics::IGraphicPlugin* _graphicPlugin = nullptr;

@@ -30,8 +30,11 @@ int main(int argc, char* argv[]) {
             accessConfig.saveToFile("assets/accessibility.cfg");
         }
 
-        Boot boot(argc, argv);
-        boot.core();
+        {
+            Boot boot(argc, argv);
+            boot.core();
+        } // Boot détruit ici, avant shutdown du logger
+
         client::logging::Logger::shutdown();
     }
     catch(const std::exception& e)

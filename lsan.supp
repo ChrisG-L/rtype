@@ -7,12 +7,20 @@ leak:SDL_Init
 leak:SDL_CreateWindow
 leak:SDL_CreateRenderer
 leak:SDL_GL_CreateContext
+leak:SDL_RWFromFile
+leak:Mix_LoadWAV
+
+# SFML internal allocations
+leak:sf::priv::GlContext
+leak:sf::priv::GlxContext
+leak:gladLoadGLX
 
 # Mesa/OpenGL driver leaks
 leak:libGL
 leak:libGLX
 leak:libEGL
 leak:mesa
+leak:libGLX_mesa
 leak:radeonsi
 leak:nouveau
 leak:i965
