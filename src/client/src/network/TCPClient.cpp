@@ -159,7 +159,7 @@ namespace client::network
             logger->error("Connection failed: {}", error.message());
 
             if (_onError) {
-                _onError("Connexion échouée: " + error.message());
+                _onError("Connexion echouee: " + error.message());
             }
         }
     }
