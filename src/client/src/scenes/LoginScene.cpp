@@ -59,15 +59,11 @@ void LoginScene::setupTCPCallbacks()
         // For now, we'll handle success/failure based on the message
         if (message.find("success") != std::string::npos ||
             message.find("authenticated") != std::string::npos) {
-            // Login successful - navigate to main menu
-            if (_sceneManager) {
-                _sceneManager->changeScene(std::make_unique<MainMenuScene>());
-            }
+            // Signal auth success - will be handled in update() on main thread
+            _authSuccess.store(true);
         }
     });
 
-    // Connect to auth server
-    _context.tcpClient->connect("127.0.0.1", 4125);
     _callbacksSetup = true;
 }
 
@@ -209,10 +205,6 @@ void LoginScene::onLoginClick()
         showSuccess("Logging in...");
     } else {
         showError("Not connected to auth server");
-        // Try to reconnect
-        if (_context.tcpClient) {
-            _context.tcpClient->connect("127.0.0.1", 4125);
-        }
     }
 }
 
@@ -249,9 +241,6 @@ void LoginScene::onRegisterClick()
         showSuccess("Registering...");
     } else {
         showError("Not connected to auth server");
-        if (_context.tcpClient) {
-            _context.tcpClient->connect("127.0.0.1", 4125);
-        }
     }
 }
 
@@ -324,6 +313,19 @@ void LoginScene::update(float deltaTime)
     if (!_assetsLoaded) loadAssets();
     if (!_uiInitialized) initUI();
     if (!_callbacksSetup) setupTCPCallbacks();
+
+    // Handle auth success on main thread
+    if (_authSuccess.exchange(false)) {
+        // Disconnect TCP (no longer needed after auth)
+        if (_context.tcpClient) {
+            _context.tcpClient->disconnect();
+        }
+        // Navigate to main menu
+        if (_sceneManager) {
+            _sceneManager->changeScene(std::make_unique<MainMenuScene>());
+        }
+        return;
+    }
 
     if (_starfield) {
         _starfield->update(deltaTime);

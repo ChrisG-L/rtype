@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <functional>
+#include <chrono>
 
 #include "protocol/CommandParser.hpp"
 #include "Protocol.hpp"
@@ -53,11 +54,16 @@ namespace infrastructure::adapters::in::network {
             std::shared_ptr<IIdGenerator> _idGenerator;
             std::shared_ptr<ILogger> _logger;
 
+            boost::asio::steady_timer _timeoutTimer;
+            std::chrono::steady_clock::time_point _lastActivity;
+
             void do_read();
             void do_write(const MessageType&, const std::string& message);
             void do_write_auth_response(const MessageType& msgType, const AuthResponse& resp);
+            void do_write_heartbeat_ack();
             void handle_command(const Header&);
             void onLoginSuccess(const User& user);
+            void scheduleTimeoutCheck();
 
             public:
                 Session(tcp::socket socket,

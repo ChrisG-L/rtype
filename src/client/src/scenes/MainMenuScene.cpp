@@ -72,9 +72,10 @@ void MainMenuScene::initUI()
 
 void MainMenuScene::onPlayClick()
 {
-    // Connect to UDP game server
-    if (_context.udpClient) {
-        _context.udpClient->connect("127.0.0.1", 4124);
+    // Check UDP connection
+    if (!_context.udpClient || !_context.udpClient->isConnected()) {
+        // TODO: Show error message "Not connected to game server"
+        return;
     }
 
     // Navigate to GameScene

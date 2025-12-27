@@ -21,6 +21,7 @@ static constexpr std::size_t BUFFER_SIZE = 4096;
 
 enum class MessageType: uint16_t {
     HeartBeat = 0x0001,
+    HeartBeatAck = 0x0002,
     Basic = 0x0030,
     BasicAck = 0x0031,
     Snapshot = 0x0040,
@@ -331,6 +332,16 @@ struct ShootMissile {
 
     static std::optional<ShootMissile> from_bytes(const void*, size_t) {
         return ShootMissile{};
+    }
+};
+
+struct HeartBeatAck {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(uint8_t*) const {}
+
+    static std::optional<HeartBeatAck> from_bytes(const void*, size_t) {
+        return HeartBeatAck{};
     }
 };
 

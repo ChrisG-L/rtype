@@ -16,6 +16,7 @@
 #include <queue>
 #include <functional>
 #include <atomic>
+#include <chrono>
 
 #include "Protocol.hpp"
 
@@ -65,13 +66,23 @@ namespace client::network
         void handleRead(const boost::system::error_code &error, std::size_t bytes);
         // void handleWrite(const boost::system::error_code &error);
 
+        // HeartBeat
+        void scheduleHeartbeat();
+        void sendHeartbeat();
+
         // Contexte et socket
         boost::asio::io_context _ioContext;
         tcp::socket _socket;
         std::jthread _ioThread;
 
+        // HeartBeat timer
+        boost::asio::steady_timer _heartbeatTimer;
+        std::chrono::steady_clock::time_point _lastServerResponse;
+        mutable std::mutex _heartbeatMutex;
+
         // État
-        bool _connected;
+        std::atomic<bool> _connected{false};
+        std::atomic<bool> _disconnecting{false};
         std::atomic<bool> _isAuthenticated;
         mutable std::mutex _mutex;
 

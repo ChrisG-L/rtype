@@ -16,6 +16,9 @@
 #include <vector>
 
 namespace infrastructure::adapters::in::network {
+    static constexpr int CLIENT_TIMEOUT_MS = 5000;
+    static constexpr int TIMEOUT_CHECK_INTERVAL_MS = 1000;
+
     // Session implementation
     Session::Session(
         tcp::socket socket,
@@ -24,9 +27,11 @@ namespace infrastructure::adapters::in::network {
         std::shared_ptr<ILogger> logger,
         std::unordered_map<std::string, User>& users)
     : _socket(std::move(socket)), _users(users), _isAuthenticated(false),
-      _userRepository(userRepository), _idGenerator(idGenerator), _logger(logger)
+      _userRepository(userRepository), _idGenerator(idGenerator), _logger(logger),
+      _timeoutTimer(_socket.get_executor())
     {
         _onAuthSuccess = [this](const User& user) { onLoginSuccess(user); };
+        _lastActivity = std::chrono::steady_clock::now();
     }
 
     Session::~Session()
@@ -44,6 +49,7 @@ namespace infrastructure::adapters::in::network {
     void Session::start()
     {
         do_write(MessageType::Login, "");
+        scheduleTimeoutCheck();
         do_read();
     }
 
@@ -55,6 +61,8 @@ namespace infrastructure::adapters::in::network {
             boost::asio::buffer(_readBuffer, BUFFER_SIZE),
             [this, self, logger](boost::system::error_code ec, std::size_t bytes) {
                 if (!ec) {
+                    _lastActivity = std::chrono::steady_clock::now();
+
                     _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
 
                     while (_accumulator.size() >= Header::WIRE_SIZE) {
@@ -142,9 +150,63 @@ namespace infrastructure::adapters::in::network {
             });
     }
 
+    void Session::do_write_heartbeat_ack() {
+        struct Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::HeartBeatAck),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        auto self = shared_from_this();
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), Header::WIRE_SIZE),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("HeartBeatAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::scheduleTimeoutCheck() {
+        auto self = shared_from_this();
+        _timeoutTimer.expires_after(std::chrono::milliseconds(TIMEOUT_CHECK_INTERVAL_MS));
+        _timeoutTimer.async_wait([this, self](boost::system::error_code ec) {
+            if (ec) {
+                return;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - _lastActivity
+            ).count();
+
+            if (elapsed > CLIENT_TIMEOUT_MS) {
+                auto logger = server::logging::Logger::getNetworkLogger();
+                logger->warn("TCP Client heartbeat timeout ({}ms) - closing session", elapsed);
+
+                boost::system::error_code closeEc;
+                _socket.close(closeEc);
+                return;
+            }
+
+            scheduleTimeoutCheck();
+        });
+    }
+
     void Session::handle_command(const Header& head) {
         using infrastructure::adapters::in::network::execute::Execute;
         auto networkLogger = server::logging::Logger::getNetworkLogger();
+
+        // Handle HeartBeat separately - no Execute needed
+        if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
+            do_write_heartbeat_ack();
+            return;
+        }
 
         Command cmd = {.type = head.type, .buf = std::vector<uint8_t>(_accumulator.begin() + Header::WIRE_SIZE, _accumulator.begin() + Header::WIRE_SIZE + head.payload_size)};
 

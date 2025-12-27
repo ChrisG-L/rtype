@@ -23,8 +23,11 @@
 
 namespace client::network
 {
+    static constexpr int HEARTBEAT_INTERVAL_MS = 1000;
+    static constexpr int HEARTBEAT_TIMEOUT_MS = 5000;
+
     UDPClient::UDPClient()
-        : _socket(_ioContext), _connected(false), _isWriting(false), _localPlayerId(std::nullopt)
+        : _socket(_ioContext), _heartbeatTimer(_ioContext), _isWriting(false), _localPlayerId(std::nullopt)
     {
         client::logging::Logger::getNetworkLogger()->debug("UDPClient created");
     }
@@ -32,6 +35,9 @@ namespace client::network
     UDPClient::~UDPClient()
     {
         disconnect();
+        if (_ioThread.joinable()) {
+            _ioThread.join();
+        }
     }
 
     void UDPClient::setOnConnected(const OnConnectedCallback& callback)
@@ -77,7 +83,7 @@ namespace client::network
     void UDPClient::connect(const std::string &host, std::uint16_t port)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
-        if (_connected) {
+        if (_connected.load()) {
             logger->warn("Already connected, disconnecting...");
             disconnect();
         }
@@ -104,7 +110,8 @@ namespace client::network
                 );
             #endif
 
-            _connected = true;
+            _disconnecting.store(false);
+            _connected.store(true);
 
             asyncReceiveFrom();
 
@@ -117,14 +124,13 @@ namespace client::network
             logger->info("Connected to server UDP at {}:{}",
                         _endpoint.address().to_string(), _endpoint.port());
 
-            UDPHeader head{
-                .type = static_cast<uint16_t>(MessageType::HeartBeat),
-                .sequence_num = 0,
-                .timestamp = UDPHeader::getTimestamp()
-            };
-            auto buf = std::make_shared<std::vector<uint8_t>>(UDPHeader::WIRE_SIZE);
-            head.to_bytes(buf->data());
-            asyncSendTo(buf, UDPHeader::WIRE_SIZE);
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
+            }
+
+            sendHeartbeat();
+            scheduleHeartbeat();
 
             if (_onConnected) {
                 _onConnected();
@@ -140,15 +146,23 @@ namespace client::network
 
     void UDPClient::disconnect()
     {
-        std::scoped_lock lock(_mutex);
-        if (!_connected) {
+        // Prevent multiple disconnect calls
+        if (_disconnecting.exchange(true)) {
+            return;
+        }
+
+        if (!_connected.load()) {
+            _disconnecting.store(false);
             return;
         }
 
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Disconnecting UDP...");
 
-        _connected = false;
+        _connected.store(false);
+
+        _heartbeatTimer.cancel();
+
         _ioContext.stop();
 
         boost::system::error_code ec;
@@ -175,6 +189,8 @@ namespace client::network
             _enemyMissiles.clear();
         }
 
+        _accumulator.clear();
+
         if (_onDisconnected) {
             _onDisconnected();
         }
@@ -184,7 +200,7 @@ namespace client::network
 
     bool UDPClient::isConnected() const
     {
-        return _connected && _socket.is_open();
+        return _connected.load() && _socket.is_open();
     }
 
     std::optional<uint8_t> UDPClient::getLocalPlayerId() const
@@ -423,6 +439,11 @@ namespace client::network
     {
         auto logger = client::logging::Logger::getNetworkLogger();
         if (!error && bytes > 0) {
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
+            }
+
             if (bytes >= UDPHeader::WIRE_SIZE) {
                 auto headOpt = UDPHeader::from_bytes(_readBuffer, bytes);
                 if (!headOpt) {
@@ -434,6 +455,8 @@ namespace client::network
                 const uint8_t* payload = reinterpret_cast<const uint8_t*>(_readBuffer) + UDPHeader::WIRE_SIZE;
 
                 switch (static_cast<MessageType>(head.type)) {
+                    case MessageType::HeartBeatAck:
+                        break;
                     case MessageType::PlayerJoin:
                         handlePlayerJoin(payload, payload_size);
                         break;
@@ -502,6 +525,52 @@ namespace client::network
         auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
         head.to_bytes(buf->data());
         asyncSendTo(buf, totalSize);
+    }
+
+    void UDPClient::sendHeartbeat() {
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::HeartBeat),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        auto buf = std::make_shared<std::vector<uint8_t>>(UDPHeader::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        asyncSendTo(buf, UDPHeader::WIRE_SIZE);
+    }
+
+    void UDPClient::scheduleHeartbeat() {
+        _heartbeatTimer.expires_after(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
+        _heartbeatTimer.async_wait([this](boost::system::error_code ec) {
+            if (ec || !_connected.load()) {
+                return;
+            }
+
+            std::chrono::steady_clock::time_point lastResponse;
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                lastResponse = _lastServerResponse;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - lastResponse
+            ).count();
+
+            if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+                auto logger = client::logging::Logger::getNetworkLogger();
+                logger->warn("Server heartbeat timeout ({}ms)", elapsed);
+
+                if (_onError) {
+                    _onError("Timeout: Serveur injoignable");
+                }
+
+                disconnect();
+                return;
+            }
+
+            sendHeartbeat();
+            scheduleHeartbeat();
+        });
     }
 
 }

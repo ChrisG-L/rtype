@@ -31,6 +31,7 @@ namespace infrastructure::adapters::in::network {
             void sendTo(const udp::endpoint& endpoint, const void* data, size_t size);
             void sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId);
             void sendPlayerLeave(uint8_t playerId);
+            void sendHeartbeatAck(const udp::endpoint& endpoint);
             void broadcastSnapshot();
             void broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId);
             void broadcastMissileDestroyed(uint16_t missileId);

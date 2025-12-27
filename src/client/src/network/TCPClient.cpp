@@ -16,8 +16,11 @@
 
 namespace client::network
 {
+    static constexpr int HEARTBEAT_INTERVAL_MS = 1000;
+    static constexpr int HEARTBEAT_TIMEOUT_MS = 5000;
+
     TCPClient::TCPClient()
-        : _socket(_ioContext), _connected(false),  _isAuthenticated(false), _isWriting(false)
+        : _socket(_ioContext), _heartbeatTimer(_ioContext), _isAuthenticated(false), _isWriting(false)
     {
         client::logging::Logger::getNetworkLogger()->debug("TCPClient created");
     }
@@ -25,6 +28,9 @@ namespace client::network
     TCPClient::~TCPClient()
     {
         disconnect();
+        if (_ioThread.joinable()) {
+            _ioThread.join();
+        }
     }
 
     void TCPClient::setOnConnected(const OnConnectedCallback& callback)
@@ -51,12 +57,27 @@ namespace client::network
     {
         auto logger = client::logging::Logger::getNetworkLogger();
 
-        if (_connected) {
+        if (_connected.load()) {
             logger->warn("Already connected, disconnecting...");
             disconnect();
         }
 
+        // Wait for previous IO thread to finish (if any)
+        if (_ioThread.joinable()) {
+            _ioThread.join();
+        }
+
         logger->info("Connecting to {}:{}...", host, port);
+
+        _disconnecting.store(false);
+
+        // Reset io_context for reuse
+        _ioContext.restart();
+
+        // Recreate socket if closed
+        if (!_socket.is_open()) {
+            _socket = tcp::socket(_ioContext);
+        }
 
         try {
             tcp::resolver resolver(_ioContext);
@@ -81,20 +102,30 @@ namespace client::network
 
     void TCPClient::disconnect()
     {
-        std::scoped_lock lock(_mutex);
-        if (!_connected) {
+        // Prevent multiple disconnect calls
+        if (_disconnecting.exchange(true)) {
+            return;
+        }
+
+        if (!_connected.load()) {
+            _disconnecting.store(false);
             return;
         }
 
         auto logger = client::logging::Logger::getNetworkLogger();
-        logger->info("Disconnecting...");
+        logger->info("Disconnecting TCP...");
 
-        _connected = false;
+        _connected.store(false);
+
+        _heartbeatTimer.cancel();
+
         _ioContext.stop();
 
         boost::system::error_code ec;
         _socket.shutdown(tcp::socket::shutdown_both, ec);
         _socket.close(ec);
+
+        _accumulator.clear();
 
         if (_onDisconnected) {
             _onDisconnected();
@@ -108,13 +139,12 @@ namespace client::network
         }
         _isWriting = false;
 
-        logger->info("Disconnected successfully");
+        logger->info("TCP disconnected successfully");
     }
 
     bool TCPClient::isConnected() const
     {
-        std::scoped_lock lock(_mutex);
-        return _connected && _socket.is_open();
+        return _connected.load() && _socket.is_open();
     }
 
     void TCPClient::asyncConnect(tcp::resolver::results_type endpoints)
@@ -143,12 +173,16 @@ namespace client::network
         auto logger = client::logging::Logger::getNetworkLogger();
 
         if (!error) {
-            {
-                std::scoped_lock lock(_mutex);
-                _connected = true;
-            }
+            _connected.store(true);
 
             logger->info("Connected successfully TCP");
+
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
+            }
+            sendHeartbeat();
+            scheduleHeartbeat();
 
             if (_onConnected) {
                 _onConnected();
@@ -169,6 +203,11 @@ namespace client::network
         auto logger = client::logging::Logger::getNetworkLogger();
 
         if (!error) {
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
+            }
+
             _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
 
             while (_accumulator.size() >= Header::WIRE_SIZE) {
@@ -222,6 +261,9 @@ namespace client::network
                             }
                         }
                     }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::HeartBeatAck)) {
+                    // HeartBeat response - already updated _lastServerResponse above
                 }
 
                 _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
@@ -314,6 +356,66 @@ namespace client::network
 
     bool TCPClient::isAuthenticated() const {
         return _isAuthenticated;
+    }
+
+    void TCPClient::sendHeartbeat() {
+        if (!isConnected()) {
+            return;
+        }
+
+        Header head{
+            .isAuthenticated = _isAuthenticated.load(),
+            .type = static_cast<uint16_t>(MessageType::HeartBeat),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), Header::WIRE_SIZE),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("HeartBeat write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::scheduleHeartbeat() {
+        _heartbeatTimer.expires_after(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
+        _heartbeatTimer.async_wait([this](boost::system::error_code ec) {
+            if (ec || !_connected.load()) {
+                return;
+            }
+
+            std::chrono::steady_clock::time_point lastResponse;
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                lastResponse = _lastServerResponse;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - lastResponse
+            ).count();
+
+            if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+                auto logger = client::logging::Logger::getNetworkLogger();
+                logger->warn("TCP Server heartbeat timeout ({}ms)", elapsed);
+
+                if (_onError) {
+                    _onError("Timeout: Serveur d'authentification injoignable");
+                }
+
+                disconnect();
+                return;
+            }
+
+            sendHeartbeat();
+            scheduleHeartbeat();
+        });
     }
 
 }

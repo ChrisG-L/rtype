@@ -19,6 +19,7 @@
 namespace infrastructure::adapters::in::network {
 
     static constexpr int BROADCAST_INTERVAL_MS = 50;
+    static constexpr int PLAYER_TIMEOUT_MS = 5000;
 
     UDPServer::UDPServer(boost::asio::io_context& io_ctx)
         : _io_ctx(io_ctx),
@@ -110,6 +111,20 @@ namespace infrastructure::adapters::in::network {
         std::cout << "Player " << static_cast<int>(playerId) << " left" << std::endl;
     }
 
+    void UDPServer::sendHeartbeatAck(const udp::endpoint& endpoint) {
+        const size_t totalSize = UDPHeader::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::HeartBeatAck),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        sendTo(endpoint, buf.data(), buf.size());
+    }
+
     void UDPServer::broadcastSnapshot() {
         if (_gameWorld.getPlayerCount() == 0) {
             return;
@@ -138,6 +153,15 @@ namespace infrastructure::adapters::in::network {
         _broadcastTimer.async_wait([this](boost::system::error_code ec) {
             if (!ec) {
                 float deltaTime = BROADCAST_INTERVAL_MS / 1000.0f;
+
+                auto timedOutPlayers = _gameWorld.checkPlayerTimeouts(
+                    std::chrono::milliseconds(PLAYER_TIMEOUT_MS)
+                );
+                for (uint8_t playerId : timedOutPlayers) {
+                    sendPlayerLeave(playerId);
+                    std::cout << "Player " << static_cast<int>(playerId)
+                              << " timed out (no heartbeat)" << std::endl;
+                }
 
                 _gameWorld.updateMissiles(deltaTime);
 
@@ -345,6 +369,14 @@ namespace infrastructure::adapters::in::network {
         }
 
         uint8_t playerId = *playerIdOpt;
+
+        _gameWorld.updatePlayerActivity(playerId);
+
+        if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
+            sendHeartbeatAck(_remote_endpoint);
+            do_read();
+            return;
+        }
 
         if (!_gameWorld.isPlayerAlive(playerId)) {
             do_read();

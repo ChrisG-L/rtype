@@ -17,6 +17,8 @@
 #include <queue>
 #include <functional>
 #include <optional>
+#include <chrono>
+#include <atomic>
 
 #include "Protocol.hpp"
 
@@ -102,12 +104,20 @@ namespace client::network
         void handleMissileDestroyed(const uint8_t* payload, size_t size);
         void handlePlayerDied(const uint8_t* payload, size_t size);
 
+        void scheduleHeartbeat();
+        void sendHeartbeat();
+
         boost::asio::io_context _ioContext;
         udp::socket _socket;
         std::jthread _ioThread;
         udp::endpoint _endpoint;
 
-        bool _connected;
+        boost::asio::steady_timer _heartbeatTimer;
+        std::chrono::steady_clock::time_point _lastServerResponse;
+        mutable std::mutex _heartbeatMutex;
+
+        std::atomic<bool> _connected{false};
+        std::atomic<bool> _disconnecting{false};
         mutable std::mutex _mutex;
 
         std::array<char, 1> _sendBuf;

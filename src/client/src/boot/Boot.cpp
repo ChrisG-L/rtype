@@ -77,8 +77,9 @@ void Boot::core()
         logger->error("TCP error: {}", error);
     });
 
-    // Note: UDP connection will be established from MainMenuScene when user clicks PLAY
-    // TCP connection will be established from LoginScene
+    // Connect to servers at startup
+    tcpClient->connect("127.0.0.1", 4125);
+    udpClient->connect("127.0.0.1", 4124);
 
     engine->initialize(udpClient, tcpClient, _graphicsOptions);
     engine->run();
