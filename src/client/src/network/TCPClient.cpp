@@ -127,6 +127,7 @@ namespace client::network
 
         _accumulator.clear();
 
+        _eventQueue.push(TCPDisconnectedEvent{});
         if (_onDisconnected) {
             _onDisconnected();
         }
@@ -184,6 +185,7 @@ namespace client::network
             sendHeartbeat();
             scheduleHeartbeat();
 
+            _eventQueue.push(TCPConnectedEvent{});
             if (_onConnected) {
                 _onConnected();
             }
@@ -192,6 +194,7 @@ namespace client::network
         } else {
             logger->error("Connection failed: {}", error.message());
 
+            _eventQueue.push(TCPErrorEvent{"Connexion echouee: " + error.message()});
             if (_onError) {
                 _onError("Connexion echouee: " + error.message());
             }
@@ -250,11 +253,13 @@ namespace client::network
                             if (respOpt->success) {
                                 _isAuthenticated = true;
                                 logger->info("Authentication successful");
+                                _eventQueue.push(TCPAuthSuccessEvent{});
                                 if (_onReceive) {
                                     _onReceive("authenticated");
                                 }
                             } else {
                                 logger->warn("Authentication failed: {} - {}", respOpt->error_code, respOpt->message);
+                                _eventQueue.push(TCPAuthFailedEvent{std::string(respOpt->message)});
                                 if (_onError) {
                                     _onError(std::string(respOpt->message));
                                 }
@@ -277,6 +282,7 @@ namespace client::network
                 logger->error("Read error: {}", error.message());
             }
 
+            _eventQueue.push(TCPErrorEvent{"Erreur lecture: " + error.message()});
             if (_onError) {
                 _onError("Erreur lecture: " + error.message());
             }
@@ -405,6 +411,7 @@ namespace client::network
                 auto logger = client::logging::Logger::getNetworkLogger();
                 logger->warn("TCP Server heartbeat timeout ({}ms)", elapsed);
 
+                _eventQueue.push(TCPErrorEvent{"Timeout: Serveur d'authentification injoignable"});
                 if (_onError) {
                     _onError("Timeout: Serveur d'authentification injoignable");
                 }
@@ -416,6 +423,10 @@ namespace client::network
             sendHeartbeat();
             scheduleHeartbeat();
         });
+    }
+
+    std::optional<TCPEvent> TCPClient::pollEvent() {
+        return _eventQueue.poll();
     }
 
 }

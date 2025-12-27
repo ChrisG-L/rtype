@@ -21,6 +21,7 @@
 #include <atomic>
 
 #include "Protocol.hpp"
+#include "NetworkEvents.hpp"
 
 namespace client::network
 {
@@ -89,6 +90,9 @@ namespace client::network
         std::vector<NetworkMissile> getEnemyMissiles() const;
         bool isLocalPlayerDead() const;
 
+        // Event queue for thread-safe event polling
+        std::optional<UDPEvent> pollEvent();
+
     private:
         void asyncReceiveFrom();
         void asyncSendTo(std::shared_ptr<std::vector<uint8_t>>& buf, size_t totalSize);
@@ -148,6 +152,9 @@ namespace client::network
         OnMissileSpawnedCallback _onMissileSpawned;
         OnMissileDestroyedCallback _onMissileDestroyed;
         OnPlayerDiedCallback _onPlayerDied;
+
+        // Event queue for thread-safe main thread communication
+        EventQueue<UDPEvent> _eventQueue;
     };
 
 }

@@ -19,6 +19,7 @@
 #include <chrono>
 
 #include "Protocol.hpp"
+#include "NetworkEvents.hpp"
 
 namespace client::network
 {
@@ -54,6 +55,9 @@ namespace client::network
         // Setters pour credentials en attente (utilisés lors de la réponse serveur)
         void setLoginCredentials(const std::string& username, const std::string& password);
         void setRegisterCredentials(const std::string& username, const std::string& email, const std::string& password);
+
+        // Event queue for thread-safe event polling
+        std::optional<TCPEvent> pollEvent();
 
     private:
         // Méthodes async
@@ -104,6 +108,9 @@ namespace client::network
         std::string _pendingUsername;
         std::string _pendingPassword;
         std::string _pendingEmail;
+
+        // Event queue for thread-safe main thread communication
+        EventQueue<TCPEvent> _eventQueue;
     };
 
 }

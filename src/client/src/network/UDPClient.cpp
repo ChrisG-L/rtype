@@ -138,6 +138,7 @@ namespace client::network
 
         } catch (const std::exception &e) {
             logger->error("Connection error: {}", e.what());
+            _eventQueue.push(UDPErrorEvent{std::string("Connexion echouee: ") + e.what()});
             if (_onError) {
                 _onError(std::string("Connexion echouee: ") + e.what());
             }
@@ -191,6 +192,7 @@ namespace client::network
 
         _accumulator.clear();
 
+        _eventQueue.push(UDPDisconnectedEvent{});
         if (_onDisconnected) {
             _onDisconnected();
         }
@@ -278,6 +280,8 @@ namespace client::network
 
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Joined game as player {}", static_cast<int>(*_localPlayerId));
+
+        _eventQueue.push(UDPConnectedEvent{pjOpt->player_id});
     }
 
     void UDPClient::handlePlayerLeave(const uint8_t* payload, size_t size) {
@@ -293,6 +297,8 @@ namespace client::network
 
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Player {} left the game", static_cast<int>(plOpt->player_id));
+
+        _eventQueue.push(UDPPlayerLeftEvent{plOpt->player_id});
     }
 
     void UDPClient::handleSnapshot(const uint8_t* payload, size_t size) {
@@ -487,6 +493,7 @@ namespace client::network
                 logger->error("Read error: {}", error.message());
             }
 
+            _eventQueue.push(UDPErrorEvent{"Erreur lecture: " + error.message()});
             if (_onError) {
                 _onError("Erreur lecture: " + error.message());
             }
@@ -560,6 +567,7 @@ namespace client::network
                 auto logger = client::logging::Logger::getNetworkLogger();
                 logger->warn("Server heartbeat timeout ({}ms)", elapsed);
 
+                _eventQueue.push(UDPErrorEvent{"Timeout: Serveur injoignable"});
                 if (_onError) {
                     _onError("Timeout: Serveur injoignable");
                 }
@@ -571,6 +579,10 @@ namespace client::network
             sendHeartbeat();
             scheduleHeartbeat();
         });
+    }
+
+    std::optional<UDPEvent> UDPClient::pollEvent() {
+        return _eventQueue.poll();
     }
 
 }

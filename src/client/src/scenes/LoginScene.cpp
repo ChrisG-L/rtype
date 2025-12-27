@@ -8,6 +8,7 @@
 #include "scenes/LoginScene.hpp"
 #include "scenes/SceneManager.hpp"
 #include "scenes/MainMenuScene.hpp"
+#include "network/NetworkEvents.hpp"
 #include <variant>
 
 LoginScene::LoginScene()
@@ -40,31 +41,43 @@ void LoginScene::loadAssets()
 
 void LoginScene::setupTCPCallbacks()
 {
-    if (_callbacksSetup || !_context.tcpClient) return;
-
-    _context.tcpClient->setOnConnected([this]() {
-        showSuccess("Connected to auth server");
-    });
-
-    _context.tcpClient->setOnDisconnected([this]() {
-        showError("Disconnected from auth server");
-    });
-
-    _context.tcpClient->setOnError([this](const std::string& error) {
-        showError(error);
-    });
-
-    _context.tcpClient->setOnReceive([this](const std::string& message) {
-        // Handle auth response - this would need to parse the response
-        // For now, we'll handle success/failure based on the message
-        if (message.find("success") != std::string::npos ||
-            message.find("authenticated") != std::string::npos) {
-            // Signal auth success - will be handled in update() on main thread
-            _authSuccess.store(true);
-        }
-    });
-
+    // Note: We no longer use callbacks for state changes.
+    // All events are now polled from the event queue in processTCPEvents().
+    // The callbacks in Boot.cpp are still used for logging.
     _callbacksSetup = true;
+}
+
+void LoginScene::processTCPEvents()
+{
+    if (!_context.tcpClient) return;
+
+    while (auto eventOpt = _context.tcpClient->pollEvent()) {
+        std::visit([this](auto&& event) {
+            using T = std::decay_t<decltype(event)>;
+
+            if constexpr (std::is_same_v<T, client::network::TCPConnectedEvent>) {
+                showSuccess("Connected to auth server");
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPDisconnectedEvent>) {
+                showError("Disconnected from auth server");
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPAuthSuccessEvent>) {
+                // Auth successful - disconnect TCP and go to main menu
+                if (_context.tcpClient) {
+                    _context.tcpClient->disconnect();
+                }
+                if (_sceneManager) {
+                    _sceneManager->changeScene(std::make_unique<MainMenuScene>());
+                }
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPAuthFailedEvent>) {
+                showError(event.message);
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPErrorEvent>) {
+                showError(event.message);
+            }
+        }, *eventOpt);
+    }
 }
 
 void LoginScene::initUI()
@@ -314,18 +327,8 @@ void LoginScene::update(float deltaTime)
     if (!_uiInitialized) initUI();
     if (!_callbacksSetup) setupTCPCallbacks();
 
-    // Handle auth success on main thread
-    if (_authSuccess.exchange(false)) {
-        // Disconnect TCP (no longer needed after auth)
-        if (_context.tcpClient) {
-            _context.tcpClient->disconnect();
-        }
-        // Navigate to main menu
-        if (_sceneManager) {
-            _sceneManager->changeScene(std::make_unique<MainMenuScene>());
-        }
-        return;
-    }
+    // Process TCP events from the event queue (thread-safe)
+    processTCPEvents();
 
     if (_starfield) {
         _starfield->update(deltaTime);

@@ -15,7 +15,6 @@
 #include "../utils/Vecs.hpp"
 #include <memory>
 #include <vector>
-#include <atomic>
 
 class LoginScene : public IScene {
 public:
@@ -36,12 +35,12 @@ private:
     void showError(const std::string& message);
     void showSuccess(const std::string& message);
     void setupTCPCallbacks();
+    void processTCPEvents();
 
     bool _assetsLoaded = false;
     bool _uiInitialized = false;
     bool _isRegisterMode = false;
     bool _callbacksSetup = false;
-    std::atomic<bool> _authSuccess{false};
 
     // UI Components
     std::unique_ptr<ui::TextInput> _usernameInput;
