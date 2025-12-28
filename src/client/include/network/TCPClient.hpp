@@ -41,7 +41,12 @@ namespace client::network
         void connect(const std::string &host, std::uint16_t port);
         void disconnect();
         bool isConnected() const;
+        bool isConnecting() const;
         bool isAuthenticated() const;
+
+        // Get last connection info (for reconnection)
+        const std::string& getLastHost() const { return _lastHost; }
+        std::uint16_t getLastPort() const { return _lastPort; }
 
         // Configuration des callbacks
         void setOnConnected(const OnConnectedCallback& callback);
@@ -86,6 +91,7 @@ namespace client::network
 
         // État
         std::atomic<bool> _connected{false};
+        std::atomic<bool> _connecting{false};  // Waiting for HeartBeatAck
         std::atomic<bool> _disconnecting{false};
         std::atomic<bool> _isAuthenticated;
         mutable std::mutex _mutex;
@@ -108,6 +114,10 @@ namespace client::network
         std::string _pendingUsername;
         std::string _pendingPassword;
         std::string _pendingEmail;
+
+        // Last connection info (for reconnection)
+        std::string _lastHost;
+        std::uint16_t _lastPort = 0;
 
         // Event queue for thread-safe main thread communication
         EventQueue<TCPEvent> _eventQueue;

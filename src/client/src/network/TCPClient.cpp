@@ -57,8 +57,9 @@ namespace client::network
     {
         auto logger = client::logging::Logger::getNetworkLogger();
 
-        if (_connected.load()) {
-            logger->warn("Already connected, disconnecting...");
+        // Close any existing connection (connected or connecting)
+        if (_connected.load() || _connecting.load()) {
+            logger->warn("Already connected or connecting, disconnecting...");
             disconnect();
         }
 
@@ -69,15 +70,23 @@ namespace client::network
 
         logger->info("Connecting to {}:{}...", host, port);
 
+        // Store connection info for potential reconnection
+        _lastHost = host;
+        _lastPort = port;
+
         _disconnecting.store(false);
+        _connecting.store(true);  // Set BEFORE asyncConnect to avoid race condition
 
         // Reset io_context for reuse
         _ioContext.restart();
 
-        // Recreate socket if closed
-        if (!_socket.is_open()) {
-            _socket = tcp::socket(_ioContext);
+        // Ensure socket is closed and recreate
+        if (_socket.is_open()) {
+            boost::system::error_code ec;
+            _socket.shutdown(tcp::socket::shutdown_both, ec);
+            _socket.close(ec);
         }
+        _socket = tcp::socket(_ioContext);
 
         try {
             tcp::resolver resolver(_ioContext);
@@ -94,6 +103,8 @@ namespace client::network
             logger->info("Connection initiated TCP");
         } catch (const std::exception &e) {
             logger->error("Resolution error: {}", e.what());
+            _connecting.store(false);  // Reset connecting state on failure
+            _eventQueue.push(TCPErrorEvent{std::string("Connexion echouee: ") + e.what()});
             if (_onError) {
                 _onError(std::string("Connexion échouée: ") + e.what());
             }
@@ -107,7 +118,11 @@ namespace client::network
             return;
         }
 
-        if (!_connected.load()) {
+        // Check if we were connected or connecting
+        bool wasConnected = _connected.load();
+        bool wasConnecting = _connecting.load();
+
+        if (!wasConnected && !wasConnecting) {
             _disconnecting.store(false);
             return;
         }
@@ -115,6 +130,7 @@ namespace client::network
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Disconnecting TCP...");
 
+        _connecting.store(false);
         _connected.store(false);
 
         _heartbeatTimer.cancel();
@@ -127,9 +143,13 @@ namespace client::network
 
         _accumulator.clear();
 
-        _eventQueue.push(TCPDisconnectedEvent{});
-        if (_onDisconnected) {
-            _onDisconnected();
+        // Only push disconnected event if we were actually connected
+        // (not just "connecting" waiting for HeartBeatAck)
+        if (wasConnected) {
+            _eventQueue.push(TCPDisconnectedEvent{});
+            if (_onDisconnected) {
+                _onDisconnected();
+            }
         }
 
         _ioContext.restart();
@@ -146,6 +166,11 @@ namespace client::network
     bool TCPClient::isConnected() const
     {
         return _connected.load() && _socket.is_open();
+    }
+
+    bool TCPClient::isConnecting() const
+    {
+        return _connecting.load() && _socket.is_open();
     }
 
     void TCPClient::asyncConnect(tcp::resolver::results_type endpoints)
@@ -171,28 +196,33 @@ namespace client::network
 
     void TCPClient::handleConnect(const boost::system::error_code &error)
     {
+        // Ignore operation_aborted - expected when intentionally disconnecting
+        if (error == boost::asio::error::operation_aborted) {
+            return;
+        }
+
         auto logger = client::logging::Logger::getNetworkLogger();
 
         if (!error) {
-            _connected.store(true);
+            // _connecting is already true from connect(), wait for HeartBeatAck to confirm
 
-            logger->info("Connected successfully TCP");
+            logger->info("TCP socket connected, waiting for server response...");
 
             {
                 std::lock_guard<std::mutex> lock(_heartbeatMutex);
                 _lastServerResponse = std::chrono::steady_clock::now();
             }
+
+            // Send initial heartbeat to verify server application is responding
             sendHeartbeat();
             scheduleHeartbeat();
 
-            _eventQueue.push(TCPConnectedEvent{});
-            if (_onConnected) {
-                _onConnected();
-            }
-
+            // Start reading - TCPConnectedEvent will be pushed when HeartBeatAck is received
             asyncRead();
         } else {
             logger->error("Connection failed: {}", error.message());
+
+            _connecting.store(false);  // Reset connecting state on failure
 
             _eventQueue.push(TCPErrorEvent{"Connexion echouee: " + error.message()});
             if (_onError) {
@@ -203,6 +233,11 @@ namespace client::network
 
     void TCPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
     {
+        // Ignore operation_aborted - expected when intentionally disconnecting
+        if (error == boost::asio::error::operation_aborted) {
+            return;
+        }
+
         auto logger = client::logging::Logger::getNetworkLogger();
 
         if (!error) {
@@ -268,7 +303,15 @@ namespace client::network
                     }
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::HeartBeatAck)) {
-                    // HeartBeat response - already updated _lastServerResponse above
+                    // Confirm connection on first HeartBeatAck
+                    if (_connecting.exchange(false)) {
+                        _connected.store(true);
+                        logger->info("TCP connection confirmed by server");
+                        _eventQueue.push(TCPConnectedEvent{});
+                        if (_onConnected) {
+                            _onConnected();
+                        }
+                    }
                 }
 
                 _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
@@ -365,7 +408,8 @@ namespace client::network
     }
 
     void TCPClient::sendHeartbeat() {
-        if (!isConnected()) {
+        // Check socket is open (works for both connected and connecting states)
+        if (!_socket.is_open()) {
             return;
         }
 
@@ -392,7 +436,8 @@ namespace client::network
     void TCPClient::scheduleHeartbeat() {
         _heartbeatTimer.expires_after(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
         _heartbeatTimer.async_wait([this](boost::system::error_code ec) {
-            if (ec || !_connected.load()) {
+            // Continue if connected OR connecting (waiting for HeartBeatAck)
+            if (ec || (!_connected.load() && !_connecting.load())) {
                 return;
             }
 
@@ -409,9 +454,15 @@ namespace client::network
 
             if (elapsed > HEARTBEAT_TIMEOUT_MS) {
                 auto logger = client::logging::Logger::getNetworkLogger();
-                logger->warn("TCP Server heartbeat timeout ({}ms)", elapsed);
 
-                _eventQueue.push(TCPErrorEvent{"Timeout: Serveur d'authentification injoignable"});
+                if (_connecting.load()) {
+                    logger->warn("Initial TCP connection timeout ({}ms) - server not responding", elapsed);
+                    _eventQueue.push(TCPErrorEvent{"Timeout: Serveur TCP injoignable"});
+                } else {
+                    logger->warn("TCP Server heartbeat timeout ({}ms)", elapsed);
+                    _eventQueue.push(TCPErrorEvent{"Timeout: Serveur d'authentification injoignable"});
+                }
+
                 if (_onError) {
                     _onError("Timeout: Serveur d'authentification injoignable");
                 }

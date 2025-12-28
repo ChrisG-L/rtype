@@ -11,6 +11,8 @@
 #include "scenes/IScene.hpp"
 #include "../core/IRenderer.hpp"
 #include <memory>
+#include <stack>
+#include <functional>
 
 class SceneManager
 {
@@ -18,16 +20,41 @@ class SceneManager
         SceneManager();
         ~SceneManager();
         void setContext(const GameContext& ctx);
+
+        // Replace entire scene stack with a single scene
         void changeScene(std::unique_ptr<IScene> newScene);
+
+        // Push a scene on top (overlay) - current scene is paused
+        void pushScene(std::unique_ptr<IScene> scene);
+
+        // Pop the top scene - returns to previous scene
+        void popScene();
+
+        // Check if there's an overlay scene
+        bool hasOverlay() const;
+
+        // Get current scene count
+        size_t sceneCount() const;
+
         void handleEvent(const events::Event& event);
         void update(float deltatime);
         void render();
 
     private:
-        void applyPendingSceneChange();
+        enum class PendingAction {
+            None,
+            Change,
+            Push,
+            Pop
+        };
 
-        std::unique_ptr<IScene> _currentScene;
+        void applyPendingActions();
+        void initScene(IScene* scene);
+        IScene* currentScene() const;
+
+        std::stack<std::unique_ptr<IScene>> _sceneStack;
         std::unique_ptr<IScene> _pendingScene;
+        PendingAction _pendingAction = PendingAction::None;
         std::shared_ptr<core::IRenderer> _renderer;
         GameContext _context;
 };

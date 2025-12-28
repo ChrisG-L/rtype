@@ -17,13 +17,8 @@ LoginScene::LoginScene()
 
 LoginScene::~LoginScene()
 {
-    // Unregister callbacks to prevent use-after-free
-    if (_context.tcpClient) {
-        _context.tcpClient->setOnConnected(nullptr);
-        _context.tcpClient->setOnDisconnected(nullptr);
-        _context.tcpClient->setOnError(nullptr);
-        _context.tcpClient->setOnReceive(nullptr);
-    }
+    // Note: No need to unregister callbacks since we use the event queue now
+    // Boot.cpp callbacks are for logging only and are safe to keep
 }
 
 void LoginScene::loadAssets()
@@ -62,10 +57,7 @@ void LoginScene::processTCPEvents()
                 showError("Disconnected from auth server");
             }
             else if constexpr (std::is_same_v<T, client::network::TCPAuthSuccessEvent>) {
-                // Auth successful - disconnect TCP and go to main menu
-                if (_context.tcpClient) {
-                    _context.tcpClient->disconnect();
-                }
+                // Auth successful - go to main menu (TCP stays open for future features)
                 if (_sceneManager) {
                     _sceneManager->changeScene(std::make_unique<MainMenuScene>());
                 }
