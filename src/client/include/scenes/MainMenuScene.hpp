@@ -12,7 +12,9 @@
 #include "ui/Button.hpp"
 #include "ui/StarfieldBackground.hpp"
 #include "../utils/Vecs.hpp"
+#include "network/NetworkEvents.hpp"
 #include <memory>
+#include <string>
 
 class MainMenuScene : public IScene {
 public:
@@ -26,12 +28,23 @@ public:
 private:
     void initUI();
     void loadAssets();
+    void processUDPEvents();
     void onPlayClick();
     void onSettingsClick();
     void onQuitClick();
 
     bool _assetsLoaded = false;
     bool _uiInitialized = false;
+
+    // JoinGame state
+    enum class JoinState {
+        Idle,
+        WaitingForResponse,
+        Accepted,
+        Rejected
+    };
+    JoinState _joinState = JoinState::Idle;
+    std::string _joinErrorMessage;
 
     std::unique_ptr<ui::Button> _playButton;
     std::unique_ptr<ui::Button> _settingsButton;

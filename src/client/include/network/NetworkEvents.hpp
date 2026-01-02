@@ -29,6 +29,8 @@ namespace client::network
     struct UDPErrorEvent { std::string message; };
     struct UDPPlayerJoinedEvent { uint8_t playerId; };
     struct UDPPlayerLeftEvent { uint8_t playerId; };
+    struct UDPJoinGameAckEvent { uint8_t playerId; };
+    struct UDPJoinGameNackEvent { std::string reason; };
 
     // Type aliases for event variants
     using TCPEvent = std::variant<
@@ -44,7 +46,9 @@ namespace client::network
         UDPDisconnectedEvent,
         UDPErrorEvent,
         UDPPlayerJoinedEvent,
-        UDPPlayerLeftEvent
+        UDPPlayerLeftEvent,
+        UDPJoinGameAckEvent,
+        UDPJoinGameNackEvent
     >;
 
     // Thread-safe event queue

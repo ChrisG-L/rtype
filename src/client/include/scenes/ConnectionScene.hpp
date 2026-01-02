@@ -34,11 +34,23 @@ private:
     void attemptReconnection();
     void processNetworkEvents();
     void updateConnectionState();
+    void attemptAutoRelogin();
     std::string getModeTitle() const;
 
     bool _assetsLoaded = false;
     core::ConnectionSceneMode _mode;
     core::ConnectionState _connectionState;
+
+    // Auto-relogin state (Reconnection mode only)
+    enum class ReloginState {
+        NotStarted,
+        WaitingForTCPConnect,
+        SendingLogin,
+        WaitingForAuthResponse,
+        Authenticated,
+        Failed
+    };
+    ReloginState _reloginState = ReloginState::NotStarted;
 
     // Retry timer
     float _retryTimer = 0.0f;
@@ -58,7 +70,7 @@ private:
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;
-    static constexpr float RETRY_INTERVAL = 1.0f;  // 1 second
+    static constexpr float RETRY_INTERVAL = 4.0f;  // 2 seconds
     static constexpr float DOT_ANIMATION_SPEED = 0.5f;
     static constexpr int STAR_COUNT = 80;
     static constexpr const char* FONT_KEY = "connection_font";

@@ -24,7 +24,7 @@
 namespace client::network
 {
     static constexpr int HEARTBEAT_INTERVAL_MS = 1000;
-    static constexpr int HEARTBEAT_TIMEOUT_MS = 5000;
+    static constexpr int HEARTBEAT_TIMEOUT_MS = 2000;
 
     UDPClient::UDPClient()
         : _socket(_ioContext), _heartbeatTimer(_ioContext), _isWriting(false), _localPlayerId(std::nullopt)
@@ -535,6 +535,29 @@ namespace client::network
                     case MessageType::PlayerDied:
                         handlePlayerDied(payload, payload_size);
                         break;
+                    case MessageType::JoinGameAck:
+                        if (payload_size >= JoinGameAck::WIRE_SIZE) {
+                            auto ackOpt = JoinGameAck::from_bytes(payload, payload_size);
+                            if (ackOpt) {
+                                logger->info("JoinGame accepted, player_id={}", ackOpt->player_id);
+                                {
+                                    std::scoped_lock lock(_playersMutex);
+                                    _localPlayerId = ackOpt->player_id;
+                                }
+                                _eventQueue.push(UDPJoinGameAckEvent{ackOpt->player_id});
+                            }
+                        }
+                        break;
+                    case MessageType::JoinGameNack:
+                        if (payload_size >= JoinGameNack::WIRE_SIZE) {
+                            auto nackOpt = JoinGameNack::from_bytes(payload, payload_size);
+                            if (nackOpt) {
+                                std::string reason(nackOpt->reason);
+                                logger->warn("JoinGame rejected: {}", reason);
+                                _eventQueue.push(UDPJoinGameNackEvent{reason});
+                            }
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -585,6 +608,26 @@ namespace client::network
         const size_t totalSize = UDPHeader::WIRE_SIZE;
         auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
         head.to_bytes(buf->data());
+        asyncSendTo(buf, totalSize);
+    }
+
+    void UDPClient::joinGame(const SessionToken& token) {
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Sending JoinGame with token");
+
+        JoinGame joinGame;
+        joinGame.token = token;
+
+        UDPHeader head = {
+            .type = static_cast<uint16_t>(MessageType::JoinGame),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + JoinGame::WIRE_SIZE;
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+        head.to_bytes(buf->data());
+        joinGame.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
         asyncSendTo(buf, totalSize);
     }
 

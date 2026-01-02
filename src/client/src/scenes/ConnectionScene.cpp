@@ -8,6 +8,7 @@
 #include "scenes/ConnectionScene.hpp"
 #include "scenes/SceneManager.hpp"
 #include "scenes/LoginScene.hpp"
+#include "scenes/MainMenuScene.hpp"
 #include <cmath>
 #include <variant>
 
@@ -15,6 +16,11 @@ ConnectionScene::ConnectionScene(core::ConnectionSceneMode mode)
     : _mode(mode)
 {
     _statusMessage = "Initialisation...";
+
+    // In Reconnection mode, start waiting for TCP to connect
+    if (_mode == core::ConnectionSceneMode::Reconnection) {
+        _reloginState = ReloginState::WaitingForTCPConnect;
+    }
 }
 
 void ConnectionScene::loadAssets()
@@ -74,9 +80,29 @@ void ConnectionScene::processNetworkEvents()
                 if constexpr (std::is_same_v<T, client::network::TCPConnectedEvent>) {
                     _connectionState.tcp = core::ConnectionStatus::Connected;
                     _statusMessage = "TCP connecte";
+
+                    // In Reconnection mode, attempt auto-relogin after TCP connects
+                    if (_mode == core::ConnectionSceneMode::Reconnection &&
+                        _reloginState == ReloginState::WaitingForTCPConnect) {
+                        attemptAutoRelogin();
+                    }
                 }
                 else if constexpr (std::is_same_v<T, client::network::TCPDisconnectedEvent>) {
                     _connectionState.tcp = core::ConnectionStatus::Disconnected;
+                    // Reset relogin state if disconnected during auth
+                    if (_reloginState == ReloginState::WaitingForAuthResponse) {
+                        _reloginState = ReloginState::WaitingForTCPConnect;
+                    }
+                }
+                else if constexpr (std::is_same_v<T, client::network::TCPAuthSuccessEvent>) {
+                    // Auto-relogin successful
+                    _reloginState = ReloginState::Authenticated;
+                    _statusMessage = "Authentification reussie";
+                }
+                else if constexpr (std::is_same_v<T, client::network::TCPAuthFailedEvent>) {
+                    // Auto-relogin failed (e.g., password changed)
+                    _reloginState = ReloginState::Failed;
+                    _statusMessage = "Echec auth: " + event.message;
                 }
                 else if constexpr (std::is_same_v<T, client::network::TCPErrorEvent>) {
                     _statusMessage = "TCP: " + event.message;
@@ -93,7 +119,7 @@ void ConnectionScene::processNetworkEvents()
 
                 if constexpr (std::is_same_v<T, client::network::UDPConnectedEvent>) {
                     _connectionState.udp = core::ConnectionStatus::Connected;
-                    _statusMessage = "UDP connecte (joueur " + std::to_string(event.playerId) + ")";
+                    _statusMessage = "UDP connecte";
                 }
                 else if constexpr (std::is_same_v<T, client::network::UDPDisconnectedEvent>) {
                     _connectionState.udp = core::ConnectionStatus::Disconnected;
@@ -103,6 +129,23 @@ void ConnectionScene::processNetworkEvents()
                 }
             }, *eventOpt);
         }
+    }
+}
+
+void ConnectionScene::attemptAutoRelogin()
+{
+    if (!_context.tcpClient) return;
+
+    // Check if we have stored credentials
+    if (_context.tcpClient->hasStoredCredentials()) {
+        auto [username, password] = _context.tcpClient->getStoredCredentials();
+        _statusMessage = "Re-authentification...";
+        _reloginState = ReloginState::WaitingForAuthResponse;
+        _context.tcpClient->sendLoginData(username, password);
+    } else {
+        // No stored credentials - mark as failed to redirect to LoginScene
+        _reloginState = ReloginState::Failed;
+        _statusMessage = "Pas de credentials stockes";
     }
 }
 
@@ -186,6 +229,20 @@ void ConnectionScene::update(float deltaTime)
     // Update connection state
     updateConnectionState();
 
+    // Handle relogin failure - redirect to LoginScene
+    if (_mode == core::ConnectionSceneMode::Reconnection &&
+        _reloginState == ReloginState::Failed) {
+        if (_sceneManager) {
+            // Clear stored credentials since they're invalid
+            if (_context.tcpClient) {
+                _context.tcpClient->clearStoredCredentials();
+            }
+            // Replace the entire scene stack with LoginScene
+            _sceneManager->changeScene(std::make_unique<LoginScene>());
+        }
+        return;
+    }
+
     // Check if fully connected
     if (_connectionState.isFullyConnected()) {
         if (_mode == core::ConnectionSceneMode::InitialConnection) {
@@ -194,10 +251,14 @@ void ConnectionScene::update(float deltaTime)
                 _sceneManager->changeScene(std::make_unique<LoginScene>());
             }
         } else {
-            // Reconnection mode - pop this overlay
-            if (_sceneManager) {
-                _sceneManager->popScene();
+            // Reconnection mode - need to also be authenticated
+            if (_reloginState == ReloginState::Authenticated) {
+                // Pop this overlay and return to previous scene
+                if (_sceneManager) {
+                    _sceneManager->popScene();
+                }
             }
+            // If not authenticated yet, keep waiting
         }
         return;
     }

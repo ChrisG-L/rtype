@@ -87,6 +87,7 @@ namespace client::network
 
         void movePlayer(uint16_t x, uint16_t y);
         void shootMissile();
+        void joinGame(const SessionToken& token);
 
         std::optional<uint8_t> getLocalPlayerId() const;
         std::vector<NetworkPlayer> getPlayers() const;

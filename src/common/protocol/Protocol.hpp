@@ -12,6 +12,7 @@
 #include <cstring>
 #include <chrono>
 #include <optional>
+#include <string>
 
 inline uint32_t swap64(uint32_t v) { return __builtin_bswap64(v); }
 inline uint32_t swap32(uint32_t v) { return __builtin_bswap32(v); }
@@ -22,11 +23,16 @@ static constexpr std::size_t BUFFER_SIZE = 4096;
 enum class MessageType: uint16_t {
     HeartBeat = 0x0001,
     HeartBeatAck = 0x0002,
+    // UDP Session authentication
+    JoinGame = 0x0010,
+    JoinGameAck = 0x0011,
+    JoinGameNack = 0x0012,
     Basic = 0x0030,
     BasicAck = 0x0031,
     Snapshot = 0x0040,
     Player = 0x0050,
     MovePlayer = 0x0060,
+    PlayerInput = 0x0061,
     PlayerJoin = 0x0070,
     PlayerLeave = 0x0071,
     ShootMissile = 0x0080,
@@ -48,6 +54,145 @@ static constexpr uint8_t MAX_MISSILES = 32;
 static constexpr uint8_t MAX_ENEMIES = 16;
 static constexpr uint8_t MAX_ENEMY_MISSILES = 32;
 static constexpr uint8_t ENEMY_OWNER_ID = 0xFF;
+
+// Session token size (256 bits = 32 bytes)
+static constexpr size_t TOKEN_SIZE = 32;
+
+// Input keys bitfield
+namespace InputKeys {
+    constexpr uint16_t UP    = 0x0001;
+    constexpr uint16_t DOWN  = 0x0002;
+    constexpr uint16_t LEFT  = 0x0004;
+    constexpr uint16_t RIGHT = 0x0008;
+    constexpr uint16_t SHOOT = 0x0010;
+}
+
+// Session token for UDP authentication
+struct SessionToken {
+    uint8_t bytes[TOKEN_SIZE];
+
+    bool operator==(const SessionToken& other) const {
+        return std::memcmp(bytes, other.bytes, TOKEN_SIZE) == 0;
+    }
+
+    bool operator!=(const SessionToken& other) const {
+        return !(*this == other);
+    }
+
+    // Convert to hex string for storage/lookup
+    std::string toHex() const {
+        static const char hex[] = "0123456789abcdef";
+        std::string result;
+        result.reserve(TOKEN_SIZE * 2);
+        for (size_t i = 0; i < TOKEN_SIZE; ++i) {
+            result.push_back(hex[(bytes[i] >> 4) & 0x0F]);
+            result.push_back(hex[bytes[i] & 0x0F]);
+        }
+        return result;
+    }
+
+    // Create from hex string
+    static std::optional<SessionToken> fromHex(const std::string& hex) {
+        if (hex.size() != TOKEN_SIZE * 2) return std::nullopt;
+        SessionToken token;
+        for (size_t i = 0; i < TOKEN_SIZE; ++i) {
+            auto hi = hex[i * 2];
+            auto lo = hex[i * 2 + 1];
+            auto hexVal = [](char c) -> int {
+                if (c >= '0' && c <= '9') return c - '0';
+                if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+                if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+                return -1;
+            };
+            int hiVal = hexVal(hi);
+            int loVal = hexVal(lo);
+            if (hiVal < 0 || loVal < 0) return std::nullopt;
+            token.bytes[i] = static_cast<uint8_t>((hiVal << 4) | loVal);
+        }
+        return token;
+    }
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, bytes, TOKEN_SIZE);
+    }
+
+    static std::optional<SessionToken> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < TOKEN_SIZE) return std::nullopt;
+        SessionToken token;
+        std::memcpy(token.bytes, buf, TOKEN_SIZE);
+        return token;
+    }
+};
+
+// JoinGame: Client sends token to authenticate UDP session
+struct JoinGame {
+    SessionToken token;
+    static constexpr size_t WIRE_SIZE = TOKEN_SIZE;
+
+    void to_bytes(uint8_t* buf) const {
+        token.to_bytes(buf);
+    }
+
+    static std::optional<JoinGame> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto tokenOpt = SessionToken::from_bytes(buf, len);
+        if (!tokenOpt) return std::nullopt;
+        return JoinGame{.token = *tokenOpt};
+    }
+};
+
+// JoinGameAck: Server confirms and assigns player ID
+struct JoinGameAck {
+    uint8_t player_id;
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = player_id;
+    }
+
+    static std::optional<JoinGameAck> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        return JoinGameAck{.player_id = ptr[0]};
+    }
+};
+
+// JoinGameNack: Server rejects the join request
+struct JoinGameNack {
+    char reason[64];
+    static constexpr size_t WIRE_SIZE = 64;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, reason, WIRE_SIZE);
+    }
+
+    static std::optional<JoinGameNack> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        JoinGameNack nack;
+        std::memcpy(nack.reason, buf, WIRE_SIZE);
+        nack.reason[WIRE_SIZE - 1] = '\0';
+        return nack;
+    }
+};
+
+// PlayerInput: Client sends input keys (not position!)
+struct PlayerInput {
+    uint16_t keys;  // Bitfield using InputKeys namespace
+    static constexpr size_t WIRE_SIZE = 2;
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_keys = swap16(keys);
+        std::memcpy(buf, &net_keys, 2);
+    }
+
+    static std::optional<PlayerInput> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        uint16_t net_keys;
+        std::memcpy(&net_keys, ptr, 2);
+        return PlayerInput{.keys = swap16(net_keys)};
+    }
+};
 
 // TCP Authentication Protocol structures
 struct Header {
@@ -167,6 +312,43 @@ struct AuthResponse {
         std::memcpy(resp.message, ptr + 1 + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
         resp.error_code[MAX_ERROR_CODE_LEN - 1] = '\0';
         resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return resp;
+    }
+};
+
+// AuthResponse with session token (sent on successful login)
+struct AuthResponseWithToken {
+    bool success;
+    char error_code[MAX_ERROR_CODE_LEN];
+    char message[MAX_ERROR_MSG_LEN];
+    SessionToken token;  // Only valid if success == true
+
+    static constexpr size_t WIRE_SIZE = 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN + TOKEN_SIZE;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = success ? 1 : 0;
+        std::memcpy(ptr + 1, error_code, MAX_ERROR_CODE_LEN);
+        std::memcpy(ptr + 1 + MAX_ERROR_CODE_LEN, message, MAX_ERROR_MSG_LEN);
+        token.to_bytes(ptr + 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<AuthResponseWithToken> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) {
+            return std::nullopt;
+        }
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        AuthResponseWithToken resp;
+        resp.success = (ptr[0] != 0);
+        std::memcpy(resp.error_code, ptr + 1, MAX_ERROR_CODE_LEN);
+        std::memcpy(resp.message, ptr + 1 + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
+        resp.error_code[MAX_ERROR_CODE_LEN - 1] = '\0';
+        resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        auto tokenOpt = SessionToken::from_bytes(
+            ptr + 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN, TOKEN_SIZE);
+        if (tokenOpt) {
+            resp.token = *tokenOpt;
+        }
         return resp;
     }
 };

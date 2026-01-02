@@ -7,11 +7,9 @@
 
 #include "infrastructure/adapters/in/network/execute/Execute.hpp"
 #include "domain/entities/User.hpp"
-#include "domain/exceptions/user/UserAlreadyLoggedException.hpp"
 #include "infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp"
 #include <cstdint>
 #include <memory>
-#include <unordered_map>
 
 namespace infrastructure::adapters::in::network::execute {
 
@@ -20,7 +18,6 @@ namespace infrastructure::adapters::in::network::execute {
         std::shared_ptr<IUserRepository> userRepository,
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
-        std::unordered_map<std::string, User>& users,
         std::function<void(const User& user)> onLoginSuccess
     )
     {
@@ -29,13 +26,9 @@ namespace infrastructure::adapters::in::network::execute {
         _executeAuth = std::make_unique<auth::ExecuteAuth>(cmd, login, registerUser);
         std::optional<User> userOpt = _executeAuth->getUser();
         if (userOpt.has_value()) {
-            std::string userName = userOpt->getUsername().value();
-            if (users.find(userName) == users.end()) {
-                users.insert_or_assign(userName, userOpt.value());
-                onLoginSuccess(userOpt.value());
-            } else {
-                throw domain::exceptions::user::UserAlreadyLoggedException(userName);
-            }
+            // Note: "User already logged" check is now handled by SessionManager
+            // in TCPAuthServer::handle_command after this callback
+            onLoginSuccess(userOpt.value());
         }
     }
 

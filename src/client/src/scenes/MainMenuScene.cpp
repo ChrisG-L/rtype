@@ -72,15 +72,54 @@ void MainMenuScene::initUI()
 
 void MainMenuScene::onPlayClick()
 {
-    // Check UDP connection
-    if (!_context.udpClient || !_context.udpClient->isConnected()) {
-        // TODO: Show error message "Not connected to game server"
+    // Already waiting for response
+    if (_joinState == JoinState::WaitingForResponse) {
         return;
     }
 
-    // Navigate to GameScene
-    if (_sceneManager) {
-        _sceneManager->changeScene(std::make_unique<GameScene>());
+    // Check UDP connection
+    if (!_context.udpClient || !_context.udpClient->isConnected()) {
+        _joinErrorMessage = "Not connected to game server";
+        _joinState = JoinState::Rejected;
+        return;
+    }
+
+    // Check if we have a session token
+    if (!_context.tcpClient || !_context.tcpClient->hasSessionToken()) {
+        _joinErrorMessage = "Not authenticated";
+        _joinState = JoinState::Rejected;
+        return;
+    }
+
+    // Get token and send JoinGame
+    auto tokenOpt = _context.tcpClient->getSessionToken();
+    if (!tokenOpt) {
+        _joinErrorMessage = "Token not available";
+        _joinState = JoinState::Rejected;
+        return;
+    }
+
+    _context.udpClient->joinGame(*tokenOpt);
+    _joinState = JoinState::WaitingForResponse;
+}
+
+void MainMenuScene::processUDPEvents()
+{
+    if (!_context.udpClient) return;
+
+    while (auto eventOpt = _context.udpClient->pollEvent()) {
+        std::visit([this](auto&& event) {
+            using T = std::decay_t<decltype(event)>;
+
+            if constexpr (std::is_same_v<T, client::network::UDPJoinGameAckEvent>) {
+                _joinState = JoinState::Accepted;
+            }
+            else if constexpr (std::is_same_v<T, client::network::UDPJoinGameNackEvent>) {
+                _joinState = JoinState::Rejected;
+                _joinErrorMessage = event.reason;
+            }
+            // Ignore other events
+        }, *eventOpt);
     }
 }
 
@@ -109,6 +148,18 @@ void MainMenuScene::update(float deltaTime)
 {
     if (!_assetsLoaded) loadAssets();
     if (!_uiInitialized) initUI();
+
+    // Process UDP events for JoinGame response
+    processUDPEvents();
+
+    // Handle JoinGame response
+    if (_joinState == JoinState::Accepted) {
+        // Navigate to GameScene
+        if (_sceneManager) {
+            _sceneManager->changeScene(std::make_unique<GameScene>());
+        }
+        return;
+    }
 
     if (_starfield) {
         _starfield->update(deltaTime);
@@ -143,6 +194,15 @@ void MainMenuScene::render()
     _playButton->render(*_context.window);
     _settingsButton->render(*_context.window);
     _quitButton->render(*_context.window);
+
+    // Draw status message
+    if (_joinState == JoinState::WaitingForResponse) {
+        _context.window->drawText(FONT_KEY, "Joining game...",
+            SCREEN_WIDTH / 2 - 80, 700, 24, {255, 200, 100, 255});
+    } else if (_joinState == JoinState::Rejected && !_joinErrorMessage.empty()) {
+        _context.window->drawText(FONT_KEY, _joinErrorMessage,
+            SCREEN_WIDTH / 2 - 150, 700, 20, {255, 100, 100, 255});
+    }
 
     // Draw version
     _context.window->drawText(FONT_KEY, "v0.1.0",

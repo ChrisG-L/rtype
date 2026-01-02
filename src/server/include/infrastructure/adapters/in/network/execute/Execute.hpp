@@ -13,8 +13,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
-#include <boost/asio.hpp>
 
 #include "../protocol/Command.hpp"
 #include "auth/ExecuteAuth.hpp"
@@ -31,7 +29,6 @@ namespace infrastructure::adapters::in::network::execute {
     using application::ports::out::IIdGenerator;
     using application::ports::out::ILogger;
     using domain::entities::User;
-    using boost::asio::ip::tcp;
 
     class Execute {
         public:
@@ -40,7 +37,6 @@ namespace infrastructure::adapters::in::network::execute {
                 std::shared_ptr<IUserRepository> userRepository,
                 std::shared_ptr<IIdGenerator> idGenerator,
                 std::shared_ptr<ILogger> logger,
-                std::unordered_map<std::string, User>& users,
                 std::function<void(const User& user)> onLoginSuccess
             );
 

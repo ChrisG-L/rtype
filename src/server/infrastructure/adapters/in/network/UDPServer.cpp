@@ -19,11 +19,12 @@
 namespace infrastructure::adapters::in::network {
 
     static constexpr int BROADCAST_INTERVAL_MS = 50;
-    static constexpr int PLAYER_TIMEOUT_MS = 5000;
+    static constexpr int PLAYER_TIMEOUT_MS = 2000;
 
-    UDPServer::UDPServer(boost::asio::io_context& io_ctx)
+    UDPServer::UDPServer(boost::asio::io_context& io_ctx, std::shared_ptr<SessionManager> sessionManager)
         : _io_ctx(io_ctx),
           _socket(io_ctx, udp::endpoint(udp::v4(), 4124)),
+          _sessionManager(sessionManager),
           _broadcastTimer(io_ctx) {
         // Windows: désactiver ICMP Port Unreachable qui cause des erreurs sur UDP
         #ifdef _WIN32
@@ -35,6 +36,10 @@ namespace infrastructure::adapters::in::network {
                 NULL, 0, &dwBytesReturned, NULL, NULL
             );
         #endif
+    }
+
+    std::string UDPServer::endpointToString(const udp::endpoint& ep) const {
+        return ep.address().to_string() + ":" + std::to_string(ep.port());
     }
 
     void UDPServer::start() {
@@ -123,6 +128,48 @@ namespace infrastructure::adapters::in::network {
         head.to_bytes(buf.data());
 
         sendTo(endpoint, buf.data(), buf.size());
+    }
+
+    void UDPServer::sendJoinGameAck(const udp::endpoint& endpoint, uint8_t playerId) {
+        const size_t totalSize = UDPHeader::WIRE_SIZE + JoinGameAck::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::JoinGameAck),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        JoinGameAck ack{.player_id = playerId};
+        ack.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        sendTo(endpoint, buf.data(), buf.size());
+
+        std::cout << "JoinGameAck sent to " << endpoint.address().to_string()
+                  << ":" << endpoint.port() << " (playerId=" << static_cast<int>(playerId) << ")" << std::endl;
+    }
+
+    void UDPServer::sendJoinGameNack(const udp::endpoint& endpoint, const std::string& reason) {
+        const size_t totalSize = UDPHeader::WIRE_SIZE + JoinGameNack::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::JoinGameNack),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        JoinGameNack nack;
+        std::strncpy(nack.reason, reason.c_str(), sizeof(nack.reason) - 1);
+        nack.reason[sizeof(nack.reason) - 1] = '\0';
+        nack.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        sendTo(endpoint, buf.data(), buf.size());
+
+        std::cout << "JoinGameNack sent to " << endpoint.address().to_string()
+                  << ":" << endpoint.port() << " (reason: " << reason << ")" << std::endl;
     }
 
     void UDPServer::broadcastSnapshot() {
@@ -355,47 +402,137 @@ namespace infrastructure::adapters::in::network {
         size_t payload_size = bytes - UDPHeader::WIRE_SIZE;
         const uint8_t* payload = reinterpret_cast<const uint8_t*>(_readBuffer) + UDPHeader::WIRE_SIZE;
 
-        auto playerIdOpt = _gameWorld.getPlayerIdByEndpoint(_remote_endpoint);
-        if (!playerIdOpt) {
-            auto newIdOpt = _gameWorld.addPlayer(_remote_endpoint);
-            if (newIdOpt) {
-                sendPlayerJoin(_remote_endpoint, *newIdOpt);
-                playerIdOpt = newIdOpt;
-            } else {
-                std::cerr << "Server full, rejecting connection" << std::endl;
+        std::string endpointStr = endpointToString(_remote_endpoint);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // CASE 1: HeartBeat - No authentication required (connection check)
+        // But if the endpoint has an active session, update activity timestamp
+        // ═══════════════════════════════════════════════════════════════════
+        if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
+            sendHeartbeatAck(_remote_endpoint);
+
+            // Update activity if this endpoint has an active session
+            auto playerIdOpt = _sessionManager->getPlayerIdByEndpoint(endpointStr);
+            if (playerIdOpt) {
+                _sessionManager->updateActivity(endpointStr);
+                _gameWorld.updatePlayerActivity(*playerIdOpt);
+            }
+
+            do_read();
+            return;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // CASE 2: JoinGame - Authentication with token (creates player)
+        // ═══════════════════════════════════════════════════════════════════
+        if (head.type == static_cast<uint16_t>(MessageType::JoinGame)) {
+            if (payload_size < JoinGame::WIRE_SIZE) {
+                sendJoinGameNack(_remote_endpoint, "Invalid packet");
                 do_read();
                 return;
             }
-        }
 
-        uint8_t playerId = *playerIdOpt;
+            auto joinOpt = JoinGame::from_bytes(payload, payload_size);
+            if (!joinOpt) {
+                sendJoinGameNack(_remote_endpoint, "Invalid packet");
+                do_read();
+                return;
+            }
 
-        _gameWorld.updatePlayerActivity(playerId);
+            // Validate token via SessionManager
+            auto validateResult = _sessionManager->validateAndBindUDP(joinOpt->token, endpointStr);
+            if (!validateResult) {
+                sendJoinGameNack(_remote_endpoint, "Invalid or expired token");
+                do_read();
+                return;
+            }
 
-        if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
-            sendHeartbeatAck(_remote_endpoint);
+            // Create player in GameWorld
+            auto playerIdOpt = _gameWorld.addPlayer(_remote_endpoint);
+            if (!playerIdOpt) {
+                sendJoinGameNack(_remote_endpoint, "Server full");
+                _sessionManager->removeSessionByEndpoint(endpointStr);
+                do_read();
+                return;
+            }
+
+            // Bind playerId to session
+            _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);
+
+            // Send confirmation
+            sendJoinGameAck(_remote_endpoint, *playerIdOpt);
+
+            // Broadcast to other players
+            sendPlayerJoin(_remote_endpoint, *playerIdOpt);
+
+            std::cout << "Player " << validateResult->displayName
+                      << " (email: " << validateResult->email << ") joined as player "
+                      << static_cast<int>(*playerIdOpt) << std::endl;
+
             do_read();
             return;
         }
 
-        if (!_gameWorld.isPlayerAlive(playerId)) {
-            do_read();
-            return;
-        }
+        // ═══════════════════════════════════════════════════════════════════
+        // MESSAGES REQUIRING AUTHENTICATION: Check if endpoint has session
+        // ═══════════════════════════════════════════════════════════════════
+        if (requiresAuth(head.type)) {
+            auto playerIdOpt = _sessionManager->getPlayerIdByEndpoint(endpointStr);
+            if (!playerIdOpt) {
+                // Endpoint not authenticated - silently ignore
+                do_read();
+                return;
+            }
 
-        if (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {
-            if (payload_size >= MovePlayer::WIRE_SIZE) {
-                auto moveOpt = MovePlayer::from_bytes(payload, payload_size);
-                if (moveOpt) {
-                    _gameWorld.movePlayer(playerId, moveOpt->x, moveOpt->y);
+            uint8_t playerId = *playerIdOpt;
+
+            // Update activity timestamp
+            _sessionManager->updateActivity(endpointStr);
+            _gameWorld.updatePlayerActivity(playerId);
+
+            // Check if player is alive for gameplay messages
+            if (!_gameWorld.isPlayerAlive(playerId)) {
+                do_read();
+                return;
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // MovePlayer (backward compatibility - TODO: Replace with PlayerInput)
+            // ═══════════════════════════════════════════════════════════════
+            if (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {
+                if (payload_size >= MovePlayer::WIRE_SIZE) {
+                    auto moveOpt = MovePlayer::from_bytes(payload, payload_size);
+                    if (moveOpt) {
+                        _gameWorld.movePlayer(playerId, moveOpt->x, moveOpt->y);
+                    }
                 }
             }
-        } else if (head.type == static_cast<uint16_t>(MessageType::ShootMissile)) {
-            uint16_t missileId = _gameWorld.spawnMissile(playerId);
-            if (missileId > 0) {
-                broadcastMissileSpawned(missileId, playerId);
+            // ═══════════════════════════════════════════════════════════════
+            // PlayerInput (new - server authoritative)
+            // ═══════════════════════════════════════════════════════════════
+            else if (head.type == static_cast<uint16_t>(MessageType::PlayerInput)) {
+                if (payload_size >= PlayerInput::WIRE_SIZE) {
+                    auto inputOpt = PlayerInput::from_bytes(payload, payload_size);
+                    if (inputOpt) {
+                        // TODO: Implement in Phase 5: _gameWorld.applyPlayerInput(playerId, inputOpt->keys);
+                    }
+                }
+            }
+            // ═══════════════════════════════════════════════════════════════
+            // ShootMissile
+            // ═══════════════════════════════════════════════════════════════
+            else if (head.type == static_cast<uint16_t>(MessageType::ShootMissile)) {
+                uint16_t missileId = _gameWorld.spawnMissile(playerId);
+                if (missileId > 0) {
+                    broadcastMissileSpawned(missileId, playerId);
+                }
             }
         }
+        // ═══════════════════════════════════════════════════════════════════
+        // MESSAGES NOT REQUIRING AUTH: Process directly
+        // (Currently none besides HeartBeat which is handled above)
+        // Future: Could add lobby messages, server info requests, etc.
+        // ═══════════════════════════════════════════════════════════════════
 
         do_read();
     }

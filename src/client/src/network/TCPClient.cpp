@@ -17,7 +17,7 @@
 namespace client::network
 {
     static constexpr int HEARTBEAT_INTERVAL_MS = 1000;
-    static constexpr int HEARTBEAT_TIMEOUT_MS = 5000;
+    static constexpr int HEARTBEAT_TIMEOUT_MS = 2000;
 
     TCPClient::TCPClient()
         : _socket(_ioContext), _heartbeatTimer(_ioContext), _isAuthenticated(false), _isWriting(false)
@@ -278,8 +278,36 @@ namespace client::network
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::LoginAck) ||
                          head.type == static_cast<uint16_t>(MessageType::RegisterAck)) {
-                    // Server response to login/register - parse AuthResponse
-                    if (head.payload_size >= AuthResponse::WIRE_SIZE) {
+                    // Server response to login/register - try AuthResponseWithToken first
+                    if (head.payload_size >= AuthResponseWithToken::WIRE_SIZE) {
+                        auto respOpt = AuthResponseWithToken::from_bytes(
+                            _accumulator.data() + Header::WIRE_SIZE,
+                            head.payload_size
+                        );
+                        if (respOpt) {
+                            if (respOpt->success) {
+                                _isAuthenticated = true;
+                                // Store the session token for UDP JoinGame
+                                {
+                                    std::scoped_lock lock(_mutex);
+                                    _sessionToken = respOpt->token;
+                                }
+                                logger->info("Authentication successful, token received");
+                                _eventQueue.push(TCPAuthSuccessEvent{});
+                                if (_onReceive) {
+                                    _onReceive("authenticated");
+                                }
+                            } else {
+                                logger->warn("Authentication failed: {} - {}", respOpt->error_code, respOpt->message);
+                                _eventQueue.push(TCPAuthFailedEvent{std::string(respOpt->message)});
+                                if (_onError) {
+                                    _onError(std::string(respOpt->message));
+                                }
+                            }
+                        }
+                    }
+                    // Fallback to AuthResponse (without token) for backward compatibility
+                    else if (head.payload_size >= AuthResponse::WIRE_SIZE) {
                         auto respOpt = AuthResponse::from_bytes(
                             _accumulator.data() + Header::WIRE_SIZE,
                             head.payload_size
@@ -287,7 +315,7 @@ namespace client::network
                         if (respOpt) {
                             if (respOpt->success) {
                                 _isAuthenticated = true;
-                                logger->info("Authentication successful");
+                                logger->info("Authentication successful (no token)");
                                 _eventQueue.push(TCPAuthSuccessEvent{});
                                 if (_onReceive) {
                                     _onReceive("authenticated");
@@ -348,6 +376,13 @@ namespace client::network
     }
 
     void TCPClient::sendLoginData(const std::string& username, const std::string& password) {
+        // Store credentials for potential auto-reconnection
+        {
+            std::scoped_lock lock(_mutex);
+            _storedUsername = username;
+            _storedPassword = password;
+        }
+
         LoginMessage login;
         std::strncpy(login.username, username.c_str(), sizeof(login.username) - 1);
         login.username[sizeof(login.username) - 1] = '\0';
@@ -478,6 +513,47 @@ namespace client::network
 
     std::optional<TCPEvent> TCPClient::pollEvent() {
         return _eventQueue.poll();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Stored credentials for auto-reconnection
+    // ═══════════════════════════════════════════════════════════════════
+
+    bool TCPClient::hasStoredCredentials() const {
+        std::scoped_lock lock(_mutex);
+        return !_storedUsername.empty() && !_storedPassword.empty();
+    }
+
+    std::pair<std::string, std::string> TCPClient::getStoredCredentials() const {
+        std::scoped_lock lock(_mutex);
+        return {_storedUsername, _storedPassword};
+    }
+
+    void TCPClient::clearStoredCredentials() {
+        std::scoped_lock lock(_mutex);
+        _storedUsername.clear();
+        _storedPassword.clear();
+        _sessionToken.reset();
+        _isAuthenticated.store(false);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Session token management
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::setSessionToken(const SessionToken& token) {
+        std::scoped_lock lock(_mutex);
+        _sessionToken = token;
+    }
+
+    std::optional<SessionToken> TCPClient::getSessionToken() const {
+        std::scoped_lock lock(_mutex);
+        return _sessionToken;
+    }
+
+    bool TCPClient::hasSessionToken() const {
+        std::scoped_lock lock(_mutex);
+        return _sessionToken.has_value();
     }
 
 }

@@ -15,6 +15,7 @@
 #include "infrastructure/adapters/out/MongoIdGenerator.hpp"
 #include "infrastructure/adapters/out/SpdLogAdapter.hpp"
 #include "infrastructure/configuration/DBConfig.hpp"
+#include "infrastructure/session/SessionManager.hpp"
 
 #include <iostream>
 #include <memory>
@@ -32,6 +33,7 @@ namespace infrastructure::bootstrap {
                 using adapters::out::persistence::MongoDBUserRepository;
                 using adapters::out::MongoIdGenerator;
                 using adapters::out::SpdLogAdapter;
+                using session::SessionManager;
 
                 std::cout << "=== Démarrage du serveur R-Type ===" << std::endl;
 
@@ -56,12 +58,15 @@ namespace infrastructure::bootstrap {
                 auto idGenerator = std::make_shared<MongoIdGenerator>();
                 auto logger = std::make_shared<SpdLogAdapter>();
 
+                // Create shared SessionManager for TCP and UDP servers
+                auto sessionManager = std::make_shared<SessionManager>();
+
                 // Start TCP Auth Server on port 4125
-                TCPAuthServer tcpAuthServer(io_ctx, userRepo, idGenerator, logger);
+                TCPAuthServer tcpAuthServer(io_ctx, userRepo, idGenerator, logger, sessionManager);
                 tcpAuthServer.start();
 
-                // Start UDP Game Server on port 4124
-                UDPServer udpServer(io_ctx);
+                // Start UDP Game Server on port 4124 (shares SessionManager with TCP)
+                UDPServer udpServer(io_ctx, sessionManager);
                 udpServer.start();
 
                 std::cout << "Serveur UDP prêt. En attente de connexions..." << std::endl;

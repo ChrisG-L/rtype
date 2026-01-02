@@ -61,6 +61,16 @@ namespace client::network
         void setLoginCredentials(const std::string& username, const std::string& password);
         void setRegisterCredentials(const std::string& username, const std::string& email, const std::string& password);
 
+        // Stored credentials for auto-reconnection
+        bool hasStoredCredentials() const;
+        std::pair<std::string, std::string> getStoredCredentials() const;
+        void clearStoredCredentials();
+
+        // Session token received after successful login
+        void setSessionToken(const SessionToken& token);
+        std::optional<SessionToken> getSessionToken() const;
+        bool hasSessionToken() const;
+
         // Event queue for thread-safe event polling
         std::optional<TCPEvent> pollEvent();
 
@@ -114,6 +124,13 @@ namespace client::network
         std::string _pendingUsername;
         std::string _pendingPassword;
         std::string _pendingEmail;
+
+        // Stored credentials for auto-reconnection (set after successful login)
+        std::string _storedUsername;
+        std::string _storedPassword;
+
+        // Session token (received after successful login)
+        std::optional<SessionToken> _sessionToken;
 
         // Last connection info (for reconnection)
         std::string _lastHost;
