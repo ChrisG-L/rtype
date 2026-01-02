@@ -254,10 +254,22 @@ namespace infrastructure::adapters::in::network {
 
             // Check if authentication succeeded
             if (_isAuthenticated && _user.has_value()) {
-                // Create a session via SessionManager
                 std::string email = _user->getEmail().value();
                 std::string displayName = _user->getUsername().value();
 
+                // Check if user is banned - return same error as invalid password
+                if (_sessionManager->isBanned(email)) {
+                    _isAuthenticated = false;
+                    networkLogger->warn("Banned user {} attempted to login", email);
+                    AuthResponse resp;
+                    resp.success = false;
+                    std::strncpy(resp.error_code, "INVALID_CREDENTIALS", MAX_ERROR_CODE_LEN);
+                    std::strncpy(resp.message, "Invalid username or password", MAX_ERROR_MSG_LEN);
+                    do_write_auth_response(responseType, resp);
+                    return;
+                }
+
+                // Create a session via SessionManager
                 auto sessionResult = _sessionManager->createSession(email, displayName);
                 if (sessionResult) {
                     _sessionToken = sessionResult->token;

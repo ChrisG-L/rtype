@@ -536,4 +536,40 @@ namespace infrastructure::adapters::in::network {
 
         do_read();
     }
+
+    void UDPServer::kickPlayer(uint8_t playerId) {
+        // Find the endpoint for this player from GameWorld
+        auto endpoints = _gameWorld.getAllEndpoints();
+        std::optional<udp::endpoint> targetEndpoint;
+
+        for (const auto& ep : endpoints) {
+            auto pid = _gameWorld.getPlayerIdByEndpoint(ep);
+            if (pid && *pid == playerId) {
+                targetEndpoint = ep;
+                break;
+            }
+        }
+
+        if (!targetEndpoint) {
+            std::cout << "[CLI] Player " << static_cast<int>(playerId) << " not found in game." << std::endl;
+            return;
+        }
+
+        std::string endpointStr = endpointToString(*targetEndpoint);
+
+        // Remove from SessionManager
+        _sessionManager->removeSessionByEndpoint(endpointStr);
+
+        // Remove from GameWorld (this will also remove the player)
+        _gameWorld.removePlayer(playerId);
+
+        // Broadcast PlayerLeave to remaining players
+        sendPlayerLeave(playerId);
+
+        std::cout << "[CLI] Player " << static_cast<int>(playerId) << " kicked from server." << std::endl;
+    }
+
+    size_t UDPServer::getPlayerCount() const {
+        return _gameWorld.getPlayerCount();
+    }
 }

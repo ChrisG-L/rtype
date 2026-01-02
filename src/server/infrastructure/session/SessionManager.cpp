@@ -294,4 +294,57 @@ std::vector<std::string> SessionManager::getAllActiveEndpoints() const {
     return endpoints;
 }
 
+std::vector<Session> SessionManager::getAllSessions() const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    std::vector<Session> sessions;
+    sessions.reserve(_sessionsByEmail.size());
+    for (const auto& [email, session] : _sessionsByEmail) {
+        sessions.push_back(session);
+    }
+    return sessions;
+}
+
+size_t SessionManager::getSessionCount() const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _sessionsByEmail.size();
+}
+
+void SessionManager::banUser(const std::string& email) {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    // Add to banned set
+    _bannedUsers.insert(email);
+
+    // Also remove any active session for this user
+    auto sessionIt = _sessionsByEmail.find(email);
+    if (sessionIt != _sessionsByEmail.end()) {
+        _tokenToEmail.erase(sessionIt->second.token.toHex());
+        if (!sessionIt->second.udpEndpoint.empty()) {
+            _endpointToEmail.erase(sessionIt->second.udpEndpoint);
+        }
+        _sessionsByEmail.erase(sessionIt);
+    }
+}
+
+void SessionManager::unbanUser(const std::string& email) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _bannedUsers.erase(email);
+}
+
+bool SessionManager::isBanned(const std::string& email) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _bannedUsers.contains(email);
+}
+
+std::vector<std::string> SessionManager::getBannedUsers() const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    std::vector<std::string> result;
+    result.reserve(_bannedUsers.size());
+    for (const auto& email : _bannedUsers) {
+        result.push_back(email);
+    }
+    return result;
+}
+
 } // namespace infrastructure::session

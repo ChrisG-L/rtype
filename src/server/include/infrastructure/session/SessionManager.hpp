@@ -11,6 +11,7 @@
 #include <string>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <mutex>
 #include <chrono>
 #include <random>
@@ -103,6 +104,28 @@ public:
     // Gets all active endpoints (for broadcasting)
     std::vector<std::string> getAllActiveEndpoints() const;
 
+    // Gets all sessions (for CLI/debugging)
+    std::vector<Session> getAllSessions() const;
+
+    // Gets session count
+    size_t getSessionCount() const;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Ban management
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Ban a user by email (permanent until unban)
+    void banUser(const std::string& email);
+
+    // Unban a user by email
+    void unbanUser(const std::string& email);
+
+    // Check if a user is banned
+    bool isBanned(const std::string& email) const;
+
+    // Get all banned emails
+    std::vector<std::string> getBannedUsers() const;
+
 private:
     mutable std::mutex _mutex;
 
@@ -114,6 +137,9 @@ private:
 
     // Secondary index: endpoint -> email (for quick endpoint lookup)
     std::unordered_map<std::string, std::string> _endpointToEmail;
+
+    // Banned users (by email)
+    std::unordered_set<std::string> _bannedUsers;
 
     // Generates a cryptographically random token
     SessionToken generateToken();

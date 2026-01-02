@@ -27,7 +27,14 @@ namespace server::logging {
         static std::shared_ptr<spdlog::logger> getGameLogger();
         static std::shared_ptr<spdlog::logger> getMainLogger();
 
+        // Set log level for all loggers
+        static void setLevel(spdlog::level::level_enum level);
+        static void setEnabled(bool enabled);
+        static bool isEnabled();
+
     private:
+        static spdlog::level::level_enum s_previousLevel;
+        static bool s_enabled;
         static std::shared_ptr<spdlog::logger> s_networkLogger;
         static std::shared_ptr<spdlog::logger> s_domainLogger;
         static std::shared_ptr<spdlog::logger> s_gameLogger;

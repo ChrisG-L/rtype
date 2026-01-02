@@ -13,6 +13,7 @@
 #include "graphics/IWindow.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
 #include "audio/AudioManager.hpp"
+#include "network/NetworkEvents.hpp"
 #include <iostream>
 #include <unordered_set>
 #include <vector>
@@ -36,9 +37,11 @@ private:
     void renderEnemies();
     void renderEnemyMissiles();
     void renderDeathScreen();
+    void renderKickedScreen();
     void loadAssets();
     void initStars();
     void initAudio();
+    void processUDPEvents();
 
     uint16_t _localX = 100;
     uint16_t _localY = 300;
@@ -48,6 +51,7 @@ private:
     bool _assetsLoaded = false;
     bool _starsInitialized = false;
     bool _audioInitialized = false;
+    bool _wasKicked = false;
 
     struct Star {
         float x, y;

@@ -7,6 +7,7 @@
 
 #include "scenes/GameScene.hpp"
 #include "scenes/SceneManager.hpp"
+#include "scenes/MainMenuScene.hpp"
 #include "core/Logger.hpp"
 #include "events/Event.hpp"
 #include "utils/Vecs.hpp"
@@ -91,9 +92,32 @@ void GameScene::handleEvent(const events::Event& event)
     if (std::holds_alternative<events::KeyPressed>(event)) {
         auto& key = std::get<events::KeyPressed>(event);
         _keysPressed.insert(key.key);
+
+        // If kicked, any key returns to main menu
+        if (_wasKicked && _sceneManager) {
+            _sceneManager->changeScene(std::make_unique<MainMenuScene>());
+            return;
+        }
     } else if (std::holds_alternative<events::KeyReleased>(event)) {
         auto& key = std::get<events::KeyReleased>(event);
         _keysPressed.erase(key.key);
+    }
+}
+
+void GameScene::processUDPEvents()
+{
+    if (!_context.udpClient) return;
+
+    while (auto eventOpt = _context.udpClient->pollEvent()) {
+        std::visit([this](auto&& event) {
+            using T = std::decay_t<decltype(event)>;
+
+            if constexpr (std::is_same_v<T, client::network::UDPKickedEvent>) {
+                client::logging::Logger::getSceneLogger()->warn("Kicked from game!");
+                _wasKicked = true;
+            }
+            // Other events are handled by UDPClient internally
+        }, *eventOpt);
     }
 }
 
@@ -111,6 +135,14 @@ void GameScene::update(float deltatime)
 
     if (!_audioInitialized) {
         initAudio();
+    }
+
+    // Process UDP events (check for kick)
+    processUDPEvents();
+
+    // If kicked, don't update gameplay
+    if (_wasKicked) {
+        return;
     }
 
     auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
@@ -390,6 +422,31 @@ void GameScene::renderDeathScreen()
     }
 }
 
+void GameScene::renderKickedScreen()
+{
+    _context.window->drawRect(0, 0, SCREEN_WIDTH + 20, SCREEN_HEIGHT + 20, {0, 0, 0, 200});
+
+    const std::string kickedText = "KICKED";
+    float textX = SCREEN_WIDTH / 2.0f - 80.0f;
+    float textY = SCREEN_HEIGHT / 2.0f - 50.0f;
+
+    if (_assetsLoaded) {
+        _context.window->drawText(FONT_KEY, kickedText, textX, textY, 48, {255, 150, 50, 255});
+
+        const std::string instructionText = "You have been kicked from the game";
+        float instrX = SCREEN_WIDTH / 2.0f - 180.0f;
+        float instrY = textY + 80.0f;
+        _context.window->drawText(FONT_KEY, instructionText, instrX, instrY, 24, {200, 200, 200, 255});
+
+        const std::string hintText = "Press any key to return to menu";
+        float hintX = SCREEN_WIDTH / 2.0f - 150.0f;
+        float hintY = textY + 130.0f;
+        _context.window->drawText(FONT_KEY, hintText, hintX, hintY, 18, {150, 150, 150, 255});
+    } else {
+        _context.window->drawRect(textX, textY, 160.0f, 60.0f, {255, 150, 50, 255});
+    }
+}
+
 void GameScene::render()
 {
     if (!_context.window || !_context.udpClient) return;
@@ -401,7 +458,9 @@ void GameScene::render()
     renderEnemyMissiles();
     renderHUD();
 
-    if (_context.udpClient->isLocalPlayerDead()) {
+    if (_wasKicked) {
+        renderKickedScreen();
+    } else if (_context.udpClient->isLocalPlayerDead()) {
         renderDeathScreen();
     }
 }

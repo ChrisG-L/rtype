@@ -15,6 +15,8 @@ namespace server::logging {
     std::shared_ptr<spdlog::logger> Logger::s_domainLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_gameLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_mainLogger = nullptr;
+    spdlog::level::level_enum Logger::s_previousLevel = spdlog::level::debug;
+    bool Logger::s_enabled = true;
 
     void Logger::init() {
         try {
@@ -77,6 +79,31 @@ namespace server::logging {
 
     std::shared_ptr<spdlog::logger> Logger::getMainLogger() {
         return s_mainLogger;
+    }
+
+    void Logger::setLevel(spdlog::level::level_enum level) {
+        if (s_networkLogger) s_networkLogger->set_level(level);
+        if (s_domainLogger) s_domainLogger->set_level(level);
+        if (s_gameLogger) s_gameLogger->set_level(level);
+        if (s_mainLogger) s_mainLogger->set_level(level);
+        spdlog::set_level(level);
+    }
+
+    void Logger::setEnabled(bool enabled) {
+        if (enabled && !s_enabled) {
+            // Re-enable logs
+            setLevel(s_previousLevel);
+            s_enabled = true;
+        } else if (!enabled && s_enabled) {
+            // Disable logs - save current level and set to off
+            s_previousLevel = s_networkLogger ? s_networkLogger->level() : spdlog::level::debug;
+            setLevel(spdlog::level::off);
+            s_enabled = false;
+        }
+    }
+
+    bool Logger::isEnabled() {
+        return s_enabled;
     }
 
 }

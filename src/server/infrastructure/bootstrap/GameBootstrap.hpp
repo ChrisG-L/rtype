@@ -16,6 +16,7 @@
 #include "infrastructure/adapters/out/SpdLogAdapter.hpp"
 #include "infrastructure/configuration/DBConfig.hpp"
 #include "infrastructure/session/SessionManager.hpp"
+#include "infrastructure/cli/ServerCLI.hpp"
 
 #include <iostream>
 #include <memory>
@@ -72,15 +73,23 @@ namespace infrastructure::bootstrap {
                 std::cout << "Serveur UDP prêt. En attente de connexions..." << std::endl;
                 std::cout << "Appuyez sur Ctrl+C pour arrêter le serveur proprement." << std::endl;
 
+                // Start CLI in a separate thread
+                cli::ServerCLI serverCLI(sessionManager, udpServer);
+                serverCLI.start();
+
                 boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
                 signals.async_wait([&](const boost::system::error_code&, int signum) {
                     std::cout << "\nSignal reçu (" << signum << "), arrêt du serveur..." << std::endl;
+                    serverCLI.stop();
                     udpServer.stop();
                     tcpAuthServer.stop();
                     io_ctx.stop();
                 });
 
                 io_ctx.run();
+
+                // Wait for CLI to finish
+                serverCLI.join();
             }
 
         public:

@@ -328,17 +328,33 @@ namespace client::network
         auto plOpt = PlayerLeave::from_bytes(payload, size);
         if (!plOpt) return;
 
-        std::lock_guard<std::mutex> lock(_playersMutex);
-        _players.erase(
-            std::remove_if(_players.begin(), _players.end(),
-                [&](const NetworkPlayer& p) { return p.id == plOpt->player_id; }),
-            _players.end()
-        );
-
         auto logger = client::logging::Logger::getNetworkLogger();
+
+        bool isLocalPlayer = false;
+        {
+            std::lock_guard<std::mutex> lock(_playersMutex);
+
+            // Check if this is our own ID (we got kicked)
+            if (_localPlayerId && *_localPlayerId == plOpt->player_id) {
+                isLocalPlayer = true;
+                logger->warn("We were kicked from the game!");
+                _localPlayerId = std::nullopt;
+            }
+
+            _players.erase(
+                std::remove_if(_players.begin(), _players.end(),
+                    [&](const NetworkPlayer& p) { return p.id == plOpt->player_id; }),
+                _players.end()
+            );
+        }
+
         logger->info("Player {} left the game", static_cast<int>(plOpt->player_id));
 
-        _eventQueue.push(UDPPlayerLeftEvent{plOpt->player_id});
+        if (isLocalPlayer) {
+            _eventQueue.push(UDPKickedEvent{});
+        } else {
+            _eventQueue.push(UDPPlayerLeftEvent{plOpt->player_id});
+        }
     }
 
     void UDPClient::handleSnapshot(const uint8_t* payload, size_t size) {

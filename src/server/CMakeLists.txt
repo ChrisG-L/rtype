@@ -48,6 +48,9 @@ add_executable(rtype_server
     # Infrastructure - Session
     infrastructure/session/SessionManager.cpp
 
+    # Infrastructure - CLI
+    infrastructure/cli/ServerCLI.cpp
+
     # Infrastructure - Logging
     infrastructure/logging/Logger.cpp
 )

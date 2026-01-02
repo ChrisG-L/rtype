@@ -69,6 +69,12 @@ namespace infrastructure::adapters::in::network {
             void start();
             void run();
             void stop();
+
+            // CLI support: force disconnect a player
+            void kickPlayer(uint8_t playerId);
+
+            // CLI support: get player count
+            size_t getPlayerCount() const;
     };
 }
 #endif /* !UDPSERVER_HPP_ */
