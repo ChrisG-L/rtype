@@ -76,7 +76,9 @@ void ServerCLI::start() {
 }
 
 void ServerCLI::stop() {
-    _running = false;
+    if (!_running.exchange(false)) {
+        return;  // Already stopped
+    }
 
     // Stop TUI
     if (_terminalUI) {
@@ -84,6 +86,15 @@ void ServerCLI::stop() {
     }
 
     output("[CLI] Stopping...");
+
+    // Notify GameBootstrap to stop io_ctx (this allows exit/quit to actually stop the server)
+    if (_shutdownCallback) {
+        _shutdownCallback();
+    }
+}
+
+void ServerCLI::setShutdownCallback(ShutdownCallback callback) {
+    _shutdownCallback = std::move(callback);
 }
 
 void ServerCLI::join() {

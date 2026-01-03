@@ -83,6 +83,15 @@ namespace infrastructure::bootstrap {
 
                 // Start CLI with TUI support
                 cli::ServerCLI serverCLI(sessionManager, udpServer, logBuffer);
+
+                // Set shutdown callback so CLI can stop the server via exit/quit commands
+                serverCLI.setShutdownCallback([&]() {
+                    mainLogger->info("CLI requested shutdown");
+                    udpServer.stop();
+                    tcpAuthServer.stop();
+                    io_ctx.stop();
+                });
+
                 serverCLI.start();
 
                 boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
@@ -99,8 +108,7 @@ namespace infrastructure::bootstrap {
                 // Wait for CLI to finish
                 serverCLI.join();
 
-                // Shutdown logger
-                server::logging::Logger::shutdown();
+                // Note: Logger::shutdown() is called in main() after all components are destroyed
             }
 
         public:

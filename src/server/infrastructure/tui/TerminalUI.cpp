@@ -28,6 +28,11 @@ TerminalUI::TerminalUI(std::shared_ptr<LogBuffer> logBuffer)
 
 TerminalUI::~TerminalUI() {
     stop();
+    // Clear the callback to prevent use-after-free
+    // (LogBuffer may outlive TerminalUI if shared_ptr is held elsewhere)
+    if (_logBuffer) {
+        _logBuffer->setNewEntryCallback(nullptr);
+    }
 }
 
 void TerminalUI::start() {

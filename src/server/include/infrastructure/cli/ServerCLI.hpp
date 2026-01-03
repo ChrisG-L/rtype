@@ -44,6 +44,10 @@ public:
     // Wait for CLI thread to finish
     void join();
 
+    // Set callback to be called when CLI requests server shutdown (exit/quit command)
+    using ShutdownCallback = std::function<void()>;
+    void setShutdownCallback(ShutdownCallback callback);
+
 private:
     void runLoop();
     void executeCommand(const std::string& command);
@@ -87,6 +91,9 @@ private:
     // Last interactive output (for interact command)
     tui::InteractiveOutput _lastInteractiveOutput;
     std::string _lastCommand;
+
+    // Shutdown callback (to notify GameBootstrap to stop io_ctx)
+    ShutdownCallback _shutdownCallback;
 };
 
 } // namespace infrastructure::cli
