@@ -8,6 +8,7 @@
 #include "infrastructure/cli/ServerCLI.hpp"
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
 #include "infrastructure/logging/Logger.hpp"
+#include "infrastructure/tui/Utf8Utils.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -194,18 +195,18 @@ void ServerCLI::printStatus() {
 
     std::ostringstream oss;
     output("");
-    output("╔══════════════════════════════════════╗");
-    output("║          SERVER STATUS               ║");
-    output("╠══════════════════════════════════════╣");
+    output("╔═════════════════════════════════════╗");
+    output("║            SERVER STATUS            ║");
+    output("╠═════════════════════════════════════╣");
 
-    oss << "║ Active Sessions: " << std::setw(4) << sessionCount << "                ║";
+    oss << "║ Active Sessions: " << std::setw(4) << sessionCount << "               ║";
     output(oss.str());
     oss.str("");
 
-    oss << "║ Players in Game: " << std::setw(4) << playerCount << "                ║";
+    oss << "║ Players in Game: " << std::setw(4) << playerCount << "               ║";
     output(oss.str());
 
-    output("╚══════════════════════════════════════╝");
+    output("╚═════════════════════════════════════╝");
     output("");
 }
 
@@ -220,9 +221,9 @@ void ServerCLI::listSessions() {
     }
 
     output("");
-    output("╔══════════════════════════════════════════════════════════════════════════════════╗");
-    output("║                                ACTIVE SESSIONS                                    ║");
-    output("╠══════════════════════════════════════════════════════════════════════════════════╣");
+    output("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                 ACTIVE SESSIONS                                 ║");
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(25) << "Email"
@@ -231,7 +232,7 @@ void ServerCLI::listSessions() {
            << std::setw(10) << "Player ID"
            << std::setw(22) << "Endpoint" << " ║";
     output(header.str());
-    output("╠══════════════════════════════════════════════════════════════════════════════════╣");
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
 
     for (const auto& session : sessions) {
         std::string statusStr;
@@ -244,12 +245,10 @@ void ServerCLI::listSessions() {
         std::string playerIdStr = session.playerId ? std::to_string(*session.playerId) : "-";
         std::string endpointStr = session.udpEndpoint.empty() ? "-" : session.udpEndpoint;
 
-        // Truncate long strings
-        std::string email = session.email.length() > 24 ? session.email.substr(0, 21) + "..." : session.email;
-        std::string displayName = session.displayName.length() > 14 ? session.displayName.substr(0, 11) + "..." : session.displayName;
-        if (endpointStr.length() > 21) {
-            endpointStr = endpointStr.substr(0, 18) + "...";
-        }
+        // Truncate long strings (UTF-8 aware)
+        std::string email = tui::utf8::truncateWithEllipsis(session.email, 24);
+        std::string displayName = tui::utf8::truncateWithEllipsis(session.displayName, 14);
+        endpointStr = tui::utf8::truncateWithEllipsis(endpointStr, 21);
 
         std::ostringstream row;
         row << "║ " << std::left << std::setw(25) << email
@@ -260,7 +259,7 @@ void ServerCLI::listSessions() {
         output(row.str());
     }
 
-    output("╚══════════════════════════════════════════════════════════════════════════════════╝");
+    output("╚═════════════════════════════════════════════════════════════════════════════════╝");
     output("");
 }
 
@@ -345,14 +344,12 @@ void ServerCLI::listBans() {
 
     output("");
     output("╔══════════════════════════════════════════════════════════════╗");
-    output("║                       BANNED USERS                            ║");
+    output("║                         BANNED USERS                         ║");
     output("╠══════════════════════════════════════════════════════════════╣");
 
     for (const auto& email : bannedUsers) {
-        std::string displayEmail = email;
-        if (displayEmail.length() > 58) {
-            displayEmail = displayEmail.substr(0, 55) + "...";
-        }
+        // Truncate email (UTF-8 aware)
+        std::string displayEmail = tui::utf8::truncateWithEllipsis(email, 58);
         std::ostringstream row;
         row << "║ " << std::left << std::setw(60) << displayEmail << " ║";
         output(row.str());

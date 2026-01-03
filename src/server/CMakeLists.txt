@@ -56,6 +56,7 @@ add_executable(rtype_server
     infrastructure/tui/TUISink.cpp
     infrastructure/tui/TerminalRenderer.cpp
     infrastructure/tui/TerminalUI.cpp
+    infrastructure/tui/Utf8Utils.cpp
 
     # Infrastructure - Logging
     infrastructure/logging/Logger.cpp

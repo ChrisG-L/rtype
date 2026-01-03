@@ -6,6 +6,7 @@
 */
 
 #include "infrastructure/tui/TerminalUI.hpp"
+#include "infrastructure/tui/Utf8Utils.hpp"
 #include <sstream>
 #include <iomanip>
 #include <chrono>
@@ -197,14 +198,14 @@ void TerminalUI::processKeyInput(int ch) {
         return;
     }
 
-    // Filter shortcuts
-    if (ch >= '1' && ch <= '4') {
+    // Regular input for command line
+    std::lock_guard<std::mutex> lock(_inputMutex);
+
+    // Filter shortcuts - ONLY when not typing a command
+    if (_inputBuffer.empty() && ch >= '1' && ch <= '4') {
         setFilter(static_cast<FilterLevel>(ch - '1'));
         return;
     }
-
-    // Regular input for command line
-    std::lock_guard<std::mutex> lock(_inputMutex);
 
     if (ch == '\n' || ch == '\r') {
         // Command completed
@@ -286,17 +287,16 @@ void TerminalUI::renderLogPane(uint16_t startRow, uint16_t height) {
             std::string color = TerminalRenderer::colorForLevel(entry.level);
             std::string reset = TerminalRenderer::resetColor();
 
-            // Truncate message to fit terminal width
-            size_t prefixLen = 12 + levelStr.size() + entry.loggerName.size() + 6;
+            // Truncate message to fit terminal width (UTF-8 aware)
+            // Prefix: [HH:MM:SS] [LEVEL] [loggerName] = 12 + level + loggerName + 6
+            size_t prefixLen = 12 + levelStr.size() + utf8::displayWidth(entry.loggerName) + 6;
             size_t maxMsgLen = (termSize.cols > prefixLen) ? termSize.cols - prefixLen : 20;
             std::string msg = entry.message;
             // Remove trailing newlines
             while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r')) {
                 msg.pop_back();
             }
-            if (msg.size() > maxMsgLen) {
-                msg = msg.substr(0, maxMsgLen - 3) + "...";
-            }
+            msg = utf8::truncateWithEllipsis(msg, maxMsgLen);
 
             std::ostringstream line;
             line << "[" << timeBuf << "] "
@@ -339,9 +339,9 @@ void TerminalUI::renderStatusBar(uint16_t row) {
         status << " [ESC]Exit Zoom [Up/Down]Scroll [PgUp/Dn]Page";
     }
 
-    // Pad to fill line
+    // Pad to fill line (UTF-8 aware, ignoring ANSI codes)
     std::string statusStr = status.str();
-    size_t visibleLen = statusStr.size() - 4;  // Account for escape codes
+    size_t visibleLen = utf8::displayWidthIgnoringAnsi(statusStr);
     if (visibleLen < termSize.cols) {
         statusStr += std::string(termSize.cols - visibleLen, ' ');
     }
@@ -374,10 +374,7 @@ void TerminalUI::renderCommandPane(uint16_t startRow, uint16_t height) {
 
         size_t idx = startIdx + row;
         if (idx < output.size()) {
-            std::string line = output[idx];
-            if (line.size() > termSize.cols) {
-                line = line.substr(0, termSize.cols - 3) + "...";
-            }
+            std::string line = utf8::truncateWithEllipsis(output[idx], termSize.cols);
             TerminalRenderer::rawWrite(line);
         }
     }
@@ -395,17 +392,22 @@ void TerminalUI::renderCommandPane(uint16_t startRow, uint16_t height) {
     }
 
     std::string fullPrompt = prompt + inputLine;
-    if (fullPrompt.size() > termSize.cols) {
-        // Show end of input if too long
-        size_t maxInput = termSize.cols - prompt.size() - 3;
-        fullPrompt = prompt + "..." + inputLine.substr(inputLine.size() - maxInput);
+    size_t promptWidth = utf8::displayWidth(prompt);
+    size_t inputWidth = utf8::displayWidth(inputLine);
+    size_t fullWidth = promptWidth + inputWidth;
+
+    if (fullWidth > termSize.cols) {
+        // Show end of input if too long (UTF-8 aware)
+        size_t maxInput = termSize.cols - promptWidth - 3;
+        fullPrompt = prompt + "..." + utf8::lastColumns(inputLine, maxInput);
+        fullWidth = promptWidth + 3 + utf8::displayWidth(utf8::lastColumns(inputLine, maxInput));
     }
 
     TerminalRenderer::rawWrite(fullPrompt);
 
-    // Show cursor at end of input
+    // Show cursor at end of input (UTF-8 aware column position)
     TerminalRenderer::showCursor();
-    TerminalRenderer::moveCursor(promptRow, static_cast<uint16_t>(fullPrompt.size() + 1));
+    TerminalRenderer::moveCursor(promptRow, static_cast<uint16_t>(fullWidth + 1));
 }
 
 } // namespace infrastructure::tui
