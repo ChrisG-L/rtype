@@ -199,28 +199,28 @@ void ServerCLI::printHelp() {
     output("╔══════════════════════════════════════════════════════════════╗");
     output("║                      AVAILABLE COMMANDS                      ║");
     output("╠══════════════════════════════════════════════════════════════╣");
-    output("║ help                  - Show this help message               ║");
-    output("║ status                - Show server status                   ║");
-    output("║ sessions              - List all active sessions             ║");
-    output("║ users                 - List all registered users (DB)       ║");
-    output("║ kick <player_id>      - Kick a player by their in-game ID    ║");
-    output("║ ban <email>           - Ban a user permanently               ║");
-    output("║ unban <email>         - Unban a user                         ║");
-    output("║ bans                  - List all banned users                ║");
-    output("║ logs <on|off>         - Enable/disable all server logs       ║");
-    output("║ debug <on|off>        - Enable/disable debug logs            ║");
-    output("║ zoom                  - Full-screen log view (ESC to exit)   ║");
-    output("║ interact [cmd]        - Navigate output (sessions/bans/users)  ║");
-    output("║ quit/exit             - Stop the server                      ║");
+    output("║ help                 - Show this help message                ║");
+    output("║ status               - Show server status                    ║");
+    output("║ sessions             - List all active sessions              ║");
+    output("║ users                - List all registered users (DB)        ║");
+    output("║ kick <player_id>     - Kick a player by their in-game ID     ║");
+    output("║ ban <email>          - Ban a user permanently                ║");
+    output("║ unban <email>        - Unban a user                          ║");
+    output("║ bans                 - List all banned users                 ║");
+    output("║ logs <on|off>        - Enable/disable all server logs        ║");
+    output("║ debug <on|off>       - Enable/disable debug logs             ║");
+    output("║ zoom                 - Full-screen log view (ESC to exit)    ║");
+    output("║ interact [cmd]       - Navigate output (sessions/bans/users) ║");
+    output("║ quit/exit            - Stop the server                       ║");
     output("╠══════════════════════════════════════════════════════════════╣");
     output("║                      KEYBOARD SHORTCUTS                      ║");
     output("╠══════════════════════════════════════════════════════════════╣");
-    output("║ 1                     - Filter: show all logs                ║");
-    output("║ 2                     - Filter: info and above               ║");
-    output("║ 3                     - Filter: warn and above               ║");
-    output("║ 4                     - Filter: error only                   ║");
-    output("║ Up/Down               - Scroll logs (1 line)                 ║");
-    output("║ Page Up/Down          - Scroll logs (1 page)                 ║");
+    output("║ 1                    - Filter: show all logs                 ║");
+    output("║ 2                    - Filter: info and above                ║");
+    output("║ 3                    - Filter: warn and above                ║");
+    output("║ 4                    - Filter: error only                    ║");
+    output("║ Up/Down              - Scroll logs (1 line)                  ║");
+    output("║ Page Up/Down         - Scroll logs (1 page)                  ║");
     output("╚══════════════════════════════════════════════════════════════╝");
     output("");
 }
@@ -258,7 +258,7 @@ void ServerCLI::printStatus() {
 
     oss.str("");
     oss << "║ Logs:   " << std::left << std::setw(10) << (logsEnabled ? "ON" : "OFF")
-        << "  Debug: " << std::setw(6) << (debugEnabled ? "ON" : "OFF") << " ║";
+        << "  Debug: " << std::setw(6) << (debugEnabled ? "ON" : "OFF") << "   ║";
     output(oss.str());
 
     output("╚═════════════════════════════════════╝");
