@@ -45,7 +45,7 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["users"] = [this](const std::string&) { listUsers(); };
     _commands["logs"] = [this](const std::string& args) { toggleLogs(args); };
     _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
-    _commands["interact"] = [this](const std::string&) { enterInteractMode(); };
+    _commands["interact"] = [this](const std::string& args) { enterInteractMode(args); };
     _commands["quit"] = [this](const std::string&) { stop(); };
     _commands["exit"] = [this](const std::string&) { stop(); };
 
@@ -203,8 +203,7 @@ void ServerCLI::printHelp() {
     output("║ bans                  - List all banned users                ║");
     output("║ logs <on|off>         - Enable/disable server logs           ║");
     output("║ zoom                  - Full-screen log view (ESC to exit)   ║");
-    output("║ interact              - Navigate last output (sessions/bans/ ║");
-    output("║                         users)                               ║");
+    output("║ interact [cmd]        - Navigate output (sessions/bans/users)  ║");
     output("║ quit/exit             - Stop the server                      ║");
     output("╠══════════════════════════════════════════════════════════════╣");
     output("║                      KEYBOARD SHORTCUTS                      ║");
@@ -488,14 +487,29 @@ void ServerCLI::enterZoomMode() {
     }
 }
 
-void ServerCLI::enterInteractMode() {
+void ServerCLI::enterInteractMode(const std::string& args) {
     if (!_terminalUI) {
         output("[CLI] Interact mode not available (TUI not initialized).");
         return;
     }
 
+    // If a command is specified, run it first to populate interactive output
+    if (!args.empty()) {
+        if (args == "sessions") {
+            listSessions();
+        } else if (args == "bans") {
+            listBans();
+        } else if (args == "users") {
+            listUsers();
+        } else {
+            output("[CLI] Unknown interact target: " + args);
+            output("[CLI] Valid targets: sessions, bans, users");
+            return;
+        }
+    }
+
     if (_lastInteractiveOutput.lines.empty()) {
-        output("[CLI] No output to interact with. Run 'sessions' or 'bans' first.");
+        output("[CLI] No output to interact with. Run 'sessions', 'bans' or 'users' first.");
         return;
     }
 

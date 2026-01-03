@@ -64,7 +64,7 @@ private:
     void listUsers();
     void toggleLogs(const std::string& args);
     void enterZoomMode();
-    void enterInteractMode();
+    void enterInteractMode(const std::string& args = "");
     std::vector<std::string> parseArgs(const std::string& line);
 
     // Interactive output generators
