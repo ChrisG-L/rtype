@@ -6,6 +6,7 @@
 */
 
 #include "infrastructure/adapters/in/network/execute/auth/ExecuteAuth.hpp"
+#include "infrastructure/logging/Logger.hpp"
 #include "Protocol.hpp"
 #include "application/use_cases/auth/Login.hpp"
 
@@ -22,7 +23,7 @@ namespace infrastructure::adapters::in::network::execute::auth {
         } else if (_cmd.type == static_cast<uint16_t>(MessageType::Register)) {
             signupUser();
         } else {
-            std::cout << "Unknown command type: " << _cmd.type << std::endl;
+            server::logging::Logger::getNetworkLogger()->warn("Unknown command type: {}", _cmd.type);
         }
     }
 
@@ -33,7 +34,7 @@ namespace infrastructure::adapters::in::network::execute::auth {
     void ExecuteAuth::login() {
         auto loginOpt = LoginMessage::from_bytes(_cmd.buf.data(), _cmd.buf.size());
         if (!loginOpt) {
-            std::cout << "Invalid LoginMessage received!" << std::endl;
+            server::logging::Logger::getNetworkLogger()->warn("Invalid LoginMessage received!");
             return;
         }
         _user = _login->execute(loginOpt->username, loginOpt->password);
@@ -42,7 +43,7 @@ namespace infrastructure::adapters::in::network::execute::auth {
     void ExecuteAuth::signupUser() {
         auto registerUserOpt = RegisterMessage::from_bytes(_cmd.buf.data(), _cmd.buf.size());
         if (!registerUserOpt) {
-            std::cout << "Invalid RegisterMessage received!" << std::endl;
+            server::logging::Logger::getNetworkLogger()->warn("Invalid RegisterMessage received!");
             return;
         }
         _user = _register->execute(registerUserOpt->username, registerUserOpt->email, registerUserOpt->password);

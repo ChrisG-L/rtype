@@ -2,7 +2,7 @@
 ** EPITECH PROJECT, 2025
 ** rtype [WSL: Ubuntu]
 ** File description:
-** ServerCLI implementation
+** ServerCLI implementation with TUI support
 */
 
 #include "infrastructure/cli/ServerCLI.hpp"
@@ -12,19 +12,20 @@
 #include <sstream>
 #include <iomanip>
 
-#ifndef _WIN32
-    #include <poll.h>
-    #include <unistd.h>
-#else
-    #include <conio.h>
-    #include <windows.h>
-#endif
-
 namespace infrastructure::cli {
 
-ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager, UDPServer& udpServer)
-    : _sessionManager(sessionManager), _udpServer(udpServer)
+ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
+                     UDPServer& udpServer,
+                     std::shared_ptr<tui::LogBuffer> logBuffer)
+    : _sessionManager(std::move(sessionManager))
+    , _udpServer(udpServer)
+    , _logBuffer(std::move(logBuffer))
 {
+    // Create TerminalUI if we have a log buffer
+    if (_logBuffer) {
+        _terminalUI = std::make_unique<tui::TerminalUI>(_logBuffer);
+    }
+
     // Register commands
     _commands["help"] = [this](const std::string&) { printHelp(); };
     _commands["status"] = [this](const std::string&) { printStatus(); };
@@ -34,6 +35,7 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager, UDPServer& 
     _commands["unban"] = [this](const std::string& args) { unbanUser(args); };
     _commands["bans"] = [this](const std::string&) { listBans(); };
     _commands["logs"] = [this](const std::string& args) { toggleLogs(args); };
+    _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
     _commands["quit"] = [this](const std::string&) { stop(); };
     _commands["exit"] = [this](const std::string&) { stop(); };
 }
@@ -47,14 +49,26 @@ ServerCLI::~ServerCLI() {
 
 void ServerCLI::start() {
     _running = true;
-    _cliThread = std::jthread([this](std::stop_token stoken) {
+
+    // Start TUI if available
+    if (_terminalUI) {
+        _terminalUI->start();
+    }
+
+    _cliThread = std::jthread([this](std::stop_token) {
         runLoop();
     });
 }
 
 void ServerCLI::stop() {
     _running = false;
-    std::cout << "\n[CLI] Stopping..." << std::endl;
+
+    // Stop TUI
+    if (_terminalUI) {
+        _terminalUI->stop();
+    }
+
+    output("[CLI] Stopping...");
 }
 
 void ServerCLI::join() {
@@ -63,91 +77,75 @@ void ServerCLI::join() {
     }
 }
 
-// Check if stdin has data available (non-blocking)
-static bool stdinHasData(int timeoutMs) {
-#ifndef _WIN32
-    struct pollfd pfd;
-    pfd.fd = STDIN_FILENO;
-    pfd.events = POLLIN;
-    int ret = poll(&pfd, 1, timeoutMs);
-    return ret > 0 && (pfd.revents & POLLIN);
-#else
-    // Windows: check if console has input
-    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD events = 0;
-    if (GetNumberOfConsoleInputEvents(hStdin, &events) && events > 0) {
-        return true;
+void ServerCLI::output(const std::string& text) {
+    if (_terminalUI && _terminalUI->isRunning()) {
+        _terminalUI->printToCommandPane(text);
+    } else {
+        std::cout << text << std::endl;
     }
-    Sleep(timeoutMs);
-    return _kbhit() != 0;
-#endif
 }
 
 void ServerCLI::runLoop() {
-    std::cout << "\n╔══════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║     R-Type Server CLI - Type 'help' for commands  ║" << std::endl;
-    std::cout << "╚══════════════════════════════════════════════════╝\n" << std::endl;
-
-    bool needPrompt = true;
+    output("");
+    output("╔══════════════════════════════════════════════════╗");
+    output("║   R-Type Server CLI - Type 'help' for commands   ║");
+    output("╚══════════════════════════════════════════════════╝");
+    output("");
 
     while (_running) {
-        if (needPrompt) {
-            std::cout << "rtype> " << std::flush;
-            needPrompt = false;
-        }
+        std::string command;
 
-        // Poll stdin with 100ms timeout to allow checking _running flag
-        if (!stdinHasData(100)) {
-            continue;
-        }
-
-        std::string line;
-        if (!std::getline(std::cin, line)) {
-            // EOF (Ctrl+D) or input error
-            if (std::cin.eof()) {
-                std::cout << "\n[CLI] EOF received, use Ctrl+C to stop server." << std::endl;
-                std::cin.clear();
-                needPrompt = true;
+        if (_terminalUI && _terminalUI->isRunning()) {
+            // TUI mode: get command from TerminalUI
+            command = _terminalUI->processInputAndGetCommand();
+            if (command.empty()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 continue;
             }
-            break;
-        }
-
-        needPrompt = true;
-
-        // Skip empty lines
-        if (line.empty()) {
-            continue;
-        }
-
-        // Parse command and arguments
-        auto args = parseArgs(line);
-        if (args.empty()) {
-            continue;
-        }
-
-        std::string command = args[0];
-        std::string argStr;
-        if (args.size() > 1) {
-            std::ostringstream oss;
-            for (size_t i = 1; i < args.size(); ++i) {
-                if (i > 1) oss << " ";
-                oss << args[i];
-            }
-            argStr = oss.str();
-        }
-
-        // Find and execute command
-        auto it = _commands.find(command);
-        if (it != _commands.end()) {
-            try {
-                it->second(argStr);
-            } catch (const std::exception& e) {
-                std::cout << "[CLI] Error: " << e.what() << std::endl;
-            }
         } else {
-            std::cout << "[CLI] Unknown command: " << command << ". Type 'help' for available commands." << std::endl;
+            // Fallback: standard input (shouldn't happen normally)
+            std::cout << "rtype> " << std::flush;
+            if (!std::getline(std::cin, command)) {
+                break;
+            }
         }
+
+        // Skip empty commands
+        if (command.empty()) {
+            continue;
+        }
+
+        executeCommand(command);
+    }
+}
+
+void ServerCLI::executeCommand(const std::string& command) {
+    auto args = parseArgs(command);
+    if (args.empty()) {
+        return;
+    }
+
+    std::string cmd = args[0];
+    std::string argStr;
+    if (args.size() > 1) {
+        std::ostringstream oss;
+        for (size_t i = 1; i < args.size(); ++i) {
+            if (i > 1) oss << " ";
+            oss << args[i];
+        }
+        argStr = oss.str();
+    }
+
+    // Find and execute command
+    auto it = _commands.find(cmd);
+    if (it != _commands.end()) {
+        try {
+            it->second(argStr);
+        } catch (const std::exception& e) {
+            output("[CLI] Error: " + std::string(e.what()));
+        }
+    } else {
+        output("[CLI] Unknown command: " + cmd + ". Type 'help' for available commands.");
     }
 }
 
@@ -162,51 +160,78 @@ std::vector<std::string> ServerCLI::parseArgs(const std::string& line) {
 }
 
 void ServerCLI::printHelp() {
-    std::cout << "\n╔══════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║                    AVAILABLE COMMANDS                         ║" << std::endl;
-    std::cout << "╠══════════════════════════════════════════════════════════════╣" << std::endl;
-    std::cout << "║ help                  - Show this help message               ║" << std::endl;
-    std::cout << "║ status                - Show server status                   ║" << std::endl;
-    std::cout << "║ sessions              - List all active sessions             ║" << std::endl;
-    std::cout << "║ kick <player_id>      - Kick a player by their in-game ID   ║" << std::endl;
-    std::cout << "║ ban <email>           - Ban a user permanently               ║" << std::endl;
-    std::cout << "║ unban <email>         - Unban a user                         ║" << std::endl;
-    std::cout << "║ bans                  - List all banned users                ║" << std::endl;
-    std::cout << "║ logs <on|off>         - Enable/disable server logs           ║" << std::endl;
-    std::cout << "║ quit/exit             - Stop the CLI (use Ctrl+C to stop    ║" << std::endl;
-    std::cout << "║                         the server)                          ║" << std::endl;
-    std::cout << "╚══════════════════════════════════════════════════════════════╝\n" << std::endl;
+    output("");
+    output("╔══════════════════════════════════════════════════════════════╗");
+    output("║                      AVAILABLE COMMANDS                      ║");
+    output("╠══════════════════════════════════════════════════════════════╣");
+    output("║ help                  - Show this help message               ║");
+    output("║ status                - Show server status                   ║");
+    output("║ sessions              - List all active sessions             ║");
+    output("║ kick <player_id>      - Kick a player by their in-game ID    ║");
+    output("║ ban <email>           - Ban a user permanently               ║");
+    output("║ unban <email>         - Unban a user                         ║");
+    output("║ bans                  - List all banned users                ║");
+    output("║ logs <on|off>         - Enable/disable server logs           ║");
+    output("║ zoom                  - Full-screen log view (ESC to exit)   ║");
+    output("║ quit/exit             - Stop the CLI (use Ctrl+C to stop     ║");
+    output("║                         the server)                          ║");
+    output("╠══════════════════════════════════════════════════════════════╣");
+    output("║                      KEYBOARD SHORTCUTS                      ║");
+    output("╠══════════════════════════════════════════════════════════════╣");
+    output("║ 1                     - Filter: show all logs                ║");
+    output("║ 2                     - Filter: info and above               ║");
+    output("║ 3                     - Filter: warn and above               ║");
+    output("║ 4                     - Filter: error only                   ║");
+    output("║ Up/Down               - Scroll logs (1 line)                 ║");
+    output("║ Page Up/Down          - Scroll logs (1 page)                 ║");
+    output("╚══════════════════════════════════════════════════════════════╝");
+    output("");
 }
 
 void ServerCLI::printStatus() {
     size_t sessionCount = _sessionManager->getSessionCount();
     size_t playerCount = _udpServer.getPlayerCount();
 
-    std::cout << "\n╔══════════════════════════════════════╗" << std::endl;
-    std::cout << "║          SERVER STATUS               ║" << std::endl;
-    std::cout << "╠══════════════════════════════════════╣" << std::endl;
-    std::cout << "║ Active Sessions: " << std::setw(4) << sessionCount << "                 ║" << std::endl;
-    std::cout << "║ Players in Game: " << std::setw(4) << playerCount << "                 ║" << std::endl;
-    std::cout << "╚══════════════════════════════════════╝\n" << std::endl;
+    std::ostringstream oss;
+    output("");
+    output("╔══════════════════════════════════════╗");
+    output("║          SERVER STATUS               ║");
+    output("╠══════════════════════════════════════╣");
+
+    oss << "║ Active Sessions: " << std::setw(4) << sessionCount << "                ║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Players in Game: " << std::setw(4) << playerCount << "                ║";
+    output(oss.str());
+
+    output("╚══════════════════════════════════════╝");
+    output("");
 }
 
 void ServerCLI::listSessions() {
     auto sessions = _sessionManager->getAllSessions();
 
     if (sessions.empty()) {
-        std::cout << "\n[CLI] No active sessions.\n" << std::endl;
+        output("");
+        output("[CLI] No active sessions.");
+        output("");
         return;
     }
 
-    std::cout << "\n╔══════════════════════════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║                                ACTIVE SESSIONS                                    ║" << std::endl;
-    std::cout << "╠══════════════════════════════════════════════════════════════════════════════════╣" << std::endl;
-    std::cout << "║ " << std::left << std::setw(25) << "Email"
-              << std::setw(15) << "Display Name"
-              << std::setw(10) << "Status"
-              << std::setw(10) << "Player ID"
-              << std::setw(22) << "Endpoint" << " ║" << std::endl;
-    std::cout << "╠══════════════════════════════════════════════════════════════════════════════════╣" << std::endl;
+    output("");
+    output("╔══════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                ACTIVE SESSIONS                                    ║");
+    output("╠══════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(25) << "Email"
+           << std::setw(15) << "Display Name"
+           << std::setw(10) << "Status"
+           << std::setw(10) << "Player ID"
+           << std::setw(22) << "Endpoint" << " ║";
+    output(header.str());
+    output("╠══════════════════════════════════════════════════════════════════════════════════╣");
 
     for (const auto& session : sessions) {
         std::string statusStr;
@@ -226,31 +251,35 @@ void ServerCLI::listSessions() {
             endpointStr = endpointStr.substr(0, 18) + "...";
         }
 
-        std::cout << "║ " << std::left << std::setw(25) << email
-                  << std::setw(15) << displayName
-                  << std::setw(10) << statusStr
-                  << std::setw(10) << playerIdStr
-                  << std::setw(22) << endpointStr << " ║" << std::endl;
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(25) << email
+            << std::setw(15) << displayName
+            << std::setw(10) << statusStr
+            << std::setw(10) << playerIdStr
+            << std::setw(22) << endpointStr << " ║";
+        output(row.str());
     }
 
-    std::cout << "╚══════════════════════════════════════════════════════════════════════════════════╝\n" << std::endl;
+    output("╚══════════════════════════════════════════════════════════════════════════════════╝");
+    output("");
 }
 
 void ServerCLI::kickPlayer(const std::string& args) {
     if (args.empty()) {
-        std::cout << "[CLI] Usage: kick <player_id>" << std::endl;
+        output("[CLI] Usage: kick <player_id>");
         return;
     }
 
     try {
         int playerId = std::stoi(args);
         if (playerId < 0 || playerId > 255) {
-            std::cout << "[CLI] Invalid player ID. Must be 0-255." << std::endl;
+            output("[CLI] Invalid player ID. Must be 0-255.");
             return;
         }
         _udpServer.kickPlayer(static_cast<uint8_t>(playerId));
-    } catch (const std::exception& e) {
-        std::cout << "[CLI] Invalid player ID: " << args << std::endl;
+        output("[CLI] Kicked player " + std::to_string(playerId));
+    } catch (const std::exception&) {
+        output("[CLI] Invalid player ID: " + args);
     }
 }
 
@@ -259,72 +288,87 @@ void ServerCLI::toggleLogs(const std::string& args) {
         // Toggle current state
         bool currentState = server::logging::Logger::isEnabled();
         server::logging::Logger::setEnabled(!currentState);
-        std::cout << "[CLI] Logs " << (!currentState ? "enabled" : "disabled") << std::endl;
+        output(std::string("[CLI] Logs ") + (!currentState ? "enabled" : "disabled"));
         return;
     }
 
     if (args == "on" || args == "1" || args == "true") {
         server::logging::Logger::setEnabled(true);
-        std::cout << "[CLI] Logs enabled" << std::endl;
+        output("[CLI] Logs enabled");
     } else if (args == "off" || args == "0" || args == "false") {
         server::logging::Logger::setEnabled(false);
-        std::cout << "[CLI] Logs disabled" << std::endl;
+        output("[CLI] Logs disabled");
     } else {
-        std::cout << "[CLI] Usage: logs <on|off>" << std::endl;
+        output("[CLI] Usage: logs <on|off>");
     }
 }
 
 void ServerCLI::banUser(const std::string& args) {
     if (args.empty()) {
-        std::cout << "[CLI] Usage: ban <email>" << std::endl;
+        output("[CLI] Usage: ban <email>");
         return;
     }
 
     if (_sessionManager->isBanned(args)) {
-        std::cout << "[CLI] User '" << args << "' is already banned." << std::endl;
+        output("[CLI] User '" + args + "' is already banned.");
         return;
     }
 
     _sessionManager->banUser(args);
-    std::cout << "[CLI] User '" << args << "' has been banned." << std::endl;
+    output("[CLI] User '" + args + "' has been banned.");
 }
 
 void ServerCLI::unbanUser(const std::string& args) {
     if (args.empty()) {
-        std::cout << "[CLI] Usage: unban <email>" << std::endl;
+        output("[CLI] Usage: unban <email>");
         return;
     }
 
     if (!_sessionManager->isBanned(args)) {
-        std::cout << "[CLI] User '" << args << "' is not banned." << std::endl;
+        output("[CLI] User '" + args + "' is not banned.");
         return;
     }
 
     _sessionManager->unbanUser(args);
-    std::cout << "[CLI] User '" << args << "' has been unbanned." << std::endl;
+    output("[CLI] User '" + args + "' has been unbanned.");
 }
 
 void ServerCLI::listBans() {
     auto bannedUsers = _sessionManager->getBannedUsers();
 
     if (bannedUsers.empty()) {
-        std::cout << "\n[CLI] No banned users.\n" << std::endl;
+        output("");
+        output("[CLI] No banned users.");
+        output("");
         return;
     }
 
-    std::cout << "\n╔══════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║                       BANNED USERS                            ║" << std::endl;
-    std::cout << "╠══════════════════════════════════════════════════════════════╣" << std::endl;
+    output("");
+    output("╔══════════════════════════════════════════════════════════════╗");
+    output("║                       BANNED USERS                            ║");
+    output("╠══════════════════════════════════════════════════════════════╣");
 
     for (const auto& email : bannedUsers) {
         std::string displayEmail = email;
         if (displayEmail.length() > 58) {
             displayEmail = displayEmail.substr(0, 55) + "...";
         }
-        std::cout << "║ " << std::left << std::setw(60) << displayEmail << " ║" << std::endl;
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(60) << displayEmail << " ║";
+        output(row.str());
     }
 
-    std::cout << "╚══════════════════════════════════════════════════════════════╝\n" << std::endl;
+    output("╚══════════════════════════════════════════════════════════════╝");
+    output("");
+}
+
+void ServerCLI::enterZoomMode() {
+    if (_terminalUI) {
+        _terminalUI->setMode(tui::TerminalUI::Mode::ZoomLogs);
+        output("[CLI] Entered zoom mode. Press ESC to exit.");
+    } else {
+        output("[CLI] Zoom mode not available (TUI not initialized).");
+    }
 }
 
 } // namespace infrastructure::cli

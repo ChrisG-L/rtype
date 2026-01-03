@@ -17,8 +17,9 @@
 #include "infrastructure/configuration/DBConfig.hpp"
 #include "infrastructure/session/SessionManager.hpp"
 #include "infrastructure/cli/ServerCLI.hpp"
+#include "infrastructure/tui/LogBuffer.hpp"
+#include "infrastructure/logging/Logger.hpp"
 
-#include <iostream>
 #include <memory>
 #include <cstdlib>
 #include <csignal>
@@ -36,7 +37,14 @@ namespace infrastructure::bootstrap {
                 using adapters::out::SpdLogAdapter;
                 using session::SessionManager;
 
-                std::cout << "=== Démarrage du serveur R-Type ===" << std::endl;
+                // Create LogBuffer first (before Logger init)
+                auto logBuffer = std::make_shared<tui::LogBuffer>();
+
+                // Initialize Logger with TUI mode
+                server::logging::Logger::initWithTUI(logBuffer);
+
+                auto mainLogger = server::logging::Logger::getMainLogger();
+                mainLogger->info("=== Démarrage du serveur R-Type ===");
 
                 boost::asio::io_context io_ctx;
 
@@ -70,16 +78,16 @@ namespace infrastructure::bootstrap {
                 UDPServer udpServer(io_ctx, sessionManager);
                 udpServer.start();
 
-                std::cout << "Serveur UDP prêt. En attente de connexions..." << std::endl;
-                std::cout << "Appuyez sur Ctrl+C pour arrêter le serveur proprement." << std::endl;
+                mainLogger->info("Serveur UDP prêt. En attente de connexions...");
+                mainLogger->info("Appuyez sur Ctrl+C pour arrêter le serveur proprement.");
 
-                // Start CLI in a separate thread
-                cli::ServerCLI serverCLI(sessionManager, udpServer);
+                // Start CLI with TUI support
+                cli::ServerCLI serverCLI(sessionManager, udpServer, logBuffer);
                 serverCLI.start();
 
                 boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
                 signals.async_wait([&](const boost::system::error_code&, int signum) {
-                    std::cout << "\nSignal reçu (" << signum << "), arrêt du serveur..." << std::endl;
+                    mainLogger->info("Signal reçu ({}), arrêt du serveur...", signum);
                     serverCLI.stop();
                     udpServer.stop();
                     tcpAuthServer.stop();
@@ -90,6 +98,9 @@ namespace infrastructure::bootstrap {
 
                 // Wait for CLI to finish
                 serverCLI.join();
+
+                // Shutdown logger
+                server::logging::Logger::shutdown();
             }
 
         public:

@@ -51,6 +51,12 @@ add_executable(rtype_server
     # Infrastructure - CLI
     infrastructure/cli/ServerCLI.cpp
 
+    # Infrastructure - TUI
+    infrastructure/tui/LogBuffer.cpp
+    infrastructure/tui/TUISink.cpp
+    infrastructure/tui/TerminalRenderer.cpp
+    infrastructure/tui/TerminalUI.cpp
+
     # Infrastructure - Logging
     infrastructure/logging/Logger.cpp
 )

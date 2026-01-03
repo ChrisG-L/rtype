@@ -6,10 +6,10 @@
 */
 
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
+#include "infrastructure/logging/Logger.hpp"
 #include "Protocol.hpp"
 #include <chrono>
 #include <cstdint>
-#include <iostream>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -67,7 +67,7 @@ namespace infrastructure::adapters::in::network {
             endpoint,
             [buf](boost::system::error_code ec, std::size_t) {
                 if (ec) {
-                    std::cerr << "Send error: " << ec.message() << std::endl;
+                    server::logging::Logger::getNetworkLogger()->error("Send error: {}", ec.message());
                 }
             }
         );
@@ -89,9 +89,9 @@ namespace infrastructure::adapters::in::network {
 
         sendTo(endpoint, buf.data(), buf.size());
 
-        std::cout << "Player " << static_cast<int>(playerId)
-                  << " joined from " << endpoint.address().to_string()
-                  << ":" << endpoint.port() << std::endl;
+        server::logging::Logger::getNetworkLogger()->info(
+            "Player {} joined from {}:{}",
+            static_cast<int>(playerId), endpoint.address().to_string(), endpoint.port());
     }
 
     void UDPServer::sendPlayerLeave(uint8_t playerId) {
@@ -113,7 +113,7 @@ namespace infrastructure::adapters::in::network {
             sendTo(ep, buf.data(), buf.size());
         }
 
-        std::cout << "Player " << static_cast<int>(playerId) << " left" << std::endl;
+        server::logging::Logger::getNetworkLogger()->info("Player {} left", static_cast<int>(playerId));
     }
 
     void UDPServer::sendHeartbeatAck(const udp::endpoint& endpoint) {
@@ -146,8 +146,9 @@ namespace infrastructure::adapters::in::network {
 
         sendTo(endpoint, buf.data(), buf.size());
 
-        std::cout << "JoinGameAck sent to " << endpoint.address().to_string()
-                  << ":" << endpoint.port() << " (playerId=" << static_cast<int>(playerId) << ")" << std::endl;
+        server::logging::Logger::getNetworkLogger()->debug(
+            "JoinGameAck sent to {}:{} (playerId={})",
+            endpoint.address().to_string(), endpoint.port(), static_cast<int>(playerId));
     }
 
     void UDPServer::sendJoinGameNack(const udp::endpoint& endpoint, const std::string& reason) {
@@ -168,8 +169,9 @@ namespace infrastructure::adapters::in::network {
 
         sendTo(endpoint, buf.data(), buf.size());
 
-        std::cout << "JoinGameNack sent to " << endpoint.address().to_string()
-                  << ":" << endpoint.port() << " (reason: " << reason << ")" << std::endl;
+        server::logging::Logger::getNetworkLogger()->warn(
+            "JoinGameNack sent to {}:{} (reason: {})",
+            endpoint.address().to_string(), endpoint.port(), reason);
     }
 
     void UDPServer::broadcastSnapshot() {
@@ -206,8 +208,8 @@ namespace infrastructure::adapters::in::network {
                 );
                 for (uint8_t playerId : timedOutPlayers) {
                     sendPlayerLeave(playerId);
-                    std::cout << "Player " << static_cast<int>(playerId)
-                              << " timed out (no heartbeat)" << std::endl;
+                    server::logging::Logger::getNetworkLogger()->warn(
+                        "Player {} timed out (no heartbeat)", static_cast<int>(playerId));
                 }
 
                 _gameWorld.updateMissiles(deltaTime);
@@ -365,7 +367,7 @@ namespace infrastructure::adapters::in::network {
             sendTo(ep, buf.data(), buf.size());
         }
 
-        std::cout << "Player " << static_cast<int>(playerId) << " died" << std::endl;
+        server::logging::Logger::getGameLogger()->info("Player {} died", static_cast<int>(playerId));
     }
 
     void UDPServer::do_read() {
@@ -381,7 +383,7 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::handle_receive(const boost::system::error_code& error, std::size_t bytes) {
         if (error) {
             if (error != boost::asio::error::operation_aborted) {
-                std::cerr << "Receive error: " << error.message() << std::endl;
+                server::logging::Logger::getNetworkLogger()->error("Receive error: {}", error.message());
                 do_read();
             }
             return;
@@ -465,9 +467,9 @@ namespace infrastructure::adapters::in::network {
             // Broadcast to other players
             sendPlayerJoin(_remote_endpoint, *playerIdOpt);
 
-            std::cout << "Player " << validateResult->displayName
-                      << " (email: " << validateResult->email << ") joined as player "
-                      << static_cast<int>(*playerIdOpt) << std::endl;
+            server::logging::Logger::getNetworkLogger()->info(
+                "Player {} (email: {}) joined as player {}",
+                validateResult->displayName, validateResult->email, static_cast<int>(*playerIdOpt));
 
             do_read();
             return;
@@ -551,7 +553,8 @@ namespace infrastructure::adapters::in::network {
         }
 
         if (!targetEndpoint) {
-            std::cout << "[CLI] Player " << static_cast<int>(playerId) << " not found in game." << std::endl;
+            server::logging::Logger::getMainLogger()->warn(
+                "[CLI] Player {} not found in game.", static_cast<int>(playerId));
             return;
         }
 
@@ -566,7 +569,8 @@ namespace infrastructure::adapters::in::network {
         // Broadcast PlayerLeave to remaining players
         sendPlayerLeave(playerId);
 
-        std::cout << "[CLI] Player " << static_cast<int>(playerId) << " kicked from server." << std::endl;
+        server::logging::Logger::getMainLogger()->info(
+            "[CLI] Player {} kicked from server.", static_cast<int>(playerId));
     }
 
     size_t UDPServer::getPlayerCount() const {

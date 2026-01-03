@@ -15,6 +15,8 @@
 #include <unordered_map>
 #include <memory>
 #include "infrastructure/session/SessionManager.hpp"
+#include "infrastructure/tui/LogBuffer.hpp"
+#include "infrastructure/tui/TerminalUI.hpp"
 
 namespace infrastructure::adapters::in::network {
     class UDPServer;
@@ -27,7 +29,9 @@ using adapters::in::network::UDPServer;
 
 class ServerCLI {
 public:
-    ServerCLI(std::shared_ptr<SessionManager> sessionManager, UDPServer& udpServer);
+    ServerCLI(std::shared_ptr<SessionManager> sessionManager,
+              UDPServer& udpServer,
+              std::shared_ptr<tui::LogBuffer> logBuffer);
     ~ServerCLI();
 
     // Start the CLI in a background thread
@@ -41,6 +45,7 @@ public:
 
 private:
     void runLoop();
+    void executeCommand(const std::string& command);
     void printHelp();
     void printStatus();
     void listSessions();
@@ -49,10 +54,16 @@ private:
     void unbanUser(const std::string& args);
     void listBans();
     void toggleLogs(const std::string& args);
+    void enterZoomMode();
     std::vector<std::string> parseArgs(const std::string& line);
+
+    // Output helper (uses TUI if available, else stdout)
+    void output(const std::string& text);
 
     std::shared_ptr<SessionManager> _sessionManager;
     UDPServer& _udpServer;
+    std::shared_ptr<tui::LogBuffer> _logBuffer;
+    std::unique_ptr<tui::TerminalUI> _terminalUI;
 
     std::jthread _cliThread;
     std::atomic<bool> _running{false};

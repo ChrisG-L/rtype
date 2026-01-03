@@ -6,6 +6,7 @@
 */
 
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
+#include "infrastructure/logging/Logger.hpp"
 
 namespace infrastructure::adapters::out::persistence {
     std::unique_ptr<mongocxx::instance> MongoDBConfiguration::_instance = nullptr;
@@ -34,7 +35,7 @@ namespace infrastructure::adapters::out::persistence {
             auto result = db.run_command(make_document(kvp("ping", 1)));
             return true;
         } catch (const std::exception& e) {
-            std::cerr << "Erreur de ping MongoDB: " << e.what() << std::endl;
+            server::logging::Logger::getMainLogger()->error("Erreur de ping MongoDB: {}", e.what());
             return false;
         }
     }
