@@ -313,18 +313,25 @@ size_t SessionManager::getSessionCount() const {
 void SessionManager::banUser(const std::string& email) {
     std::lock_guard<std::mutex> lock(_mutex);
 
-    // Add to banned set
-    _bannedUsers.insert(email);
-
-    // Also remove any active session for this user
+    // Capture display name from session if available
+    std::string displayName;
     auto sessionIt = _sessionsByEmail.find(email);
     if (sessionIt != _sessionsByEmail.end()) {
+        displayName = sessionIt->second.displayName;
+
+        // Remove the active session
         _tokenToEmail.erase(sessionIt->second.token.toHex());
         if (!sessionIt->second.udpEndpoint.empty()) {
             _endpointToEmail.erase(sessionIt->second.udpEndpoint);
         }
         _sessionsByEmail.erase(sessionIt);
     }
+
+    // Add to banned map
+    _bannedUsers[email] = BannedUser{
+        .email = email,
+        .displayName = displayName
+    };
 }
 
 void SessionManager::unbanUser(const std::string& email) {
@@ -337,12 +344,12 @@ bool SessionManager::isBanned(const std::string& email) const {
     return _bannedUsers.contains(email);
 }
 
-std::vector<std::string> SessionManager::getBannedUsers() const {
+std::vector<BannedUser> SessionManager::getBannedUsers() const {
     std::lock_guard<std::mutex> lock(_mutex);
-    std::vector<std::string> result;
+    std::vector<BannedUser> result;
     result.reserve(_bannedUsers.size());
-    for (const auto& email : _bannedUsers) {
-        result.push_back(email);
+    for (const auto& [email, bannedUser] : _bannedUsers) {
+        result.push_back(bannedUser);
     }
     return result;
 }

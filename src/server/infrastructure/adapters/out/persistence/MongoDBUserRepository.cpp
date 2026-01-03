@@ -101,8 +101,12 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     std::vector<User> MongoDBUserRepository::findAll() {
-        // Non implémenté pour le moment
-        return {};
+        std::vector<User> users;
+        auto cursor = _collection->find({});
+        for (auto&& doc : cursor) {
+            users.push_back(documentToUser(doc));
+        }
+        return users;
     }
 }
 

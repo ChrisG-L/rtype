@@ -22,10 +22,12 @@ namespace infrastructure::cli {
 
 ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
                      UDPServer& udpServer,
-                     std::shared_ptr<tui::LogBuffer> logBuffer)
+                     std::shared_ptr<tui::LogBuffer> logBuffer,
+                     std::shared_ptr<IUserRepository> userRepository)
     : _sessionManager(std::move(sessionManager))
     , _udpServer(udpServer)
     , _logBuffer(std::move(logBuffer))
+    , _userRepository(std::move(userRepository))
 {
     // Create TerminalUI if we have a log buffer
     if (_logBuffer) {
@@ -40,6 +42,7 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["ban"] = [this](const std::string& args) { banUser(args); };
     _commands["unban"] = [this](const std::string& args) { unbanUser(args); };
     _commands["bans"] = [this](const std::string&) { listBans(); };
+    _commands["users"] = [this](const std::string&) { listUsers(); };
     _commands["logs"] = [this](const std::string& args) { toggleLogs(args); };
     _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
     _commands["interact"] = [this](const std::string&) { enterInteractMode(); };
@@ -193,15 +196,16 @@ void ServerCLI::printHelp() {
     output("║ help                  - Show this help message               ║");
     output("║ status                - Show server status                   ║");
     output("║ sessions              - List all active sessions             ║");
+    output("║ users                 - List all registered users (DB)       ║");
     output("║ kick <player_id>      - Kick a player by their in-game ID    ║");
     output("║ ban <email>           - Ban a user permanently               ║");
     output("║ unban <email>         - Unban a user                         ║");
     output("║ bans                  - List all banned users                ║");
     output("║ logs <on|off>         - Enable/disable server logs           ║");
     output("║ zoom                  - Full-screen log view (ESC to exit)   ║");
-    output("║ interact              - Navigate last output (sessions/bans) ║");
-    output("║ quit/exit             - Stop the CLI (use Ctrl+C to stop     ║");
-    output("║                         the server)                          ║");
+    output("║ interact              - Navigate last output (sessions/bans/ ║");
+    output("║                         users)                               ║");
+    output("║ quit/exit             - Stop the server                      ║");
     output("╠══════════════════════════════════════════════════════════════╣");
     output("║                      KEYBOARD SHORTCUTS                      ║");
     output("╠══════════════════════════════════════════════════════════════╣");
@@ -376,24 +380,100 @@ void ServerCLI::listBans() {
     }
 
     output("");
-    output("╔══════════════════════════════════════════════════════════════╗");
-    output("║                         BANNED USERS                         ║");
-    output("╠══════════════════════════════════════════════════════════════╣");
+    output("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                  BANNED USERS                                   ║");
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
 
-    for (const auto& email : bannedUsers) {
-        // Truncate email (UTF-8 aware)
-        std::string displayEmail = tui::utf8::truncateWithEllipsis(email, 58);
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(40) << "Email"
+           << std::setw(38) << "Display Name" << "  ║";
+    output(header.str());
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    for (const auto& banned : bannedUsers) {
+        // Truncate fields (UTF-8 aware)
+        std::string emailTrunc = tui::utf8::truncateWithEllipsis(banned.email, 39);
+        std::string displayNameTrunc = banned.displayName.empty()
+            ? "-"
+            : tui::utf8::truncateWithEllipsis(banned.displayName, 37);
+
         std::ostringstream row;
-        row << "║ " << std::left << std::setw(60) << displayEmail << " ║";
+        row << "║ " << std::left << std::setw(40) << emailTrunc
+            << std::setw(38) << displayNameTrunc << "  ║";
         output(row.str());
     }
 
-    output("╚══════════════════════════════════════════════════════════════╝");
+    output("╚═════════════════════════════════════════════════════════════════════════════════╝");
     output("");
 
     // Build and store interactive output for interact mode
     _lastInteractiveOutput = buildBansInteractiveOutput();
     _lastCommand = "bans";
+    if (_terminalUI) {
+        _terminalUI->setInteractiveOutput(_lastInteractiveOutput);
+    }
+}
+
+void ServerCLI::listUsers() {
+    if (!_userRepository) {
+        output("[CLI] User repository not available.");
+        return;
+    }
+
+    auto users = _userRepository->findAll();
+
+    if (users.empty()) {
+        output("");
+        output("[CLI] No registered users in database.");
+        output("");
+        return;
+    }
+
+    output("");
+    output("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                REGISTERED USERS                                 ║");
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(40) << "Email"
+           << std::setw(25) << "Username"
+           << std::setw(14) << "Status" << "  ║";
+    output(header.str());
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    for (const auto& user : users) {
+        std::string email = user.getEmail().value();
+        std::string username = user.getUsername().value();
+
+        // Check status
+        std::string statusStr;
+        if (_sessionManager->isBanned(email)) {
+            statusStr = "Banned";
+        } else if (_sessionManager->hasActiveSession(email)) {
+            statusStr = "Online";
+        } else {
+            statusStr = "Offline";
+        }
+
+        // Truncate fields (UTF-8 aware)
+        std::string emailTrunc = tui::utf8::truncateWithEllipsis(email, 39);
+        std::string usernameTrunc = tui::utf8::truncateWithEllipsis(username, 24);
+
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(40) << emailTrunc
+            << std::setw(25) << usernameTrunc
+            << std::setw(14) << statusStr << "  ║";
+        output(row.str());
+    }
+
+    output("╚═════════════════════════════════════════════════════════════════════════════════╝");
+    output("");
+    output("[CLI] Total: " + std::to_string(users.size()) + " user(s)");
+    output("");
+
+    // Build and store interactive output for interact mode
+    _lastInteractiveOutput = buildUsersInteractiveOutput();
+    _lastCommand = "users";
     if (_terminalUI) {
         _terminalUI->setInteractiveOutput(_lastInteractiveOutput);
     }
@@ -563,32 +643,145 @@ tui::InteractiveOutput ServerCLI::buildBansInteractiveOutput() {
     }
 
     output.lines.push_back("");
-    output.lines.push_back("╔══════════════════════════════════════════════════════════════╗");
-    output.lines.push_back("║                         BANNED USERS                         ║");
-    output.lines.push_back("╠══════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                  BANNED USERS                                   ║");
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(40) << "Email"
+           << std::setw(38) << "Display Name" << "  ║";
+    output.lines.push_back(header.str());
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
 
     size_t lineIdx = output.lines.size();
 
-    for (const auto& email : bannedUsers) {
-        std::string displayEmail = tui::utf8::truncateWithEllipsis(email, 58);
+    for (const auto& banned : bannedUsers) {
+        std::string emailTrunc = tui::utf8::truncateWithEllipsis(banned.email, 39);
+        std::string displayNameTrunc = banned.displayName.empty()
+            ? "-"
+            : tui::utf8::truncateWithEllipsis(banned.displayName, 37);
+
         std::ostringstream row;
-        row << "║ " << std::left << std::setw(60) << displayEmail << " ║";
+        row << "║ " << std::left << std::setw(40) << emailTrunc
+            << std::setw(38) << displayNameTrunc << "  ║";
         output.lines.push_back(row.str());
 
-        // Email element
+        // Column positions (after "║ ")
+        size_t col = 2;  // Start after "║ "
+
+        // Email element (40 columns)
         tui::SelectableElement emailElem;
         emailElem.lineIndex = lineIdx;
-        emailElem.startCol = 2;  // After "║ "
-        emailElem.endCol = 62;   // Before " ║"
-        emailElem.value = email;
-        emailElem.truncatedValue = displayEmail;
+        emailElem.startCol = col;
+        emailElem.endCol = col + 40;
+        emailElem.value = banned.email;
+        emailElem.truncatedValue = emailTrunc;
         emailElem.type = tui::ElementType::Email;
         output.elements.push_back(emailElem);
+        col += 40;
+
+        // Display Name element (38 columns) - only if not empty
+        if (!banned.displayName.empty()) {
+            tui::SelectableElement nameElem;
+            nameElem.lineIndex = lineIdx;
+            nameElem.startCol = col;
+            nameElem.endCol = col + 38;
+            nameElem.value = banned.displayName;
+            nameElem.truncatedValue = displayNameTrunc;
+            nameElem.type = tui::ElementType::DisplayName;
+            nameElem.associatedEmail = banned.email;
+            output.elements.push_back(nameElem);
+        }
 
         lineIdx++;
     }
 
-    output.lines.push_back("╚══════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("╚═════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("");
+
+    return output;
+}
+
+tui::InteractiveOutput ServerCLI::buildUsersInteractiveOutput() {
+    tui::InteractiveOutput output;
+    output.sourceCommand = "users";
+
+    if (!_userRepository) {
+        return output;
+    }
+
+    auto users = _userRepository->findAll();
+    if (users.empty()) {
+        return output;
+    }
+
+    output.lines.push_back("");
+    output.lines.push_back("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                REGISTERED USERS                                 ║");
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(40) << "Email"
+           << std::setw(25) << "Username"
+           << std::setw(14) << "Status" << "  ║";
+    output.lines.push_back(header.str());
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    size_t lineIdx = output.lines.size();
+
+    for (const auto& user : users) {
+        std::string email = user.getEmail().value();
+        std::string username = user.getUsername().value();
+
+        // Check status
+        std::string statusStr;
+        if (_sessionManager->isBanned(email)) {
+            statusStr = "Banned";
+        } else if (_sessionManager->hasActiveSession(email)) {
+            statusStr = "Online";
+        } else {
+            statusStr = "Offline";
+        }
+
+        // Truncate fields (UTF-8 aware)
+        std::string emailTrunc = tui::utf8::truncateWithEllipsis(email, 39);
+        std::string usernameTrunc = tui::utf8::truncateWithEllipsis(username, 24);
+
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(40) << emailTrunc
+            << std::setw(25) << usernameTrunc
+            << std::setw(14) << statusStr << "  ║";
+        output.lines.push_back(row.str());
+
+        // Column positions (after "║ ")
+        size_t col = 2;  // Start after "║ "
+
+        // Email element (40 columns)
+        tui::SelectableElement emailElem;
+        emailElem.lineIndex = lineIdx;
+        emailElem.startCol = col;
+        emailElem.endCol = col + 40;
+        emailElem.value = email;
+        emailElem.truncatedValue = emailTrunc;
+        emailElem.type = tui::ElementType::Email;
+        output.elements.push_back(emailElem);
+        col += 40;
+
+        // Username/DisplayName element (25 columns)
+        tui::SelectableElement nameElem;
+        nameElem.lineIndex = lineIdx;
+        nameElem.startCol = col;
+        nameElem.endCol = col + 25;
+        nameElem.value = username;
+        nameElem.truncatedValue = usernameTrunc;
+        nameElem.type = tui::ElementType::DisplayName;
+        nameElem.associatedEmail = email;
+        output.elements.push_back(nameElem);
+
+        lineIdx++;
+    }
+
+    output.lines.push_back("╚═════════════════════════════════════════════════════════════════════════════════╝");
     output.lines.push_back("");
 
     return output;

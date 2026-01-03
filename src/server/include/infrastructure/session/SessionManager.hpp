@@ -36,6 +36,11 @@ struct Session {
     Status status = Status::Pending;
 };
 
+struct BannedUser {
+    std::string email;
+    std::string displayName;  // Captured at ban time (may be empty if unknown)
+};
+
 class SessionManager {
 public:
     // Token validity before UDP connection (5 minutes)
@@ -123,8 +128,8 @@ public:
     // Check if a user is banned
     bool isBanned(const std::string& email) const;
 
-    // Get all banned emails
-    std::vector<std::string> getBannedUsers() const;
+    // Get all banned users (with display names)
+    std::vector<BannedUser> getBannedUsers() const;
 
 private:
     mutable std::mutex _mutex;
@@ -138,8 +143,8 @@ private:
     // Secondary index: endpoint -> email (for quick endpoint lookup)
     std::unordered_map<std::string, std::string> _endpointToEmail;
 
-    // Banned users (by email)
-    std::unordered_set<std::string> _bannedUsers;
+    // Banned users (email -> BannedUser)
+    std::unordered_map<std::string, BannedUser> _bannedUsers;
 
     // Generates a cryptographically random token
     SessionToken generateToken();

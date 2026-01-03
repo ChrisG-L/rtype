@@ -18,6 +18,7 @@
 #include "infrastructure/tui/LogBuffer.hpp"
 #include "infrastructure/tui/TerminalUI.hpp"
 #include "infrastructure/tui/InteractiveOutput.hpp"
+#include "application/ports/out/persistence/IUserRepository.hpp"
 
 namespace infrastructure::adapters::in::network {
     class UDPServer;
@@ -27,12 +28,14 @@ namespace infrastructure::cli {
 
 using session::SessionManager;
 using adapters::in::network::UDPServer;
+using application::ports::out::persistence::IUserRepository;
 
 class ServerCLI {
 public:
     ServerCLI(std::shared_ptr<SessionManager> sessionManager,
               UDPServer& udpServer,
-              std::shared_ptr<tui::LogBuffer> logBuffer);
+              std::shared_ptr<tui::LogBuffer> logBuffer,
+              std::shared_ptr<IUserRepository> userRepository = nullptr);
     ~ServerCLI();
 
     // Start the CLI in a background thread
@@ -58,6 +61,7 @@ private:
     void banUser(const std::string& args);
     void unbanUser(const std::string& args);
     void listBans();
+    void listUsers();
     void toggleLogs(const std::string& args);
     void enterZoomMode();
     void enterInteractMode();
@@ -66,6 +70,7 @@ private:
     // Interactive output generators
     tui::InteractiveOutput buildSessionsInteractiveOutput();
     tui::InteractiveOutput buildBansInteractiveOutput();
+    tui::InteractiveOutput buildUsersInteractiveOutput();
 
     // Interact action handler
     void handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element);
@@ -79,6 +84,7 @@ private:
     std::shared_ptr<SessionManager> _sessionManager;
     UDPServer& _udpServer;
     std::shared_ptr<tui::LogBuffer> _logBuffer;
+    std::shared_ptr<IUserRepository> _userRepository;
     std::unique_ptr<tui::TerminalUI> _terminalUI;
 
     std::jthread _cliThread;

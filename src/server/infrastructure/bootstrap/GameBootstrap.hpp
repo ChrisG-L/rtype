@@ -82,7 +82,7 @@ namespace infrastructure::bootstrap {
                 mainLogger->info("Appuyez sur Ctrl+C pour arrêter le serveur proprement.");
 
                 // Start CLI with TUI support
-                cli::ServerCLI serverCLI(sessionManager, udpServer, logBuffer);
+                cli::ServerCLI serverCLI(sessionManager, udpServer, logBuffer, userRepo);
 
                 // Set shutdown callback so CLI can stop the server via exit/quit commands
                 serverCLI.setShutdownCallback([&]() {
