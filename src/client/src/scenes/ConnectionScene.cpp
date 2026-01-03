@@ -319,8 +319,8 @@ void ConnectionScene::render()
             tcpStatus = "TCP: Connecte";
             break;
         case core::ConnectionStatus::Connecting:
-            tcpColor = {255, 200, 100, 255};
-            tcpStatus = "TCP: Connexion...";
+            tcpColor = {255, 100, 100, 255};  // Same as Disconnected
+            tcpStatus = "TCP: Deconnecte";
             break;
         case core::ConnectionStatus::Disconnected:
             tcpColor = {255, 100, 100, 255};
@@ -338,8 +338,8 @@ void ConnectionScene::render()
             udpStatus = "UDP: Connecte";
             break;
         case core::ConnectionStatus::Connecting:
-            udpColor = {255, 200, 100, 255};
-            udpStatus = "UDP: Connexion...";
+            udpColor = {255, 100, 100, 255};  // Same as Disconnected
+            udpStatus = "UDP: Deconnecte";
             break;
         case core::ConnectionStatus::Disconnected:
             udpColor = {255, 100, 100, 255};

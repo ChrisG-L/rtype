@@ -11,7 +11,9 @@
 
 #ifdef _WIN32
     #include <io.h>
-    #include <conio.h>
+    // Note: We use ReadConsoleInput instead of _kbhit()/_getch() from conio.h
+    // because ReadConsoleInput gives us virtual key codes (VK_UP, VK_DOWN, etc.)
+    // directly, which is more reliable than parsing scan codes or VT sequences.
 #else
     #include <sys/ioctl.h>
     #include <unistd.h>
@@ -152,10 +154,11 @@ void TerminalRenderer::enableRawMode() {
     GetConsoleMode(s_hConsoleIn, &s_originalInputMode);
     GetConsoleMode(s_hConsoleOut, &s_originalOutputMode);
 
-    // Enable virtual terminal processing for input
+    // Configure input mode: disable line buffering and echo
+    // Note: We do NOT enable ENABLE_VIRTUAL_TERMINAL_INPUT because we use
+    // ReadConsoleInput() which gives us virtual key codes directly, not VT sequences.
     DWORD inputMode = s_originalInputMode;
     inputMode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
-    inputMode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
     SetConsoleMode(s_hConsoleIn, inputMode);
 
     // Enable ANSI escape sequences for output
@@ -201,23 +204,56 @@ void TerminalRenderer::disableAlternateBuffer() {
 
 int TerminalRenderer::readChar() {
 #ifdef _WIN32
-    if (_kbhit()) {
-        int ch = _getch();
-        // Handle escape sequences for arrow keys etc.
-        if (ch == 0 || ch == 224) {
-            int ch2 = _getch();
-            // Return special codes for arrow keys
-            switch (ch2) {
-                case 72: return 0x1001;  // Up arrow
-                case 80: return 0x1002;  // Down arrow
-                case 75: return 0x1003;  // Left arrow
-                case 77: return 0x1004;  // Right arrow
-                case 73: return 0x1005;  // Page Up
-                case 81: return 0x1006;  // Page Down
-                default: return -1;
-            }
+    // Use ReadConsoleInput for proper handling of all key events
+    // This gives us virtual key codes directly (VK_UP, VK_DOWN, etc.)
+    INPUT_RECORD inputRecord;
+    DWORD eventsRead;
+
+    // Check if input is available (non-blocking)
+    DWORD eventsAvailable = 0;
+    if (!GetNumberOfConsoleInputEvents(s_hConsoleIn, &eventsAvailable) || eventsAvailable == 0) {
+        return -1;
+    }
+
+    // Peek to check for key events (we need to skip non-key events)
+    while (eventsAvailable > 0) {
+        if (!PeekConsoleInput(s_hConsoleIn, &inputRecord, 1, &eventsRead) || eventsRead == 0) {
+            return -1;
         }
-        return ch;
+
+        // Skip non-key events and key-up events
+        if (inputRecord.EventType != KEY_EVENT || !inputRecord.Event.KeyEvent.bKeyDown) {
+            // Consume and discard this event
+            ReadConsoleInput(s_hConsoleIn, &inputRecord, 1, &eventsRead);
+            GetNumberOfConsoleInputEvents(s_hConsoleIn, &eventsAvailable);
+            continue;
+        }
+
+        // Consume the key event
+        ReadConsoleInput(s_hConsoleIn, &inputRecord, 1, &eventsRead);
+
+        // Handle virtual key codes for special keys
+        WORD vk = inputRecord.Event.KeyEvent.wVirtualKeyCode;
+        switch (vk) {
+            case VK_UP:     return 0x1001;  // Up arrow
+            case VK_DOWN:   return 0x1002;  // Down arrow
+            case VK_LEFT:   return 0x1003;  // Left arrow
+            case VK_RIGHT:  return 0x1004;  // Right arrow
+            case VK_PRIOR:  return 0x1005;  // Page Up
+            case VK_NEXT:   return 0x1006;  // Page Down
+            case VK_ESCAPE: return 27;      // Escape
+            case VK_RETURN: return '\r';    // Enter
+            case VK_BACK:   return '\b';    // Backspace
+        }
+
+        // For regular characters, use the translated character
+        char ch = inputRecord.Event.KeyEvent.uChar.AsciiChar;
+        if (ch != 0) {
+            return ch;
+        }
+
+        // Unknown key, try next event
+        GetNumberOfConsoleInputEvents(s_hConsoleIn, &eventsAvailable);
     }
     return -1;
 #else
