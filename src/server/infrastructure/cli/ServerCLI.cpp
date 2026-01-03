@@ -228,6 +228,10 @@ void ServerCLI::printHelp() {
 void ServerCLI::printStatus() {
     size_t sessionCount = _sessionManager->getSessionCount();
     size_t playerCount = _udpServer.getPlayerCount();
+    size_t bannedCount = _sessionManager->getBannedUsers().size();
+    size_t usersInDb = _userRepository ? _userRepository->findAll().size() : 0;
+    bool logsEnabled = server::logging::Logger::isEnabled();
+    bool debugEnabled = server::logging::Logger::isDebugEnabled();
 
     std::ostringstream oss;
     output("");
@@ -240,6 +244,21 @@ void ServerCLI::printStatus() {
     oss.str("");
 
     oss << "║ Players in Game: " << std::setw(4) << playerCount << "               ║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Banned Users:    " << std::setw(4) << bannedCount << "               ║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Users in DB:     " << std::setw(4) << usersInDb << "               ║";
+    output(oss.str());
+
+    output("╠═════════════════════════════════════╣");
+
+    oss.str("");
+    oss << "║ Logs:   " << std::left << std::setw(10) << (logsEnabled ? "ON" : "OFF")
+        << "  Debug: " << std::setw(6) << (debugEnabled ? "ON" : "OFF") << " ║";
     output(oss.str());
 
     output("╚═════════════════════════════════════╝");
