@@ -64,6 +64,12 @@ namespace server::logging {
 
     void Logger::initWithTUI(std::shared_ptr<infrastructure::tui::LogBuffer> logBuffer) {
         try {
+            // Drop existing loggers if they were already registered (e.g., by init())
+            spdlog::drop("Network");
+            spdlog::drop("Domain");
+            spdlog::drop("Game");
+            spdlog::drop("Main");
+
             // Create TUI sink (replaces console sink)
             s_tuiSink = std::make_shared<infrastructure::tui::TUISink_mt>(logBuffer);
             s_tuiSink->set_level(spdlog::level::trace);

@@ -12,6 +12,11 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <cstdio>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace infrastructure::cli {
 
@@ -37,8 +42,17 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["bans"] = [this](const std::string&) { listBans(); };
     _commands["logs"] = [this](const std::string& args) { toggleLogs(args); };
     _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
+    _commands["interact"] = [this](const std::string&) { enterInteractMode(); };
     _commands["quit"] = [this](const std::string&) { stop(); };
     _commands["exit"] = [this](const std::string&) { stop(); };
+
+    // Set up interact action callback
+    if (_terminalUI) {
+        _terminalUI->setInteractActionCallback(
+            [this](tui::InteractAction action, const tui::SelectableElement& element) {
+                handleInteractAction(action, element);
+            });
+    }
 }
 
 ServerCLI::~ServerCLI() {
@@ -174,6 +188,7 @@ void ServerCLI::printHelp() {
     output("║ bans                  - List all banned users                ║");
     output("║ logs <on|off>         - Enable/disable server logs           ║");
     output("║ zoom                  - Full-screen log view (ESC to exit)   ║");
+    output("║ interact              - Navigate last output (sessions/bans) ║");
     output("║ quit/exit             - Stop the CLI (use Ctrl+C to stop     ║");
     output("║                         the server)                          ║");
     output("╠══════════════════════════════════════════════════════════════╣");
@@ -221,18 +236,18 @@ void ServerCLI::listSessions() {
     }
 
     output("");
-    output("╔═════════════════════════════════════════════════════════════════════════════════╗");
-    output("║                                 ACTIVE SESSIONS                                 ║");
-    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+    output("╔═════════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                   ACTIVE SESSIONS                                   ║");
+    output("╠═════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(25) << "Email"
            << std::setw(15) << "Display Name"
            << std::setw(10) << "Status"
            << std::setw(10) << "Player ID"
-           << std::setw(22) << "Endpoint" << " ║";
+           << std::setw(22) << "Endpoint" << "  ║";
     output(header.str());
-    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+    output("╠═════════════════════════════════════════════════════════════════════════════════════╣");
 
     for (const auto& session : sessions) {
         std::string statusStr;
@@ -255,12 +270,19 @@ void ServerCLI::listSessions() {
             << std::setw(15) << displayName
             << std::setw(10) << statusStr
             << std::setw(10) << playerIdStr
-            << std::setw(22) << endpointStr << " ║";
+            << std::setw(22) << endpointStr << "  ║";
         output(row.str());
     }
 
-    output("╚═════════════════════════════════════════════════════════════════════════════════╝");
+    output("╚═════════════════════════════════════════════════════════════════════════════════════╝");
     output("");
+
+    // Build and store interactive output for interact mode
+    _lastInteractiveOutput = buildSessionsInteractiveOutput();
+    _lastCommand = "sessions";
+    if (_terminalUI) {
+        _terminalUI->setInteractiveOutput(_lastInteractiveOutput);
+    }
 }
 
 void ServerCLI::kickPlayer(const std::string& args) {
@@ -357,6 +379,13 @@ void ServerCLI::listBans() {
 
     output("╚══════════════════════════════════════════════════════════════╝");
     output("");
+
+    // Build and store interactive output for interact mode
+    _lastInteractiveOutput = buildBansInteractiveOutput();
+    _lastCommand = "bans";
+    if (_terminalUI) {
+        _terminalUI->setInteractiveOutput(_lastInteractiveOutput);
+    }
 }
 
 void ServerCLI::enterZoomMode() {
@@ -366,6 +395,261 @@ void ServerCLI::enterZoomMode() {
     } else {
         output("[CLI] Zoom mode not available (TUI not initialized).");
     }
+}
+
+void ServerCLI::enterInteractMode() {
+    if (!_terminalUI) {
+        output("[CLI] Interact mode not available (TUI not initialized).");
+        return;
+    }
+
+    if (_lastInteractiveOutput.lines.empty()) {
+        output("[CLI] No output to interact with. Run 'sessions' or 'bans' first.");
+        return;
+    }
+
+    if (!_lastInteractiveOutput.hasSelectables()) {
+        output("[CLI] Last output has no selectable elements.");
+        return;
+    }
+
+    _terminalUI->enterInteractMode();
+    output("[CLI] Entering interact mode. Use ←→ to select, ↑↓ to scroll, ESC to exit.");
+}
+
+tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
+    tui::InteractiveOutput output;
+    output.sourceCommand = "sessions";
+
+    auto sessions = _sessionManager->getAllSessions();
+    if (sessions.empty()) {
+        return output;
+    }
+
+    // Build lines (same format as listSessions)
+    output.lines.push_back("");
+    output.lines.push_back("╔═════════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                   ACTIVE SESSIONS                                   ║");
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(25) << "Email"
+           << std::setw(15) << "Display Name"
+           << std::setw(10) << "Status"
+           << std::setw(10) << "Player ID"
+           << std::setw(22) << "Endpoint" << "  ║";
+    output.lines.push_back(header.str());
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════════╣");
+
+    size_t lineIdx = output.lines.size();  // First data line
+
+    for (const auto& session : sessions) {
+        std::string statusStr;
+        switch (session.status) {
+            case session::Session::Status::Pending: statusStr = "Pending"; break;
+            case session::Session::Status::Active: statusStr = "Active"; break;
+            case session::Session::Status::Expired: statusStr = "Expired"; break;
+        }
+
+        std::string playerIdStr = session.playerId ? std::to_string(*session.playerId) : "-";
+        std::string endpointStr = session.udpEndpoint.empty() ? "-" : session.udpEndpoint;
+
+        // Truncate for display
+        std::string emailTrunc = tui::utf8::truncateWithEllipsis(session.email, 24);
+        std::string displayNameTrunc = tui::utf8::truncateWithEllipsis(session.displayName, 14);
+        std::string endpointTrunc = tui::utf8::truncateWithEllipsis(endpointStr, 21);
+
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(25) << emailTrunc
+            << std::setw(15) << displayNameTrunc
+            << std::setw(10) << statusStr
+            << std::setw(10) << playerIdStr
+            << std::setw(22) << endpointTrunc << "  ║";
+        output.lines.push_back(row.str());
+
+        // Column positions (after "║ ")
+        size_t col = 2;  // Start after "║ "
+
+        // Email element (25 columns)
+        tui::SelectableElement emailElem;
+        emailElem.lineIndex = lineIdx;
+        emailElem.startCol = col;
+        emailElem.endCol = col + 25;
+        emailElem.value = session.email;
+        emailElem.truncatedValue = emailTrunc;
+        emailElem.type = tui::ElementType::Email;
+        if (session.playerId) {
+            emailElem.associatedPlayerId = *session.playerId;
+        }
+        output.elements.push_back(emailElem);
+        col += 25;
+
+        // Display Name element (15 columns)
+        tui::SelectableElement nameElem;
+        nameElem.lineIndex = lineIdx;
+        nameElem.startCol = col;
+        nameElem.endCol = col + 15;
+        nameElem.value = session.displayName;
+        nameElem.truncatedValue = displayNameTrunc;
+        nameElem.type = tui::ElementType::DisplayName;
+        nameElem.associatedEmail = session.email;
+        if (session.playerId) {
+            nameElem.associatedPlayerId = *session.playerId;
+        }
+        output.elements.push_back(nameElem);
+        col += 15;
+
+        // Status is not selectable, skip it
+        col += 10;
+
+        // Player ID element (10 columns) - only if not "-"
+        if (session.playerId) {
+            tui::SelectableElement pidElem;
+            pidElem.lineIndex = lineIdx;
+            pidElem.startCol = col;
+            pidElem.endCol = col + 10;
+            pidElem.value = playerIdStr;
+            pidElem.truncatedValue = playerIdStr;
+            pidElem.type = tui::ElementType::PlayerId;
+            pidElem.associatedPlayerId = *session.playerId;
+            pidElem.associatedEmail = session.email;
+            output.elements.push_back(pidElem);
+        }
+        col += 10;
+
+        // Endpoint element (22 columns) - only if not "-"
+        if (!session.udpEndpoint.empty()) {
+            tui::SelectableElement epElem;
+            epElem.lineIndex = lineIdx;
+            epElem.startCol = col;
+            epElem.endCol = col + 22;
+            epElem.value = endpointStr;
+            epElem.truncatedValue = endpointTrunc;
+            epElem.type = tui::ElementType::Endpoint;
+            epElem.associatedEmail = session.email;
+            if (session.playerId) {
+                epElem.associatedPlayerId = *session.playerId;
+            }
+            output.elements.push_back(epElem);
+        }
+
+        lineIdx++;
+    }
+
+    output.lines.push_back("╚═════════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("");
+
+    return output;
+}
+
+tui::InteractiveOutput ServerCLI::buildBansInteractiveOutput() {
+    tui::InteractiveOutput output;
+    output.sourceCommand = "bans";
+
+    auto bannedUsers = _sessionManager->getBannedUsers();
+    if (bannedUsers.empty()) {
+        return output;
+    }
+
+    output.lines.push_back("");
+    output.lines.push_back("╔══════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                         BANNED USERS                         ║");
+    output.lines.push_back("╠══════════════════════════════════════════════════════════════╣");
+
+    size_t lineIdx = output.lines.size();
+
+    for (const auto& email : bannedUsers) {
+        std::string displayEmail = tui::utf8::truncateWithEllipsis(email, 58);
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(60) << displayEmail << " ║";
+        output.lines.push_back(row.str());
+
+        // Email element
+        tui::SelectableElement emailElem;
+        emailElem.lineIndex = lineIdx;
+        emailElem.startCol = 2;  // After "║ "
+        emailElem.endCol = 62;   // Before " ║"
+        emailElem.value = email;
+        emailElem.truncatedValue = displayEmail;
+        emailElem.type = tui::ElementType::Email;
+        output.elements.push_back(emailElem);
+
+        lineIdx++;
+    }
+
+    output.lines.push_back("╚══════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("");
+
+    return output;
+}
+
+void ServerCLI::handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element) {
+    switch (action) {
+        case tui::InteractAction::Ban:
+            if (element.type == tui::ElementType::Email) {
+                banUser(element.value);
+            }
+            break;
+
+        case tui::InteractAction::Kick:
+            if (element.type == tui::ElementType::PlayerId) {
+                kickPlayer(element.value);
+            } else if (element.associatedPlayerId.has_value()) {
+                kickPlayer(std::to_string(*element.associatedPlayerId));
+            }
+            break;
+
+        case tui::InteractAction::Unban:
+            if (element.type == tui::ElementType::Email) {
+                unbanUser(element.value);
+            }
+            break;
+
+        case tui::InteractAction::Copy:
+            copyToClipboard(element.value);
+            output("[CLI] Copied: " + element.value);
+            break;
+
+        case tui::InteractAction::Insert:
+            // Insert value into input buffer
+            if (_terminalUI) {
+                // This would require adding a method to TerminalUI to insert text
+                // For now, just output the value so user can copy it
+                output("[CLI] Value: " + element.value);
+            }
+            break;
+
+        default:
+            break;
+    }
+}
+
+void ServerCLI::copyToClipboard(const std::string& text) {
+#ifdef _WIN32
+    // Windows implementation
+    if (!OpenClipboard(nullptr)) return;
+    EmptyClipboard();
+    HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, text.size() + 1);
+    if (hg) {
+        memcpy(GlobalLock(hg), text.c_str(), text.size() + 1);
+        GlobalUnlock(hg);
+        SetClipboardData(CF_TEXT, hg);
+    }
+    CloseClipboard();
+#else
+    // Linux/macOS implementation using xclip or wl-copy
+    FILE* pipe = popen("xclip -selection clipboard 2>/dev/null", "w");
+    if (pipe) {
+        fwrite(text.c_str(), 1, text.size(), pipe);
+        if (pclose(pipe) == 0) return;
+    }
+    // Fallback to wl-copy (Wayland)
+    pipe = popen("wl-copy 2>/dev/null", "w");
+    if (pipe) {
+        fwrite(text.c_str(), 1, text.size(), pipe);
+        pclose(pipe);
+    }
+#endif
 }
 
 } // namespace infrastructure::cli

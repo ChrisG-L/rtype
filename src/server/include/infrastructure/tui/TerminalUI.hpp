@@ -17,6 +17,7 @@
 #include <spdlog/spdlog.h>
 #include "LogBuffer.hpp"
 #include "TerminalRenderer.hpp"
+#include "InteractiveOutput.hpp"
 
 namespace infrastructure::tui {
 
@@ -31,7 +32,7 @@ constexpr int KEY_ESCAPE = 27;
 
 class TerminalUI {
 public:
-    enum class Mode { SplitScreen, ZoomLogs };
+    enum class Mode { SplitScreen, ZoomLogs, Interact };
     enum class FilterLevel { All = 0, Info = 1, Warn = 2, Error = 3 };
 
     explicit TerminalUI(std::shared_ptr<LogBuffer> logBuffer);
@@ -68,6 +69,18 @@ public:
     void refresh();
     void requestRefresh();
 
+    // Interact mode
+    void setInteractiveOutput(InteractiveOutput output);
+    void enterInteractMode();
+    void exitInteractMode();
+    bool isInInteractMode() const { return _mode == Mode::Interact; }
+
+    // Set callback for interact actions (called when user performs an action)
+    void setInteractActionCallback(InteractActionCallback callback);
+
+    // Get currently selected element (nullptr if none)
+    const SelectableElement* getSelectedElement() const;
+
 private:
     void renderLoop();
     void renderSplitScreen();
@@ -77,7 +90,18 @@ private:
     void renderStatusBar(uint16_t row);
 
     void processKeyInput(int ch);
+    void processInteractKeyInput(int ch);
+    void executeInteractAction(InteractAction action);
     spdlog::level::level_enum filterToSpdlogLevel(FilterLevel level) const;
+
+    // Interact mode rendering
+    void renderInteractMode();
+    void renderInteractStatusBar(uint16_t row,
+                                  const InteractiveOutput& output,
+                                  size_t selectedIdx);
+    void renderLineWithSelection(const std::string& line,
+                                  const SelectableElement& element,
+                                  uint16_t maxCols);
 
     std::shared_ptr<LogBuffer> _logBuffer;
     Mode _mode = Mode::SplitScreen;
@@ -96,6 +120,14 @@ private:
     std::vector<std::string> _commandOutput;
     mutable std::mutex _outputMutex;
     static constexpr size_t MAX_COMMAND_OUTPUT = 50;
+
+    // Interact mode state
+    InteractiveOutput _interactOutput;
+    size_t _interactSelectedIndex = 0;
+    size_t _interactScrollOffset = 0;
+    Mode _previousMode = Mode::SplitScreen;  // Mode to return to after interact
+    InteractActionCallback _interactCallback;
+    mutable std::mutex _interactMutex;
 
     // Render thread
     std::jthread _renderThread;

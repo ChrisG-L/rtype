@@ -49,10 +49,16 @@ void TerminalUI::start() {
 
             // Render if needed
             if (_needsRefresh.exchange(false)) {
-                if (_mode == Mode::SplitScreen) {
-                    renderSplitScreen();
-                } else {
-                    renderZoomMode();
+                switch (_mode) {
+                    case Mode::SplitScreen:
+                        renderSplitScreen();
+                        break;
+                    case Mode::ZoomLogs:
+                        renderZoomMode();
+                        break;
+                    case Mode::Interact:
+                        renderInteractMode();
+                        break;
                 }
                 TerminalRenderer::flush();
             }
@@ -173,6 +179,12 @@ void TerminalUI::requestRefresh() {
 }
 
 void TerminalUI::processKeyInput(int ch) {
+    // Delegate to interact mode handler if in interact mode
+    if (_mode == Mode::Interact) {
+        processInteractKeyInput(ch);
+        return;
+    }
+
     // Handle special keys
     if (ch == KEY_ESCAPE) {
         if (_mode == Mode::ZoomLogs) {
@@ -408,6 +420,350 @@ void TerminalUI::renderCommandPane(uint16_t startRow, uint16_t height) {
     // Show cursor at end of input (UTF-8 aware column position)
     TerminalRenderer::showCursor();
     TerminalRenderer::moveCursor(promptRow, static_cast<uint16_t>(fullWidth + 1));
+}
+
+// ============================================================================
+// Interact Mode Implementation
+// ============================================================================
+
+void TerminalUI::setInteractiveOutput(InteractiveOutput output) {
+    std::lock_guard<std::mutex> lock(_interactMutex);
+    _interactOutput = std::move(output);
+    _interactSelectedIndex = 0;
+    _interactScrollOffset = 0;
+}
+
+void TerminalUI::enterInteractMode() {
+    std::lock_guard<std::mutex> lock(_interactMutex);
+
+    if (_interactOutput.lines.empty()) {
+        // Nothing to interact with
+        return;
+    }
+
+    _previousMode = _mode;
+    _mode = Mode::Interact;
+    _interactSelectedIndex = 0;
+    _interactScrollOffset = 0;
+    _needsRefresh = true;
+}
+
+void TerminalUI::exitInteractMode() {
+    _mode = _previousMode;
+    _needsRefresh = true;
+}
+
+void TerminalUI::setInteractActionCallback(InteractActionCallback callback) {
+    std::lock_guard<std::mutex> lock(_interactMutex);
+    _interactCallback = std::move(callback);
+}
+
+const SelectableElement* TerminalUI::getSelectedElement() const {
+    std::lock_guard<std::mutex> lock(_interactMutex);
+    return _interactOutput.getElement(_interactSelectedIndex);
+}
+
+void TerminalUI::processInteractKeyInput(int ch) {
+    std::lock_guard<std::mutex> lock(_interactMutex);
+
+    switch (ch) {
+        case KEY_ESCAPE:
+            exitInteractMode();
+            break;
+
+        case KEY_LEFT:
+            // Navigate to previous element
+            if (_interactSelectedIndex > 0) {
+                _interactSelectedIndex--;
+                _needsRefresh = true;
+            }
+            break;
+
+        case KEY_RIGHT:
+            // Navigate to next element
+            if (_interactSelectedIndex + 1 < _interactOutput.elements.size()) {
+                _interactSelectedIndex++;
+                _needsRefresh = true;
+            }
+            break;
+
+        case KEY_UP:
+            // Scroll up
+            if (_interactScrollOffset > 0) {
+                _interactScrollOffset--;
+                _needsRefresh = true;
+            }
+            break;
+
+        case KEY_DOWN:
+            // Scroll down
+            _interactScrollOffset++;
+            _needsRefresh = true;
+            break;
+
+        case KEY_PAGE_UP: {
+            auto termSize = TerminalRenderer::getTerminalSize();
+            size_t pageSize = termSize.rows / 2;
+            if (_interactScrollOffset >= pageSize) {
+                _interactScrollOffset -= pageSize;
+            } else {
+                _interactScrollOffset = 0;
+            }
+            _needsRefresh = true;
+            break;
+        }
+
+        case KEY_PAGE_DOWN: {
+            auto termSize = TerminalRenderer::getTerminalSize();
+            _interactScrollOffset += termSize.rows / 2;
+            _needsRefresh = true;
+            break;
+        }
+
+        case 'b':
+        case 'B':
+            executeInteractAction(InteractAction::Ban);
+            break;
+
+        case 'k':
+        case 'K':
+            executeInteractAction(InteractAction::Kick);
+            break;
+
+        case 'c':
+        case 'C':
+            executeInteractAction(InteractAction::Copy);
+            break;
+
+        case 'u':
+        case 'U':
+            executeInteractAction(InteractAction::Unban);
+            break;
+
+        case '\n':
+        case '\r':
+            executeInteractAction(InteractAction::Insert);
+            break;
+    }
+}
+
+void TerminalUI::executeInteractAction(InteractAction action) {
+    const auto* element = _interactOutput.getElement(_interactSelectedIndex);
+    if (!element) return;
+
+    // Check if action is valid for this element type
+    bool valid = false;
+    switch (action) {
+        case InteractAction::Ban:
+            valid = (element->type == ElementType::Email);
+            break;
+        case InteractAction::Kick:
+            valid = (element->type == ElementType::PlayerId ||
+                    (element->type == ElementType::Email && element->associatedPlayerId.has_value()));
+            break;
+        case InteractAction::Unban:
+            valid = (element->type == ElementType::Email);
+            break;
+        case InteractAction::Copy:
+        case InteractAction::Insert:
+            valid = true;  // Always available
+            break;
+        default:
+            break;
+    }
+
+    if (!valid) return;
+
+    // Execute callback if set
+    if (_interactCallback) {
+        _interactCallback(action, *element);
+    }
+
+    // Exit interact mode after Ban/Kick/Unban actions
+    if (action == InteractAction::Ban || action == InteractAction::Kick ||
+        action == InteractAction::Unban) {
+        exitInteractMode();
+    }
+}
+
+void TerminalUI::renderInteractMode() {
+    auto termSize = TerminalRenderer::getTerminalSize();
+
+    // Copy data under lock to avoid holding lock during rendering
+    InteractiveOutput outputCopy;
+    size_t selectedIdx;
+    size_t scrollOffset;
+    {
+        std::lock_guard<std::mutex> lock(_interactMutex);
+        outputCopy = _interactOutput;
+        selectedIdx = _interactSelectedIndex;
+        scrollOffset = _interactScrollOffset;
+    }
+
+    TerminalRenderer::hideCursor();
+
+    // Calculate layout: full screen with status bar at bottom
+    uint16_t contentHeight = termSize.rows - 1;  // -1 for status bar
+
+    // Clamp scroll offset
+    if (outputCopy.lines.size() > contentHeight) {
+        size_t maxScroll = outputCopy.lines.size() - contentHeight;
+        scrollOffset = std::min(scrollOffset, maxScroll);
+    } else {
+        scrollOffset = 0;
+    }
+
+    // Get selected element for highlighting
+    const auto* selectedElement = outputCopy.getElement(selectedIdx);
+
+    // Render output lines
+    for (uint16_t row = 0; row < contentHeight; ++row) {
+        TerminalRenderer::moveCursor(row + 1, 1);
+        TerminalRenderer::clearLine();
+
+        size_t lineIdx = scrollOffset + row;
+        if (lineIdx >= outputCopy.lines.size()) continue;
+
+        const std::string& line = outputCopy.lines[lineIdx];
+
+        // Check if this line contains the selected element
+        if (selectedElement && selectedElement->lineIndex == lineIdx) {
+            // Render line with highlighted element
+            renderLineWithSelection(line, *selectedElement, termSize.cols);
+        } else {
+            // Render normal line
+            std::string truncated = utf8::truncateWithEllipsis(line, termSize.cols);
+            TerminalRenderer::rawWrite(truncated);
+        }
+    }
+
+    // Render status bar (pass the copied data)
+    renderInteractStatusBar(termSize.rows, outputCopy, selectedIdx);
+}
+
+void TerminalUI::renderInteractStatusBar(uint16_t row,
+                                          const InteractiveOutput& output,
+                                          size_t selectedIdx) {
+    auto termSize = TerminalRenderer::getTerminalSize();
+    TerminalRenderer::moveCursor(row, 1);
+
+    const auto* selected = output.getElement(selectedIdx);
+
+    std::ostringstream status;
+    status << TerminalRenderer::reverseVideo()
+           << " [←→]Select [↑↓]Scroll";
+
+    // Show available actions based on selected element type
+    if (selected) {
+        switch (selected->type) {
+            case ElementType::Email:
+                if (output.sourceCommand == "bans") {
+                    status << " [U]Unban";
+                } else {
+                    status << " [B]Ban [K]Kick";
+                }
+                break;
+            case ElementType::PlayerId:
+                status << " [K]Kick";
+                break;
+            default:
+                break;
+        }
+        status << " [C]Copy [Enter]Insert";
+    }
+
+    status << " [ESC]Exit";
+
+    // Show selection info
+    if (selected) {
+        status << "  │ " << utf8::truncateWithEllipsis(selected->value, 30);
+    }
+
+    // Pad to fill line
+    std::string statusStr = status.str();
+    size_t visibleLen = utf8::displayWidthIgnoringAnsi(statusStr);
+    if (visibleLen < termSize.cols) {
+        statusStr += std::string(termSize.cols - visibleLen, ' ');
+    }
+    statusStr += TerminalRenderer::resetColor();
+
+    TerminalRenderer::rawWrite(statusStr);
+}
+
+void TerminalUI::renderLineWithSelection(const std::string& line,
+                                          const SelectableElement& element,
+                                          uint16_t maxCols) {
+    // We need to render the line with the selected element highlighted
+    // The element has startCol and endCol in display width units
+
+    size_t currentCol = 0;
+    size_t bytePos = 0;
+    std::string output;
+
+    // Render characters before selection
+    while (bytePos < line.size() && currentCol < element.startCol) {
+        size_t nextPos = bytePos;
+        char32_t cp = utf8::decodeUtf8Char(line, nextPos);
+        if (nextPos == bytePos) break;  // Invalid UTF-8
+
+        int charWidth = utf8::charWidth(cp);
+        if (currentCol + charWidth > element.startCol) break;
+
+        output += line.substr(bytePos, nextPos - bytePos);
+        currentCol += charWidth;
+        bytePos = nextPos;
+    }
+
+    // Start highlight (reverse video)
+    output += TerminalRenderer::reverseVideo();
+
+    // Render the full value of the element (not truncated)
+    output += element.value;
+    currentCol += utf8::displayWidth(element.value);
+
+    // End highlight
+    output += TerminalRenderer::resetColor();
+
+    // Skip past the original truncated element in the source line
+    while (bytePos < line.size() && currentCol < element.endCol) {
+        size_t nextPos = bytePos;
+        char32_t cp = utf8::decodeUtf8Char(line, nextPos);
+        if (nextPos == bytePos) break;
+
+        int charWidth = utf8::charWidth(cp);
+        bytePos = nextPos;
+        // Don't add to currentCol here, we already added the full value
+    }
+
+    // Skip remaining characters of the original element
+    size_t originalEndCol = element.endCol;
+    while (bytePos < line.size()) {
+        size_t nextPos = bytePos;
+        char32_t cp = utf8::decodeUtf8Char(line, nextPos);
+        if (nextPos == bytePos) break;
+
+        size_t testCol = 0;
+        size_t testPos = 0;
+        while (testPos < bytePos) {
+            size_t np = testPos;
+            char32_t c = utf8::decodeUtf8Char(line, np);
+            if (np == testPos) break;
+            testCol += utf8::charWidth(c);
+            testPos = np;
+        }
+
+        if (testCol >= originalEndCol) {
+            // We've passed the end of the original element
+            // Render the rest of the line
+            output += line.substr(bytePos);
+            break;
+        }
+        bytePos = nextPos;
+    }
+
+    // Truncate to fit terminal
+    std::string truncated = utf8::truncateWithEllipsis(output, maxCols);
+    TerminalRenderer::rawWrite(truncated);
 }
 
 } // namespace infrastructure::tui

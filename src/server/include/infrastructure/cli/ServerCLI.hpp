@@ -17,6 +17,7 @@
 #include "infrastructure/session/SessionManager.hpp"
 #include "infrastructure/tui/LogBuffer.hpp"
 #include "infrastructure/tui/TerminalUI.hpp"
+#include "infrastructure/tui/InteractiveOutput.hpp"
 
 namespace infrastructure::adapters::in::network {
     class UDPServer;
@@ -55,7 +56,18 @@ private:
     void listBans();
     void toggleLogs(const std::string& args);
     void enterZoomMode();
+    void enterInteractMode();
     std::vector<std::string> parseArgs(const std::string& line);
+
+    // Interactive output generators
+    tui::InteractiveOutput buildSessionsInteractiveOutput();
+    tui::InteractiveOutput buildBansInteractiveOutput();
+
+    // Interact action handler
+    void handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element);
+
+    // Clipboard utility
+    void copyToClipboard(const std::string& text);
 
     // Output helper (uses TUI if available, else stdout)
     void output(const std::string& text);
@@ -71,6 +83,10 @@ private:
     // Command handler type
     using CommandHandler = std::function<void(const std::string&)>;
     std::unordered_map<std::string, CommandHandler> _commands;
+
+    // Last interactive output (for interact command)
+    tui::InteractiveOutput _lastInteractiveOutput;
+    std::string _lastCommand;
 };
 
 } // namespace infrastructure::cli
