@@ -15,6 +15,11 @@
 #include <cstdio>
 
 #ifdef _WIN32
+// WIN32_LEAN_AND_MEAN prevents windows.h from including winsock.h
+// which would conflict with winsock2.h already included by Boost.Asio
+#ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #endif
 
