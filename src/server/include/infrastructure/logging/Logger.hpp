@@ -44,6 +44,10 @@ namespace server::logging {
         static void setEnabled(bool enabled);
         static bool isEnabled();
 
+        // Debug logging control (affects all loggers)
+        static void setDebugEnabled(bool enabled);
+        static bool isDebugEnabled();
+
         // Check if TUI mode is active
         static bool isTUIMode();
 
@@ -51,6 +55,7 @@ namespace server::logging {
         static spdlog::level::level_enum s_previousLevel;
         static bool s_enabled;
         static bool s_tuiMode;
+        static bool s_debugEnabled;
         static std::shared_ptr<spdlog::logger> s_networkLogger;
         static std::shared_ptr<spdlog::logger> s_domainLogger;
         static std::shared_ptr<spdlog::logger> s_gameLogger;

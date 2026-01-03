@@ -49,6 +49,7 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["bans"] = [this](const std::string&) { listBans(); };
     _commands["users"] = [this](const std::string&) { listUsers(); };
     _commands["logs"] = [this](const std::string& args) { toggleLogs(args); };
+    _commands["debug"] = [this](const std::string& args) { toggleDebug(args); };
     _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
     _commands["interact"] = [this](const std::string& args) { enterInteractMode(args); };
     _commands["quit"] = [this](const std::string&) { stop(); };
@@ -206,7 +207,8 @@ void ServerCLI::printHelp() {
     output("║ ban <email>           - Ban a user permanently               ║");
     output("║ unban <email>         - Unban a user                         ║");
     output("║ bans                  - List all banned users                ║");
-    output("║ logs <on|off>         - Enable/disable server logs           ║");
+    output("║ logs <on|off>         - Enable/disable all server logs       ║");
+    output("║ debug <on|off>        - Enable/disable debug logs            ║");
     output("║ zoom                  - Full-screen log view (ESC to exit)   ║");
     output("║ interact [cmd]        - Navigate output (sessions/bans/users)  ║");
     output("║ quit/exit             - Stop the server                      ║");
@@ -343,6 +345,26 @@ void ServerCLI::toggleLogs(const std::string& args) {
     }
 }
 
+void ServerCLI::toggleDebug(const std::string& args) {
+    if (args.empty()) {
+        // Toggle current state
+        bool currentState = server::logging::Logger::isDebugEnabled();
+        server::logging::Logger::setDebugEnabled(!currentState);
+        output(std::string("[CLI] Debug logs ") + (!currentState ? "enabled" : "disabled"));
+        return;
+    }
+
+    if (args == "on" || args == "1" || args == "true") {
+        server::logging::Logger::setDebugEnabled(true);
+        output("[CLI] Debug logs enabled");
+    } else if (args == "off" || args == "0" || args == "false") {
+        server::logging::Logger::setDebugEnabled(false);
+        output("[CLI] Debug logs disabled");
+    } else {
+        output("[CLI] Usage: debug <on|off>");
+    }
+}
+
 void ServerCLI::banUser(const std::string& args) {
     if (args.empty()) {
         output("[CLI] Usage: ban <email>");
@@ -441,7 +463,7 @@ void ServerCLI::listUsers() {
     std::ostringstream header;
     header << "║ " << std::left << std::setw(40) << "Email"
            << std::setw(25) << "Username"
-           << std::setw(14) << "Status" << "  ║";
+           << std::setw(14) << "Status" << " ║";
     output(header.str());
     output("╠═════════════════════════════════════════════════════════════════════════════════╣");
 
@@ -466,7 +488,7 @@ void ServerCLI::listUsers() {
         std::ostringstream row;
         row << "║ " << std::left << std::setw(40) << emailTrunc
             << std::setw(25) << usernameTrunc
-            << std::setw(14) << statusStr << "  ║";
+            << std::setw(14) << statusStr << " ║";
         output(row.str());
     }
 
@@ -742,7 +764,7 @@ tui::InteractiveOutput ServerCLI::buildUsersInteractiveOutput() {
     std::ostringstream header;
     header << "║ " << std::left << std::setw(40) << "Email"
            << std::setw(25) << "Username"
-           << std::setw(14) << "Status" << "  ║";
+           << std::setw(14) << "Status" << " ║";
     output.lines.push_back(header.str());
     output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
 
@@ -769,7 +791,7 @@ tui::InteractiveOutput ServerCLI::buildUsersInteractiveOutput() {
         std::ostringstream row;
         row << "║ " << std::left << std::setw(40) << emailTrunc
             << std::setw(25) << usernameTrunc
-            << std::setw(14) << statusStr << "  ║";
+            << std::setw(14) << statusStr << " ║";
         output.lines.push_back(row.str());
 
         // Column positions (after "║ ")

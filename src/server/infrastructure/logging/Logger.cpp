@@ -18,9 +18,10 @@ namespace server::logging {
     std::shared_ptr<spdlog::logger> Logger::s_gameLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_mainLogger = nullptr;
     std::shared_ptr<infrastructure::tui::TUISink_mt> Logger::s_tuiSink = nullptr;
-    spdlog::level::level_enum Logger::s_previousLevel = spdlog::level::debug;
+    spdlog::level::level_enum Logger::s_previousLevel = spdlog::level::info;
     bool Logger::s_enabled = true;
     bool Logger::s_tuiMode = false;
+    bool Logger::s_debugEnabled = false;
 
     void Logger::init() {
         try {
@@ -84,7 +85,7 @@ namespace server::logging {
             std::vector<spdlog::sink_ptr> sinks{s_tuiSink, file_sink};
 
             s_networkLogger = std::make_shared<spdlog::logger>("Network", sinks.begin(), sinks.end());
-            s_networkLogger->set_level(spdlog::level::debug);
+            s_networkLogger->set_level(spdlog::level::info);  // Default: no debug
 
             s_domainLogger = std::make_shared<spdlog::logger>("Domain", sinks.begin(), sinks.end());
             s_domainLogger->set_level(spdlog::level::info);
@@ -100,10 +101,11 @@ namespace server::logging {
             spdlog::register_logger(s_gameLogger);
             spdlog::register_logger(s_mainLogger);
 
-            spdlog::set_level(spdlog::level::debug);
+            spdlog::set_level(spdlog::level::info);  // Default: no debug
             spdlog::flush_on(spdlog::level::warn);
 
             s_tuiMode = true;
+            s_debugEnabled = false;
             s_mainLogger->info("Server logging system initialized (TUI mode)");
 
         } catch (const spdlog::spdlog_ex& ex) {
@@ -163,6 +165,25 @@ namespace server::logging {
 
     bool Logger::isEnabled() {
         return s_enabled;
+    }
+
+    void Logger::setDebugEnabled(bool enabled) {
+        s_debugEnabled = enabled;
+        spdlog::level::level_enum level = enabled ? spdlog::level::debug : spdlog::level::info;
+
+        if (s_networkLogger) s_networkLogger->set_level(level);
+        if (s_domainLogger) s_domainLogger->set_level(level);
+        if (s_gameLogger) s_gameLogger->set_level(level);
+        if (s_mainLogger) s_mainLogger->set_level(level);
+        spdlog::set_level(level);
+
+        if (s_mainLogger) {
+            s_mainLogger->info("Debug logging {}", enabled ? "enabled" : "disabled");
+        }
+    }
+
+    bool Logger::isDebugEnabled() {
+        return s_debugEnabled;
     }
 
 }
