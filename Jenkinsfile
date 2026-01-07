@@ -184,26 +184,6 @@ pipeline {
                                 }
                             }
                         }
-
-                        stage('🔧 Compile Linux') {
-                            steps {
-                                script {
-                                    echo '🔧 [LINUX] Compilation du projet...'
-
-                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
-
-                                    // Lancer la compilation dans le workspace Linux
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'compile')
-
-                                    echo "[LINUX] Job créé: ${jobId}"
-
-                                    // Attendre la fin de la compilation
-                                    def result = api.waitForJob(jobId, 10, 7200)
-
-                                    echo "✅ [LINUX] Compilation terminée avec succès"
-                                }
-                            }
-                        }
                     }
                 }
 
