@@ -27,7 +27,8 @@ namespace core {
         _sceneManager->setContext(GameContext{
             .window = _window,
             .udpClient = _udpClient,
-            .tcpClient = _tcpClient
+            .tcpClient = _tcpClient,
+            .sessionToken = {}
         });
 
         // Check initial connection status

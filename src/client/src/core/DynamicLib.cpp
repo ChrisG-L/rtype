@@ -37,7 +37,7 @@ namespace core {
                 throw std::runtime_error("LoadLibrary failed with error code: " + std::to_string(error));
             }
 
-            _create_lib = reinterpret_cast<create_t>(GetProcAddress(_handle, "create"));
+            _create_lib = reinterpret_cast<create_t>(reinterpret_cast<void*>(GetProcAddress(_handle, "create")));
             if (!_create_lib) {
                 DWORD error = GetLastError();
                 throw std::runtime_error("GetProcAddress(create) failed with error code: " + std::to_string(error));
@@ -61,7 +61,7 @@ namespace core {
 
     void DynamicLib::destroyGraphicLib(graphics::IGraphicPlugin* graphLib) {
         #ifdef _WIN32
-            _destroy_lib = reinterpret_cast<destroy_t>(GetProcAddress(_handle, "destroy"));
+            _destroy_lib = reinterpret_cast<destroy_t>(reinterpret_cast<void*>(GetProcAddress(_handle, "destroy")));
             if (!_destroy_lib) {
                 DWORD error = GetLastError();
                 throw std::runtime_error("GetProcAddress(destroy) failed with error code: " + std::to_string(error));
