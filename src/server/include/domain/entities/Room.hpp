@@ -12,8 +12,17 @@
 #include <optional>
 #include <string>
 #include <cstdint>
+#include <vector>
+#include <chrono>
 
 namespace domain::entities {
+
+// Chat message stored in room history
+struct ChatMessage {
+    std::string displayName;
+    std::string message;
+    std::chrono::system_clock::time_point timestamp;
+};
 
 struct RoomSlot {
     bool occupied = false;
@@ -75,7 +84,13 @@ public:
     // Snapshot for RoomUpdate
     const std::array<RoomSlot, MAX_SLOTS>& getSlots() const;
 
+    // Chat system
+    void addChatMessage(const std::string& displayName, const std::string& message);
+    const std::vector<ChatMessage>& getChatHistory() const;
+    void clearChatHistory();
+
 private:
+    static constexpr size_t MAX_CHAT_HISTORY = 50;
     std::string _name;
     std::string _code;
     uint8_t _maxPlayers;
@@ -83,6 +98,7 @@ private:
     State _state = State::Waiting;
     std::string _hostEmail;
     std::array<RoomSlot, MAX_SLOTS> _slots;
+    std::vector<ChatMessage> _chatHistory;
 
     std::optional<uint8_t> findEmptySlot() const;
     std::optional<uint8_t> findNextOccupiedSlot(uint8_t afterSlot) const;

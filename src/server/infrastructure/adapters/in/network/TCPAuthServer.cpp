@@ -293,6 +293,9 @@ namespace infrastructure::adapters::in::network {
                 case MessageType::SaveUserSettings:
                     handleSaveUserSettings(payload);
                     return;
+                case MessageType::SendChatMessage:
+                    handleSendChatMessage(payload);
+                    return;
                 default:
                     break;
             }
@@ -352,6 +355,14 @@ namespace infrastructure::adapters::in::network {
                             [weakSelf](const PlayerKickedNotification& notif) {
                                 if (auto self = weakSelf.lock()) {
                                     self->do_write_player_kicked(notif);
+                                }
+                            }
+                        );
+                        _roomManager->registerChatCallback(
+                            email,
+                            [weakSelf](const ChatMessagePayload& msg) {
+                                if (auto self = weakSelf.lock()) {
+                                    self->do_write_chat_message(msg);
                                 }
                             }
                         );
@@ -577,14 +588,52 @@ namespace infrastructure::adapters::in::network {
 
         logger->info("{} joined room {} (slot {})", email, code, result->slotId);
 
-        JoinRoomAck ack;
+        JoinRoomAck ack{};
         ack.slotId = result->slotId;
         std::strncpy(ack.roomName, result->room->getName().c_str(), ROOM_NAME_LEN);
         ack.roomName[ROOM_NAME_LEN - 1] = '\0';
         std::memcpy(ack.roomCode, result->room->getCode().c_str(), ROOM_CODE_LEN);
         ack.maxPlayers = result->room->getMaxPlayers();
         ack.isHost = result->room->isHost(email) ? 1 : 0;
+
+        // Include current player list in the ack (fixes race condition with RoomUpdate)
+        const auto& slots = result->room->getSlots();
+        ack.playerCount = 0;
+        for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
+            if (slots[i].occupied && ack.playerCount < MAX_ROOM_PLAYERS) {
+                RoomPlayerState& state = ack.players[ack.playerCount];
+                state.slotId = static_cast<uint8_t>(i);
+                state.occupied = 1;
+                std::strncpy(state.displayName, slots[i].displayName.c_str(), MAX_USERNAME_LEN);
+                state.displayName[MAX_USERNAME_LEN - 1] = '\0';
+                std::strncpy(state.email, slots[i].email.c_str(), MAX_EMAIL_LEN);
+                state.email[MAX_EMAIL_LEN - 1] = '\0';
+                state.isReady = slots[i].isReady ? 1 : 0;
+                state.isHost = slots[i].isHost ? 1 : 0;
+                ++ack.playerCount;
+            }
+        }
         do_write_join_room_ack(ack);
+
+        // Send chat history to the joining player
+        auto chatHistory = _roomManager->getChatHistory(code);
+        if (!chatHistory.empty()) {
+            ChatHistoryResponse histResp{};
+            histResp.messageCount = static_cast<uint8_t>(std::min(chatHistory.size(), static_cast<size_t>(MAX_CHAT_HISTORY)));
+            for (uint8_t i = 0; i < histResp.messageCount; ++i) {
+                const auto& msg = chatHistory[i];
+                std::strncpy(histResp.messages[i].displayName, msg.displayName.c_str(), MAX_USERNAME_LEN);
+                histResp.messages[i].displayName[MAX_USERNAME_LEN - 1] = '\0';
+                std::strncpy(histResp.messages[i].message, msg.message.c_str(), CHAT_MESSAGE_LEN);
+                histResp.messages[i].message[CHAT_MESSAGE_LEN - 1] = '\0';
+                histResp.messages[i].timestamp = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        msg.timestamp.time_since_epoch()
+                    ).count()
+                );
+            }
+            do_write_chat_history(histResp);
+        }
 
         // Broadcast room update to all members
         broadcastRoomUpdate(result->room);
@@ -697,13 +746,14 @@ namespace infrastructure::adapters::in::network {
     }
 
     void Session::do_write_join_room_ack(const JoinRoomAck& ack) {
+        size_t payloadSize = ack.wire_size();
         Header head = {
             .isAuthenticated = _isAuthenticated,
             .type = static_cast<uint16_t>(MessageType::JoinRoomAck),
-            .payload_size = static_cast<uint32_t>(JoinRoomAck::WIRE_SIZE)
+            .payload_size = static_cast<uint32_t>(payloadSize)
         };
 
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + JoinRoomAck::WIRE_SIZE);
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
         head.to_bytes(buf->data());
         ack.to_bytes(buf->data() + Header::WIRE_SIZE);
 
@@ -1005,7 +1055,7 @@ namespace infrastructure::adapters::in::network {
         logger->info("{} quick-joined room {} (slot {})", email, result->room->getCode(), result->slotId);
 
         // Send JoinRoomAck (using QuickJoinAck message type)
-        JoinRoomAck ack;
+        JoinRoomAck ack{};
         ack.slotId = result->slotId;
         std::strncpy(ack.roomName, result->room->getName().c_str(), ROOM_NAME_LEN);
         ack.roomName[ROOM_NAME_LEN - 1] = '\0';
@@ -1013,14 +1063,33 @@ namespace infrastructure::adapters::in::network {
         ack.maxPlayers = result->room->getMaxPlayers();
         ack.isHost = result->room->isHost(email) ? 1 : 0;
 
+        // Include current player list in the ack (fixes race condition with RoomUpdate)
+        const auto& slots = result->room->getSlots();
+        ack.playerCount = 0;
+        for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
+            if (slots[i].occupied && ack.playerCount < MAX_ROOM_PLAYERS) {
+                RoomPlayerState& state = ack.players[ack.playerCount];
+                state.slotId = static_cast<uint8_t>(i);
+                state.occupied = 1;
+                std::strncpy(state.displayName, slots[i].displayName.c_str(), MAX_USERNAME_LEN);
+                state.displayName[MAX_USERNAME_LEN - 1] = '\0';
+                std::strncpy(state.email, slots[i].email.c_str(), MAX_EMAIL_LEN);
+                state.email[MAX_EMAIL_LEN - 1] = '\0';
+                state.isReady = slots[i].isReady ? 1 : 0;
+                state.isHost = slots[i].isHost ? 1 : 0;
+                ++ack.playerCount;
+            }
+        }
+
         // Write using QuickJoinAck message type
+        size_t payloadSize = ack.wire_size();
         Header head = {
             .isAuthenticated = _isAuthenticated,
             .type = static_cast<uint16_t>(MessageType::QuickJoinAck),
-            .payload_size = static_cast<uint32_t>(JoinRoomAck::WIRE_SIZE)
+            .payload_size = static_cast<uint32_t>(payloadSize)
         };
 
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + JoinRoomAck::WIRE_SIZE);
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
         head.to_bytes(buf->data());
         ack.to_bytes(buf->data() + Header::WIRE_SIZE);
 
@@ -1210,6 +1279,96 @@ namespace infrastructure::adapters::in::network {
                 if (ec) {
                     auto logger = server::logging::Logger::getNetworkLogger();
                     logger->error("SaveUserSettingsAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    // =========================================================================
+    // Chat System Implementation (Phase 2)
+    // =========================================================================
+
+    void Session::handleSendChatMessage(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+        std::string email = _user->getEmail().value();
+
+        auto reqOpt = SendChatMessageRequest::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            logger->warn("Invalid SendChatMessage payload from {}", email);
+            return;  // No NACK for chat messages
+        }
+
+        std::string message(reqOpt->message);
+        if (message.empty()) {
+            return;  // Ignore empty messages
+        }
+
+        bool sent = _roomManager->sendChatMessage(email, message);
+        if (sent) {
+            logger->debug("Chat message from {}: {}", email, message.substr(0, 50));
+            do_write_send_chat_message_ack();
+        } else {
+            logger->debug("Chat message failed (player not in room): {}", email);
+        }
+    }
+
+    void Session::do_write_send_chat_message_ack() {
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::SendChatMessageAck),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("SendChatMessageAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_chat_message(const ChatMessagePayload& msg) {
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::ChatMessageBroadcast),
+            .payload_size = static_cast<uint32_t>(ChatMessagePayload::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + ChatMessagePayload::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        msg.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("ChatMessageBroadcast write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_chat_history(const ChatHistoryResponse& hist) {
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::ChatHistory),
+            .payload_size = static_cast<uint32_t>(hist.wire_size())
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + hist.wire_size());
+        head.to_bytes(buf->data());
+        hist.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("ChatHistory write error: {}", ec.message());
                 }
             });
     }

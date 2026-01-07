@@ -323,7 +323,8 @@ void RoomManager::registerSessionCallbacks(
         _sessionCallbacks[email] = SessionCallbacks{
             .onRoomUpdate = std::move(onRoomUpdate),
             .onGameStarting = std::move(onGameStarting),
-            .onPlayerKicked = nullptr
+            .onPlayerKicked = nullptr,
+            .onChatMessage = nullptr
         };
     }
 }
@@ -338,7 +339,24 @@ void RoomManager::registerKickedCallback(const std::string& email, PlayerKickedC
         _sessionCallbacks[email] = SessionCallbacks{
             .onRoomUpdate = nullptr,
             .onGameStarting = nullptr,
-            .onPlayerKicked = std::move(cb)
+            .onPlayerKicked = std::move(cb),
+            .onChatMessage = nullptr
+        };
+    }
+}
+
+void RoomManager::registerChatCallback(const std::string& email, ChatMessageCallback cb)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto it = _sessionCallbacks.find(email);
+    if (it != _sessionCallbacks.end()) {
+        it->second.onChatMessage = std::move(cb);
+    } else {
+        _sessionCallbacks[email] = SessionCallbacks{
+            .onRoomUpdate = nullptr,
+            .onGameStarting = nullptr,
+            .onPlayerKicked = nullptr,
+            .onChatMessage = std::move(cb)
         };
     }
 }
@@ -552,6 +570,95 @@ std::optional<RoomManager::JoinResult> RoomManager::quickJoin(
 
     // Use existing joinRoomByCode logic (will re-acquire lock)
     return joinRoomByCode(selectedCode, email, displayName);
+}
+
+// ============================================================================
+// Chat System
+// ============================================================================
+
+bool RoomManager::sendChatMessage(const std::string& email, const std::string& message) {
+    std::string displayName;
+    domain::entities::Room* room = nullptr;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        auto playerIt = _playerToRoom.find(email);
+        if (playerIt == _playerToRoom.end()) {
+            return false;  // Player not in any room
+        }
+
+        auto roomIt = _roomsByCode.find(playerIt->second);
+        if (roomIt == _roomsByCode.end()) {
+            return false;  // Room doesn't exist
+        }
+
+        room = roomIt->second.get();
+
+        // Get the player's display name
+        auto slotOpt = room->getPlayerSlot(email);
+        if (!slotOpt) {
+            return false;
+        }
+
+        const auto& slots = room->getSlots();
+        displayName = slots[*slotOpt].displayName;
+
+        // Store the message in the room's history
+        room->addChatMessage(displayName, message);
+    }
+
+    // Broadcast the message (outside lock)
+    broadcastChatMessage(room, displayName, message);
+
+    return true;
+}
+
+std::vector<domain::entities::ChatMessage> RoomManager::getChatHistory(const std::string& code) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto it = _roomsByCode.find(code);
+    if (it == _roomsByCode.end()) {
+        return {};
+    }
+
+    return it->second->getChatHistory();
+}
+
+void RoomManager::broadcastChatMessage(domain::entities::Room* room, const std::string& displayName, const std::string& message) {
+    if (!room) return;
+
+    // Build the payload
+    ChatMessagePayload payload{};
+    std::strncpy(payload.displayName, displayName.c_str(), MAX_USERNAME_LEN);
+    payload.displayName[MAX_USERNAME_LEN - 1] = '\0';
+    std::strncpy(payload.message, message.c_str(), CHAT_MESSAGE_LEN);
+    payload.message[CHAT_MESSAGE_LEN - 1] = '\0';
+    payload.timestamp = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count()
+    );
+
+    // Collect callbacks under lock
+    std::vector<ChatMessageCallback> callbacksToCall;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        const auto& slots = room->getSlots();
+        for (const auto& slot : slots) {
+            if (slot.occupied) {
+                auto it = _sessionCallbacks.find(slot.email);
+                if (it != _sessionCallbacks.end() && it->second.onChatMessage) {
+                    callbacksToCall.push_back(it->second.onChatMessage);
+                }
+            }
+        }
+    }
+
+    // Call callbacks outside lock
+    for (const auto& callback : callbacksToCall) {
+        callback(payload);
+    }
 }
 
 } // namespace infrastructure::room

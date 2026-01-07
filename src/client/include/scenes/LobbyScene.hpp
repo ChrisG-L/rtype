@@ -10,6 +10,7 @@
 
 #include "IScene.hpp"
 #include "ui/Button.hpp"
+#include "ui/TextInput.hpp"
 #include "ui/StarfieldBackground.hpp"
 #include "network/NetworkEvents.hpp"
 #include "../utils/Vecs.hpp"
@@ -22,7 +23,8 @@ class LobbyScene : public IScene
 {
 public:
     LobbyScene(const std::string& roomName, const std::string& roomCode,
-               uint8_t maxPlayers, bool isHost, uint8_t slotId);
+               uint8_t maxPlayers, bool isHost, uint8_t slotId,
+               const std::vector<client::network::RoomPlayerInfo>& initialPlayers = {});
     ~LobbyScene() override = default;
 
     void handleEvent(const events::Event& event) override;
@@ -39,9 +41,14 @@ private:
     void onStartClick();
     void onLeaveClick();
     void onKickClick(const std::string& email);
+    void onSendChatClick();
 
     void showError(const std::string& message);
     void showInfo(const std::string& message);
+
+    // Chat rendering
+    void renderChatPanel();
+    void appendChatMessage(const client::network::ChatMessageInfo& msg);
 
     // Returns true if mouse is hovering over kick area for this player
     bool isKickButtonHovered(float playerY) const;
@@ -68,6 +75,14 @@ private:
     std::unique_ptr<ui::Button> _readyButton;
     std::unique_ptr<ui::Button> _startButton;
     std::unique_ptr<ui::Button> _leaveButton;
+
+    // Chat UI Components
+    std::unique_ptr<ui::TextInput> _chatInput;
+    std::unique_ptr<ui::Button> _sendChatButton;
+    std::vector<client::network::ChatMessageInfo> _chatMessages;
+    float _chatScrollOffset = 0.0f;
+    static constexpr size_t MAX_VISIBLE_CHAT_MESSAGES = 8;
+    static constexpr size_t MAX_CHAT_MESSAGES = 50;
 
     // Status message
     std::string _statusMessage;

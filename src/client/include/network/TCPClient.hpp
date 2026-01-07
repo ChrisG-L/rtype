@@ -87,11 +87,18 @@ namespace client::network
         void requestUserSettings();
         void saveUserSettings(const UserSettingsPayload& settings);
 
+        // Chat System (Phase 2)
+        void sendChatMessage(const std::string& message);
+
         // Room state
         bool isInRoom() const;
         std::optional<std::string> getCurrentRoomCode() const;
         bool isHost() const;
         bool isReady() const;
+
+        // User info (from login credentials)
+        std::string getDisplayName() const { return _pendingUsername; }
+        std::string getEmail() const { return _pendingEmail; }
 
         // Event queue for thread-safe event polling
         std::optional<TCPEvent> pollEvent();

@@ -316,12 +316,26 @@ void MainMenuScene::processTCPEvents()
 
                 if (_sceneManager) {
                     std::string roomName = _roomNameInput->getText();
+                    std::string displayName = _context.tcpClient->getDisplayName();
+                    std::string userEmail = _context.tcpClient->getEmail();
+
+                    // Host is the only player initially
+                    std::vector<client::network::RoomPlayerInfo> players;
+                    players.push_back(client::network::RoomPlayerInfo{
+                        0,           // slotId
+                        displayName,
+                        userEmail,
+                        true,        // isReady (host is always ready)
+                        true         // isHost
+                    });
+
                     _sceneManager->changeScene(std::make_unique<LobbyScene>(
                         roomName,
                         event.roomCode,
                         _maxPlayers,
                         true,  // isHost
-                        0      // slotId (host is always 0)
+                        0,     // slotId (host is always 0)
+                        players
                     ));
                     sceneChanging = true;
                 }
@@ -341,7 +355,8 @@ void MainMenuScene::processTCPEvents()
                         event.roomCode,
                         event.maxPlayers,
                         event.isHost,
-                        event.slotId
+                        event.slotId,
+                        event.players  // Pass initial player list
                     ));
                     sceneChanging = true;
                 }

@@ -168,7 +168,7 @@ void RoomBrowserScene::processTCPEvents()
                 if (_sceneManager) {
                     _sceneManager->changeScene(std::make_unique<LobbyScene>(
                         event.roomName, event.roomCode, event.maxPlayers,
-                        event.isHost, event.slotId
+                        event.isHost, event.slotId, event.players
                     ));
                 }
             }

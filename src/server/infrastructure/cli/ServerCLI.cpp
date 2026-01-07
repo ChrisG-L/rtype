@@ -288,18 +288,19 @@ void ServerCLI::listSessions() {
     }
 
     output("");
-    output("╔═════════════════════════════════════════════════════════════════════════════════════╗");
-    output("║                                   ACTIVE SESSIONS                                   ║");
-    output("╠═════════════════════════════════════════════════════════════════════════════════════╣");
+    output("╔════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                        ACTIVE SESSIONS                                         ║");
+    output("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(25) << "Email"
            << std::setw(15) << "Display Name"
            << std::setw(10) << "Status"
+           << std::setw(8) << "Room"
            << std::setw(10) << "Player ID"
            << std::setw(22) << "Endpoint" << "  ║";
     output(header.str());
-    output("╠═════════════════════════════════════════════════════════════════════════════════════╣");
+    output("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     for (const auto& session : sessions) {
         std::string statusStr;
@@ -312,6 +313,15 @@ void ServerCLI::listSessions() {
         std::string playerIdStr = session.playerId ? std::to_string(*session.playerId) : "-";
         std::string endpointStr = session.udpEndpoint.empty() ? "-" : session.udpEndpoint;
 
+        // Get room code if player is in a room
+        std::string roomCode = "-";
+        if (_roomManager && _roomManager->isPlayerInRoom(session.email)) {
+            auto* room = _roomManager->getRoomByPlayerEmail(session.email);
+            if (room) {
+                roomCode = room->getCode();
+            }
+        }
+
         // Truncate long strings (UTF-8 aware)
         std::string email = tui::utf8::truncateWithEllipsis(session.email, 24);
         std::string displayName = tui::utf8::truncateWithEllipsis(session.displayName, 14);
@@ -321,12 +331,13 @@ void ServerCLI::listSessions() {
         row << "║ " << std::left << std::setw(25) << email
             << std::setw(15) << displayName
             << std::setw(10) << statusStr
+            << std::setw(8) << roomCode
             << std::setw(10) << playerIdStr
             << std::setw(22) << endpointStr << "  ║";
         output(row.str());
     }
 
-    output("╚═════════════════════════════════════════════════════════════════════════════════════╝");
+    output("╚════════════════════════════════════════════════════════════════════════════════════════════════╝");
     output("");
 
     // Build and store interactive output for interact mode
@@ -752,18 +763,19 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
 
     // Build lines (same format as listSessions)
     output.lines.push_back("");
-    output.lines.push_back("╔═════════════════════════════════════════════════════════════════════════════════════╗");
-    output.lines.push_back("║                                   ACTIVE SESSIONS                                   ║");
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╔════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                        ACTIVE SESSIONS                                         ║");
+    output.lines.push_back("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(25) << "Email"
            << std::setw(15) << "Display Name"
            << std::setw(10) << "Status"
+           << std::setw(8) << "Room"
            << std::setw(10) << "Player ID"
            << std::setw(22) << "Endpoint" << "  ║";
     output.lines.push_back(header.str());
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     size_t lineIdx = output.lines.size();  // First data line
 
@@ -778,6 +790,15 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
         std::string playerIdStr = session.playerId ? std::to_string(*session.playerId) : "-";
         std::string endpointStr = session.udpEndpoint.empty() ? "-" : session.udpEndpoint;
 
+        // Get room code if player is in a room
+        std::string roomCode = "-";
+        if (_roomManager && _roomManager->isPlayerInRoom(session.email)) {
+            auto* room = _roomManager->getRoomByPlayerEmail(session.email);
+            if (room) {
+                roomCode = room->getCode();
+            }
+        }
+
         // Truncate for display
         std::string emailTrunc = tui::utf8::truncateWithEllipsis(session.email, 24);
         std::string displayNameTrunc = tui::utf8::truncateWithEllipsis(session.displayName, 14);
@@ -787,6 +808,7 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
         row << "║ " << std::left << std::setw(25) << emailTrunc
             << std::setw(15) << displayNameTrunc
             << std::setw(10) << statusStr
+            << std::setw(8) << roomCode
             << std::setw(10) << playerIdStr
             << std::setw(22) << endpointTrunc << "  ║";
         output.lines.push_back(row.str());
@@ -826,6 +848,21 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
         // Status is not selectable, skip it
         col += 10;
 
+        // Room code element (8 columns) - selectable if in a room
+        if (roomCode != "-") {
+            tui::SelectableElement roomElem;
+            roomElem.lineIndex = lineIdx;
+            roomElem.startCol = col;
+            roomElem.endCol = col + 8;
+            roomElem.value = roomCode;
+            roomElem.truncatedValue = roomCode;
+            roomElem.type = tui::ElementType::RoomCode;
+            roomElem.associatedRoomCode = roomCode;
+            roomElem.associatedEmail = session.email;
+            output.elements.push_back(roomElem);
+        }
+        col += 8;
+
         // Player ID element (10 columns) - only if not "-"
         if (session.playerId) {
             tui::SelectableElement pidElem;
@@ -860,7 +897,7 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
         lineIdx++;
     }
 
-    output.lines.push_back("╚═════════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("╚════════════════════════════════════════════════════════════════════════════════════════════════╝");
     output.lines.push_back("");
 
     return output;

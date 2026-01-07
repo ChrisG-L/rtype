@@ -378,9 +378,25 @@ namespace client::network
                             _isHost = (ackOpt->isHost != 0);
                             _isReady = false;
                         }
-                        logger->info("Joined room '{}' (code: {}, slot: {})", name, code, ackOpt->slotId);
+
+                        // Extract player list from ack (fixes race condition with RoomUpdate)
+                        std::vector<RoomPlayerInfo> players;
+                        for (uint8_t i = 0; i < ackOpt->playerCount; ++i) {
+                            const auto& ps = ackOpt->players[i];
+                            players.push_back(RoomPlayerInfo{
+                                ps.slotId,
+                                std::string(ps.displayName),
+                                std::string(ps.email),
+                                ps.isReady != 0,
+                                ps.isHost != 0
+                            });
+                        }
+
+                        logger->info("Joined room '{}' (code: {}, slot: {}, players: {})",
+                                    name, code, ackOpt->slotId, players.size());
                         _eventQueue.push(TCPRoomJoinedEvent{
-                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0
+                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0,
+                            std::move(players)
                         });
                     }
                 }
@@ -515,9 +531,25 @@ namespace client::network
                             _isHost = (ackOpt->isHost != 0);
                             _isReady = false;
                         }
-                        logger->info("Quick joined room '{}' (code: {}, slot: {})", name, code, ackOpt->slotId);
+
+                        // Extract player list from ack (fixes race condition with RoomUpdate)
+                        std::vector<RoomPlayerInfo> players;
+                        for (uint8_t i = 0; i < ackOpt->playerCount; ++i) {
+                            const auto& ps = ackOpt->players[i];
+                            players.push_back(RoomPlayerInfo{
+                                ps.slotId,
+                                std::string(ps.displayName),
+                                std::string(ps.email),
+                                ps.isReady != 0,
+                                ps.isHost != 0
+                            });
+                        }
+
+                        logger->info("Quick joined room '{}' (code: {}, slot: {}, players: {})",
+                                    name, code, ackOpt->slotId, players.size());
                         _eventQueue.push(TCPRoomJoinedEvent{
-                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0
+                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0,
+                            std::move(players)
                         });
                     }
                 }
@@ -556,6 +588,39 @@ namespace client::network
                             std::string(respOpt->message)
                         });
                     }
+                }
+                // Chat System (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::ChatMessageBroadcast)) {
+                    auto msgOpt = ChatMessagePayload::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (msgOpt) {
+                        logger->debug("Chat message from {}: {}", msgOpt->displayName, msgOpt->message);
+                        _eventQueue.push(TCPChatMessageEvent{
+                            std::string(msgOpt->displayName),
+                            std::string(msgOpt->message),
+                            msgOpt->timestamp
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::ChatHistory)) {
+                    auto histOpt = ChatHistoryResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (histOpt) {
+                        logger->debug("Received chat history with {} messages", histOpt->messageCount);
+                        TCPChatHistoryEvent event;
+                        for (uint8_t i = 0; i < histOpt->messageCount; ++i) {
+                            event.messages.push_back(ChatMessageInfo{
+                                std::string(histOpt->messages[i].displayName),
+                                std::string(histOpt->messages[i].message),
+                                histOpt->messages[i].timestamp
+                            });
+                        }
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::SendChatMessageAck)) {
+                    logger->debug("Chat message sent successfully");
+                    // No event needed - just confirmation
                 }
 
                 _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
@@ -1051,6 +1116,44 @@ namespace client::network
             [buf](const boost::system::error_code &error, std::size_t) {
                 if (error) {
                     client::logging::Logger::getNetworkLogger()->error("SaveUserSettings write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Chat System (Phase 2)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::sendChatMessage(const std::string& message) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        if (message.empty() || message.length() > CHAT_MESSAGE_LEN - 1) {
+            return;
+        }
+
+        SendChatMessageRequest req;
+        std::strncpy(req.message, message.c_str(), CHAT_MESSAGE_LEN);
+        req.message[CHAT_MESSAGE_LEN - 1] = '\0';
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::SendChatMessage),
+            .payload_size = static_cast<uint32_t>(SendChatMessageRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SendChatMessageRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("SendChatMessage write error: {}", error.message());
                 }
             }
         );

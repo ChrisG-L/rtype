@@ -236,4 +236,30 @@ std::optional<uint8_t> Room::findNextOccupiedSlot(uint8_t afterSlot) const {
     return std::nullopt;
 }
 
+// ============================================================================
+// Chat System
+// ============================================================================
+
+void Room::addChatMessage(const std::string& displayName, const std::string& message) {
+    ChatMessage chatMsg;
+    chatMsg.displayName = displayName;
+    chatMsg.message = message;
+    chatMsg.timestamp = std::chrono::system_clock::now();
+
+    _chatHistory.push_back(std::move(chatMsg));
+
+    // Keep only last MAX_CHAT_HISTORY messages
+    if (_chatHistory.size() > MAX_CHAT_HISTORY) {
+        _chatHistory.erase(_chatHistory.begin());
+    }
+}
+
+const std::vector<ChatMessage>& Room::getChatHistory() const {
+    return _chatHistory;
+}
+
+void Room::clearChatHistory() {
+    _chatHistory.clear();
+}
+
 } // namespace domain::entities

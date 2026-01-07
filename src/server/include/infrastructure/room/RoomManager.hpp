@@ -129,6 +129,25 @@ public:
         const std::string& displayName);
 
     // ═══════════════════════════════════════════════════════════════════
+    // Chat System (Phase 2)
+    // ═══════════════════════════════════════════════════════════════════
+
+    using ChatMessageCallback = std::function<void(const ChatMessagePayload&)>;
+
+    // Send a chat message to the player's current room
+    // Returns true if successful (player in room), false otherwise
+    bool sendChatMessage(const std::string& email, const std::string& message);
+
+    // Get chat history for a room
+    std::vector<domain::entities::ChatMessage> getChatHistory(const std::string& code) const;
+
+    // Register callback for chat messages
+    void registerChatCallback(const std::string& email, ChatMessageCallback cb);
+
+    // Broadcast chat message to all room members
+    void broadcastChatMessage(domain::entities::Room* room, const std::string& displayName, const std::string& message);
+
+    // ═══════════════════════════════════════════════════════════════════
     // Game Start
     // ═══════════════════════════════════════════════════════════════════
 
@@ -206,6 +225,7 @@ private:
         RoomUpdateCallback onRoomUpdate;
         GameStartingCallback onGameStarting;
         PlayerKickedCallback onPlayerKicked;
+        ChatMessageCallback onChatMessage;
     };
     std::unordered_map<std::string, SessionCallbacks> _sessionCallbacks;
 

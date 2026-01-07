@@ -12,12 +12,14 @@
 #include <variant>
 
 LobbyScene::LobbyScene(const std::string& roomName, const std::string& roomCode,
-                       uint8_t maxPlayers, bool isHost, uint8_t slotId)
+                       uint8_t maxPlayers, bool isHost, uint8_t slotId,
+                       const std::vector<client::network::RoomPlayerInfo>& initialPlayers)
     : _roomName(roomName)
     , _roomCode(roomCode)
     , _maxPlayers(maxPlayers)
     , _slotId(slotId)
     , _isHost(isHost)
+    , _players(initialPlayers)
 {
 }
 
@@ -72,6 +74,34 @@ void LobbyScene::initUI()
     _leaveButton->setOnClick([this]() { onLeaveClick(); });
     _leaveButton->setNormalColor({120, 60, 60, 255});
     _leaveButton->setHoveredColor({150, 80, 80, 255});
+
+    // Chat input (bottom of chat panel - attached to the right of player box)
+    float totalWidth = 900.0f;
+    float playerBoxX = (SCREEN_WIDTH - totalWidth) / 2;
+    float playerBoxWidth = 500.0f;
+    float chatPanelX = playerBoxX + playerBoxWidth + 15;  // Inside chat panel with padding
+    float chatInputY = 640.0f;
+    float chatInputWidth = 280.0f;
+    float chatInputHeight = 40.0f;
+
+    _chatInput = std::make_unique<ui::TextInput>(
+        Vec2f{chatPanelX, chatInputY},
+        Vec2f{chatInputWidth, chatInputHeight},
+        "Type a message...",
+        FONT_KEY
+    );
+    _chatInput->setMaxLength(200);
+
+    // Send chat button
+    _sendChatButton = std::make_unique<ui::Button>(
+        Vec2f{chatPanelX + chatInputWidth + 10, chatInputY},
+        Vec2f{80.0f, chatInputHeight},
+        "SEND",
+        FONT_KEY
+    );
+    _sendChatButton->setOnClick([this]() { onSendChatClick(); });
+    _sendChatButton->setNormalColor({60, 100, 140, 255});
+    _sendChatButton->setHoveredColor({80, 130, 170, 255});
 
     _uiInitialized = true;
 }
@@ -147,6 +177,96 @@ void LobbyScene::onKickClick(const std::string& email)
     }
 
     _context.tcpClient->kickPlayer(email, "");
+}
+
+void LobbyScene::onSendChatClick()
+{
+    if (!_chatInput) return;
+
+    std::string message = _chatInput->getText();
+    if (message.empty()) return;
+
+    if (!_context.tcpClient || !_context.tcpClient->isConnected()) {
+        showError("Not connected to server");
+        return;
+    }
+
+    _context.tcpClient->sendChatMessage(message);
+    _chatInput->clear();
+}
+
+void LobbyScene::appendChatMessage(const client::network::ChatMessageInfo& msg)
+{
+    _chatMessages.push_back(msg);
+
+    // Keep only last MAX_CHAT_MESSAGES
+    while (_chatMessages.size() > MAX_CHAT_MESSAGES) {
+        _chatMessages.erase(_chatMessages.begin());
+    }
+}
+
+void LobbyScene::renderChatPanel()
+{
+    if (!_context.window) return;
+
+    // Chat panel is attached to the right of the player box
+    float totalWidth = 900.0f;
+    float playerBoxX = (SCREEN_WIDTH - totalWidth) / 2;
+    float playerBoxWidth = 500.0f;
+    float panelX = playerBoxX + playerBoxWidth;  // Right next to player box
+    float panelY = 150.0f;
+    float panelWidth = 400.0f;
+    float panelHeight = 550.0f;  // Same height as player box
+
+    // Chat panel background
+    _context.window->drawRect(panelX, panelY, panelWidth, panelHeight, {15, 15, 35, 230});
+
+    // Chat panel border (no left border since it's attached to player box)
+    _context.window->drawRect(panelX, panelY, panelWidth, 3, {60, 80, 120, 255});
+    _context.window->drawRect(panelX, panelY + panelHeight - 3, panelWidth, 3, {60, 80, 120, 255});
+    _context.window->drawRect(panelX + panelWidth - 3, panelY, 3, panelHeight, {60, 80, 120, 255});
+
+    // Chat title
+    _context.window->drawText(FONT_KEY, "CHAT",
+        panelX + 170, panelY + 10, 24, {150, 150, 180, 255});
+
+    // Separator
+    _context.window->drawRect(panelX + 10, panelY + 45, panelWidth - 20, 1, {50, 50, 80, 255});
+
+    // Chat messages area
+    float messagesY = panelY + 55;
+    float messageSpacing = 48.0f;
+    float maxMessagesHeight = panelHeight - 130;  // Leave space for input at bottom
+    size_t maxVisible = static_cast<size_t>(maxMessagesHeight / messageSpacing);
+
+    // Calculate start index to show most recent messages
+    size_t startIdx = 0;
+    if (_chatMessages.size() > maxVisible) {
+        startIdx = _chatMessages.size() - maxVisible;
+    }
+
+    for (size_t i = startIdx; i < _chatMessages.size(); ++i) {
+        const auto& msg = _chatMessages[i];
+        float msgY = messagesY + (i - startIdx) * messageSpacing;
+
+        // Display name
+        _context.window->drawText(FONT_KEY, msg.displayName + ":",
+            panelX + 15, msgY, 14, {100, 180, 255, 255});
+
+        // Message (wrapped if too long)
+        std::string displayMsg = msg.message;
+        if (displayMsg.length() > 40) {
+            displayMsg = displayMsg.substr(0, 37) + "...";
+        }
+        _context.window->drawText(FONT_KEY, displayMsg,
+            panelX + 20, msgY + 18, 14, {200, 200, 220, 255});
+    }
+
+    // Render chat input and send button (not during countdown)
+    if (!_countdown.has_value()) {
+        if (_chatInput) _chatInput->render(*_context.window);
+        if (_sendChatButton) _sendChatButton->render(*_context.window);
+    }
 }
 
 bool LobbyScene::isKickButtonHovered(float playerY) const
@@ -234,6 +354,20 @@ void LobbyScene::processTCPEvents()
             }
             else if constexpr (std::is_same_v<T, client::network::TCPKickSuccessEvent>) {
                 showInfo("Player kicked successfully");
+            }
+            // Chat events
+            else if constexpr (std::is_same_v<T, client::network::TCPChatMessageEvent>) {
+                appendChatMessage(client::network::ChatMessageInfo{
+                    event.displayName,
+                    event.message,
+                    event.timestamp
+                });
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPChatHistoryEvent>) {
+                _chatMessages.clear();
+                for (const auto& msg : event.messages) {
+                    appendChatMessage(msg);
+                }
             }
         }, *eventOpt);
     }
@@ -335,10 +469,19 @@ void LobbyScene::handleEvent(const events::Event& event)
         }
     }
 
-    // Escape to leave
+    // Handle chat input and send button
+    if (_chatInput) _chatInput->handleEvent(event);
+    if (_sendChatButton) _sendChatButton->handleEvent(event);
+
+    // Escape to leave, Enter to send chat
     if (auto* keyPressed = std::get_if<events::KeyPressed>(&event)) {
         if (keyPressed->key == events::Key::Escape) {
             onLeaveClick();
+        } else if (keyPressed->key == events::Key::Enter) {
+            // If chat input has focus, send message
+            if (_chatInput && _chatInput->isFocused()) {
+                onSendChatClick();
+            }
         }
     }
 }
@@ -361,6 +504,10 @@ void LobbyScene::update(float deltaTime)
     }
     _startButton->update(deltaTime);
     _leaveButton->update(deltaTime);
+
+    // Update chat UI
+    if (_chatInput) _chatInput->update(deltaTime);
+    if (_sendChatButton) _sendChatButton->update(deltaTime);
 
     if (_statusDisplayTimer > 0) {
         _statusDisplayTimer -= deltaTime;
@@ -388,10 +535,11 @@ void LobbyScene::render()
     _context.window->drawText(FONT_KEY, "R-TYPE",
         SCREEN_WIDTH / 2 - 150, 40, 80, {100, 150, 255, 255});
 
-    // Draw room info box
-    float boxX = SCREEN_WIDTH / 2 - 400;
+    // Draw room info box (players list) - centered with chat attached to the right
+    float totalWidth = 900.0f;  // Player box (500) + Chat box (400)
+    float boxX = (SCREEN_WIDTH - totalWidth) / 2;
     float boxY = 150;
-    float boxWidth = 800;
+    float boxWidth = 500;
     float boxHeight = 550;
 
     // Box background
@@ -403,19 +551,19 @@ void LobbyScene::render()
     _context.window->drawRect(boxX, boxY, 3, boxHeight, {60, 80, 120, 255});
     _context.window->drawRect(boxX + boxWidth - 3, boxY, 3, boxHeight, {60, 80, 120, 255});
 
-    // Room name
+    // Room name (centered in player box)
     _context.window->drawText(FONT_KEY, _roomName,
-        SCREEN_WIDTH / 2 - 150, boxY + 20, 36, {255, 255, 255, 255});
+        boxX + boxWidth / 2 - 100, boxY + 20, 36, {255, 255, 255, 255});
 
     // Room code with label
     std::string codeText = "Code: " + _roomCode;
     _context.window->drawText(FONT_KEY, codeText,
-        SCREEN_WIDTH / 2 - 80, boxY + 70, 28, {100, 200, 255, 255});
+        boxX + boxWidth / 2 - 70, boxY + 70, 28, {100, 200, 255, 255});
 
     // Player count
     std::string playerCountText = "Players: " + std::to_string(_players.size()) + "/" + std::to_string(_maxPlayers);
     _context.window->drawText(FONT_KEY, playerCountText,
-        SCREEN_WIDTH / 2 - 60, boxY + 110, 20, {180, 180, 200, 255});
+        boxX + boxWidth / 2 - 60, boxY + 110, 20, {180, 180, 200, 255});
 
     // Players list header
     float listY = boxY + 160;
@@ -483,6 +631,9 @@ void LobbyScene::render()
             boxX + 40, playerY, 20, {80, 80, 100, 255});
         playerY += playerSpacing;
     }
+
+    // Draw chat panel on the right side
+    renderChatPanel();
 
     // Draw countdown overlay if active
     if (_countdown.has_value()) {

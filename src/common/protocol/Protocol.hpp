@@ -78,6 +78,11 @@ enum class MessageType: uint16_t {
     GetUserSettingsAck = 0x0281,
     SaveUserSettings = 0x0282,
     SaveUserSettingsAck = 0x0283,
+    // Phase 2 - Chat System (0x029x)
+    SendChatMessage = 0x0290,
+    SendChatMessageAck = 0x0291,
+    ChatMessageBroadcast = 0x0292,
+    ChatHistory = 0x0293,
 };
 
 static constexpr uint8_t MAX_PLAYERS = 4;
@@ -470,6 +475,44 @@ struct JoinRoomByCodeRequest {
     }
 };
 
+// RoomPlayerState: State of a single player in the room lobby
+// (Forward declaration moved here for JoinRoomAck)
+struct RoomPlayerState {
+    uint8_t slotId;
+    uint8_t occupied;  // 0 = empty, 1 = occupied
+    char displayName[MAX_USERNAME_LEN];
+    char email[MAX_EMAIL_LEN];  // Added for kick functionality (Phase 2)
+    uint8_t isReady;
+    uint8_t isHost;
+
+    static constexpr size_t WIRE_SIZE = 1 + 1 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1 + 1;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = slotId;
+        ptr[1] = occupied;
+        std::memcpy(ptr + 2, displayName, MAX_USERNAME_LEN);
+        std::memcpy(ptr + 2 + MAX_USERNAME_LEN, email, MAX_EMAIL_LEN);
+        ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN] = isReady;
+        ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1] = isHost;
+    }
+
+    static std::optional<RoomPlayerState> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        RoomPlayerState state;
+        state.slotId = ptr[0];
+        state.occupied = ptr[1];
+        std::memcpy(state.displayName, ptr + 2, MAX_USERNAME_LEN);
+        state.displayName[MAX_USERNAME_LEN - 1] = '\0';
+        std::memcpy(state.email, ptr + 2 + MAX_USERNAME_LEN, MAX_EMAIL_LEN);
+        state.email[MAX_EMAIL_LEN - 1] = '\0';
+        state.isReady = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN];
+        state.isHost = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1];
+        return state;
+    }
+};
+
 // JoinRoomAck: Server confirms room join
 struct JoinRoomAck {
     uint8_t slotId;       // Player's slot in the room (0-5)
@@ -477,8 +520,15 @@ struct JoinRoomAck {
     char roomCode[ROOM_CODE_LEN];
     uint8_t maxPlayers;
     uint8_t isHost;       // 1 if player is the host
+    uint8_t playerCount;  // Number of players in room (including self)
+    RoomPlayerState players[MAX_ROOM_PLAYERS];  // Current players in room
 
-    static constexpr size_t WIRE_SIZE = 1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 1 + 1;
+    static constexpr size_t HEADER_SIZE = 1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 1 + 1 + 1;
+
+    // Variable size: HEADER_SIZE + playerCount * RoomPlayerState::WIRE_SIZE
+    size_t wire_size() const {
+        return HEADER_SIZE + playerCount * RoomPlayerState::WIRE_SIZE;
+    }
 
     void to_bytes(void* buf) const {
         auto* ptr = static_cast<uint8_t*>(buf);
@@ -487,10 +537,17 @@ struct JoinRoomAck {
         std::memcpy(ptr + 1 + ROOM_NAME_LEN, roomCode, ROOM_CODE_LEN);
         ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN] = maxPlayers;
         ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 1] = isHost;
+        ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 2] = playerCount;
+
+        size_t offset = HEADER_SIZE;
+        for (uint8_t i = 0; i < playerCount; ++i) {
+            players[i].to_bytes(ptr + offset);
+            offset += RoomPlayerState::WIRE_SIZE;
+        }
     }
 
     static std::optional<JoinRoomAck> from_bytes(const void* buf, size_t buf_len) {
-        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        if (buf == nullptr || buf_len < HEADER_SIZE) return std::nullopt;
         auto* ptr = static_cast<const uint8_t*>(buf);
         JoinRoomAck ack;
         ack.slotId = ptr[0];
@@ -499,6 +556,18 @@ struct JoinRoomAck {
         std::memcpy(ack.roomCode, ptr + 1 + ROOM_NAME_LEN, ROOM_CODE_LEN);
         ack.maxPlayers = ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN];
         ack.isHost = ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 1];
+        ack.playerCount = ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 2];
+
+        if (ack.playerCount > MAX_ROOM_PLAYERS) return std::nullopt;
+        if (buf_len < HEADER_SIZE + ack.playerCount * RoomPlayerState::WIRE_SIZE) return std::nullopt;
+
+        size_t offset = HEADER_SIZE;
+        for (uint8_t i = 0; i < ack.playerCount; ++i) {
+            auto playerOpt = RoomPlayerState::from_bytes(ptr + offset, RoomPlayerState::WIRE_SIZE);
+            if (!playerOpt) return std::nullopt;
+            ack.players[i] = *playerOpt;
+            offset += RoomPlayerState::WIRE_SIZE;
+        }
         return ack;
     }
 };
@@ -630,43 +699,6 @@ struct StartGameNack {
         nack.errorCode[MAX_ERROR_CODE_LEN - 1] = '\0';
         nack.message[MAX_ERROR_MSG_LEN - 1] = '\0';
         return nack;
-    }
-};
-
-// RoomPlayerState: State of a single player in the room lobby
-struct RoomPlayerState {
-    uint8_t slotId;
-    uint8_t occupied;  // 0 = empty, 1 = occupied
-    char displayName[MAX_USERNAME_LEN];
-    char email[MAX_EMAIL_LEN];  // Added for kick functionality (Phase 2)
-    uint8_t isReady;
-    uint8_t isHost;
-
-    static constexpr size_t WIRE_SIZE = 1 + 1 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1 + 1;
-
-    void to_bytes(void* buf) const {
-        auto* ptr = static_cast<uint8_t*>(buf);
-        ptr[0] = slotId;
-        ptr[1] = occupied;
-        std::memcpy(ptr + 2, displayName, MAX_USERNAME_LEN);
-        std::memcpy(ptr + 2 + MAX_USERNAME_LEN, email, MAX_EMAIL_LEN);
-        ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN] = isReady;
-        ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1] = isHost;
-    }
-
-    static std::optional<RoomPlayerState> from_bytes(const void* buf, size_t buf_len) {
-        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
-        auto* ptr = static_cast<const uint8_t*>(buf);
-        RoomPlayerState state;
-        state.slotId = ptr[0];
-        state.occupied = ptr[1];
-        std::memcpy(state.displayName, ptr + 2, MAX_USERNAME_LEN);
-        state.displayName[MAX_USERNAME_LEN - 1] = '\0';
-        std::memcpy(state.email, ptr + 2 + MAX_USERNAME_LEN, MAX_EMAIL_LEN);
-        state.email[MAX_EMAIL_LEN - 1] = '\0';
-        state.isReady = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN];
-        state.isHost = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1];
-        return state;
     }
 };
 
@@ -1031,6 +1063,112 @@ struct SaveUserSettingsResponse {
         resp.success = ptr[0];
         std::memcpy(resp.message, ptr + 1, MAX_ERROR_MSG_LEN);
         resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return resp;
+    }
+};
+
+// ============================================================================
+// Chat System Protocol Structures (TCP) - Phase 2
+// ============================================================================
+
+static constexpr size_t CHAT_MESSAGE_LEN = 256;
+static constexpr uint8_t MAX_CHAT_HISTORY = 50;
+
+// SendChatMessage: Client sends a chat message
+struct SendChatMessageRequest {
+    char message[CHAT_MESSAGE_LEN];
+
+    static constexpr size_t WIRE_SIZE = CHAT_MESSAGE_LEN;
+
+    void to_bytes(void* buf) const {
+        std::memcpy(buf, message, CHAT_MESSAGE_LEN);
+    }
+
+    static std::optional<SendChatMessageRequest> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        SendChatMessageRequest req;
+        std::memcpy(req.message, buf, CHAT_MESSAGE_LEN);
+        req.message[CHAT_MESSAGE_LEN - 1] = '\0';
+        return req;
+    }
+};
+
+// SendChatMessageAck: Server confirms message received (no payload)
+struct SendChatMessageAck {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<SendChatMessageAck> from_bytes(const void*, size_t) {
+        return SendChatMessageAck{};
+    }
+};
+
+// ChatMessagePayload: A single chat message (broadcast or in history)
+struct ChatMessagePayload {
+    char displayName[MAX_USERNAME_LEN];
+    char message[CHAT_MESSAGE_LEN];
+    uint32_t timestamp;  // Unix timestamp
+
+    static constexpr size_t WIRE_SIZE = MAX_USERNAME_LEN + CHAT_MESSAGE_LEN + 4;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, displayName, MAX_USERNAME_LEN);
+        std::memcpy(ptr + MAX_USERNAME_LEN, message, CHAT_MESSAGE_LEN);
+        uint32_t net_ts = swap32(timestamp);
+        std::memcpy(ptr + MAX_USERNAME_LEN + CHAT_MESSAGE_LEN, &net_ts, 4);
+    }
+
+    static std::optional<ChatMessagePayload> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        ChatMessagePayload payload;
+        std::memcpy(payload.displayName, ptr, MAX_USERNAME_LEN);
+        payload.displayName[MAX_USERNAME_LEN - 1] = '\0';
+        std::memcpy(payload.message, ptr + MAX_USERNAME_LEN, CHAT_MESSAGE_LEN);
+        payload.message[CHAT_MESSAGE_LEN - 1] = '\0';
+        uint32_t net_ts;
+        std::memcpy(&net_ts, ptr + MAX_USERNAME_LEN + CHAT_MESSAGE_LEN, 4);
+        payload.timestamp = swap32(net_ts);
+        return payload;
+    }
+};
+
+// ChatHistoryResponse: Server sends chat history on room join
+struct ChatHistoryResponse {
+    uint8_t messageCount;
+    ChatMessagePayload messages[MAX_CHAT_HISTORY];
+
+    size_t wire_size() const {
+        return 1 + messageCount * ChatMessagePayload::WIRE_SIZE;
+    }
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = messageCount;
+        size_t offset = 1;
+        for (uint8_t i = 0; i < messageCount && i < MAX_CHAT_HISTORY; ++i) {
+            messages[i].to_bytes(ptr + offset);
+            offset += ChatMessagePayload::WIRE_SIZE;
+        }
+    }
+
+    static std::optional<ChatHistoryResponse> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < 1) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        ChatHistoryResponse resp;
+        resp.messageCount = ptr[0];
+        if (resp.messageCount > MAX_CHAT_HISTORY) return std::nullopt;
+        size_t required = 1 + resp.messageCount * ChatMessagePayload::WIRE_SIZE;
+        if (buf_len < required) return std::nullopt;
+        size_t offset = 1;
+        for (uint8_t i = 0; i < resp.messageCount; ++i) {
+            auto msgOpt = ChatMessagePayload::from_bytes(ptr + offset, ChatMessagePayload::WIRE_SIZE);
+            if (!msgOpt) return std::nullopt;
+            resp.messages[i] = *msgOpt;
+            offset += ChatMessagePayload::WIRE_SIZE;
+        }
         return resp;
     }
 };

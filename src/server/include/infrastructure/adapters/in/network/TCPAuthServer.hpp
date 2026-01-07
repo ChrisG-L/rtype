@@ -91,6 +91,9 @@ namespace infrastructure::adapters::in::network {
             void handleGetUserSettings();
             void handleSaveUserSettings(const std::vector<uint8_t>& payload);
 
+            // Chat handlers
+            void handleSendChatMessage(const std::vector<uint8_t>& payload);
+
             // Room response writers
             void do_write_create_room_ack(const CreateRoomAck& ack);
             void do_write_join_room_ack(const JoinRoomAck& ack);
@@ -109,6 +112,11 @@ namespace infrastructure::adapters::in::network {
             // User settings response writers
             void do_write_get_user_settings_response(const GetUserSettingsResponse& resp);
             void do_write_save_user_settings_response(const SaveUserSettingsResponse& resp);
+
+            // Chat response writers
+            void do_write_send_chat_message_ack();
+            void do_write_chat_message(const ChatMessagePayload& msg);
+            void do_write_chat_history(const ChatHistoryResponse& hist);
 
             // Broadcast to room members
             void broadcastRoomUpdate(domain::entities::Room* room);

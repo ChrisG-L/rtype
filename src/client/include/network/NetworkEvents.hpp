@@ -48,6 +48,7 @@ namespace client::network
         std::string roomCode;
         uint8_t maxPlayers;
         bool isHost;
+        std::vector<RoomPlayerInfo> players;  // Initial player list (fixes race condition)
     };
     struct TCPRoomJoinFailedEvent {
         std::string errorCode;
@@ -103,6 +104,23 @@ namespace client::network
         std::string message;
     };
 
+    // Chat events (Phase 2)
+    struct ChatMessageInfo {
+        std::string displayName;
+        std::string message;
+        uint32_t timestamp;
+    };
+
+    struct TCPChatMessageEvent {
+        std::string displayName;
+        std::string message;
+        uint32_t timestamp;
+    };
+
+    struct TCPChatHistoryEvent {
+        std::vector<ChatMessageInfo> messages;
+    };
+
     // UDP-specific events
     struct UDPConnectedEvent { uint8_t playerId; };
     struct UDPDisconnectedEvent {};
@@ -137,7 +155,10 @@ namespace client::network
         TCPQuickJoinFailedEvent,
         // User Settings events (Phase 2)
         TCPUserSettingsEvent,
-        TCPSaveSettingsResultEvent
+        TCPSaveSettingsResultEvent,
+        // Chat events (Phase 2)
+        TCPChatMessageEvent,
+        TCPChatHistoryEvent
     >;
 
     using UDPEvent = std::variant<
