@@ -235,7 +235,7 @@ pipeline {
 
         stage('🧪 Run Tests') {
             // Tests uniquement sur Linux (Windows = cross-compile, non exécutable)
-            parrallel {
+            parallel {
                 stage('🐧 Linux Tests') {
                     steps {
                         script {
