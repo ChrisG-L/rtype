@@ -31,11 +31,11 @@ namespace domain::value_objects {
         return newHealth;
     }
 
-    bool Health::operator==(const Health& other) {
+    bool Health::operator==(const Health& other) const {
         return _healthPoint == other._healthPoint;
     }
 
-    bool Health::operator<(const Health& other) {
+    bool Health::operator<(const Health& other) const {
         return _healthPoint < other._healthPoint;
     }
 }

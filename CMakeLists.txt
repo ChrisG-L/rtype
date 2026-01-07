@@ -72,5 +72,5 @@ add_subdirectory("src/server")
 add_subdirectory("src/client")
 
 # Ajouter les tests
-# add_subdirectory("tests/server")
-# add_subdirectory("tests/client")
+add_subdirectory("tests/server")
+add_subdirectory("tests/client")

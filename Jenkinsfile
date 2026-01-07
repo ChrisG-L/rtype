@@ -184,6 +184,26 @@ pipeline {
                                 }
                             }
                         }
+
+                        stage('🔧 Compile Linux') {
+                            steps {
+                                script {
+                                    echo '🔧 [LINUX] Compilation du projet...'
+
+                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                                    // Lancer la compilation dans le workspace Linux
+                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'compile')
+
+                                    echo "[LINUX] Job créé: ${jobId}"
+
+                                    // Attendre la fin de la compilation
+                                    def result = api.waitForJob(jobId, 10, 7200)
+
+                                    echo "✅ [LINUX] Compilation terminée avec succès"
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -229,6 +249,27 @@ pipeline {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        stage('🧪 Run Tests') {
+            // Tests uniquement sur Linux (Windows = cross-compile, non exécutable)
+            steps {
+                script {
+                    echo '🧪 Exécution des tests sur Linux...'
+
+                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                    // Lancer les tests dans le workspace Linux
+                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
+
+                    echo "Job de test Linux créé: ${jobId}"
+
+                    // Attendre la fin des tests
+                    def result = api.waitForJob(jobId, 10, 3600)
+
+                    echo "✅ Tests Linux exécutés avec succès"
                 }
             }
         }

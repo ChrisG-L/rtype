@@ -21,8 +21,8 @@ namespace domain::value_objects {
             float value() const;
             Health heal(float value) const;
             Health damage(float value) const;
-            bool operator==(const Health& other);
-            bool operator<(const Health& other);
+            bool operator==(const Health& other) const;
+            bool operator<(const Health& other) const;
     };
 }
 

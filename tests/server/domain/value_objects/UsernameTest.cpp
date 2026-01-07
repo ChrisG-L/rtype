@@ -17,7 +17,7 @@ using namespace domain::exceptions::user;
  *
  * Username représente un nom d'utilisateur validé.
  * Contraintes :
- * - Longueur minimale : 6 caractères
+ * - Longueur minimale : 3 caractères
  * - Longueur maximale : 21 caractères
  */
 class UsernameTest : public ::testing::Test {
@@ -31,12 +31,12 @@ protected:
 // ============================================================================
 
 /**
- * @test Username avec longueur minimale (6 caractères)
+ * @test Username avec longueur minimale (3 caractères)
  */
 TEST_F(UsernameTest, CreateWithMinLength) {
     ASSERT_NO_THROW({
-        Username username("abcdef");
-        EXPECT_EQ(username.value(), "abcdef");
+        Username username("abc");
+        EXPECT_EQ(username.value(), "abc");
     });
 }
 
@@ -103,11 +103,11 @@ TEST_F(UsernameTest, CreateWithMixedCharacters) {
 // ============================================================================
 
 /**
- * @test Username trop court (5 caractères)
+ * @test Username trop court (2 caractères)
  */
 TEST_F(UsernameTest, CreateWithTooShortThrows) {
     EXPECT_THROW({
-        Username username("abcde");
+        Username username("ab");
     }, UsernameException);
 }
 
@@ -215,12 +215,12 @@ TEST_F(UsernameTest, ValueReturnsCorrectUsername) {
 // ============================================================================
 
 /**
- * @test Exactement à la limite min (6 caractères)
+ * @test Exactement à la limite min (3 caractères)
  */
 TEST_F(UsernameTest, ExactlyMinLength) {
     EXPECT_NO_THROW({
-        Username username("123456");
-        EXPECT_EQ(username.value().length(), 6u);
+        Username username("123");
+        EXPECT_EQ(username.value().length(), 3u);
     });
 }
 
@@ -240,7 +240,7 @@ TEST_F(UsernameTest, ExactlyMaxLength) {
  */
 TEST_F(UsernameTest, OneBelowMinLength) {
     EXPECT_THROW({
-        Username username("12345");  // 5 chars
+        Username username("12");  // 2 chars
     }, UsernameException);
 }
 
