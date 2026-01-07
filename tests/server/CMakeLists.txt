@@ -92,9 +92,11 @@ target_link_libraries(server_tests PRIVATE
     OpenSSL::Crypto
 )
 
-# Enregistrer les tests avec CTest
-include(GoogleTest)
-gtest_discover_tests(server_tests)
+# Enregistrer les tests avec CTest (sauf en cross-compilation)
+if(NOT CMAKE_CROSSCOMPILING)
+    include(GoogleTest)
+    gtest_discover_tests(server_tests)
+endif()
 
 # Définir la sortie des tests dans artifacts/tests
 set_target_properties(server_tests PROPERTIES
