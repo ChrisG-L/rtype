@@ -24,6 +24,7 @@ add_executable(rtype_server
     # Domain - Entities
     domain/entities/Player.cpp
     domain/entities/User.cpp
+    domain/entities/Room.cpp
 
     # Application - Use Cases
     application/use_cases/player/Move.cpp
@@ -41,12 +42,16 @@ add_executable(rtype_server
     # Infrastructure - Adapters Out (Persistence)
     infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
     infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
+    infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.cpp
 
     # Infrastructure - Game
     infrastructure/game/GameWorld.cpp
 
     # Infrastructure - Session
     infrastructure/session/SessionManager.cpp
+
+    # Infrastructure - Room
+    infrastructure/room/RoomManager.cpp
 
     # Infrastructure - CLI
     infrastructure/cli/ServerCLI.cpp

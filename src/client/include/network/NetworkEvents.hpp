@@ -13,6 +13,9 @@
 #include <optional>
 #include <string>
 #include <variant>
+#include <vector>
+#include <array>
+#include <cstdint>
 
 namespace client::network
 {
@@ -22,6 +25,83 @@ namespace client::network
     struct TCPAuthSuccessEvent {};
     struct TCPAuthFailedEvent { std::string message; };
     struct TCPErrorEvent { std::string message; };
+
+    // Room-specific events (TCP)
+    struct RoomPlayerInfo {
+        uint8_t slotId;
+        std::string displayName;
+        std::string email;  // Added for kick functionality (Phase 2)
+        bool isReady;
+        bool isHost;
+    };
+
+    struct TCPRoomCreatedEvent {
+        std::string roomCode;
+    };
+    struct TCPRoomCreateFailedEvent {
+        std::string errorCode;
+        std::string message;
+    };
+    struct TCPRoomJoinedEvent {
+        uint8_t slotId;
+        std::string roomName;
+        std::string roomCode;
+        uint8_t maxPlayers;
+        bool isHost;
+    };
+    struct TCPRoomJoinFailedEvent {
+        std::string errorCode;
+        std::string message;
+    };
+    struct TCPRoomLeftEvent {};
+    struct TCPRoomUpdateEvent {
+        std::string roomName;
+        std::string roomCode;
+        uint8_t maxPlayers;
+        std::vector<RoomPlayerInfo> players;
+    };
+    struct TCPGameStartingEvent {
+        uint8_t countdown;
+    };
+    struct TCPReadyChangedEvent {
+        bool isReady;
+    };
+
+    // Kick events (Phase 2)
+    struct TCPPlayerKickedEvent {
+        std::string reason;
+    };
+    struct TCPKickSuccessEvent {};
+
+    // Room Browser events (Phase 2)
+    struct RoomBrowserInfo {
+        std::string code;
+        std::string name;
+        uint8_t currentPlayers;
+        uint8_t maxPlayers;
+    };
+
+    struct TCPRoomListEvent {
+        std::vector<RoomBrowserInfo> rooms;
+    };
+
+    struct TCPQuickJoinFailedEvent {
+        std::string errorCode;
+        std::string message;
+    };
+
+    // User Settings events (Phase 2)
+    struct TCPUserSettingsEvent {
+        bool found;                         // true if settings found in DB
+        std::string colorBlindMode;         // "none", "protanopia", etc.
+        float gameSpeed;                    // 0.5 to 2.0
+        std::array<uint8_t, 12> keyBindings; // 6 actions × 2 keys
+    };
+
+    struct TCPSaveSettingsResultEvent {
+        bool success;
+        std::string message;
+    };
 
     // UDP-specific events
     struct UDPConnectedEvent { uint8_t playerId; };
@@ -39,7 +119,25 @@ namespace client::network
         TCPDisconnectedEvent,
         TCPAuthSuccessEvent,
         TCPAuthFailedEvent,
-        TCPErrorEvent
+        TCPErrorEvent,
+        // Room events
+        TCPRoomCreatedEvent,
+        TCPRoomCreateFailedEvent,
+        TCPRoomJoinedEvent,
+        TCPRoomJoinFailedEvent,
+        TCPRoomLeftEvent,
+        TCPRoomUpdateEvent,
+        TCPGameStartingEvent,
+        TCPReadyChangedEvent,
+        // Kick events (Phase 2)
+        TCPPlayerKickedEvent,
+        TCPKickSuccessEvent,
+        // Room Browser events (Phase 2)
+        TCPRoomListEvent,
+        TCPQuickJoinFailedEvent,
+        // User Settings events (Phase 2)
+        TCPUserSettingsEvent,
+        TCPSaveSettingsResultEvent
     >;
 
     using UDPEvent = std::variant<

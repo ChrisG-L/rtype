@@ -6,7 +6,6 @@
 */
 
 #include "main.hpp"
-#include "accessibility/AccessibilityConfig.hpp"
 
 #ifdef _WIN32
     #include <windows.h>
@@ -21,14 +20,7 @@ int main(int argc, char* argv[]) {
     try
     {
         client::logging::Logger::init();
-
-        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
-        if (accessConfig.loadFromFile("assets/accessibility.cfg")) {
-            client::logging::Logger::getBootLogger()->info("Accessibility config loaded");
-        } else {
-            client::logging::Logger::getBootLogger()->info("Using default accessibility settings");
-            accessConfig.saveToFile("assets/accessibility.cfg");
-        }
+        client::logging::Logger::getBootLogger()->info("Using default accessibility settings (loaded from server after login)");
 
         {
             Boot boot(argc, argv);

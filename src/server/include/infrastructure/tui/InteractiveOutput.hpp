@@ -24,6 +24,8 @@ enum class ElementType {
     DisplayName,    // Can: Copy
     PlayerId,       // Can: Kick, Copy
     Endpoint,       // Can: Copy
+    RoomCode,       // Can: Copy, View details
+    RoomName,       // Can: Copy
     Generic         // Can: Copy only
 };
 
@@ -44,6 +46,7 @@ struct SelectableElement {
     // Optional context for actions (e.g., player ID for email rows)
     std::optional<uint8_t> associatedPlayerId;
     std::optional<std::string> associatedEmail;
+    std::optional<std::string> associatedRoomCode;
 };
 
 /**

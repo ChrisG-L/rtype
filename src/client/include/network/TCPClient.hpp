@@ -71,6 +71,28 @@ namespace client::network
         std::optional<SessionToken> getSessionToken() const;
         bool hasSessionToken() const;
 
+        // Room operations
+        void createRoom(const std::string& name, uint8_t maxPlayers, bool isPrivate);
+        void joinRoomByCode(const std::string& code);
+        void leaveRoom();
+        void setReady(bool ready);
+        void startGame();
+        void kickPlayer(const std::string& email, const std::string& reason = "");
+
+        // Room Browser (Phase 2)
+        void browsePublicRooms();
+        void quickJoin();
+
+        // User Settings (Phase 2)
+        void requestUserSettings();
+        void saveUserSettings(const UserSettingsPayload& settings);
+
+        // Room state
+        bool isInRoom() const;
+        std::optional<std::string> getCurrentRoomCode() const;
+        bool isHost() const;
+        bool isReady() const;
+
         // Event queue for thread-safe event polling
         std::optional<TCPEvent> pollEvent();
 
@@ -135,6 +157,12 @@ namespace client::network
         // Last connection info (for reconnection)
         std::string _lastHost;
         std::uint16_t _lastPort = 0;
+
+        // Room state
+        std::optional<std::string> _currentRoomCode;
+        bool _isHost = false;
+        bool _isReady = false;
+        uint8_t _roomSlotId = 0;
 
         // Event queue for thread-safe main thread communication
         EventQueue<TCPEvent> _eventQueue;

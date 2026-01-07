@@ -47,6 +47,37 @@ enum class MessageType: uint16_t {
     LoginAck = 0x0101,
     Register = 0x0102,
     RegisterAck = 0x0103,
+    // TCP Room Management messages
+    CreateRoom = 0x0200,
+    CreateRoomAck = 0x0201,
+    JoinRoomByCode = 0x0210,
+    JoinRoomAck = 0x0211,
+    JoinRoomNack = 0x0212,
+    LeaveRoom = 0x0220,
+    LeaveRoomAck = 0x0221,
+    SetReady = 0x0230,
+    SetReadyAck = 0x0231,
+    StartGame = 0x0240,
+    StartGameAck = 0x0241,
+    StartGameNack = 0x0242,
+    // TCP Room Notifications (broadcast to room members)
+    RoomUpdate = 0x0250,
+    GameStarting = 0x0251,
+    // Phase 2 - Kick System (0x026x)
+    KickPlayer = 0x0260,
+    KickPlayerAck = 0x0261,
+    PlayerKicked = 0x0262,
+    // Phase 2 - Room Browser (0x027x)
+    BrowsePublicRooms = 0x0270,
+    BrowsePublicRoomsAck = 0x0271,
+    QuickJoin = 0x0272,
+    QuickJoinAck = 0x0273,
+    QuickJoinNack = 0x0274,
+    // Phase 2 - User Settings (0x028x)
+    GetUserSettings = 0x0280,
+    GetUserSettingsAck = 0x0281,
+    SaveUserSettings = 0x0282,
+    SaveUserSettingsAck = 0x0283,
 };
 
 static constexpr uint8_t MAX_PLAYERS = 4;
@@ -54,6 +85,12 @@ static constexpr uint8_t MAX_MISSILES = 32;
 static constexpr uint8_t MAX_ENEMIES = 16;
 static constexpr uint8_t MAX_ENEMY_MISSILES = 32;
 static constexpr uint8_t ENEMY_OWNER_ID = 0xFF;
+
+// Room system constants
+static constexpr size_t ROOM_NAME_LEN = 32;
+static constexpr size_t ROOM_CODE_LEN = 6;
+static constexpr uint8_t MAX_ROOM_PLAYERS = 6;
+static constexpr uint8_t MIN_ROOM_PLAYERS = 2;
 
 // Session token size (256 bits = 32 bytes)
 static constexpr size_t TOKEN_SIZE = 32;
@@ -352,6 +389,655 @@ struct AuthResponseWithToken {
         return resp;
     }
 };
+
+// ============================================================================
+// Room Protocol Structures (TCP)
+// ============================================================================
+
+// CreateRoom: Client requests to create a new room
+struct CreateRoomRequest {
+    char name[ROOM_NAME_LEN];
+    uint8_t maxPlayers;  // 2-6
+    uint8_t isPrivate;   // 0 = public, 1 = private
+
+    static constexpr size_t WIRE_SIZE = ROOM_NAME_LEN + 2;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, name, ROOM_NAME_LEN);
+        ptr[ROOM_NAME_LEN] = maxPlayers;
+        ptr[ROOM_NAME_LEN + 1] = isPrivate;
+    }
+
+    static std::optional<CreateRoomRequest> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        CreateRoomRequest req;
+        std::memcpy(req.name, ptr, ROOM_NAME_LEN);
+        req.name[ROOM_NAME_LEN - 1] = '\0';
+        req.maxPlayers = ptr[ROOM_NAME_LEN];
+        req.isPrivate = ptr[ROOM_NAME_LEN + 1];
+        return req;
+    }
+};
+
+// CreateRoomAck: Server response to room creation
+struct CreateRoomAck {
+    uint8_t success;
+    char roomCode[ROOM_CODE_LEN];
+    char errorCode[MAX_ERROR_CODE_LEN];
+    char message[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = 1 + ROOM_CODE_LEN + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = success;
+        std::memcpy(ptr + 1, roomCode, ROOM_CODE_LEN);
+        std::memcpy(ptr + 1 + ROOM_CODE_LEN, errorCode, MAX_ERROR_CODE_LEN);
+        std::memcpy(ptr + 1 + ROOM_CODE_LEN + MAX_ERROR_CODE_LEN, message, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<CreateRoomAck> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        CreateRoomAck ack;
+        ack.success = ptr[0];
+        std::memcpy(ack.roomCode, ptr + 1, ROOM_CODE_LEN);
+        std::memcpy(ack.errorCode, ptr + 1 + ROOM_CODE_LEN, MAX_ERROR_CODE_LEN);
+        std::memcpy(ack.message, ptr + 1 + ROOM_CODE_LEN + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
+        ack.errorCode[MAX_ERROR_CODE_LEN - 1] = '\0';
+        ack.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return ack;
+    }
+};
+
+// JoinRoomByCode: Client requests to join a room by invitation code
+struct JoinRoomByCodeRequest {
+    char roomCode[ROOM_CODE_LEN];
+
+    static constexpr size_t WIRE_SIZE = ROOM_CODE_LEN;
+
+    void to_bytes(void* buf) const {
+        std::memcpy(buf, roomCode, ROOM_CODE_LEN);
+    }
+
+    static std::optional<JoinRoomByCodeRequest> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        JoinRoomByCodeRequest req;
+        std::memcpy(req.roomCode, buf, ROOM_CODE_LEN);
+        return req;
+    }
+};
+
+// JoinRoomAck: Server confirms room join
+struct JoinRoomAck {
+    uint8_t slotId;       // Player's slot in the room (0-5)
+    char roomName[ROOM_NAME_LEN];
+    char roomCode[ROOM_CODE_LEN];
+    uint8_t maxPlayers;
+    uint8_t isHost;       // 1 if player is the host
+
+    static constexpr size_t WIRE_SIZE = 1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 1 + 1;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = slotId;
+        std::memcpy(ptr + 1, roomName, ROOM_NAME_LEN);
+        std::memcpy(ptr + 1 + ROOM_NAME_LEN, roomCode, ROOM_CODE_LEN);
+        ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN] = maxPlayers;
+        ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 1] = isHost;
+    }
+
+    static std::optional<JoinRoomAck> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        JoinRoomAck ack;
+        ack.slotId = ptr[0];
+        std::memcpy(ack.roomName, ptr + 1, ROOM_NAME_LEN);
+        ack.roomName[ROOM_NAME_LEN - 1] = '\0';
+        std::memcpy(ack.roomCode, ptr + 1 + ROOM_NAME_LEN, ROOM_CODE_LEN);
+        ack.maxPlayers = ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN];
+        ack.isHost = ptr[1 + ROOM_NAME_LEN + ROOM_CODE_LEN + 1];
+        return ack;
+    }
+};
+
+// JoinRoomNack: Server rejects room join
+struct JoinRoomNack {
+    char errorCode[MAX_ERROR_CODE_LEN];
+    char message[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, errorCode, MAX_ERROR_CODE_LEN);
+        std::memcpy(ptr + MAX_ERROR_CODE_LEN, message, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<JoinRoomNack> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        JoinRoomNack nack;
+        std::memcpy(nack.errorCode, ptr, MAX_ERROR_CODE_LEN);
+        std::memcpy(nack.message, ptr + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
+        nack.errorCode[MAX_ERROR_CODE_LEN - 1] = '\0';
+        nack.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return nack;
+    }
+};
+
+// LeaveRoom: Client leaves the current room (no payload)
+struct LeaveRoomRequest {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<LeaveRoomRequest> from_bytes(const void*, size_t) {
+        return LeaveRoomRequest{};
+    }
+};
+
+// LeaveRoomAck: Server confirms room leave (no payload)
+struct LeaveRoomAck {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<LeaveRoomAck> from_bytes(const void*, size_t) {
+        return LeaveRoomAck{};
+    }
+};
+
+// SetReady: Client sets ready status
+struct SetReadyRequest {
+    uint8_t isReady;  // 0 = not ready, 1 = ready
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(void* buf) const {
+        static_cast<uint8_t*>(buf)[0] = isReady;
+    }
+
+    static std::optional<SetReadyRequest> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        SetReadyRequest req;
+        req.isReady = static_cast<const uint8_t*>(buf)[0];
+        return req;
+    }
+};
+
+// SetReadyAck: Server confirms ready status
+struct SetReadyAck {
+    uint8_t isReady;
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(void* buf) const {
+        static_cast<uint8_t*>(buf)[0] = isReady;
+    }
+
+    static std::optional<SetReadyAck> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        SetReadyAck ack;
+        ack.isReady = static_cast<const uint8_t*>(buf)[0];
+        return ack;
+    }
+};
+
+// StartGame: Host requests to start the game (no payload)
+struct StartGameRequest {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<StartGameRequest> from_bytes(const void*, size_t) {
+        return StartGameRequest{};
+    }
+};
+
+// StartGameAck: Server confirms game start (no payload)
+struct StartGameAck {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<StartGameAck> from_bytes(const void*, size_t) {
+        return StartGameAck{};
+    }
+};
+
+// StartGameNack: Server rejects game start
+struct StartGameNack {
+    char errorCode[MAX_ERROR_CODE_LEN];
+    char message[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, errorCode, MAX_ERROR_CODE_LEN);
+        std::memcpy(ptr + MAX_ERROR_CODE_LEN, message, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<StartGameNack> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        StartGameNack nack;
+        std::memcpy(nack.errorCode, ptr, MAX_ERROR_CODE_LEN);
+        std::memcpy(nack.message, ptr + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
+        nack.errorCode[MAX_ERROR_CODE_LEN - 1] = '\0';
+        nack.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return nack;
+    }
+};
+
+// RoomPlayerState: State of a single player in the room lobby
+struct RoomPlayerState {
+    uint8_t slotId;
+    uint8_t occupied;  // 0 = empty, 1 = occupied
+    char displayName[MAX_USERNAME_LEN];
+    char email[MAX_EMAIL_LEN];  // Added for kick functionality (Phase 2)
+    uint8_t isReady;
+    uint8_t isHost;
+
+    static constexpr size_t WIRE_SIZE = 1 + 1 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1 + 1;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = slotId;
+        ptr[1] = occupied;
+        std::memcpy(ptr + 2, displayName, MAX_USERNAME_LEN);
+        std::memcpy(ptr + 2 + MAX_USERNAME_LEN, email, MAX_EMAIL_LEN);
+        ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN] = isReady;
+        ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1] = isHost;
+    }
+
+    static std::optional<RoomPlayerState> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        RoomPlayerState state;
+        state.slotId = ptr[0];
+        state.occupied = ptr[1];
+        std::memcpy(state.displayName, ptr + 2, MAX_USERNAME_LEN);
+        state.displayName[MAX_USERNAME_LEN - 1] = '\0';
+        std::memcpy(state.email, ptr + 2 + MAX_USERNAME_LEN, MAX_EMAIL_LEN);
+        state.email[MAX_EMAIL_LEN - 1] = '\0';
+        state.isReady = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN];
+        state.isHost = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1];
+        return state;
+    }
+};
+
+// RoomUpdate: Full room state notification (broadcast to all room members)
+struct RoomUpdate {
+    char roomName[ROOM_NAME_LEN];
+    char roomCode[ROOM_CODE_LEN];
+    uint8_t maxPlayers;
+    uint8_t playerCount;
+    RoomPlayerState players[MAX_ROOM_PLAYERS];
+
+    size_t wire_size() const {
+        return ROOM_NAME_LEN + ROOM_CODE_LEN + 1 + 1 + playerCount * RoomPlayerState::WIRE_SIZE;
+    }
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, roomName, ROOM_NAME_LEN);
+        std::memcpy(ptr + ROOM_NAME_LEN, roomCode, ROOM_CODE_LEN);
+        ptr[ROOM_NAME_LEN + ROOM_CODE_LEN] = maxPlayers;
+        ptr[ROOM_NAME_LEN + ROOM_CODE_LEN + 1] = playerCount;
+        size_t offset = ROOM_NAME_LEN + ROOM_CODE_LEN + 2;
+        for (uint8_t i = 0; i < playerCount; ++i) {
+            players[i].to_bytes(ptr + offset);
+            offset += RoomPlayerState::WIRE_SIZE;
+        }
+    }
+
+    static std::optional<RoomUpdate> from_bytes(const void* buf, size_t buf_len) {
+        constexpr size_t HEADER_SIZE = ROOM_NAME_LEN + ROOM_CODE_LEN + 2;
+        if (buf == nullptr || buf_len < HEADER_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        RoomUpdate update;
+        std::memcpy(update.roomName, ptr, ROOM_NAME_LEN);
+        update.roomName[ROOM_NAME_LEN - 1] = '\0';
+        std::memcpy(update.roomCode, ptr + ROOM_NAME_LEN, ROOM_CODE_LEN);
+        update.maxPlayers = ptr[ROOM_NAME_LEN + ROOM_CODE_LEN];
+        update.playerCount = ptr[ROOM_NAME_LEN + ROOM_CODE_LEN + 1];
+        if (update.playerCount > MAX_ROOM_PLAYERS) return std::nullopt;
+        size_t required = HEADER_SIZE + update.playerCount * RoomPlayerState::WIRE_SIZE;
+        if (buf_len < required) return std::nullopt;
+        size_t offset = HEADER_SIZE;
+        for (uint8_t i = 0; i < update.playerCount; ++i) {
+            auto stateOpt = RoomPlayerState::from_bytes(ptr + offset, RoomPlayerState::WIRE_SIZE);
+            if (!stateOpt) return std::nullopt;
+            update.players[i] = *stateOpt;
+            offset += RoomPlayerState::WIRE_SIZE;
+        }
+        return update;
+    }
+};
+
+// GameStarting: Notification that game is about to start
+struct GameStarting {
+    uint8_t countdownSeconds;  // 3, 2, 1, 0
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(void* buf) const {
+        static_cast<uint8_t*>(buf)[0] = countdownSeconds;
+    }
+
+    static std::optional<GameStarting> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        GameStarting gs;
+        gs.countdownSeconds = static_cast<const uint8_t*>(buf)[0];
+        return gs;
+    }
+};
+
+// ============================================================================
+// Kick System Protocol Structures (TCP) - Phase 2
+// ============================================================================
+
+// KickPlayer: Host requests to kick a player from the room
+struct KickPlayerRequest {
+    char email[MAX_EMAIL_LEN];
+    char reason[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, email, MAX_EMAIL_LEN);
+        std::memcpy(ptr + MAX_EMAIL_LEN, reason, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<KickPlayerRequest> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        KickPlayerRequest req;
+        std::memcpy(req.email, ptr, MAX_EMAIL_LEN);
+        req.email[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(req.reason, ptr + MAX_EMAIL_LEN, MAX_ERROR_MSG_LEN);
+        req.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return req;
+    }
+};
+
+// KickPlayerAck: Server confirms kick was processed (no payload)
+struct KickPlayerAck {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<KickPlayerAck> from_bytes(const void*, size_t) {
+        return KickPlayerAck{};
+    }
+};
+
+// PlayerKicked: Notification sent to the kicked player
+struct PlayerKickedNotification {
+    char reason[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        std::memcpy(buf, reason, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<PlayerKickedNotification> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        PlayerKickedNotification notif;
+        std::memcpy(notif.reason, buf, MAX_ERROR_MSG_LEN);
+        notif.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return notif;
+    }
+};
+
+// ============================================================================
+// Room Browser Protocol Structures (TCP) - Phase 2
+// ============================================================================
+
+static constexpr uint8_t MAX_BROWSER_ROOMS = 20;
+
+// BrowsePublicRooms: Client requests list of public rooms (no payload)
+struct BrowsePublicRoomsRequest {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<BrowsePublicRoomsRequest> from_bytes(const void*, size_t) {
+        return BrowsePublicRoomsRequest{};
+    }
+};
+
+// RoomBrowserEntry: Single room in the browser list
+struct RoomBrowserEntry {
+    char code[ROOM_CODE_LEN];
+    char name[ROOM_NAME_LEN];
+    uint8_t currentPlayers;
+    uint8_t maxPlayers;
+
+    static constexpr size_t WIRE_SIZE = ROOM_CODE_LEN + ROOM_NAME_LEN + 2;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, code, ROOM_CODE_LEN);
+        std::memcpy(ptr + ROOM_CODE_LEN, name, ROOM_NAME_LEN);
+        ptr[ROOM_CODE_LEN + ROOM_NAME_LEN] = currentPlayers;
+        ptr[ROOM_CODE_LEN + ROOM_NAME_LEN + 1] = maxPlayers;
+    }
+
+    static std::optional<RoomBrowserEntry> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        RoomBrowserEntry entry;
+        std::memcpy(entry.code, ptr, ROOM_CODE_LEN);
+        std::memcpy(entry.name, ptr + ROOM_CODE_LEN, ROOM_NAME_LEN);
+        entry.name[ROOM_NAME_LEN - 1] = '\0';
+        entry.currentPlayers = ptr[ROOM_CODE_LEN + ROOM_NAME_LEN];
+        entry.maxPlayers = ptr[ROOM_CODE_LEN + ROOM_NAME_LEN + 1];
+        return entry;
+    }
+};
+
+// BrowsePublicRoomsAck: Server sends list of public rooms
+struct BrowsePublicRoomsResponse {
+    uint8_t roomCount;
+    RoomBrowserEntry rooms[MAX_BROWSER_ROOMS];
+
+    size_t wire_size() const {
+        return 1 + roomCount * RoomBrowserEntry::WIRE_SIZE;
+    }
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = roomCount;
+        size_t offset = 1;
+        for (uint8_t i = 0; i < roomCount && i < MAX_BROWSER_ROOMS; ++i) {
+            rooms[i].to_bytes(ptr + offset);
+            offset += RoomBrowserEntry::WIRE_SIZE;
+        }
+    }
+
+    static std::optional<BrowsePublicRoomsResponse> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < 1) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        BrowsePublicRoomsResponse resp;
+        resp.roomCount = ptr[0];
+        if (resp.roomCount > MAX_BROWSER_ROOMS) return std::nullopt;
+        size_t required = 1 + resp.roomCount * RoomBrowserEntry::WIRE_SIZE;
+        if (buf_len < required) return std::nullopt;
+        size_t offset = 1;
+        for (uint8_t i = 0; i < resp.roomCount; ++i) {
+            auto entryOpt = RoomBrowserEntry::from_bytes(ptr + offset, RoomBrowserEntry::WIRE_SIZE);
+            if (!entryOpt) return std::nullopt;
+            resp.rooms[i] = *entryOpt;
+            offset += RoomBrowserEntry::WIRE_SIZE;
+        }
+        return resp;
+    }
+};
+
+// QuickJoin: Client requests to join any available public room (no payload)
+struct QuickJoinRequest {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<QuickJoinRequest> from_bytes(const void*, size_t) {
+        return QuickJoinRequest{};
+    }
+};
+
+// QuickJoinAck: Server found a room - same as JoinRoomAck (uses JoinRoomAck structure)
+// QuickJoinNack: No room available
+struct QuickJoinNack {
+    char errorCode[MAX_ERROR_CODE_LEN];
+    char message[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, errorCode, MAX_ERROR_CODE_LEN);
+        std::memcpy(ptr + MAX_ERROR_CODE_LEN, message, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<QuickJoinNack> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        QuickJoinNack nack;
+        std::memcpy(nack.errorCode, ptr, MAX_ERROR_CODE_LEN);
+        nack.errorCode[MAX_ERROR_CODE_LEN - 1] = '\0';
+        std::memcpy(nack.message, ptr + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
+        nack.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return nack;
+    }
+};
+
+// ============================================================================
+// User Settings Protocol Structures (TCP) - Phase 2
+// ============================================================================
+
+static constexpr size_t COLORBLIND_MODE_LEN = 16;
+static constexpr size_t KEY_BINDINGS_COUNT = 12;  // 6 actions × 2 keys
+
+// UserSettingsPayload: Core settings data
+struct UserSettingsPayload {
+    char colorBlindMode[COLORBLIND_MODE_LEN];  // "none", "protanopia", etc.
+    uint16_t gameSpeedPercent;                  // 50-200 (represents 0.5x-2.0x)
+    uint8_t keyBindings[KEY_BINDINGS_COUNT];    // [action0_primary, action0_secondary, ...]
+
+    static constexpr size_t WIRE_SIZE = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        std::memcpy(ptr, colorBlindMode, COLORBLIND_MODE_LEN);
+        uint16_t net_speed = swap16(gameSpeedPercent);
+        std::memcpy(ptr + COLORBLIND_MODE_LEN, &net_speed, 2);
+        std::memcpy(ptr + COLORBLIND_MODE_LEN + 2, keyBindings, KEY_BINDINGS_COUNT);
+    }
+
+    static std::optional<UserSettingsPayload> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        UserSettingsPayload payload;
+        std::memcpy(payload.colorBlindMode, ptr, COLORBLIND_MODE_LEN);
+        payload.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
+        uint16_t net_speed;
+        std::memcpy(&net_speed, ptr + COLORBLIND_MODE_LEN, 2);
+        payload.gameSpeedPercent = swap16(net_speed);
+        std::memcpy(payload.keyBindings, ptr + COLORBLIND_MODE_LEN + 2, KEY_BINDINGS_COUNT);
+        return payload;
+    }
+};
+
+// GetUserSettingsRequest: Client requests their settings (no payload needed)
+struct GetUserSettingsRequest {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(void*) const {}
+
+    static std::optional<GetUserSettingsRequest> from_bytes(const void*, size_t) {
+        return GetUserSettingsRequest{};
+    }
+};
+
+// GetUserSettingsResponse: Server sends user settings
+struct GetUserSettingsResponse {
+    uint8_t found;  // 1 = settings found in DB, 0 = defaults
+    UserSettingsPayload settings;
+
+    static constexpr size_t WIRE_SIZE = 1 + UserSettingsPayload::WIRE_SIZE;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = found;
+        settings.to_bytes(ptr + 1);
+    }
+
+    static std::optional<GetUserSettingsResponse> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        GetUserSettingsResponse resp;
+        resp.found = ptr[0];
+        auto settingsOpt = UserSettingsPayload::from_bytes(ptr + 1, buf_len - 1);
+        if (!settingsOpt) return std::nullopt;
+        resp.settings = *settingsOpt;
+        return resp;
+    }
+};
+
+// SaveUserSettingsRequest: Client sends settings to save
+struct SaveUserSettingsRequest {
+    UserSettingsPayload settings;
+
+    static constexpr size_t WIRE_SIZE = UserSettingsPayload::WIRE_SIZE;
+
+    void to_bytes(void* buf) const {
+        settings.to_bytes(buf);
+    }
+
+    static std::optional<SaveUserSettingsRequest> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto settingsOpt = UserSettingsPayload::from_bytes(buf, buf_len);
+        if (!settingsOpt) return std::nullopt;
+        SaveUserSettingsRequest req;
+        req.settings = *settingsOpt;
+        return req;
+    }
+};
+
+// SaveUserSettingsResponse: Server confirms save
+struct SaveUserSettingsResponse {
+    uint8_t success;
+    char message[MAX_ERROR_MSG_LEN];
+
+    static constexpr size_t WIRE_SIZE = 1 + MAX_ERROR_MSG_LEN;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = success;
+        std::memcpy(ptr + 1, message, MAX_ERROR_MSG_LEN);
+    }
+
+    static std::optional<SaveUserSettingsResponse> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        SaveUserSettingsResponse resp;
+        resp.success = ptr[0];
+        std::memcpy(resp.message, ptr + 1, MAX_ERROR_MSG_LEN);
+        resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+        return resp;
+    }
+};
+
+// ============================================================================
+// UDP Protocol Structures
+// ============================================================================
 
 struct UDPHeader {
     uint16_t type;

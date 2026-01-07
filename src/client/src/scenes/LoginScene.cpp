@@ -57,7 +57,11 @@ void LoginScene::processTCPEvents()
                 showError("Disconnected from auth server");
             }
             else if constexpr (std::is_same_v<T, client::network::TCPAuthSuccessEvent>) {
-                // Auth successful - go to main menu (TCP stays open for future features)
+                // Auth successful - request user settings from server
+                if (_context.tcpClient) {
+                    _context.tcpClient->requestUserSettings();
+                }
+                // Go to main menu (settings will be received there)
                 if (_sceneManager) {
                     _sceneManager->changeScene(std::make_unique<MainMenuScene>());
                 }

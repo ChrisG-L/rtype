@@ -28,11 +28,13 @@ namespace infrastructure::cli {
 ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
                      UDPServer& udpServer,
                      std::shared_ptr<tui::LogBuffer> logBuffer,
-                     std::shared_ptr<IUserRepository> userRepository)
+                     std::shared_ptr<IUserRepository> userRepository,
+                     std::shared_ptr<RoomManager> roomManager)
     : _sessionManager(std::move(sessionManager))
     , _udpServer(udpServer)
     , _logBuffer(std::move(logBuffer))
     , _userRepository(std::move(userRepository))
+    , _roomManager(std::move(roomManager))
 {
     // Create TerminalUI if we have a log buffer
     if (_logBuffer) {
@@ -43,6 +45,8 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["help"] = [this](const std::string&) { printHelp(); };
     _commands["status"] = [this](const std::string&) { printStatus(); };
     _commands["sessions"] = [this](const std::string&) { listSessions(); };
+    _commands["rooms"] = [this](const std::string&) { listRooms(); };
+    _commands["room"] = [this](const std::string& args) { showRoom(args); };
     _commands["kick"] = [this](const std::string& args) { kickPlayer(args); };
     _commands["ban"] = [this](const std::string& args) { banUser(args); };
     _commands["unban"] = [this](const std::string& args) { unbanUser(args); };
@@ -202,6 +206,8 @@ void ServerCLI::printHelp() {
     output("║ help                 - Show this help message                ║");
     output("║ status               - Show server status                    ║");
     output("║ sessions             - List all active sessions              ║");
+    output("║ rooms                - List all active rooms                 ║");
+    output("║ room <code>          - Show details for a specific room      ║");
     output("║ users                - List all registered users (DB)        ║");
     output("║ kick <player_id>     - Kick a player by their in-game ID     ║");
     output("║ ban <email>          - Ban a user permanently                ║");
@@ -210,7 +216,8 @@ void ServerCLI::printHelp() {
     output("║ logs <on|off>        - Enable/disable all server logs        ║");
     output("║ debug <on|off>       - Enable/disable debug logs             ║");
     output("║ zoom                 - Full-screen log view (ESC to exit)    ║");
-    output("║ interact [cmd]       - Navigate output (sessions/bans/users) ║");
+    output("║ interact [cmd]       - Navigate output (sessions/bans/users/ ║");
+    output("║                        rooms)                                ║");
     output("║ quit/exit            - Stop the server                       ║");
     output("╠══════════════════════════════════════════════════════════════╣");
     output("║                      KEYBOARD SHORTCUTS                      ║");
@@ -230,6 +237,7 @@ void ServerCLI::printStatus() {
     size_t playerCount = _udpServer.getPlayerCount();
     size_t bannedCount = _sessionManager->getBannedUsers().size();
     size_t usersInDb = _userRepository ? _userRepository->findAll().size() : 0;
+    size_t roomCount = _roomManager ? _roomManager->getRoomCount() : 0;
     bool logsEnabled = server::logging::Logger::isEnabled();
     bool debugEnabled = server::logging::Logger::isDebugEnabled();
 
@@ -244,6 +252,10 @@ void ServerCLI::printStatus() {
     oss.str("");
 
     oss << "║ Players in Game: " << std::setw(4) << playerCount << "               ║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Active Rooms:    " << std::setw(4) << roomCount << "               ║";
     output(oss.str());
     oss.str("");
 
@@ -524,6 +536,165 @@ void ServerCLI::listUsers() {
     }
 }
 
+void ServerCLI::listRooms() {
+    if (!_roomManager) {
+        output("[CLI] Room manager not available.");
+        return;
+    }
+
+    auto rooms = _roomManager->getAllRooms();
+
+    if (rooms.empty()) {
+        output("");
+        output("[CLI] No active rooms.");
+        output("");
+        return;
+    }
+
+    output("");
+    output("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                   ACTIVE ROOMS                                   ║");
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(8) << "Code"
+           << std::setw(25) << "Name"
+           << std::setw(10) << "Players"
+           << std::setw(12) << "State"
+           << std::setw(10) << "Private"
+           << std::setw(15) << "Host" << " ║";
+    output(header.str());
+    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    for (const auto* room : rooms) {
+        std::string stateStr;
+        switch (room->getState()) {
+            case domain::entities::Room::State::Waiting: stateStr = "Waiting"; break;
+            case domain::entities::Room::State::Starting: stateStr = "Starting"; break;
+            case domain::entities::Room::State::InGame: stateStr = "InGame"; break;
+            case domain::entities::Room::State::Closed: stateStr = "Closed"; break;
+        }
+
+        std::string playersStr = std::to_string(room->getPlayerCount()) + "/" +
+                                 std::to_string(room->getMaxPlayers());
+
+        // Truncate fields (UTF-8 aware)
+        std::string codeTrunc = tui::utf8::truncateWithEllipsis(room->getCode(), 7);
+        std::string nameTrunc = tui::utf8::truncateWithEllipsis(room->getName(), 24);
+        std::string hostTrunc = tui::utf8::truncateWithEllipsis(room->getHostEmail(), 14);
+
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(8) << codeTrunc
+            << std::setw(25) << nameTrunc
+            << std::setw(10) << playersStr
+            << std::setw(12) << stateStr
+            << std::setw(10) << (room->isPrivate() ? "Yes" : "No")
+            << std::setw(15) << hostTrunc << " ║";
+        output(row.str());
+    }
+
+    output("╚═════════════════════════════════════════════════════════════════════════════════╝");
+    output("");
+    output("[CLI] Total: " + std::to_string(rooms.size()) + " room(s)");
+    output("");
+
+    // Build and store interactive output for interact mode
+    _lastInteractiveOutput = buildRoomsInteractiveOutput();
+    _lastCommand = "rooms";
+    if (_terminalUI) {
+        _terminalUI->setInteractiveOutput(_lastInteractiveOutput);
+    }
+}
+
+void ServerCLI::showRoom(const std::string& args) {
+    if (args.empty()) {
+        output("[CLI] Usage: room <code>");
+        return;
+    }
+
+    if (!_roomManager) {
+        output("[CLI] Room manager not available.");
+        return;
+    }
+
+    auto* room = _roomManager->getRoomByCode(args);
+    if (!room) {
+        output("[CLI] Room not found: " + args);
+        return;
+    }
+
+    std::string stateStr;
+    switch (room->getState()) {
+        case domain::entities::Room::State::Waiting: stateStr = "Waiting"; break;
+        case domain::entities::Room::State::Starting: stateStr = "Starting"; break;
+        case domain::entities::Room::State::InGame: stateStr = "InGame"; break;
+        case domain::entities::Room::State::Closed: stateStr = "Closed"; break;
+    }
+
+    output("");
+    output("╔═════════════════════════════════════════════════════════════════╗");
+    output("║                         ROOM DETAILS                            ║");
+    output("╠═════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream oss;
+    oss << "║ Code:       " << std::left << std::setw(52) << room->getCode() << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Name:       " << std::left << std::setw(52) << room->getName() << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Host:       " << std::left << std::setw(52) << room->getHostEmail() << "║";
+    output(oss.str());
+    oss.str("");
+
+    std::string playersStr = std::to_string(room->getPlayerCount()) + "/" +
+                             std::to_string(room->getMaxPlayers());
+    oss << "║ Players:    " << std::left << std::setw(52) << playersStr << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ State:      " << std::left << std::setw(52) << stateStr << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Private:    " << std::left << std::setw(52) << (room->isPrivate() ? "Yes" : "No") << "║";
+    output(oss.str());
+
+    output("╠═════════════════════════════════════════════════════════════════╣");
+    output("║                           PLAYERS                               ║");
+    output("╠═════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream playerHeader;
+    playerHeader << "║ " << std::left << std::setw(6) << "Slot"
+                 << std::setw(20) << "Display Name"
+                 << std::setw(10) << "Ready"
+                 << std::setw(10) << "Host"
+                 << std::setw(18) << "Email" << " ║";
+    output(playerHeader.str());
+    output("╠═════════════════════════════════════════════════════════════════╣");
+
+    const auto& slots = room->getSlots();
+    for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
+        if (slots[i].occupied) {
+            std::string nameTrunc = tui::utf8::truncateWithEllipsis(slots[i].displayName, 19);
+            std::string emailTrunc = tui::utf8::truncateWithEllipsis(slots[i].email, 17);
+
+            std::ostringstream playerRow;
+            playerRow << "║ " << std::left << std::setw(6) << i
+                      << std::setw(20) << nameTrunc
+                      << std::setw(10) << (slots[i].isReady ? "Yes" : "No")
+                      << std::setw(10) << (slots[i].isHost ? "Yes" : "No")
+                      << std::setw(18) << emailTrunc << " ║";
+            output(playerRow.str());
+        }
+    }
+
+    output("╚═════════════════════════════════════════════════════════════════╝");
+    output("");
+}
+
 void ServerCLI::enterZoomMode() {
     if (_terminalUI) {
         _terminalUI->setMode(tui::TerminalUI::Mode::ZoomLogs);
@@ -547,15 +718,17 @@ void ServerCLI::enterInteractMode(const std::string& args) {
             listBans();
         } else if (args == "users") {
             listUsers();
+        } else if (args == "rooms") {
+            listRooms();
         } else {
             output("[CLI] Unknown interact target: " + args);
-            output("[CLI] Valid targets: sessions, bans, users");
+            output("[CLI] Valid targets: sessions, bans, users, rooms");
             return;
         }
     }
 
     if (_lastInteractiveOutput.lines.empty()) {
-        output("[CLI] No output to interact with. Run 'sessions', 'bans' or 'users' first.");
+        output("[CLI] No output to interact with. Run 'sessions', 'bans', 'users' or 'rooms' first.");
         return;
     }
 
@@ -837,6 +1010,114 @@ tui::InteractiveOutput ServerCLI::buildUsersInteractiveOutput() {
         nameElem.type = tui::ElementType::DisplayName;
         nameElem.associatedEmail = email;
         output.elements.push_back(nameElem);
+
+        lineIdx++;
+    }
+
+    output.lines.push_back("╚═════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("");
+
+    return output;
+}
+
+tui::InteractiveOutput ServerCLI::buildRoomsInteractiveOutput() {
+    tui::InteractiveOutput output;
+    output.sourceCommand = "rooms";
+
+    if (!_roomManager) {
+        return output;
+    }
+
+    auto rooms = _roomManager->getAllRooms();
+    if (rooms.empty()) {
+        return output;
+    }
+
+    output.lines.push_back("");
+    output.lines.push_back("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                   ACTIVE ROOMS                                   ║");
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream header;
+    header << "║ " << std::left << std::setw(8) << "Code"
+           << std::setw(25) << "Name"
+           << std::setw(10) << "Players"
+           << std::setw(12) << "State"
+           << std::setw(10) << "Private"
+           << std::setw(15) << "Host" << " ║";
+    output.lines.push_back(header.str());
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
+
+    size_t lineIdx = output.lines.size();
+
+    for (const auto* room : rooms) {
+        std::string stateStr;
+        switch (room->getState()) {
+            case domain::entities::Room::State::Waiting: stateStr = "Waiting"; break;
+            case domain::entities::Room::State::Starting: stateStr = "Starting"; break;
+            case domain::entities::Room::State::InGame: stateStr = "InGame"; break;
+            case domain::entities::Room::State::Closed: stateStr = "Closed"; break;
+        }
+
+        std::string playersStr = std::to_string(room->getPlayerCount()) + "/" +
+                                 std::to_string(room->getMaxPlayers());
+
+        // Truncate fields (UTF-8 aware)
+        std::string codeTrunc = tui::utf8::truncateWithEllipsis(room->getCode(), 7);
+        std::string nameTrunc = tui::utf8::truncateWithEllipsis(room->getName(), 24);
+        std::string hostTrunc = tui::utf8::truncateWithEllipsis(room->getHostEmail(), 14);
+
+        std::ostringstream row;
+        row << "║ " << std::left << std::setw(8) << codeTrunc
+            << std::setw(25) << nameTrunc
+            << std::setw(10) << playersStr
+            << std::setw(12) << stateStr
+            << std::setw(10) << (room->isPrivate() ? "Yes" : "No")
+            << std::setw(15) << hostTrunc << " ║";
+        output.lines.push_back(row.str());
+
+        // Column positions (after "║ ")
+        size_t col = 2;  // Start after "║ "
+
+        // Code element (8 columns)
+        tui::SelectableElement codeElem;
+        codeElem.lineIndex = lineIdx;
+        codeElem.startCol = col;
+        codeElem.endCol = col + 8;
+        codeElem.value = room->getCode();
+        codeElem.truncatedValue = codeTrunc;
+        codeElem.type = tui::ElementType::RoomCode;
+        output.elements.push_back(codeElem);
+        col += 8;
+
+        // Name element (25 columns)
+        tui::SelectableElement nameElem;
+        nameElem.lineIndex = lineIdx;
+        nameElem.startCol = col;
+        nameElem.endCol = col + 25;
+        nameElem.value = room->getName();
+        nameElem.truncatedValue = nameTrunc;
+        nameElem.type = tui::ElementType::RoomName;
+        nameElem.associatedRoomCode = room->getCode();
+        output.elements.push_back(nameElem);
+        col += 25;
+
+        // Skip Players and State (not selectable)
+        col += 10 + 12;
+
+        // Skip Private (not selectable)
+        col += 10;
+
+        // Host element (15 columns)
+        tui::SelectableElement hostElem;
+        hostElem.lineIndex = lineIdx;
+        hostElem.startCol = col;
+        hostElem.endCol = col + 15;
+        hostElem.value = room->getHostEmail();
+        hostElem.truncatedValue = hostTrunc;
+        hostElem.type = tui::ElementType::Email;
+        hostElem.associatedRoomCode = room->getCode();
+        output.elements.push_back(hostElem);
 
         lineIdx++;
     }

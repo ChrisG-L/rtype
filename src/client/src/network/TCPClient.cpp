@@ -341,6 +341,222 @@ namespace client::network
                         }
                     }
                 }
+                // Room messages
+                else if (head.type == static_cast<uint16_t>(MessageType::CreateRoomAck)) {
+                    auto ackOpt = CreateRoomAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        if (ackOpt->success) {
+                            std::string code(ackOpt->roomCode, ROOM_CODE_LEN);
+                            {
+                                std::scoped_lock lock(_mutex);
+                                _currentRoomCode = code;
+                                _isHost = true;
+                                _isReady = false;
+                            }
+                            logger->info("Room created with code: {}", code);
+                            _eventQueue.push(TCPRoomCreatedEvent{code});
+                        } else {
+                            logger->warn("Room creation failed: {}", ackOpt->message);
+                            _eventQueue.push(TCPRoomCreateFailedEvent{
+                                std::string(ackOpt->errorCode),
+                                std::string(ackOpt->message)
+                            });
+                        }
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::JoinRoomAck)) {
+                    auto ackOpt = JoinRoomAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        std::string code(ackOpt->roomCode, ROOM_CODE_LEN);
+                        std::string name(ackOpt->roomName);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _currentRoomCode = code;
+                            _roomSlotId = ackOpt->slotId;
+                            _isHost = (ackOpt->isHost != 0);
+                            _isReady = false;
+                        }
+                        logger->info("Joined room '{}' (code: {}, slot: {})", name, code, ackOpt->slotId);
+                        _eventQueue.push(TCPRoomJoinedEvent{
+                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::JoinRoomNack)) {
+                    auto nackOpt = JoinRoomNack::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (nackOpt) {
+                        logger->warn("Failed to join room: {}", nackOpt->message);
+                        _eventQueue.push(TCPRoomJoinFailedEvent{
+                            std::string(nackOpt->errorCode),
+                            std::string(nackOpt->message)
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::LeaveRoomAck)) {
+                    {
+                        std::scoped_lock lock(_mutex);
+                        _currentRoomCode.reset();
+                        _isHost = false;
+                        _isReady = false;
+                        _roomSlotId = 0;
+                    }
+                    logger->info("Left room");
+                    _eventQueue.push(TCPRoomLeftEvent{});
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::SetReadyAck)) {
+                    auto ackOpt = SetReadyAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        bool ready = (ackOpt->isReady != 0);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _isReady = ready;
+                        }
+                        logger->debug("Ready status changed to: {}", ready);
+                        _eventQueue.push(TCPReadyChangedEvent{ready});
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::StartGameAck)) {
+                    logger->info("Game start confirmed");
+                    // Game will start when we receive GameStarting with countdown=0
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::StartGameNack)) {
+                    auto nackOpt = StartGameNack::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (nackOpt) {
+                        logger->warn("Cannot start game: {}", nackOpt->message);
+                        // Could push an event here if needed
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::RoomUpdate)) {
+                    auto updateOpt = RoomUpdate::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (updateOpt) {
+                        TCPRoomUpdateEvent event;
+                        event.roomName = std::string(updateOpt->roomName);
+                        event.roomCode = std::string(updateOpt->roomCode, ROOM_CODE_LEN);
+                        event.maxPlayers = updateOpt->maxPlayers;
+                        for (uint8_t i = 0; i < updateOpt->playerCount; ++i) {
+                            const auto& ps = updateOpt->players[i];
+                            event.players.push_back(RoomPlayerInfo{
+                                ps.slotId,
+                                std::string(ps.displayName),
+                                std::string(ps.email),
+                                ps.isReady != 0,
+                                ps.isHost != 0
+                            });
+                        }
+                        logger->debug("Room update: {} players", event.players.size());
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::GameStarting)) {
+                    auto gsOpt = GameStarting::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (gsOpt) {
+                        logger->info("Game starting! Countdown: {}", gsOpt->countdownSeconds);
+                        _eventQueue.push(TCPGameStartingEvent{gsOpt->countdownSeconds});
+                    }
+                }
+                // Kick messages (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::KickPlayerAck)) {
+                    logger->info("Kick player acknowledged");
+                    _eventQueue.push(TCPKickSuccessEvent{});
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::PlayerKicked)) {
+                    auto notifOpt = PlayerKickedNotification::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (notifOpt) {
+                        std::string reason(notifOpt->reason);
+                        logger->warn("You were kicked from the room! Reason: {}", reason.empty() ? "none" : reason);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _currentRoomCode.reset();
+                            _isHost = false;
+                            _isReady = false;
+                            _roomSlotId = 0;
+                        }
+                        _eventQueue.push(TCPPlayerKickedEvent{reason});
+                    }
+                }
+                // Room Browser messages (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::BrowsePublicRoomsAck)) {
+                    auto respOpt = BrowsePublicRoomsResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (respOpt) {
+                        TCPRoomListEvent event;
+                        for (uint8_t i = 0; i < respOpt->roomCount; ++i) {
+                            const auto& entry = respOpt->rooms[i];
+                            event.rooms.push_back(RoomBrowserInfo{
+                                std::string(entry.code, ROOM_CODE_LEN),
+                                std::string(entry.name),
+                                entry.currentPlayers,
+                                entry.maxPlayers
+                            });
+                        }
+                        logger->debug("Received {} public rooms", event.rooms.size());
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::QuickJoinAck)) {
+                    // Same format as JoinRoomAck
+                    auto ackOpt = JoinRoomAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        std::string code(ackOpt->roomCode, ROOM_CODE_LEN);
+                        std::string name(ackOpt->roomName);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _currentRoomCode = code;
+                            _roomSlotId = ackOpt->slotId;
+                            _isHost = (ackOpt->isHost != 0);
+                            _isReady = false;
+                        }
+                        logger->info("Quick joined room '{}' (code: {}, slot: {})", name, code, ackOpt->slotId);
+                        _eventQueue.push(TCPRoomJoinedEvent{
+                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::QuickJoinNack)) {
+                    auto nackOpt = QuickJoinNack::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (nackOpt) {
+                        logger->warn("Quick join failed: {}", nackOpt->message);
+                        _eventQueue.push(TCPQuickJoinFailedEvent{
+                            std::string(nackOpt->errorCode),
+                            std::string(nackOpt->message)
+                        });
+                    }
+                }
+                // User Settings messages (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::GetUserSettingsAck)) {
+                    auto respOpt = GetUserSettingsResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (respOpt) {
+                        TCPUserSettingsEvent event;
+                        event.found = (respOpt->found != 0);
+                        event.colorBlindMode = std::string(respOpt->settings.colorBlindMode);
+                        event.gameSpeed = static_cast<float>(respOpt->settings.gameSpeedPercent) / 100.0f;
+                        std::memcpy(event.keyBindings.data(), respOpt->settings.keyBindings, KEY_BINDINGS_COUNT);
+                        logger->debug("Received user settings (found={})", event.found);
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::SaveUserSettingsAck)) {
+                    auto respOpt = SaveUserSettingsResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (respOpt) {
+                        logger->debug("Save settings result: success={}", respOpt->success);
+                        _eventQueue.push(TCPSaveSettingsResultEvent{
+                            respOpt->success != 0,
+                            std::string(respOpt->message)
+                        });
+                    }
+                }
 
                 _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
             }
@@ -554,6 +770,314 @@ namespace client::network
     bool TCPClient::hasSessionToken() const {
         std::scoped_lock lock(_mutex);
         return _sessionToken.has_value();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Room operations
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::createRoom(const std::string& name, uint8_t maxPlayers, bool isPrivate) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        CreateRoomRequest req;
+        std::strncpy(req.name, name.c_str(), ROOM_NAME_LEN - 1);
+        req.name[ROOM_NAME_LEN - 1] = '\0';
+        req.maxPlayers = maxPlayers;
+        req.isPrivate = isPrivate ? 1 : 0;
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::CreateRoom),
+            .payload_size = static_cast<uint32_t>(CreateRoomRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + CreateRoomRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("CreateRoom write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::joinRoomByCode(const std::string& code) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        JoinRoomByCodeRequest req;
+        std::memcpy(req.roomCode, code.c_str(), std::min(code.size(), ROOM_CODE_LEN));
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::JoinRoomByCode),
+            .payload_size = static_cast<uint32_t>(JoinRoomByCodeRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + JoinRoomByCodeRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("JoinRoomByCode write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::leaveRoom() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::LeaveRoom),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("LeaveRoom write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::setReady(bool ready) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        SetReadyRequest req;
+        req.isReady = ready ? 1 : 0;
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::SetReady),
+            .payload_size = static_cast<uint32_t>(SetReadyRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SetReadyRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("SetReady write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::startGame() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::StartGame),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("StartGame write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::kickPlayer(const std::string& email, const std::string& reason) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        KickPlayerRequest req;
+        std::strncpy(req.email, email.c_str(), MAX_EMAIL_LEN - 1);
+        req.email[MAX_EMAIL_LEN - 1] = '\0';
+        std::strncpy(req.reason, reason.c_str(), MAX_ERROR_MSG_LEN - 1);
+        req.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::KickPlayer),
+            .payload_size = static_cast<uint32_t>(KickPlayerRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + KickPlayerRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("KickPlayer write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::browsePublicRooms() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::BrowsePublicRooms),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("BrowsePublicRooms write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::quickJoin() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::QuickJoin),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("QuickJoin write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // User Settings operations (Phase 2)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::requestUserSettings() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::GetUserSettings),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("GetUserSettings write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::saveUserSettings(const UserSettingsPayload& settings) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        SaveUserSettingsRequest req;
+        req.settings = settings;
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::SaveUserSettings),
+            .payload_size = static_cast<uint32_t>(SaveUserSettingsRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SaveUserSettingsRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("SaveUserSettings write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Room state getters
+    // ═══════════════════════════════════════════════════════════════════
+
+    bool TCPClient::isInRoom() const {
+        std::scoped_lock lock(_mutex);
+        return _currentRoomCode.has_value();
+    }
+
+    std::optional<std::string> TCPClient::getCurrentRoomCode() const {
+        std::scoped_lock lock(_mutex);
+        return _currentRoomCode;
+    }
+
+    bool TCPClient::isHost() const {
+        std::scoped_lock lock(_mutex);
+        return _isHost;
+    }
+
+    bool TCPClient::isReady() const {
+        std::scoped_lock lock(_mutex);
+        return _isReady;
     }
 
 }

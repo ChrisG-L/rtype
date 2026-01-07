@@ -12,10 +12,12 @@
 #include "infrastructure/adapters/in/network/TCPAuthServer.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.hpp"
 #include "infrastructure/adapters/out/MongoIdGenerator.hpp"
 #include "infrastructure/adapters/out/SpdLogAdapter.hpp"
 #include "infrastructure/configuration/DBConfig.hpp"
 #include "infrastructure/session/SessionManager.hpp"
+#include "infrastructure/room/RoomManager.hpp"
 #include "infrastructure/cli/ServerCLI.hpp"
 #include "infrastructure/tui/LogBuffer.hpp"
 #include "infrastructure/logging/Logger.hpp"
@@ -33,9 +35,11 @@ namespace infrastructure::bootstrap {
                 using adapters::in::network::TCPAuthServer;
                 using adapters::out::persistence::MongoDBConfiguration;
                 using adapters::out::persistence::MongoDBUserRepository;
+                using adapters::out::persistence::MongoDBUserSettingsRepository;
                 using adapters::out::MongoIdGenerator;
                 using adapters::out::SpdLogAdapter;
                 using session::SessionManager;
+                using room::RoomManager;
 
                 // Create LogBuffer first (before Logger init)
                 auto logBuffer = std::make_shared<tui::LogBuffer>();
@@ -62,6 +66,7 @@ namespace infrastructure::bootstrap {
                 // Initialize MongoDB
                 auto mongoConfig = std::make_shared<MongoDBConfiguration>(dbConfig);
                 auto userRepo = std::make_shared<MongoDBUserRepository>(mongoConfig);
+                auto userSettingsRepo = std::make_shared<MongoDBUserSettingsRepository>(mongoConfig);
 
                 // Create adapters for ports
                 auto idGenerator = std::make_shared<MongoIdGenerator>();
@@ -70,8 +75,11 @@ namespace infrastructure::bootstrap {
                 // Create shared SessionManager for TCP and UDP servers
                 auto sessionManager = std::make_shared<SessionManager>();
 
+                // Create shared RoomManager for room/lobby management
+                auto roomManager = std::make_shared<RoomManager>();
+
                 // Start TCP Auth Server on port 4125
-                TCPAuthServer tcpAuthServer(io_ctx, userRepo, idGenerator, logger, sessionManager);
+                TCPAuthServer tcpAuthServer(io_ctx, userRepo, userSettingsRepo, idGenerator, logger, sessionManager, roomManager);
                 tcpAuthServer.start();
 
                 // Start UDP Game Server on port 4124 (shares SessionManager with TCP)
@@ -82,7 +90,7 @@ namespace infrastructure::bootstrap {
                 mainLogger->info("Appuyez sur Ctrl+C pour arrêter le serveur proprement.");
 
                 // Start CLI with TUI support
-                cli::ServerCLI serverCLI(sessionManager, udpServer, logBuffer, userRepo);
+                cli::ServerCLI serverCLI(sessionManager, udpServer, logBuffer, userRepo, roomManager);
 
                 // Set shutdown callback so CLI can stop the server via exit/quit commands
                 serverCLI.setShutdownCallback([&]() {

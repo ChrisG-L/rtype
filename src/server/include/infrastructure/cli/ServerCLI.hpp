@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <memory>
 #include "infrastructure/session/SessionManager.hpp"
+#include "infrastructure/room/RoomManager.hpp"
 #include "infrastructure/tui/LogBuffer.hpp"
 #include "infrastructure/tui/TerminalUI.hpp"
 #include "infrastructure/tui/InteractiveOutput.hpp"
@@ -29,13 +30,15 @@ namespace infrastructure::cli {
 using session::SessionManager;
 using adapters::in::network::UDPServer;
 using application::ports::out::persistence::IUserRepository;
+using room::RoomManager;
 
 class ServerCLI {
 public:
     ServerCLI(std::shared_ptr<SessionManager> sessionManager,
               UDPServer& udpServer,
               std::shared_ptr<tui::LogBuffer> logBuffer,
-              std::shared_ptr<IUserRepository> userRepository = nullptr);
+              std::shared_ptr<IUserRepository> userRepository = nullptr,
+              std::shared_ptr<RoomManager> roomManager = nullptr);
     ~ServerCLI();
 
     // Start the CLI in a background thread
@@ -62,6 +65,8 @@ private:
     void unbanUser(const std::string& args);
     void listBans();
     void listUsers();
+    void listRooms();
+    void showRoom(const std::string& args);
     void toggleLogs(const std::string& args);
     void toggleDebug(const std::string& args);
     void enterZoomMode();
@@ -72,6 +77,7 @@ private:
     tui::InteractiveOutput buildSessionsInteractiveOutput();
     tui::InteractiveOutput buildBansInteractiveOutput();
     tui::InteractiveOutput buildUsersInteractiveOutput();
+    tui::InteractiveOutput buildRoomsInteractiveOutput();
 
     // Interact action handler
     void handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element);
@@ -86,6 +92,7 @@ private:
     UDPServer& _udpServer;
     std::shared_ptr<tui::LogBuffer> _logBuffer;
     std::shared_ptr<IUserRepository> _userRepository;
+    std::shared_ptr<RoomManager> _roomManager;
     std::unique_ptr<tui::TerminalUI> _terminalUI;
 
     std::jthread _cliThread;
