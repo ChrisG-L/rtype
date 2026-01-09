@@ -220,7 +220,7 @@ void ServerCLI::printHelp() {
     output("║ debug <on|off>       - Enable/disable debug logs             ║");
     output("║ zoom                 - Full-screen log view (ESC to exit)    ║");
     output("║ interact [cmd]       - Navigate output (sessions/bans/users/ ║");
-    output("║                        rooms)                                ║");
+    output("║                        rooms/room <code>)                    ║");
     output("║ quit/exit            - Stop the server                       ║");
     output("╠══════════════════════════════════════════════════════════════╣");
     output("║                      KEYBOARD SHORTCUTS                      ║");
@@ -738,7 +738,7 @@ void ServerCLI::showRoom(const std::string& args) {
     output(oss.str());
 
     output("╠═════════════════════════════════════════════════════════════════╣");
-    output("║                           PLAYERS                               ║");
+    output("║                             PLAYERS                             ║");
     output("╠═════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream playerHeader;
@@ -746,7 +746,7 @@ void ServerCLI::showRoom(const std::string& args) {
                  << std::setw(20) << "Display Name"
                  << std::setw(10) << "Ready"
                  << std::setw(10) << "Host"
-                 << std::setw(18) << "Email" << " ║";
+                 << std::setw(18) << "Email" << "║";
     output(playerHeader.str());
     output("╠═════════════════════════════════════════════════════════════════╣");
 
@@ -761,7 +761,7 @@ void ServerCLI::showRoom(const std::string& args) {
                       << std::setw(20) << nameTrunc
                       << std::setw(10) << (slots[i].isReady ? "Yes" : "No")
                       << std::setw(10) << (slots[i].isHost ? "Yes" : "No")
-                      << std::setw(18) << emailTrunc << " ║";
+                      << std::setw(18) << emailTrunc << "║";
             output(playerRow.str());
         }
     }
@@ -796,6 +796,13 @@ void ServerCLI::showRoom(const std::string& args) {
 
     output("╚═════════════════════════════════════════════════════════════════╝");
     output("");
+
+    // Store interactive output for interact mode
+    _lastInteractiveOutput = buildRoomDetailsInteractiveOutput(args);
+    _lastCommand = "room";
+    if (_terminalUI) {
+        _terminalUI->setInteractiveOutput(_lastInteractiveOutput);
+    }
 }
 
 void ServerCLI::closeRoom(const std::string& args) {
@@ -894,9 +901,17 @@ void ServerCLI::enterInteractMode(const std::string& args) {
             listUsers();
         } else if (args == "rooms") {
             listRooms();
+        } else if (args.rfind("room ", 0) == 0) {
+            // "room <code>" - show specific room details
+            std::string roomCode = args.substr(5);
+            if (roomCode.empty()) {
+                output("[CLI] Usage: interact room <code>");
+                return;
+            }
+            showRoom(roomCode);
         } else {
             output("[CLI] Unknown interact target: " + args);
-            output("[CLI] Valid targets: sessions, bans, users, rooms");
+            output("[CLI] Valid targets: sessions, bans, users, rooms, room <code>");
             return;
         }
     }
@@ -1323,6 +1338,201 @@ tui::InteractiveOutput ServerCLI::buildRoomsInteractiveOutput() {
     }
 
     output.lines.push_back("╚══════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("");
+
+    return output;
+}
+
+tui::InteractiveOutput ServerCLI::buildRoomDetailsInteractiveOutput(const std::string& roomCode) {
+    tui::InteractiveOutput output;
+    output.sourceCommand = "room";
+
+    if (!_roomManager) return output;
+
+    auto* room = _roomManager->getRoomByCode(roomCode);
+    if (!room) return output;
+
+    size_t lineIdx = 0;
+
+    // State string
+    std::string stateStr;
+    switch (room->getState()) {
+        case domain::entities::Room::State::Waiting: stateStr = "Waiting"; break;
+        case domain::entities::Room::State::Starting: stateStr = "Starting"; break;
+        case domain::entities::Room::State::InGame: stateStr = "InGame"; break;
+        case domain::entities::Room::State::Closed: stateStr = "Closed"; break;
+    }
+
+    // Lines 0-3: Header
+    output.lines.push_back("");
+    output.lines.push_back("╔═════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                         ROOM DETAILS                            ║");
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    lineIdx = 4;
+
+    // Line 4: Code (selectable - RoomCode)
+    std::ostringstream oss;
+    oss << "║ Code:       " << std::left << std::setw(52) << room->getCode() << "║";
+    output.lines.push_back(oss.str());
+
+    tui::SelectableElement codeElem;
+    codeElem.lineIndex = lineIdx;
+    codeElem.startCol = 14;  // After "║ Code:       "
+    codeElem.endCol = 14 + 52;
+    codeElem.value = room->getCode();
+    codeElem.truncatedValue = room->getCode();
+    codeElem.type = tui::ElementType::RoomCode;
+    output.elements.push_back(codeElem);
+    lineIdx++;
+
+    // Line 5: Name (not selectable)
+    oss.str("");
+    oss << "║ Name:       " << std::left << std::setw(52) << room->getName() << "║";
+    output.lines.push_back(oss.str());
+    lineIdx++;
+
+    // Line 6: Host (selectable - Email)
+    std::string hostTrunc = tui::utf8::truncateWithEllipsis(room->getHostEmail(), 51);
+    oss.str("");
+    oss << "║ Host:       " << std::left << std::setw(52) << hostTrunc << "║";
+    output.lines.push_back(oss.str());
+
+    tui::SelectableElement hostElem;
+    hostElem.lineIndex = lineIdx;
+    hostElem.startCol = 14;
+    hostElem.endCol = 14 + 52;
+    hostElem.value = room->getHostEmail();
+    hostElem.truncatedValue = hostTrunc;
+    hostElem.type = tui::ElementType::Email;
+    hostElem.associatedRoomCode = room->getCode();
+    output.elements.push_back(hostElem);
+    lineIdx++;
+
+    // Line 7: Players count (not selectable)
+    std::string playersStr = std::to_string(room->getPlayerCount()) + "/" +
+                             std::to_string(room->getMaxPlayers());
+    oss.str("");
+    oss << "║ Players:    " << std::left << std::setw(52) << playersStr << "║";
+    output.lines.push_back(oss.str());
+    lineIdx++;
+
+    // Line 8: State (not selectable)
+    oss.str("");
+    oss << "║ State:      " << std::left << std::setw(52) << stateStr << "║";
+    output.lines.push_back(oss.str());
+    lineIdx++;
+
+    // Line 9: Private (not selectable)
+    oss.str("");
+    oss << "║ Private:    " << std::left << std::setw(52) << (room->isPrivate() ? "Yes" : "No") << "║";
+    output.lines.push_back(oss.str());
+    lineIdx++;
+
+    // Players section header
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("║                             PLAYERS                             ║");
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    lineIdx += 3;
+
+    // Player table header
+    std::ostringstream playerHeader;
+    playerHeader << "║ " << std::left << std::setw(6) << "Slot"
+                 << std::setw(20) << "Display Name"
+                 << std::setw(10) << "Ready"
+                 << std::setw(10) << "Host"
+                 << std::setw(18) << "Email" << "║";
+    output.lines.push_back(playerHeader.str());
+    lineIdx++;
+
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    lineIdx++;
+
+    // Player rows (selectable: DisplayName and Email)
+    const auto& slots = room->getSlots();
+    for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
+        if (slots[i].occupied) {
+            std::string nameTrunc = tui::utf8::truncateWithEllipsis(slots[i].displayName, 19);
+            std::string emailTrunc = tui::utf8::truncateWithEllipsis(slots[i].email, 17);
+
+            std::ostringstream playerRow;
+            playerRow << "║ " << std::left << std::setw(6) << i
+                      << std::setw(20) << nameTrunc
+                      << std::setw(10) << (slots[i].isReady ? "Yes" : "No")
+                      << std::setw(10) << (slots[i].isHost ? "Yes" : "No")
+                      << std::setw(18) << emailTrunc << "║";
+            output.lines.push_back(playerRow.str());
+
+            // Column positions: "║ " = 2, Slot = 6, DisplayName = 20, Ready = 10, Host = 10, Email = 18
+            size_t col = 2;
+
+            // Slot (not selectable)
+            col += 6;
+
+            // DisplayName (selectable)
+            tui::SelectableElement nameElem;
+            nameElem.lineIndex = lineIdx;
+            nameElem.startCol = col;
+            nameElem.endCol = col + 20;
+            nameElem.value = slots[i].displayName;
+            nameElem.truncatedValue = nameTrunc;
+            nameElem.type = tui::ElementType::DisplayName;
+            nameElem.associatedEmail = slots[i].email;
+            nameElem.associatedRoomCode = room->getCode();
+            output.elements.push_back(nameElem);
+            col += 20;
+
+            // Ready (not selectable)
+            col += 10;
+
+            // Host (not selectable)
+            col += 10;
+
+            // Email (selectable)
+            tui::SelectableElement emailElem;
+            emailElem.lineIndex = lineIdx;
+            emailElem.startCol = col;
+            emailElem.endCol = col + 18;
+            emailElem.value = slots[i].email;
+            emailElem.truncatedValue = emailTrunc;
+            emailElem.type = tui::ElementType::Email;
+            emailElem.associatedRoomCode = room->getCode();
+            output.elements.push_back(emailElem);
+
+            lineIdx++;
+        }
+    }
+
+    // Chat history section (not selectable)
+    const auto& chatHistory = room->getChatHistory();
+    if (!chatHistory.empty()) {
+        output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+        output.lines.push_back("║                        CHAT HISTORY                             ║");
+        output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+        lineIdx += 3;
+
+        size_t startIdx = chatHistory.size() > 10 ? chatHistory.size() - 10 : 0;
+        for (size_t i = startIdx; i < chatHistory.size(); ++i) {
+            const auto& msg = chatHistory[i];
+            std::string senderTrunc = tui::utf8::truncateWithEllipsis(msg.displayName, 12);
+            std::string msgTrunc = tui::utf8::truncateWithEllipsis(msg.message, 48);
+
+            std::ostringstream chatRow;
+            chatRow << "║ " << std::left << std::setw(14) << ("[" + senderTrunc + "]")
+                    << std::setw(50) << msgTrunc << " ║";
+            output.lines.push_back(chatRow.str());
+            lineIdx++;
+        }
+
+        if (startIdx > 0) {
+            std::ostringstream moreRow;
+            moreRow << "║ " << std::left << std::setw(62)
+                    << ("... " + std::to_string(startIdx) + " more message(s)") << " ║";
+            output.lines.push_back(moreRow.str());
+            lineIdx++;
+        }
+    }
+
+    output.lines.push_back("╚═════════════════════════════════════════════════════════════════╝");
     output.lines.push_back("");
 
     return output;

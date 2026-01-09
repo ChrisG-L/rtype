@@ -111,8 +111,8 @@ void GameScene::handleEvent(const events::Event& event)
         auto& key = std::get<events::KeyPressed>(event);
         _keysPressed.insert(key.key);
 
-        // If kicked, any key returns to main menu
-        if (_wasKicked && _sceneManager) {
+        // If kicked or dead, any key returns to main menu
+        if ((_wasKicked || _context.udpClient->isLocalPlayerDead()) && _sceneManager) {
             _sceneManager->changeScene(std::make_unique<MainMenuScene>());
             return;
         }
@@ -448,19 +448,24 @@ void GameScene::renderEnemyMissiles()
 
 void GameScene::renderDeathScreen()
 {
-    _context.window->drawRect(0, 0, SCREEN_WIDTH + 20, SCREEN_HEIGHT + 20, {0, 0, 0, 180});
+    _context.window->drawRect(0, 0, SCREEN_WIDTH + 20, SCREEN_HEIGHT + 20, {0, 0, 0, 200});
 
     const std::string gameOverText = "GAME OVER";
-    float textX = SCREEN_WIDTH / 2.0f - 100.0f;
-    float textY = SCREEN_HEIGHT / 2.0f - 50.0f;
+    float textX = SCREEN_WIDTH / 2.0f - 110.0f;
+    float textY = SCREEN_HEIGHT / 2.0f - 70.0f;
 
     if (_assetsLoaded) {
         _context.window->drawText(FONT_KEY, gameOverText, textX, textY, 48, {255, 50, 50, 255});
 
         const std::string instructionText = "You have been eliminated";
-        float instrX = SCREEN_WIDTH / 2.0f - 120.0f;
-        float instrY = textY + 80.0f;
+        float instrX = SCREEN_WIDTH / 2.0f - 140.0f;
+        float instrY = textY + 70.0f;
         _context.window->drawText(FONT_KEY, instructionText, instrX, instrY, 24, {200, 200, 200, 255});
+
+        const std::string hintText = "Press any key to return to menu";
+        float hintX = SCREEN_WIDTH / 2.0f - 150.0f;
+        float hintY = instrY + 50.0f;
+        _context.window->drawText(FONT_KEY, hintText, hintX, hintY, 18, {150, 150, 150, 255});
     } else {
         _context.window->drawRect(textX, textY, 200.0f, 60.0f, {255, 50, 50, 255});
     }

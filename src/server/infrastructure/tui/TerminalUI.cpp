@@ -436,6 +436,7 @@ void TerminalUI::setInteractiveOutput(InteractiveOutput output) {
     _interactOutput = std::move(output);
     _interactSelectedIndex = 0;
     _interactScrollOffset = 0;
+    _needsRefresh = true;
 }
 
 void TerminalUI::enterInteractMode() {
@@ -469,139 +470,164 @@ const SelectableElement* TerminalUI::getSelectedElement() const {
 }
 
 void TerminalUI::processInteractKeyInput(int ch) {
-    std::lock_guard<std::mutex> lock(_interactMutex);
+    InteractAction pendingAction = InteractAction::None;
 
-    switch (ch) {
-        case KEY_ESCAPE:
-            exitInteractMode();
-            break;
+    {
+        std::lock_guard<std::mutex> lock(_interactMutex);
 
-        case KEY_LEFT:
-            // Navigate to previous element
-            if (_interactSelectedIndex > 0) {
-                _interactSelectedIndex--;
+        switch (ch) {
+            case KEY_ESCAPE:
+                exitInteractMode();
+                break;
+
+            case KEY_LEFT:
+                // Navigate to previous element
+                if (_interactSelectedIndex > 0) {
+                    _interactSelectedIndex--;
+                    _needsRefresh = true;
+                }
+                break;
+
+            case KEY_RIGHT:
+                // Navigate to next element
+                if (_interactSelectedIndex + 1 < _interactOutput.elements.size()) {
+                    _interactSelectedIndex++;
+                    _needsRefresh = true;
+                }
+                break;
+
+            case KEY_UP:
+                // Scroll up
+                if (_interactScrollOffset > 0) {
+                    _interactScrollOffset--;
+                    _needsRefresh = true;
+                }
+                break;
+
+            case KEY_DOWN:
+                // Scroll down
+                _interactScrollOffset++;
                 _needsRefresh = true;
-            }
-            break;
+                break;
 
-        case KEY_RIGHT:
-            // Navigate to next element
-            if (_interactSelectedIndex + 1 < _interactOutput.elements.size()) {
-                _interactSelectedIndex++;
+            case KEY_PAGE_UP: {
+                auto termSize = TerminalRenderer::getTerminalSize();
+                size_t pageSize = termSize.rows / 2;
+                if (_interactScrollOffset >= pageSize) {
+                    _interactScrollOffset -= pageSize;
+                } else {
+                    _interactScrollOffset = 0;
+                }
                 _needsRefresh = true;
+                break;
             }
-            break;
 
-        case KEY_UP:
-            // Scroll up
-            if (_interactScrollOffset > 0) {
-                _interactScrollOffset--;
+            case KEY_PAGE_DOWN: {
+                auto termSize = TerminalRenderer::getTerminalSize();
+                _interactScrollOffset += termSize.rows / 2;
                 _needsRefresh = true;
+                break;
             }
-            break;
 
-        case KEY_DOWN:
-            // Scroll down
-            _interactScrollOffset++;
-            _needsRefresh = true;
-            break;
+            case 'b':
+            case 'B':
+                pendingAction = InteractAction::Ban;
+                break;
 
-        case KEY_PAGE_UP: {
-            auto termSize = TerminalRenderer::getTerminalSize();
-            size_t pageSize = termSize.rows / 2;
-            if (_interactScrollOffset >= pageSize) {
-                _interactScrollOffset -= pageSize;
-            } else {
-                _interactScrollOffset = 0;
-            }
-            _needsRefresh = true;
-            break;
+            case 'k':
+            case 'K':
+                pendingAction = InteractAction::Kick;
+                break;
+
+            case 'c':
+            case 'C':
+                pendingAction = InteractAction::Copy;
+                break;
+
+            case 'u':
+            case 'U':
+                pendingAction = InteractAction::Unban;
+                break;
+
+            case 'x':
+            case 'X':
+                pendingAction = InteractAction::Close;
+                break;
+
+            case 'd':
+            case 'D':
+                pendingAction = InteractAction::Details;
+                break;
+
+            case '\n':
+            case '\r':
+                pendingAction = InteractAction::Insert;
+                break;
         }
+    }
 
-        case KEY_PAGE_DOWN: {
-            auto termSize = TerminalRenderer::getTerminalSize();
-            _interactScrollOffset += termSize.rows / 2;
-            _needsRefresh = true;
-            break;
-        }
-
-        case 'b':
-        case 'B':
-            executeInteractAction(InteractAction::Ban);
-            break;
-
-        case 'k':
-        case 'K':
-            executeInteractAction(InteractAction::Kick);
-            break;
-
-        case 'c':
-        case 'C':
-            executeInteractAction(InteractAction::Copy);
-            break;
-
-        case 'u':
-        case 'U':
-            executeInteractAction(InteractAction::Unban);
-            break;
-
-        case 'x':
-        case 'X':
-            executeInteractAction(InteractAction::Close);
-            break;
-
-        case 'd':
-        case 'D':
-            executeInteractAction(InteractAction::Details);
-            break;
-
-        case '\n':
-        case '\r':
-            executeInteractAction(InteractAction::Insert);
-            break;
+    // Execute action outside the lock to avoid deadlock when callback modifies state
+    if (pendingAction != InteractAction::None) {
+        executeInteractAction(pendingAction);
     }
 }
 
 void TerminalUI::executeInteractAction(InteractAction action) {
-    const auto* element = _interactOutput.getElement(_interactSelectedIndex);
-    if (!element) return;
-
-    // Check if action is valid for this element type
+    SelectableElement elementCopy;
+    InteractActionCallback callbackCopy;
     bool valid = false;
-    switch (action) {
-        case InteractAction::Ban:
-            valid = (element->type == ElementType::Email);
-            break;
-        case InteractAction::Kick:
-            // Kick by email - works for any Email element or element with associatedEmail
-            valid = (element->type == ElementType::Email ||
-                     element->associatedEmail.has_value());
-            break;
-        case InteractAction::Unban:
-            valid = (element->type == ElementType::Email);
-            break;
-        case InteractAction::Close:
-        case InteractAction::Details:
-            valid = (element->type == ElementType::RoomCode);
-            break;
-        case InteractAction::Copy:
-        case InteractAction::Insert:
-            valid = true;  // Always available
-            break;
-        default:
-            break;
+    bool shouldExit = false;
+
+    {
+        std::lock_guard<std::mutex> lock(_interactMutex);
+
+        const auto* element = _interactOutput.getElement(_interactSelectedIndex);
+        if (!element) return;
+
+        // Copy element and callback for use outside lock
+        elementCopy = *element;
+        callbackCopy = _interactCallback;
+
+        // Check if action is valid for this element type
+        switch (action) {
+            case InteractAction::Ban:
+                valid = (elementCopy.type == ElementType::Email);
+                break;
+            case InteractAction::Kick:
+                // Kick by email - works for any Email element or element with associatedEmail
+                valid = (elementCopy.type == ElementType::Email ||
+                         elementCopy.associatedEmail.has_value());
+                break;
+            case InteractAction::Unban:
+                valid = (elementCopy.type == ElementType::Email);
+                break;
+            case InteractAction::Close:
+            case InteractAction::Details:
+                valid = (elementCopy.type == ElementType::RoomCode);
+                break;
+            case InteractAction::Copy:
+            case InteractAction::Insert:
+                valid = true;  // Always available
+                break;
+            default:
+                break;
+        }
+
+        if (!valid) return;
+
+        // Determine if we should exit after action
+        shouldExit = (action == InteractAction::Ban || action == InteractAction::Kick ||
+                      action == InteractAction::Unban || action == InteractAction::Close);
     }
 
-    if (!valid) return;
-
-    // Execute callback if set
-    if (_interactCallback) {
-        _interactCallback(action, *element);
+    // Execute callback outside the lock to avoid deadlock
+    if (callbackCopy) {
+        callbackCopy(action, elementCopy);
     }
 
     // Exit interact mode after Ban/Kick/Unban/Close actions
-    if (action == InteractAction::Ban || action == InteractAction::Kick ||
-        action == InteractAction::Unban || action == InteractAction::Close) {
+    if (shouldExit) {
+        std::lock_guard<std::mutex> lock(_interactMutex);
         exitInteractMode();
     }
 }

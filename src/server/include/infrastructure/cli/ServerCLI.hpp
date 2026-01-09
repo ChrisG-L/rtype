@@ -80,6 +80,7 @@ private:
     tui::InteractiveOutput buildBansInteractiveOutput();
     tui::InteractiveOutput buildUsersInteractiveOutput();
     tui::InteractiveOutput buildRoomsInteractiveOutput();
+    tui::InteractiveOutput buildRoomDetailsInteractiveOutput(const std::string& roomCode);
 
     // Interact action handler
     void handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element);
