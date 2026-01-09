@@ -41,10 +41,30 @@ class SFMLWindow: public graphics::IWindow {
         void clear() override;
         void display() override;
 
+        // Post-processing shader support
+        bool loadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) override;
+        void setPostProcessShader(const std::string& key) override;
+        void clearPostProcessShader() override;
+        void setShaderUniform(const std::string& name, int value) override;
+        bool supportsShaders() const override;
+
+        // Frame management with post-processing
+        void beginFrame() override;
+        void endFrame() override;
+
     private:
         sf::RenderWindow _window;
         std::unordered_map<std::string, sf::Texture> _textures;
         std::unordered_map<std::string, sf::Font> _fonts;
+
+        // Post-processing pipeline
+        sf::RenderTexture _renderTexture;
+        std::unordered_map<std::string, sf::Shader> _shaders;
+        sf::Shader* _activePostProcessShader = nullptr;
+        bool _renderTextureInitialized = false;
+
+        void initRenderTexture();
+        sf::RenderTarget& getRenderTarget();
 };
 
 #endif /* !SFMLWINDOW_HPP_ */

@@ -25,6 +25,7 @@ void Boot::parseArgs(int argc, char* argv[])
 
         if (arg == "--help" || arg == "-h") {
             printHelp();
+            client::logging::Logger::shutdown();
             std::exit(0);
         }
         else if (arg.starts_with("--graphics=")) {
@@ -47,8 +48,8 @@ void Boot::printHelp() const
               << "  --graphics-path=<path>  Full path to a custom graphics plugin\n"
               << "  -h, --help              Show this help message\n\n"
               << "Examples:\n"
-              << "  rtype_client                          # Uses SDL2 (default)\n"
-              << "  rtype_client --graphics=sfml          # Uses SFML backend\n"
+              << "  rtype_client                          # Uses SFML (default)\n"
+              << "  rtype_client --graphics=sdl2          # Uses SDL2 backend\n"
               << "  rtype_client --graphics-path=./my_plugin.so  # Custom plugin\n";
 }
 

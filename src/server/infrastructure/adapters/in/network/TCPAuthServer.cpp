@@ -56,6 +56,11 @@ namespace infrastructure::adapters::in::network {
                 logger->debug("Player removed from room for email: {}", email);
             }
 
+            // Unregister kicked callback from SessionManager
+            if (_sessionManager) {
+                _sessionManager->unregisterKickedCallback(email);
+            }
+
             // Remove from SessionManager (cleans up token and allows re-login)
             if (_sessionManager) {
                 _sessionManager->removeSession(email);
@@ -363,6 +368,23 @@ namespace infrastructure::adapters::in::network {
                             [weakSelf](const ChatMessagePayload& msg) {
                                 if (auto self = weakSelf.lock()) {
                                     self->do_write_chat_message(msg);
+                                }
+                            }
+                        );
+                    }
+
+                    // Register kicked callback in SessionManager for in-game kicks
+                    if (_sessionManager) {
+                        auto weakSelf = weak_from_this();
+                        _sessionManager->registerKickedCallback(
+                            email,
+                            [weakSelf](const std::string& reason) {
+                                if (auto self = weakSelf.lock()) {
+                                    PlayerKickedNotification notif;
+                                    std::memset(notif.reason, 0, MAX_ERROR_MSG_LEN);
+                                    std::strncpy(notif.reason, reason.c_str(),
+                                                 MAX_ERROR_MSG_LEN - 1);
+                                    self->do_write_player_kicked(notif);
                                 }
                             }
                         );

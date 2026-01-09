@@ -323,3 +323,37 @@ void SDL2Window::display()
 {
     SDL_RenderPresent(_renderer);
 }
+
+// Post-processing shader stubs (not supported in SDL2)
+
+bool SDL2Window::loadShader(const std::string& /*key*/, const std::string& /*vertexPath*/, const std::string& /*fragmentPath*/)
+{
+    return false;
+}
+
+void SDL2Window::setPostProcessShader(const std::string& /*key*/)
+{
+}
+
+void SDL2Window::clearPostProcessShader()
+{
+}
+
+void SDL2Window::setShaderUniform(const std::string& /*name*/, int /*value*/)
+{
+}
+
+bool SDL2Window::supportsShaders() const
+{
+    return false;
+}
+
+void SDL2Window::beginFrame()
+{
+    clear();
+}
+
+void SDL2Window::endFrame()
+{
+    display();
+}

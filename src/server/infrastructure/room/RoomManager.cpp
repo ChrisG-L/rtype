@@ -517,7 +517,8 @@ std::optional<RoomManager::KickResult> RoomManager::kickPlayer(
     // Notify the kicked player (outside lock)
     if (kickedCallback) {
         PlayerKickedNotification notif;
-        std::strncpy(notif.reason, reason.c_str(), MAX_ERROR_MSG_LEN);
+        std::string reasonStr = reason.empty() ? "Kicked by room host" : reason;
+        std::strncpy(notif.reason, reasonStr.c_str(), MAX_ERROR_MSG_LEN);
         notif.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
         kickedCallback(notif);
     }

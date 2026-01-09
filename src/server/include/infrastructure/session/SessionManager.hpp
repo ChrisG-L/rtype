@@ -15,6 +15,7 @@
 #include <mutex>
 #include <chrono>
 #include <random>
+#include <functional>
 #include "Protocol.hpp"
 
 namespace infrastructure::session {
@@ -40,6 +41,9 @@ struct BannedUser {
     std::string email;
     std::string displayName;  // Captured at ban time (may be empty if unknown)
 };
+
+// Callback type for kick notifications (used by TCP sessions)
+using KickedCallback = std::function<void(const std::string& reason)>;
 
 class SessionManager {
 public:
@@ -89,6 +93,12 @@ public:
     // Gets playerId by endpoint (quick lookup for message handling)
     std::optional<uint8_t> getPlayerIdByEndpoint(const std::string& endpoint);
 
+    // Gets email by playerId (for kick system - reverse lookup)
+    std::optional<std::string> getEmailByPlayerId(uint8_t playerId) const;
+
+    // Gets session by email (returns copy)
+    std::optional<Session> getSessionByEmail(const std::string& email) const;
+
     // ═══════════════════════════════════════════════════════════════════
     // Lifecycle management
     // ═══════════════════════════════════════════════════════════════════
@@ -99,6 +109,10 @@ public:
     // Removes a session (voluntary disconnect or timeout)
     void removeSession(const std::string& email);
     void removeSessionByEndpoint(const std::string& endpoint);
+
+    // Clears UDP binding but keeps TCP session active (for kick from game)
+    // This allows the player to rejoin a new room after being kicked
+    void clearUDPBinding(const std::string& endpoint);
 
     // Cleans up expired sessions, returns playerIds of removed sessions
     std::vector<uint8_t> cleanupExpiredSessions();
@@ -131,6 +145,20 @@ public:
     // Get all banned users (with display names)
     std::vector<BannedUser> getBannedUsers() const;
 
+    // ═══════════════════════════════════════════════════════════════════
+    // In-game kick system (for kicking players during gameplay via TCP)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Register a callback for when this player is kicked (called by TCP Session)
+    void registerKickedCallback(const std::string& email, KickedCallback callback);
+
+    // Unregister the kicked callback (called when TCP Session closes)
+    void unregisterKickedCallback(const std::string& email);
+
+    // Kick a player by email - calls the registered callback with reason
+    // Returns true if the player was found and notified, false otherwise
+    bool kickPlayerByEmail(const std::string& email, const std::string& reason);
+
 private:
     mutable std::mutex _mutex;
 
@@ -145,6 +173,9 @@ private:
 
     // Banned users (email -> BannedUser)
     std::unordered_map<std::string, BannedUser> _bannedUsers;
+
+    // Kick callbacks (email -> callback) for in-game kick notifications
+    std::unordered_map<std::string, KickedCallback> _kickedCallbacks;
 
     // Generates a cryptographically random token
     SessionToken generateToken();

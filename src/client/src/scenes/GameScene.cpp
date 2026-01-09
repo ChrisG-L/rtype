@@ -136,14 +136,9 @@ void GameScene::processUDPEvents()
     if (!_context.udpClient) return;
 
     while (auto eventOpt = _context.udpClient->pollEvent()) {
-        std::visit([this](auto&& event) {
-            using T = std::decay_t<decltype(event)>;
-
-            if constexpr (std::is_same_v<T, client::network::UDPKickedEvent>) {
-                client::logging::Logger::getSceneLogger()->warn("Kicked from game!");
-                _wasKicked = true;
-            }
-            // Other events are handled by UDPClient internally
+        std::visit([this]([[maybe_unused]] auto&& event) {
+            // UDP events are handled by UDPClient internally
+            // Kick notifications are now handled via TCP (TCPPlayerKickedEvent)
         }, *eventOpt);
     }
 }
@@ -477,19 +472,27 @@ void GameScene::renderKickedScreen()
 
     const std::string kickedText = "KICKED";
     float textX = SCREEN_WIDTH / 2.0f - 80.0f;
-    float textY = SCREEN_HEIGHT / 2.0f - 50.0f;
+    float textY = SCREEN_HEIGHT / 2.0f - 70.0f;
 
     if (_assetsLoaded) {
         _context.window->drawText(FONT_KEY, kickedText, textX, textY, 48, {255, 150, 50, 255});
 
         const std::string instructionText = "You have been kicked from the game";
         float instrX = SCREEN_WIDTH / 2.0f - 180.0f;
-        float instrY = textY + 80.0f;
+        float instrY = textY + 70.0f;
         _context.window->drawText(FONT_KEY, instructionText, instrX, instrY, 24, {200, 200, 200, 255});
+
+        // Display kick reason if available
+        if (!_kickReason.empty()) {
+            std::string reasonText = "Reason: " + _kickReason;
+            float reasonX = SCREEN_WIDTH / 2.0f - 150.0f;
+            float reasonY = instrY + 40.0f;
+            _context.window->drawText(FONT_KEY, reasonText, reasonX, reasonY, 20, {255, 200, 100, 255});
+        }
 
         const std::string hintText = "Press any key to return to menu";
         float hintX = SCREEN_WIDTH / 2.0f - 150.0f;
-        float hintY = textY + 130.0f;
+        float hintY = _kickReason.empty() ? (instrY + 50.0f) : (instrY + 90.0f);
         _context.window->drawText(FONT_KEY, hintText, hintX, hintY, 18, {150, 150, 150, 255});
     } else {
         _context.window->drawRect(textX, textY, 160.0f, 60.0f, {255, 150, 50, 255});
@@ -550,6 +553,13 @@ void GameScene::processTCPEvents()
                     event.message,
                     event.timestamp
                 });
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPPlayerKickedEvent>) {
+                // We were kicked from the game (via TCP with reason)
+                client::logging::Logger::getSceneLogger()->warn("Kicked from game: {}",
+                    event.reason.empty() ? "No reason given" : event.reason);
+                _wasKicked = true;
+                _kickReason = event.reason;
             }
             // Ignore other TCP events during gameplay
         }, *eventOpt);

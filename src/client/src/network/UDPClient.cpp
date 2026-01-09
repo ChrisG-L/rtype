@@ -337,7 +337,7 @@ namespace client::network
             // Check if this is our own ID (we got kicked)
             if (_localPlayerId && *_localPlayerId == plOpt->player_id) {
                 isLocalPlayer = true;
-                logger->warn("We were kicked from the game!");
+                logger->info("Received UDP PlayerLeave for self (kick notification handled via TCP)");
                 _localPlayerId = std::nullopt;
             }
 
@@ -350,9 +350,9 @@ namespace client::network
 
         logger->info("Player {} left the game", static_cast<int>(plOpt->player_id));
 
-        if (isLocalPlayer) {
-            _eventQueue.push(UDPKickedEvent{});
-        } else {
+        // Only notify for other players leaving
+        // Our own kick is handled via TCP (TCPPlayerKickedEvent with reason)
+        if (!isLocalPlayer) {
             _eventQueue.push(UDPPlayerLeftEvent{plOpt->player_id});
         }
     }

@@ -573,8 +573,9 @@ void TerminalUI::executeInteractAction(InteractAction action) {
             valid = (element->type == ElementType::Email);
             break;
         case InteractAction::Kick:
-            valid = (element->type == ElementType::PlayerId ||
-                    (element->type == ElementType::Email && element->associatedPlayerId.has_value()));
+            // Kick by email - works for any Email element or element with associatedEmail
+            valid = (element->type == ElementType::Email ||
+                     element->associatedEmail.has_value());
             break;
         case InteractAction::Unban:
             valid = (element->type == ElementType::Email);

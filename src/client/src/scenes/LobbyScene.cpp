@@ -272,8 +272,10 @@ void LobbyScene::renderChatPanel()
 bool LobbyScene::isKickButtonHovered(float playerY) const
 {
     // Kick button area: right side of player row
-    float boxX = SCREEN_WIDTH / 2 - 400;
-    float boxWidth = 800;
+    // Must match render() coordinates exactly
+    float totalWidth = 900.0f;
+    float boxX = (SCREEN_WIDTH - totalWidth) / 2;
+    float boxWidth = 500;
     float kickX = boxX + boxWidth - 100;
     float kickWidth = 60;
     float kickHeight = 30;
@@ -346,11 +348,9 @@ void LobbyScene::processTCPEvents()
                 showError(event.message);
             }
             else if constexpr (std::is_same_v<T, client::network::TCPPlayerKickedEvent>) {
-                // We were kicked from the room
-                showError("You were kicked: " + (event.reason.empty() ? "No reason given" : event.reason));
-                if (_sceneManager) {
-                    _sceneManager->changeScene(std::make_unique<MainMenuScene>());
-                }
+                // We were kicked from the room - show kick screen
+                _wasKicked = true;
+                _kickReason = event.reason;
             }
             else if constexpr (std::is_same_v<T, client::network::TCPKickSuccessEvent>) {
                 showInfo("Player kicked successfully");
@@ -423,6 +423,17 @@ void LobbyScene::handleEvent(const events::Event& event)
 {
     if (!_uiInitialized) return;
 
+    // If kicked, any key returns to main menu
+    if (_wasKicked) {
+        if (auto* keyPressed = std::get_if<events::KeyPressed>(&event)) {
+            (void)keyPressed;  // Any key works
+            if (_sceneManager) {
+                _sceneManager->changeScene(std::make_unique<MainMenuScene>());
+            }
+        }
+        return;
+    }
+
     // Track mouse position
     if (auto* mouseMoved = std::get_if<events::MouseMoved>(&event)) {
         _mouseX = static_cast<float>(mouseMoved->x);
@@ -450,6 +461,7 @@ void LobbyScene::handleEvent(const events::Event& event)
                 _mouseY = static_cast<float>(mousePressed->y);
 
                 // Check if clicking on a kick button
+                // Coordinates must match render() exactly
                 float boxY = 150;
                 float listY = boxY + 160;
                 float playerY = listY + 55;
@@ -491,8 +503,17 @@ void LobbyScene::update(float deltaTime)
     if (!_assetsLoaded) loadAssets();
     if (!_uiInitialized) initUI();
 
+    // Always process TCP events (to receive kick notification)
     processTCPEvents();
     processUDPEvents();
+
+    // If kicked, only update starfield for visual effect
+    if (_wasKicked) {
+        if (_starfield) {
+            _starfield->update(deltaTime);
+        }
+        return;
+    }
 
     if (_starfield) {
         _starfield->update(deltaTime);
@@ -529,6 +550,12 @@ void LobbyScene::render()
     // Draw stars
     if (_starfield) {
         _starfield->render(*_context.window);
+    }
+
+    // If kicked, show kick screen overlay
+    if (_wasKicked) {
+        renderKickedScreen();
+        return;
     }
 
     // Draw title
@@ -678,4 +705,34 @@ void LobbyScene::render()
     rgba connColor = (_context.tcpClient && _context.tcpClient->isConnected())
         ? rgba{100, 255, 100, 255} : rgba{255, 100, 100, 255};
     _context.window->drawText(FONT_KEY, connStatus, 20, SCREEN_HEIGHT - 40, 14, connColor);
+}
+
+void LobbyScene::renderKickedScreen()
+{
+    // Semi-transparent overlay
+    _context.window->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, {0, 0, 0, 180});
+
+    const std::string kickedText = "KICKED";
+    float textX = SCREEN_WIDTH / 2.0f - 80.0f;
+    float textY = SCREEN_HEIGHT / 2.0f - 70.0f;
+
+    _context.window->drawText(FONT_KEY, kickedText, textX, textY, 48, {255, 150, 50, 255});
+
+    const std::string instructionText = "You have been kicked from the room";
+    float instrX = SCREEN_WIDTH / 2.0f - 180.0f;
+    float instrY = textY + 70.0f;
+    _context.window->drawText(FONT_KEY, instructionText, instrX, instrY, 24, {200, 200, 200, 255});
+
+    // Display kick reason if available
+    if (!_kickReason.empty()) {
+        std::string reasonText = "Reason: " + _kickReason;
+        float reasonX = SCREEN_WIDTH / 2.0f - 150.0f;
+        float reasonY = instrY + 40.0f;
+        _context.window->drawText(FONT_KEY, reasonText, reasonX, reasonY, 20, {255, 200, 100, 255});
+    }
+
+    const std::string hintText = "Press any key to return to menu";
+    float hintX = SCREEN_WIDTH / 2.0f - 150.0f;
+    float hintY = _kickReason.empty() ? (instrY + 50.0f) : (instrY + 90.0f);
+    _context.window->drawText(FONT_KEY, hintText, hintX, hintY, 18, {150, 150, 150, 255});
 }

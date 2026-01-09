@@ -56,7 +56,7 @@ namespace core {
 
         std::string libPath;
 
-        // Priority: --graphics-path > --graphics > default (sdl2)
+        // Priority: --graphics-path > --graphics > default (sfml)
         if (graphicsOptions.path.has_value()) {
             libPath = graphicsOptions.path.value();
             logger->info("Using custom graphics plugin path: {}", libPath);
@@ -64,8 +64,8 @@ namespace core {
             libPath = buildLibraryName(graphicsOptions.name.value());
             logger->info("Using graphics backend '{}': {}", graphicsOptions.name.value(), libPath);
         } else {
-            libPath = buildLibraryName("sdl2");
-            logger->info("Using default graphics backend (SDL2): {}", libPath);
+            libPath = buildLibraryName("sfml");
+            logger->info("Using default graphics backend (SFML): {}", libPath);
         }
 
         try {

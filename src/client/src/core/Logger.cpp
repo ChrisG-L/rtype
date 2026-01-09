@@ -49,15 +49,9 @@ namespace client::logging {
             s_bootLogger = std::make_shared<spdlog::logger>("Boot", sinks.begin(), sinks.end());
             s_bootLogger->set_level(spdlog::level::info);
 
-            spdlog::register_logger(s_networkLogger);
-            spdlog::register_logger(s_engineLogger);
-            spdlog::register_logger(s_graphicsLogger);
-            spdlog::register_logger(s_sceneLogger);
-            spdlog::register_logger(s_uiLogger);
-            spdlog::register_logger(s_bootLogger);
-
-            spdlog::set_level(spdlog::level::debug);
-            spdlog::flush_on(spdlog::level::warn);
+            // Don't register with spdlog registry - we manage lifetime ourselves
+            // This avoids static destruction order issues between our static pointers
+            // and spdlog's registry singleton
 
             s_bootLogger->info("Client logging system initialized");
 
@@ -69,14 +63,16 @@ namespace client::logging {
     void Logger::shutdown() {
         if (s_bootLogger) {
             s_bootLogger->info("Shutting down logging system");
+            s_bootLogger->flush();
         }
+        // We own these loggers exclusively (not registered with spdlog registry)
+        // Just reset them to destroy - order doesn't matter since they're independent
         s_networkLogger.reset();
         s_engineLogger.reset();
         s_graphicsLogger.reset();
         s_sceneLogger.reset();
         s_uiLogger.reset();
         s_bootLogger.reset();
-        spdlog::shutdown();
     }
 
     std::shared_ptr<spdlog::logger> Logger::getNetworkLogger() {

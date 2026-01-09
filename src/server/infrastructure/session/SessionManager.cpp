@@ -173,6 +173,29 @@ std::optional<uint8_t> SessionManager::getPlayerIdByEndpoint(const std::string& 
     return sessionIt->second.playerId;
 }
 
+std::optional<std::string> SessionManager::getEmailByPlayerId(uint8_t playerId) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    for (const auto& [email, session] : _sessionsByEmail) {
+        if (session.playerId.has_value() && *session.playerId == playerId) {
+            return email;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<Session> SessionManager::getSessionByEmail(const std::string& email) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto it = _sessionsByEmail.find(email);
+    if (it == _sessionsByEmail.end()) {
+        return std::nullopt;
+    }
+
+    return it->second;
+}
+
 void SessionManager::updateActivity(const std::string& endpoint) {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -219,6 +242,27 @@ void SessionManager::removeSessionByEndpoint(const std::string& endpoint) {
     if (sessionIt != _sessionsByEmail.end()) {
         _tokenToEmail.erase(sessionIt->second.token.toHex());
         _sessionsByEmail.erase(sessionIt);
+    }
+}
+
+void SessionManager::clearUDPBinding(const std::string& endpoint) {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto epIt = _endpointToEmail.find(endpoint);
+    if (epIt == _endpointToEmail.end()) {
+        return;
+    }
+
+    std::string email = epIt->second;
+    _endpointToEmail.erase(epIt);
+
+    // Clear UDP binding from session but keep session active
+    auto sessionIt = _sessionsByEmail.find(email);
+    if (sessionIt != _sessionsByEmail.end()) {
+        sessionIt->second.udpBound = false;
+        sessionIt->second.udpEndpoint.clear();
+        sessionIt->second.playerId = std::nullopt;
+        // Keep status as Active so user can rejoin a room
     }
 }
 
@@ -352,6 +396,50 @@ std::vector<BannedUser> SessionManager::getBannedUsers() const {
         result.push_back(bannedUser);
     }
     return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// In-game kick system
+// ═══════════════════════════════════════════════════════════════════
+
+void SessionManager::registerKickedCallback(const std::string& email, KickedCallback callback) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _kickedCallbacks[email] = std::move(callback);
+}
+
+void SessionManager::unregisterKickedCallback(const std::string& email) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _kickedCallbacks.erase(email);
+}
+
+bool SessionManager::kickPlayerByEmail(const std::string& email, const std::string& reason) {
+    KickedCallback callback;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        // Check if player has an active session
+        auto sessionIt = _sessionsByEmail.find(email);
+        if (sessionIt == _sessionsByEmail.end()) {
+            return false;
+        }
+
+        // Get the callback
+        auto cbIt = _kickedCallbacks.find(email);
+        if (cbIt == _kickedCallbacks.end() || !cbIt->second) {
+            return false;
+        }
+
+        callback = cbIt->second;
+    }
+
+    // Call callback outside lock to avoid deadlocks
+    if (callback) {
+        callback(reason);
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace infrastructure::session

@@ -39,6 +39,17 @@ namespace graphics {
             virtual void clear() = 0;
             virtual void display() = 0;
 
+            // Post-processing shader support
+            virtual bool loadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) = 0;
+            virtual void setPostProcessShader(const std::string& key) = 0;
+            virtual void clearPostProcessShader() = 0;
+            virtual void setShaderUniform(const std::string& name, int value) = 0;
+            virtual bool supportsShaders() const = 0;
+
+            // Frame management with post-processing
+            virtual void beginFrame() = 0;
+            virtual void endFrame() = 0;
+
         private:
     };
 }

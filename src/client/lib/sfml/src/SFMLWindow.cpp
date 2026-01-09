@@ -153,7 +153,7 @@ void SFMLWindow::drawRect(float x, float y, float width, float height, rgba colo
     sf::RectangleShape rect({width, height});
     rect.setPosition({x, y});
     rect.setFillColor(sf::Color(color.r, color.g, color.b, color.a));
-    _window.draw(rect);
+    getRenderTarget().draw(rect);
 }
 
 void SFMLWindow::drawImg(graphics::IDrawable drawable, float x, float y, float scaleX, float scaleY) {
@@ -193,7 +193,7 @@ void SFMLWindow::drawSprite(const std::string& textureKey, float x, float y, flo
         sprite.setScale({scaleX, scaleY});
     }
 
-    _window.draw(sprite);
+    getRenderTarget().draw(sprite);
 }
 
 bool SFMLWindow::loadFont(const std::string& key, const std::string& filepath) {
@@ -219,7 +219,7 @@ void SFMLWindow::drawText(const std::string& fontKey, const std::string& text, f
     sf::Text sfText(it->second, text, size);
     sfText.setPosition({x, y});
     sfText.setFillColor(sf::Color(color.r, color.g, color.b, color.a));
-    _window.draw(sfText);
+    getRenderTarget().draw(sfText);
 }
 
 void SFMLWindow::clear() {
@@ -227,5 +227,78 @@ void SFMLWindow::clear() {
 }
 
 void SFMLWindow::display() {
+    _window.display();
+}
+
+// Post-processing pipeline implementation
+
+void SFMLWindow::initRenderTexture() {
+    if (_renderTextureInitialized) return;
+
+    auto size = _window.getSize();
+    if (!_renderTexture.resize({size.x, size.y})) {
+        return;
+    }
+    _renderTextureInitialized = true;
+}
+
+sf::RenderTarget& SFMLWindow::getRenderTarget() {
+    if (_renderTextureInitialized && _activePostProcessShader) {
+        return _renderTexture;
+    }
+    return _window;
+}
+
+bool SFMLWindow::loadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) {
+    if (_shaders.count(key)) {
+        return true;
+    }
+
+    sf::Shader shader;
+    if (!shader.loadFromFile(vertexPath, fragmentPath)) {
+        return false;
+    }
+
+    _shaders[key] = std::move(shader);
+    return true;
+}
+
+void SFMLWindow::setPostProcessShader(const std::string& key) {
+    auto it = _shaders.find(key);
+    if (it != _shaders.end()) {
+        _activePostProcessShader = &it->second;
+        initRenderTexture();
+    }
+}
+
+void SFMLWindow::clearPostProcessShader() {
+    _activePostProcessShader = nullptr;
+}
+
+void SFMLWindow::setShaderUniform(const std::string& name, int value) {
+    if (_activePostProcessShader) {
+        _activePostProcessShader->setUniform(name, value);
+    }
+}
+
+bool SFMLWindow::supportsShaders() const {
+    return sf::Shader::isAvailable();
+}
+
+void SFMLWindow::beginFrame() {
+    if (_renderTextureInitialized && _activePostProcessShader) {
+        _renderTexture.clear();
+    } else {
+        _window.clear();
+    }
+}
+
+void SFMLWindow::endFrame() {
+    if (_renderTextureInitialized && _activePostProcessShader) {
+        _renderTexture.display();
+        sf::Sprite screenSprite(_renderTexture.getTexture());
+        _window.clear();
+        _window.draw(screenSprite, _activePostProcessShader);
+    }
     _window.display();
 }

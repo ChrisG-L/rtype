@@ -209,6 +209,7 @@ add_executable(rtype_client
     src/gameplay/EntityManager.cpp
 
     src/accessibility/AccessibilityConfig.cpp
+    src/accessibility/ColorblindShaderManager.cpp
     src/audio/AudioManager.cpp
 )
 

@@ -560,8 +560,9 @@ namespace infrastructure::adapters::in::network {
 
         std::string endpointStr = endpointToString(*targetEndpoint);
 
-        // Remove from SessionManager
-        _sessionManager->removeSessionByEndpoint(endpointStr);
+        // Clear the UDP binding from SessionManager but keep the TCP session active
+        // This allows the player to rejoin a new room after being kicked
+        _sessionManager->clearUDPBinding(endpointStr);
 
         // Remove from GameWorld (this will also remove the player)
         _gameWorld.removePlayer(playerId);
@@ -570,7 +571,7 @@ namespace infrastructure::adapters::in::network {
         sendPlayerLeave(playerId);
 
         server::logging::Logger::getMainLogger()->info(
-            "[CLI] Player {} kicked from server.", static_cast<int>(playerId));
+            "[CLI] Player {} kicked from game.", static_cast<int>(playerId));
     }
 
     size_t UDPServer::getPlayerCount() const {

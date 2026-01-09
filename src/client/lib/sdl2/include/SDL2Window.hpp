@@ -40,6 +40,17 @@ class SDL2Window: public graphics::IWindow {
         void clear() override;
         void display() override;
 
+        // Post-processing shader support (stubs - not supported in SDL2)
+        bool loadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) override;
+        void setPostProcessShader(const std::string& key) override;
+        void clearPostProcessShader() override;
+        void setShaderUniform(const std::string& name, int value) override;
+        bool supportsShaders() const override;
+
+        // Frame management
+        void beginFrame() override;
+        void endFrame() override;
+
         SDL_Renderer* getRenderer() const { return _renderer; }
 
     private:

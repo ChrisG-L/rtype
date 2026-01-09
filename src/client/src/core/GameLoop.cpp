@@ -9,6 +9,7 @@
 #include "events/Event.hpp"
 #include "scenes/LoginScene.hpp"
 #include "scenes/ConnectionScene.hpp"
+#include "accessibility/ColorblindShaderManager.hpp"
 #include <chrono>
 #include <ctime>
 #include <variant>
@@ -30,6 +31,9 @@ namespace core {
             .tcpClient = _tcpClient,
             .sessionToken = {}
         });
+
+        // Initialize colorblind shader support
+        accessibility::ColorblindShaderManager::getInstance().initialize(_window);
 
         // Check initial connection status
         updateConnectionState();
@@ -131,9 +135,12 @@ namespace core {
             }
             _sceneManager->update(deltaTime);
 
-            clear();
+            // Update colorblind shader if mode changed
+            accessibility::ColorblindShaderManager::getInstance().updateFromConfig();
+
+            _window->beginFrame();
             _sceneManager->render();
-            display();
+            _window->endFrame();
 
             std::this_thread::sleep_for(std::chrono::milliseconds(16));
         }

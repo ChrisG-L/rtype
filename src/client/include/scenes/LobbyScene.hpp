@@ -95,6 +95,11 @@ private:
     // Transition state
     bool _transitioningToGame = false;
 
+    // Kick state (when we get kicked from the room)
+    bool _wasKicked = false;
+    std::string _kickReason;
+    void renderKickedScreen();
+
     // Mouse state for kick buttons
     float _mouseX = 0.0f;
     float _mouseY = 0.0f;

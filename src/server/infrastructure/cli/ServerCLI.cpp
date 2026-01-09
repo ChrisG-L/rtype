@@ -211,10 +211,8 @@ void ServerCLI::printHelp() {
     output("║ rooms                - List all active rooms                 ║");
     output("║ room <code>          - Show room details + chat history      ║");
     output("║ closeroom <code>     - Force close a room (kicks all)        ║");
-    output("║ kickfromroom <code> <email> [reason]                         ║");
-    output("║                      - Kick player from room (admin)         ║");
     output("║ users                - List all registered users (DB)        ║");
-    output("║ kick <player_id>     - Kick a player by their in-game ID     ║");
+    output("║ kick <email> [reason]- Kick player (from room and/or game)   ║");
     output("║ ban <email>          - Ban a user permanently                ║");
     output("║ unban <email>        - Unban a user                          ║");
     output("║ bans                 - List all banned users                 ║");
@@ -293,19 +291,19 @@ void ServerCLI::listSessions() {
     }
 
     output("");
-    output("╔════════════════════════════════════════════════════════════════════════════════════════════════╗");
-    output("║                                        ACTIVE SESSIONS                                         ║");
-    output("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output("╔═══════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                        ACTIVE SESSIONS                                        ║");
+    output("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(25) << "Email"
            << std::setw(15) << "Display Name"
            << std::setw(10) << "Status"
-           << std::setw(8) << "Room"
+           << std::setw(9) << "Room"
            << std::setw(10) << "Player ID"
-           << std::setw(22) << "Endpoint" << "  ║";
+           << std::setw(22) << "Endpoint" << "   ║";
     output(header.str());
-    output("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     for (const auto& session : sessions) {
         std::string statusStr;
@@ -336,13 +334,13 @@ void ServerCLI::listSessions() {
         row << "║ " << std::left << std::setw(25) << email
             << std::setw(15) << displayName
             << std::setw(10) << statusStr
-            << std::setw(8) << roomCode
+            << std::setw(9) << roomCode
             << std::setw(10) << playerIdStr
-            << std::setw(22) << endpointStr << "  ║";
+            << std::setw(22) << endpointStr << "   ║";
         output(row.str());
     }
 
-    output("╚════════════════════════════════════════════════════════════════════════════════════════════════╝");
+    output("╚═══════════════════════════════════════════════════════════════════════════════════════════════╝");
     output("");
 
     // Build and store interactive output for interact mode
@@ -355,21 +353,56 @@ void ServerCLI::listSessions() {
 
 void ServerCLI::kickPlayer(const std::string& args) {
     if (args.empty()) {
-        output("[CLI] Usage: kick <player_id>");
+        output("[CLI] Usage: kick <email> [reason]");
         return;
     }
 
-    try {
-        int playerId = std::stoi(args);
-        if (playerId < 0 || playerId > 255) {
-            output("[CLI] Invalid player ID. Must be 0-255.");
-            return;
-        }
-        _udpServer.kickPlayer(static_cast<uint8_t>(playerId));
-        output("[CLI] Kicked player " + std::to_string(playerId));
-    } catch (const std::exception&) {
-        output("[CLI] Invalid player ID: " + args);
+    // Parse email and optional reason
+    auto parts = parseArgs(args);
+    if (parts.empty()) {
+        output("[CLI] Usage: kick <email> [reason]");
+        return;
     }
+
+    std::string email = parts[0];
+
+    // Build reason from remaining args
+    std::string reason = "Kicked by administrator";
+    if (parts.size() > 1) {
+        reason.clear();
+        for (size_t i = 1; i < parts.size(); ++i) {
+            if (!reason.empty()) reason += " ";
+            reason += parts[i];
+        }
+    }
+
+    // Step 1: Verify the player has an active session
+    auto sessionOpt = _sessionManager->getSessionByEmail(email);
+    if (!sessionOpt) {
+        output("[CLI] Player not found: " + email);
+        return;
+    }
+
+    // Step 2: Notify the player via TCP (sends PlayerKickedNotification)
+    bool notified = _sessionManager->kickPlayerByEmail(email, reason);
+    if (notified) {
+        output("[CLI] Player notified via TCP");
+    }
+
+    // Step 3: Remove from room if in one
+    if (_roomManager && _roomManager->isPlayerInRoom(email)) {
+        _roomManager->leaveRoom(email);
+        output("[CLI] Player removed from room");
+    }
+
+    // Step 4: If player is in game (has playerId), kick from UDP too
+    if (sessionOpt->playerId.has_value()) {
+        uint8_t playerId = *sessionOpt->playerId;
+        _udpServer.kickPlayer(playerId);
+        output("[CLI] Player removed from game (ID: " + std::to_string(playerId) + ")");
+    }
+
+    output("[CLI] Kicked " + email + " (reason: " + reason + ")");
 }
 
 void ServerCLI::toggleLogs(const std::string& args) {
@@ -418,13 +451,39 @@ void ServerCLI::banUser(const std::string& args) {
         return;
     }
 
-    if (_sessionManager->isBanned(args)) {
-        output("[CLI] User '" + args + "' is already banned.");
+    std::string email = args;
+
+    if (_sessionManager->isBanned(email)) {
+        output("[CLI] User '" + email + "' is already banned.");
         return;
     }
 
-    _sessionManager->banUser(args);
-    output("[CLI] User '" + args + "' has been banned.");
+    // Step 1: If player has an active session, kick them first
+    auto sessionOpt = _sessionManager->getSessionByEmail(email);
+    if (sessionOpt) {
+        // Notify the player via TCP (sends PlayerKickedNotification with ban reason)
+        bool notified = _sessionManager->kickPlayerByEmail(email, "You have been banned");
+        if (notified) {
+            output("[CLI] Player notified via TCP");
+        }
+
+        // Remove from room if in one
+        if (_roomManager && _roomManager->isPlayerInRoom(email)) {
+            _roomManager->leaveRoom(email);
+            output("[CLI] Player removed from room");
+        }
+
+        // If player is in game (has playerId), kick from UDP too
+        if (sessionOpt->playerId.has_value()) {
+            uint8_t playerId = *sessionOpt->playerId;
+            _udpServer.kickPlayer(playerId);
+            output("[CLI] Player removed from game (ID: " + std::to_string(playerId) + ")");
+        }
+    }
+
+    // Step 2: Ban the user (this also removes any remaining session)
+    _sessionManager->banUser(email);
+    output("[CLI] User '" + email + "' has been banned.");
 }
 
 void ServerCLI::unbanUser(const std::string& args) {
@@ -568,9 +627,9 @@ void ServerCLI::listRooms() {
     }
 
     output("");
-    output("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output("╔══════════════════════════════════════════════════════════════════════════════════╗");
     output("║                                   ACTIVE ROOMS                                   ║");
-    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+    output("╠══════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(8) << "Code"
@@ -580,7 +639,7 @@ void ServerCLI::listRooms() {
            << std::setw(10) << "Private"
            << std::setw(15) << "Host" << " ║";
     output(header.str());
-    output("╠═════════════════════════════════════════════════════════════════════════════════╣");
+    output("╠══════════════════════════════════════════════════════════════════════════════════╣");
 
     for (const auto* room : rooms) {
         std::string stateStr;
@@ -609,7 +668,7 @@ void ServerCLI::listRooms() {
         output(row.str());
     }
 
-    output("╚═════════════════════════════════════════════════════════════════════════════════╝");
+    output("╚══════════════════════════════════════════════════════════════════════════════════╝");
     output("");
     output("[CLI] Total: " + std::to_string(rooms.size()) + " room(s)");
     output("");
@@ -867,19 +926,19 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
 
     // Build lines (same format as listSessions)
     output.lines.push_back("");
-    output.lines.push_back("╔════════════════════════════════════════════════════════════════════════════════════════════════╗");
-    output.lines.push_back("║                                        ACTIVE SESSIONS                                         ║");
-    output.lines.push_back("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╔═══════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                        ACTIVE SESSIONS                                        ║");
+    output.lines.push_back("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(25) << "Email"
            << std::setw(15) << "Display Name"
            << std::setw(10) << "Status"
-           << std::setw(8) << "Room"
+           << std::setw(9) << "Room"
            << std::setw(10) << "Player ID"
-           << std::setw(22) << "Endpoint" << "  ║";
+           << std::setw(22) << "Endpoint" << "   ║";
     output.lines.push_back(header.str());
-    output.lines.push_back("╠════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     size_t lineIdx = output.lines.size();  // First data line
 
@@ -912,9 +971,9 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
         row << "║ " << std::left << std::setw(25) << emailTrunc
             << std::setw(15) << displayNameTrunc
             << std::setw(10) << statusStr
-            << std::setw(8) << roomCode
+            << std::setw(9) << roomCode
             << std::setw(10) << playerIdStr
-            << std::setw(22) << endpointTrunc << "  ║";
+            << std::setw(22) << endpointTrunc << "   ║";
         output.lines.push_back(row.str());
 
         // Column positions (after "║ ")
@@ -965,7 +1024,7 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
             roomElem.associatedEmail = session.email;
             output.elements.push_back(roomElem);
         }
-        col += 8;
+        col += 9;
 
         // Player ID element (10 columns) - only if not "-"
         if (session.playerId) {
@@ -1001,7 +1060,7 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
         lineIdx++;
     }
 
-    output.lines.push_back("╚════════════════════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("╚═══════════════════════════════════════════════════════════════════════════════════════════════╝");
     output.lines.push_back("");
 
     return output;
@@ -1175,9 +1234,9 @@ tui::InteractiveOutput ServerCLI::buildRoomsInteractiveOutput() {
     }
 
     output.lines.push_back("");
-    output.lines.push_back("╔═════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("╔══════════════════════════════════════════════════════════════════════════════════╗");
     output.lines.push_back("║                                   ACTIVE ROOMS                                   ║");
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
     header << "║ " << std::left << std::setw(8) << "Code"
@@ -1187,7 +1246,7 @@ tui::InteractiveOutput ServerCLI::buildRoomsInteractiveOutput() {
            << std::setw(10) << "Private"
            << std::setw(15) << "Host" << " ║";
     output.lines.push_back(header.str());
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════╣");
 
     size_t lineIdx = output.lines.size();
 
@@ -1263,7 +1322,7 @@ tui::InteractiveOutput ServerCLI::buildRoomsInteractiveOutput() {
         lineIdx++;
     }
 
-    output.lines.push_back("╚═════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("╚══════════════════════════════════════════════════════════════════════════════════╝");
     output.lines.push_back("");
 
     return output;
@@ -1278,10 +1337,11 @@ void ServerCLI::handleInteractAction(tui::InteractAction action, const tui::Sele
             break;
 
         case tui::InteractAction::Kick:
-            if (element.type == tui::ElementType::PlayerId) {
+            // Kick by email (works both in room and in game)
+            if (element.type == tui::ElementType::Email) {
                 kickPlayer(element.value);
-            } else if (element.associatedPlayerId.has_value()) {
-                kickPlayer(std::to_string(*element.associatedPlayerId));
+            } else if (element.associatedEmail.has_value()) {
+                kickPlayer(*element.associatedEmail);
             }
             break;
 

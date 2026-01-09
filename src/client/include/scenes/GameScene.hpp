@@ -58,7 +58,10 @@ private:
     bool _assetsLoaded = false;
     bool _starsInitialized = false;
     bool _audioInitialized = false;
+
+    // Kick state (set when player is kicked via TCP)
     bool _wasKicked = false;
+    std::string _kickReason;
 
     struct Star {
         float x, y;
