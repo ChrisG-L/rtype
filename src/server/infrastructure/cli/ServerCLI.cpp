@@ -47,6 +47,8 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["sessions"] = [this](const std::string&) { listSessions(); };
     _commands["rooms"] = [this](const std::string&) { listRooms(); };
     _commands["room"] = [this](const std::string& args) { showRoom(args); };
+    _commands["closeroom"] = [this](const std::string& args) { closeRoom(args); };
+    _commands["kickfromroom"] = [this](const std::string& args) { kickFromRoom(args); };
     _commands["kick"] = [this](const std::string& args) { kickPlayer(args); };
     _commands["ban"] = [this](const std::string& args) { banUser(args); };
     _commands["unban"] = [this](const std::string& args) { unbanUser(args); };
@@ -207,7 +209,10 @@ void ServerCLI::printHelp() {
     output("║ status               - Show server status                    ║");
     output("║ sessions             - List all active sessions              ║");
     output("║ rooms                - List all active rooms                 ║");
-    output("║ room <code>          - Show details for a specific room      ║");
+    output("║ room <code>          - Show room details + chat history      ║");
+    output("║ closeroom <code>     - Force close a room (kicks all)        ║");
+    output("║ kickfromroom <code> <email> [reason]                         ║");
+    output("║                      - Kick player from room (admin)         ║");
     output("║ users                - List all registered users (DB)        ║");
     output("║ kick <player_id>     - Kick a player by their in-game ID     ║");
     output("║ ban <email>          - Ban a user permanently                ║");
@@ -702,8 +707,107 @@ void ServerCLI::showRoom(const std::string& args) {
         }
     }
 
+    // Chat history section
+    const auto& chatHistory = room->getChatHistory();
+    if (!chatHistory.empty()) {
+        output("╠═════════════════════════════════════════════════════════════════╣");
+        output("║                        CHAT HISTORY                             ║");
+        output("╠═════════════════════════════════════════════════════════════════╣");
+
+        // Show last 10 messages
+        size_t startIdx = chatHistory.size() > 10 ? chatHistory.size() - 10 : 0;
+        for (size_t i = startIdx; i < chatHistory.size(); ++i) {
+            const auto& msg = chatHistory[i];
+            std::string senderTrunc = tui::utf8::truncateWithEllipsis(msg.displayName, 12);
+            std::string msgTrunc = tui::utf8::truncateWithEllipsis(msg.message, 48);
+
+            std::ostringstream chatRow;
+            chatRow << "║ " << std::left << std::setw(14) << ("[" + senderTrunc + "]")
+                    << std::setw(50) << msgTrunc << " ║";
+            output(chatRow.str());
+        }
+
+        if (startIdx > 0) {
+            std::ostringstream moreRow;
+            moreRow << "║ " << std::left << std::setw(62)
+                    << ("... " + std::to_string(startIdx) + " more message(s)") << " ║";
+            output(moreRow.str());
+        }
+    }
+
     output("╚═════════════════════════════════════════════════════════════════╝");
     output("");
+}
+
+void ServerCLI::closeRoom(const std::string& args) {
+    if (args.empty()) {
+        output("[CLI] Usage: closeroom <code>");
+        return;
+    }
+
+    if (!_roomManager) {
+        output("[CLI] Room manager not available.");
+        return;
+    }
+
+    std::string code = args;
+
+    // Check if room exists first
+    auto* room = _roomManager->getRoomByCode(code);
+    if (!room) {
+        output("[CLI] Room not found: " + code);
+        return;
+    }
+
+    std::string roomName = room->getName();
+    size_t playerCount = _roomManager->forceCloseRoom(code);
+
+    output("[CLI] Room '" + roomName + "' (" + code + ") closed.");
+    output("[CLI] " + std::to_string(playerCount) + " player(s) were disconnected.");
+}
+
+void ServerCLI::kickFromRoom(const std::string& args) {
+    auto params = parseArgs(args);
+    if (params.size() < 2) {
+        output("[CLI] Usage: kickfromroom <code> <email> [reason]");
+        return;
+    }
+
+    if (!_roomManager) {
+        output("[CLI] Room manager not available.");
+        return;
+    }
+
+    std::string code = params[0];
+    std::string email = params[1];
+    std::string reason;
+    if (params.size() > 2) {
+        // Collect remaining args as reason
+        for (size_t i = 2; i < params.size(); ++i) {
+            if (!reason.empty()) reason += " ";
+            reason += params[i];
+        }
+    }
+
+    // Check if room exists
+    auto* room = _roomManager->getRoomByCode(code);
+    if (!room) {
+        output("[CLI] Room not found: " + code);
+        return;
+    }
+
+    // Check if it's the host
+    if (room->isHost(email)) {
+        output("[CLI] Cannot kick the host. Use 'closeroom " + code + "' to close the room instead.");
+        return;
+    }
+
+    std::string result = _roomManager->adminKickFromRoom(code, email, reason);
+    if (result.empty()) {
+        output("[CLI] Player not found in room: " + email);
+    } else {
+        output("[CLI] Kicked " + email + " from room " + code);
+    }
 }
 
 void ServerCLI::enterZoomMode() {
@@ -1198,6 +1302,18 @@ void ServerCLI::handleInteractAction(tui::InteractAction action, const tui::Sele
                 // This would require adding a method to TerminalUI to insert text
                 // For now, just output the value so user can copy it
                 output("[CLI] Value: " + element.value);
+            }
+            break;
+
+        case tui::InteractAction::Close:
+            if (element.type == tui::ElementType::RoomCode) {
+                closeRoom(element.value);
+            }
+            break;
+
+        case tui::InteractAction::Details:
+            if (element.type == tui::ElementType::RoomCode) {
+                showRoom(element.value);
             }
             break;
 

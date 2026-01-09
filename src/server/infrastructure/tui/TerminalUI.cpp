@@ -545,6 +545,16 @@ void TerminalUI::processInteractKeyInput(int ch) {
             executeInteractAction(InteractAction::Unban);
             break;
 
+        case 'x':
+        case 'X':
+            executeInteractAction(InteractAction::Close);
+            break;
+
+        case 'd':
+        case 'D':
+            executeInteractAction(InteractAction::Details);
+            break;
+
         case '\n':
         case '\r':
             executeInteractAction(InteractAction::Insert);
@@ -569,6 +579,10 @@ void TerminalUI::executeInteractAction(InteractAction action) {
         case InteractAction::Unban:
             valid = (element->type == ElementType::Email);
             break;
+        case InteractAction::Close:
+        case InteractAction::Details:
+            valid = (element->type == ElementType::RoomCode);
+            break;
         case InteractAction::Copy:
         case InteractAction::Insert:
             valid = true;  // Always available
@@ -584,9 +598,9 @@ void TerminalUI::executeInteractAction(InteractAction action) {
         _interactCallback(action, *element);
     }
 
-    // Exit interact mode after Ban/Kick/Unban actions
+    // Exit interact mode after Ban/Kick/Unban/Close actions
     if (action == InteractAction::Ban || action == InteractAction::Kick ||
-        action == InteractAction::Unban) {
+        action == InteractAction::Unban || action == InteractAction::Close) {
         exitInteractMode();
     }
 }
@@ -670,6 +684,9 @@ void TerminalUI::renderInteractStatusBar(uint16_t row,
                 break;
             case ElementType::PlayerId:
                 status << " [K]Kick";
+                break;
+            case ElementType::RoomCode:
+                status << " [D]Details [X]Close";
                 break;
             default:
                 break;

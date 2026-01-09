@@ -98,7 +98,9 @@ enum class InteractAction {
     Copy,       // C key - Copy to clipboard
     Unban,      // U key - Unban (for bans list)
     Insert,     // Enter - Insert value into prompt
-    Exit        // Escape - Exit interact mode
+    Exit,       // Escape - Exit interact mode
+    Close,      // X key - Close room (for rooms list)
+    Details     // D key - Show room details
 };
 
 /**

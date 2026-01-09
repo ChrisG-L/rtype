@@ -159,6 +159,21 @@ public:
     domain::entities::Room* getStartingRoom(const std::string& email);
 
     // ═══════════════════════════════════════════════════════════════════
+    // Admin Operations (TUI)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Force close a room (admin action) - removes all players and deletes room
+    // Returns number of players that were removed
+    size_t forceCloseRoom(const std::string& code);
+
+    // Admin kick a player from a room (doesn't require being host)
+    // Returns the room code if successful, empty string otherwise
+    std::string adminKickFromRoom(
+        const std::string& code,
+        const std::string& targetEmail,
+        const std::string& reason);
+
+    // ═══════════════════════════════════════════════════════════════════
     // Cleanup
     // ═══════════════════════════════════════════════════════════════════
 

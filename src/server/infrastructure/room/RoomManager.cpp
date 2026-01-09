@@ -258,6 +258,107 @@ void RoomManager::cleanupEmptyRooms() {
     }
 }
 
+size_t RoomManager::forceCloseRoom(const std::string& code) {
+    // Collect kicked callbacks outside the lock to avoid deadlock
+    std::vector<std::pair<PlayerKickedCallback, std::string>> callbacksToCall;
+    size_t playerCount = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        auto roomIt = _roomsByCode.find(code);
+        if (roomIt == _roomsByCode.end()) {
+            return 0;
+        }
+
+        // Notify and remove all players
+        const auto& slots = roomIt->second->getSlots();
+        for (const auto& slot : slots) {
+            if (slot.occupied) {
+                ++playerCount;
+                _playerToRoom.erase(slot.email);
+
+                // Collect callback for notification
+                auto cbIt = _sessionCallbacks.find(slot.email);
+                if (cbIt != _sessionCallbacks.end() && cbIt->second.onPlayerKicked) {
+                    callbacksToCall.push_back({cbIt->second.onPlayerKicked, slot.email});
+                }
+            }
+        }
+
+        _roomsByCode.erase(roomIt);
+    }
+
+    // Send kicked notifications outside lock
+    PlayerKickedNotification notif;
+    std::strncpy(notif.reason, "Room closed by administrator", MAX_ERROR_MSG_LEN);
+    notif.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+    for (const auto& [callback, email] : callbacksToCall) {
+        callback(notif);
+    }
+
+    return playerCount;
+}
+
+std::string RoomManager::adminKickFromRoom(
+    const std::string& code,
+    const std::string& targetEmail,
+    const std::string& reason)
+{
+    PlayerKickedCallback kickedCallback;
+    std::string roomCode;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        // Find the room
+        auto roomIt = _roomsByCode.find(code);
+        if (roomIt == _roomsByCode.end()) {
+            return "";  // Room not found
+        }
+
+        auto* room = roomIt->second.get();
+
+        // Check if target is in the room
+        if (!room->hasPlayer(targetEmail)) {
+            return "";  // Player not in this room
+        }
+
+        // Can't kick the host (admin should use closeroom instead)
+        if (room->isHost(targetEmail)) {
+            return "";  // Can't kick the host
+        }
+
+        // Remove from room
+        room->removePlayer(targetEmail);
+        _playerToRoom.erase(targetEmail);
+        roomCode = code;
+
+        // Get callback for notification
+        auto cbIt = _sessionCallbacks.find(targetEmail);
+        if (cbIt != _sessionCallbacks.end() && cbIt->second.onPlayerKicked) {
+            kickedCallback = cbIt->second.onPlayerKicked;
+        }
+    }
+
+    // Notify the kicked player outside lock
+    if (kickedCallback) {
+        PlayerKickedNotification notif;
+        std::string reasonStr = reason.empty() ? "Kicked by administrator" : reason;
+        std::strncpy(notif.reason, reasonStr.c_str(), MAX_ERROR_MSG_LEN);
+        notif.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+        kickedCallback(notif);
+    }
+
+    // Broadcast room update to remaining members
+    auto* room = getRoomByCode(code);
+    if (room && !room->isEmpty()) {
+        broadcastRoomUpdate(room);
+    }
+
+    return roomCode;
+}
+
 std::vector<domain::entities::Room*> RoomManager::getAllRooms() {
     std::lock_guard<std::mutex> lock(_mutex);
     std::vector<domain::entities::Room*> rooms;

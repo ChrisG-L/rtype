@@ -67,6 +67,8 @@ private:
     void listUsers();
     void listRooms();
     void showRoom(const std::string& args);
+    void closeRoom(const std::string& args);
+    void kickFromRoom(const std::string& args);
     void toggleLogs(const std::string& args);
     void toggleDebug(const std::string& args);
     void enterZoomMode();
