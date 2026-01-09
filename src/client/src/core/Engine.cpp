@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include "core/DynamicLib.hpp"
 #include "core/Logger.hpp"
+#include "accessibility/ColorblindShaderManager.hpp"
 #include "graphics/Graphics.hpp"
 #include "graphics/IGraphicPlugin.hpp"
 #include "network/UDPClient.hpp"
@@ -24,6 +25,9 @@ namespace core {
 
     Engine::~Engine()
     {
+        // Release window reference before unloading plugin to avoid use-after-free
+        accessibility::ColorblindShaderManager::getInstance().shutdown();
+
         if (_graphicPlugin && _dynamicLib) {
             _dynamicLib->destroyGraphicLib(_graphicPlugin);
         }

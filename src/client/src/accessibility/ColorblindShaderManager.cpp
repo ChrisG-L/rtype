@@ -79,4 +79,12 @@ bool ColorblindShaderManager::isAvailable() const
     return _shadersAvailable;
 }
 
+void ColorblindShaderManager::shutdown()
+{
+    _window.reset();
+    _initialized = false;
+    _shadersAvailable = false;
+    _currentMode = ColorBlindMode::None;
+}
+
 }

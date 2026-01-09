@@ -37,6 +37,12 @@ public:
      */
     bool isAvailable() const;
 
+    /**
+     * @brief Release window reference before plugin unload
+     * Must be called before dlclose() to avoid use-after-free
+     */
+    void shutdown();
+
 private:
     ColorblindShaderManager() = default;
     ~ColorblindShaderManager() = default;
