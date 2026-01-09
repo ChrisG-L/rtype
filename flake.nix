@@ -11,7 +11,7 @@
       let
         pkgs = import nixpkgs { inherit system; };
         stdenv = pkgs.clangStdenv;
-      in
+      inss
       {
         devShells.default = pkgs.mkShell.override { inherit stdenv; } {
           
