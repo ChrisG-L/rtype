@@ -159,7 +159,7 @@ TEST_F(PositionTest, MoveWithNegativeDelta) {
  */
 TEST_F(PositionTest, MoveIsImmutable) {
     Position original(100.0f, 100.0f, 100.0f);
-    Position moved = original.move(50.0f, 50.0f, 50.0f);
+    (void)original.move(50.0f, 50.0f, 50.0f);
 
     EXPECT_FLOAT_EQ(original.getX(), 100.0f);
     EXPECT_FLOAT_EQ(original.getY(), 100.0f);

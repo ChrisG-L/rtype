@@ -1,0 +1,1186 @@
+/*
+** EPITECH PROJECT, 2025
+** rtype [WSL : Ubuntu-24.04]
+** File description:
+** TCPClient
+*/
+
+#include "network/TCPClient.hpp"
+#include "Protocol.hpp"
+#include "core/Logger.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <unistd.h>
+
+namespace client::network
+{
+    static constexpr int HEARTBEAT_INTERVAL_MS = 1000;
+    static constexpr int HEARTBEAT_TIMEOUT_MS = 2000;
+
+    TCPClient::TCPClient()
+        : _socket(_ioContext), _heartbeatTimer(_ioContext), _isAuthenticated(false), _isWriting(false)
+    {
+        client::logging::Logger::getNetworkLogger()->debug("TCPClient created");
+    }
+
+    TCPClient::~TCPClient()
+    {
+        disconnect();
+        if (_ioThread.joinable()) {
+            _ioThread.join();
+        }
+    }
+
+    void TCPClient::setOnConnected(const OnConnectedCallback& callback)
+    {
+        _onConnected = callback;
+    }
+
+    void TCPClient::setOnDisconnected(const OnDisconnectedCallback& callback)
+    {
+        _onDisconnected = callback;
+    }
+
+    void TCPClient::setOnReceive(const OnReceiveCallback& callback)
+    {
+        _onReceive = callback;
+    }
+
+    void TCPClient::setOnError(const OnErrorCallback& callback)
+    {
+        _onError = callback;
+    }
+
+    void TCPClient::connect(const std::string &host, std::uint16_t port)
+    {
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        // Close any existing connection (connected or connecting)
+        if (_connected.load() || _connecting.load()) {
+            logger->warn("Already connected or connecting, disconnecting...");
+            disconnect();
+        }
+
+        // Wait for previous IO thread to finish (if any)
+        if (_ioThread.joinable()) {
+            _ioThread.join();
+        }
+
+        logger->info("Connecting to {}:{}...", host, port);
+
+        // Store connection info for potential reconnection
+        _lastHost = host;
+        _lastPort = port;
+
+        _disconnecting.store(false);
+        _connecting.store(true);  // Set BEFORE asyncConnect to avoid race condition
+
+        // Reset io_context for reuse
+        _ioContext.restart();
+
+        // Ensure socket is closed and recreate
+        if (_socket.is_open()) {
+            boost::system::error_code ec;
+            _socket.shutdown(tcp::socket::shutdown_both, ec);
+            _socket.close(ec);
+        }
+        _socket = tcp::socket(_ioContext);
+
+        try {
+            tcp::resolver resolver(_ioContext);
+            auto endpoints = resolver.resolve(host, std::to_string(port));
+
+            asyncConnect(endpoints);
+
+            _ioThread = std::jthread([this, logger]() {
+                logger->debug("IO thread started");
+                _ioContext.run();
+                logger->debug("IO thread terminated");
+            });
+
+            logger->info("Connection initiated TCP");
+        } catch (const std::exception &e) {
+            logger->error("Resolution error: {}", e.what());
+            _connecting.store(false);  // Reset connecting state on failure
+            _eventQueue.push(TCPErrorEvent{std::string("Connexion echouee: ") + e.what()});
+            if (_onError) {
+                _onError(std::string("Connexion échouée: ") + e.what());
+            }
+        }
+    }
+
+    void TCPClient::disconnect()
+    {
+        // Prevent multiple disconnect calls
+        if (_disconnecting.exchange(true)) {
+            return;
+        }
+
+        // Check if we were connected or connecting
+        bool wasConnected = _connected.load();
+        bool wasConnecting = _connecting.load();
+
+        if (!wasConnected && !wasConnecting) {
+            _disconnecting.store(false);
+            return;
+        }
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Disconnecting TCP...");
+
+        _connecting.store(false);
+        _connected.store(false);
+
+        _heartbeatTimer.cancel();
+
+        _ioContext.stop();
+
+        boost::system::error_code ec;
+        _socket.shutdown(tcp::socket::shutdown_both, ec);
+        _socket.close(ec);
+
+        _accumulator.clear();
+
+        // Only push disconnected event if we were actually connected
+        // (not just "connecting" waiting for HeartBeatAck)
+        if (wasConnected) {
+            _eventQueue.push(TCPDisconnectedEvent{});
+            if (_onDisconnected) {
+                _onDisconnected();
+            }
+        }
+
+        _ioContext.restart();
+        _socket = tcp::socket(_ioContext);
+
+        while (!_sendQueue.empty()) {
+            _sendQueue.pop();
+        }
+        _isWriting = false;
+
+        logger->info("TCP disconnected successfully");
+    }
+
+    bool TCPClient::isConnected() const
+    {
+        return _connected.load() && _socket.is_open();
+    }
+
+    bool TCPClient::isConnecting() const
+    {
+        return _connecting.load() && _socket.is_open();
+    }
+
+    void TCPClient::asyncConnect(tcp::resolver::results_type endpoints)
+    {
+        boost::asio::async_connect(
+            _socket,
+            endpoints,
+            [this](const boost::system::error_code &error, const tcp::endpoint &) {
+                handleConnect(error);
+            }
+        );
+    }
+
+    void TCPClient::asyncRead()
+    {
+        _socket.async_read_some(
+            boost::asio::buffer(_readBuffer, BUFFER_SIZE),
+            [this](const boost::system::error_code &error, std::size_t bytes) {
+                handleRead(error, bytes);
+            }
+        );
+    }
+
+    void TCPClient::handleConnect(const boost::system::error_code &error)
+    {
+        // Ignore operation_aborted - expected when intentionally disconnecting
+        if (error == boost::asio::error::operation_aborted) {
+            return;
+        }
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        if (!error) {
+            // _connecting is already true from connect(), wait for HeartBeatAck to confirm
+
+            logger->info("TCP socket connected, waiting for server response...");
+
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
+            }
+
+            // Send initial heartbeat to verify server application is responding
+            sendHeartbeat();
+            scheduleHeartbeat();
+
+            // Start reading - TCPConnectedEvent will be pushed when HeartBeatAck is received
+            asyncRead();
+        } else {
+            logger->error("Connection failed: {}", error.message());
+
+            _connecting.store(false);  // Reset connecting state on failure
+
+            _eventQueue.push(TCPErrorEvent{"Connexion echouee: " + error.message()});
+            if (_onError) {
+                _onError("Connexion echouee: " + error.message());
+            }
+        }
+    }
+
+    void TCPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
+    {
+        // Ignore operation_aborted - expected when intentionally disconnecting
+        if (error == boost::asio::error::operation_aborted) {
+            return;
+        }
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        if (!error) {
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
+            }
+
+            _accumulator.insert(_accumulator.end(), _readBuffer, _readBuffer + bytes);
+
+            while (_accumulator.size() >= Header::WIRE_SIZE) {
+                auto headOpt = Header::from_bytes(_accumulator.data(), _accumulator.size());
+                if (!headOpt) {
+                    break;
+                }
+                Header head = *headOpt;
+                size_t totalSize = Header::WIRE_SIZE + head.payload_size;
+
+                if (_accumulator.size() < totalSize) {
+                    break;
+                }
+
+                _isAuthenticated = head.isAuthenticated;
+
+                if (head.type == static_cast<uint16_t>(MessageType::Login)) {
+                    // Server prompts for login - send credentials
+                    std::scoped_lock lock(_mutex);
+                    if (!_pendingUsername.empty() && !_pendingPassword.empty()) {
+                        sendLoginData(_pendingUsername, _pendingPassword);
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::Register)) {
+                    // Server prompts for register - send credentials
+                    std::scoped_lock lock(_mutex);
+                    if (!_pendingUsername.empty() && !_pendingEmail.empty() && !_pendingPassword.empty()) {
+                        sendRegisterData(_pendingUsername, _pendingEmail, _pendingPassword);
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::LoginAck) ||
+                         head.type == static_cast<uint16_t>(MessageType::RegisterAck)) {
+                    // Server response to login/register - try AuthResponseWithToken first
+                    if (head.payload_size >= AuthResponseWithToken::WIRE_SIZE) {
+                        auto respOpt = AuthResponseWithToken::from_bytes(
+                            _accumulator.data() + Header::WIRE_SIZE,
+                            head.payload_size
+                        );
+                        if (respOpt) {
+                            if (respOpt->success) {
+                                _isAuthenticated = true;
+                                // Store the session token for UDP JoinGame
+                                {
+                                    std::scoped_lock lock(_mutex);
+                                    _sessionToken = respOpt->token;
+                                }
+                                logger->info("Authentication successful, token received");
+                                _eventQueue.push(TCPAuthSuccessEvent{});
+                                if (_onReceive) {
+                                    _onReceive("authenticated");
+                                }
+                            } else {
+                                logger->warn("Authentication failed: {} - {}", respOpt->error_code, respOpt->message);
+                                _eventQueue.push(TCPAuthFailedEvent{std::string(respOpt->message)});
+                                if (_onError) {
+                                    _onError(std::string(respOpt->message));
+                                }
+                            }
+                        }
+                    }
+                    // Fallback to AuthResponse (without token) for backward compatibility
+                    else if (head.payload_size >= AuthResponse::WIRE_SIZE) {
+                        auto respOpt = AuthResponse::from_bytes(
+                            _accumulator.data() + Header::WIRE_SIZE,
+                            head.payload_size
+                        );
+                        if (respOpt) {
+                            if (respOpt->success) {
+                                _isAuthenticated = true;
+                                logger->info("Authentication successful (no token)");
+                                _eventQueue.push(TCPAuthSuccessEvent{});
+                                if (_onReceive) {
+                                    _onReceive("authenticated");
+                                }
+                            } else {
+                                logger->warn("Authentication failed: {} - {}", respOpt->error_code, respOpt->message);
+                                _eventQueue.push(TCPAuthFailedEvent{std::string(respOpt->message)});
+                                if (_onError) {
+                                    _onError(std::string(respOpt->message));
+                                }
+                            }
+                        }
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::HeartBeatAck)) {
+                    // Confirm connection on first HeartBeatAck
+                    if (_connecting.exchange(false)) {
+                        _connected.store(true);
+                        logger->info("TCP connection confirmed by server");
+                        _eventQueue.push(TCPConnectedEvent{});
+                        if (_onConnected) {
+                            _onConnected();
+                        }
+                    }
+                }
+                // Room messages
+                else if (head.type == static_cast<uint16_t>(MessageType::CreateRoomAck)) {
+                    auto ackOpt = CreateRoomAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        if (ackOpt->success) {
+                            std::string code(ackOpt->roomCode, ROOM_CODE_LEN);
+                            {
+                                std::scoped_lock lock(_mutex);
+                                _currentRoomCode = code;
+                                _isHost = true;
+                                _isReady = false;
+                            }
+                            logger->info("Room created with code: {}", code);
+                            _eventQueue.push(TCPRoomCreatedEvent{code});
+                        } else {
+                            logger->warn("Room creation failed: {}", ackOpt->message);
+                            _eventQueue.push(TCPRoomCreateFailedEvent{
+                                std::string(ackOpt->errorCode),
+                                std::string(ackOpt->message)
+                            });
+                        }
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::JoinRoomAck)) {
+                    auto ackOpt = JoinRoomAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        std::string code(ackOpt->roomCode, ROOM_CODE_LEN);
+                        std::string name(ackOpt->roomName);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _currentRoomCode = code;
+                            _roomSlotId = ackOpt->slotId;
+                            _isHost = (ackOpt->isHost != 0);
+                            _isReady = false;
+                        }
+
+                        // Extract player list from ack (fixes race condition with RoomUpdate)
+                        std::vector<RoomPlayerInfo> players;
+                        for (uint8_t i = 0; i < ackOpt->playerCount; ++i) {
+                            const auto& ps = ackOpt->players[i];
+                            players.push_back(RoomPlayerInfo{
+                                ps.slotId,
+                                std::string(ps.displayName),
+                                std::string(ps.email),
+                                ps.isReady != 0,
+                                ps.isHost != 0
+                            });
+                        }
+
+                        logger->info("Joined room '{}' (code: {}, slot: {}, players: {})",
+                                    name, code, ackOpt->slotId, players.size());
+                        _eventQueue.push(TCPRoomJoinedEvent{
+                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0,
+                            std::move(players)
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::JoinRoomNack)) {
+                    auto nackOpt = JoinRoomNack::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (nackOpt) {
+                        logger->warn("Failed to join room: {}", nackOpt->message);
+                        _eventQueue.push(TCPRoomJoinFailedEvent{
+                            std::string(nackOpt->errorCode),
+                            std::string(nackOpt->message)
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::LeaveRoomAck)) {
+                    {
+                        std::scoped_lock lock(_mutex);
+                        _currentRoomCode.reset();
+                        _isHost = false;
+                        _isReady = false;
+                        _roomSlotId = 0;
+                    }
+                    logger->info("Left room");
+                    _eventQueue.push(TCPRoomLeftEvent{});
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::SetReadyAck)) {
+                    auto ackOpt = SetReadyAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        bool ready = (ackOpt->isReady != 0);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _isReady = ready;
+                        }
+                        logger->debug("Ready status changed to: {}", ready);
+                        _eventQueue.push(TCPReadyChangedEvent{ready});
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::StartGameAck)) {
+                    logger->info("Game start confirmed");
+                    // Game will start when we receive GameStarting with countdown=0
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::StartGameNack)) {
+                    auto nackOpt = StartGameNack::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (nackOpt) {
+                        logger->warn("Cannot start game: {}", nackOpt->message);
+                        // Could push an event here if needed
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::RoomUpdate)) {
+                    auto updateOpt = RoomUpdate::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (updateOpt) {
+                        TCPRoomUpdateEvent event;
+                        event.roomName = std::string(updateOpt->roomName);
+                        event.roomCode = std::string(updateOpt->roomCode, ROOM_CODE_LEN);
+                        event.maxPlayers = updateOpt->maxPlayers;
+                        for (uint8_t i = 0; i < updateOpt->playerCount; ++i) {
+                            const auto& ps = updateOpt->players[i];
+                            event.players.push_back(RoomPlayerInfo{
+                                ps.slotId,
+                                std::string(ps.displayName),
+                                std::string(ps.email),
+                                ps.isReady != 0,
+                                ps.isHost != 0
+                            });
+                        }
+                        logger->debug("Room update: {} players", event.players.size());
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::GameStarting)) {
+                    auto gsOpt = GameStarting::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (gsOpt) {
+                        logger->info("Game starting! Countdown: {}", gsOpt->countdownSeconds);
+                        _eventQueue.push(TCPGameStartingEvent{gsOpt->countdownSeconds});
+                    }
+                }
+                // Kick messages (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::KickPlayerAck)) {
+                    logger->info("Kick player acknowledged");
+                    _eventQueue.push(TCPKickSuccessEvent{});
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::PlayerKicked)) {
+                    auto notifOpt = PlayerKickedNotification::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (notifOpt) {
+                        std::string reason(notifOpt->reason);
+                        logger->warn("You were kicked from the room! Reason: {}", reason.empty() ? "none" : reason);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _currentRoomCode.reset();
+                            _isHost = false;
+                            _isReady = false;
+                            _roomSlotId = 0;
+                        }
+                        _eventQueue.push(TCPPlayerKickedEvent{reason});
+                    }
+                }
+                // Room Browser messages (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::BrowsePublicRoomsAck)) {
+                    auto respOpt = BrowsePublicRoomsResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (respOpt) {
+                        TCPRoomListEvent event;
+                        for (uint8_t i = 0; i < respOpt->roomCount; ++i) {
+                            const auto& entry = respOpt->rooms[i];
+                            event.rooms.push_back(RoomBrowserInfo{
+                                std::string(entry.code, ROOM_CODE_LEN),
+                                std::string(entry.name),
+                                entry.currentPlayers,
+                                entry.maxPlayers
+                            });
+                        }
+                        logger->debug("Received {} public rooms", event.rooms.size());
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::QuickJoinAck)) {
+                    // Same format as JoinRoomAck
+                    auto ackOpt = JoinRoomAck::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (ackOpt) {
+                        std::string code(ackOpt->roomCode, ROOM_CODE_LEN);
+                        std::string name(ackOpt->roomName);
+                        {
+                            std::scoped_lock lock(_mutex);
+                            _currentRoomCode = code;
+                            _roomSlotId = ackOpt->slotId;
+                            _isHost = (ackOpt->isHost != 0);
+                            _isReady = false;
+                        }
+
+                        // Extract player list from ack (fixes race condition with RoomUpdate)
+                        std::vector<RoomPlayerInfo> players;
+                        for (uint8_t i = 0; i < ackOpt->playerCount; ++i) {
+                            const auto& ps = ackOpt->players[i];
+                            players.push_back(RoomPlayerInfo{
+                                ps.slotId,
+                                std::string(ps.displayName),
+                                std::string(ps.email),
+                                ps.isReady != 0,
+                                ps.isHost != 0
+                            });
+                        }
+
+                        logger->info("Quick joined room '{}' (code: {}, slot: {}, players: {})",
+                                    name, code, ackOpt->slotId, players.size());
+                        _eventQueue.push(TCPRoomJoinedEvent{
+                            ackOpt->slotId, name, code, ackOpt->maxPlayers, ackOpt->isHost != 0,
+                            std::move(players)
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::QuickJoinNack)) {
+                    auto nackOpt = QuickJoinNack::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (nackOpt) {
+                        logger->warn("Quick join failed: {}", nackOpt->message);
+                        _eventQueue.push(TCPQuickJoinFailedEvent{
+                            std::string(nackOpt->errorCode),
+                            std::string(nackOpt->message)
+                        });
+                    }
+                }
+                // User Settings messages (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::GetUserSettingsAck)) {
+                    auto respOpt = GetUserSettingsResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (respOpt) {
+                        TCPUserSettingsEvent event;
+                        event.found = (respOpt->found != 0);
+                        event.colorBlindMode = std::string(respOpt->settings.colorBlindMode);
+                        event.gameSpeed = static_cast<float>(respOpt->settings.gameSpeedPercent) / 100.0f;
+                        std::memcpy(event.keyBindings.data(), respOpt->settings.keyBindings, KEY_BINDINGS_COUNT);
+                        logger->debug("Received user settings (found={})", event.found);
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::SaveUserSettingsAck)) {
+                    auto respOpt = SaveUserSettingsResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (respOpt) {
+                        logger->debug("Save settings result: success={}", respOpt->success);
+                        _eventQueue.push(TCPSaveSettingsResultEvent{
+                            respOpt->success != 0,
+                            std::string(respOpt->message)
+                        });
+                    }
+                }
+                // Chat System (Phase 2)
+                else if (head.type == static_cast<uint16_t>(MessageType::ChatMessageBroadcast)) {
+                    auto msgOpt = ChatMessagePayload::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (msgOpt) {
+                        logger->debug("Chat message from {}: {}", msgOpt->displayName, msgOpt->message);
+                        _eventQueue.push(TCPChatMessageEvent{
+                            std::string(msgOpt->displayName),
+                            std::string(msgOpt->message),
+                            msgOpt->timestamp
+                        });
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::ChatHistory)) {
+                    auto histOpt = ChatHistoryResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (histOpt) {
+                        logger->debug("Received chat history with {} messages", histOpt->messageCount);
+                        TCPChatHistoryEvent event;
+                        for (uint8_t i = 0; i < histOpt->messageCount; ++i) {
+                            event.messages.push_back(ChatMessageInfo{
+                                std::string(histOpt->messages[i].displayName),
+                                std::string(histOpt->messages[i].message),
+                                histOpt->messages[i].timestamp
+                            });
+                        }
+                        _eventQueue.push(std::move(event));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::SendChatMessageAck)) {
+                    logger->debug("Chat message sent successfully");
+                    // No event needed - just confirmation
+                }
+
+                _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
+            }
+
+            asyncRead();
+        } else {
+            if (error == boost::asio::error::eof) {
+                logger->info("Server disconnected");
+            } else {
+                logger->error("Read error: {}", error.message());
+            }
+
+            _eventQueue.push(TCPErrorEvent{"Erreur lecture: " + error.message()});
+            if (_onError) {
+                _onError("Erreur lecture: " + error.message());
+            }
+
+            disconnect();
+        }
+    }
+
+    void TCPClient::setLoginCredentials(const std::string& username, const std::string& password) {
+        std::scoped_lock lock(_mutex);
+        _pendingUsername = username;
+        _pendingPassword = password;
+    }
+
+    void TCPClient::setRegisterCredentials(const std::string& username, const std::string& email, const std::string& password) {
+        std::scoped_lock lock(_mutex);
+        _pendingUsername = username;
+        _pendingEmail = email;
+        _pendingPassword = password;
+    }
+
+    void TCPClient::sendLoginData(const std::string& username, const std::string& password) {
+        // Store credentials for potential auto-reconnection
+        {
+            std::scoped_lock lock(_mutex);
+            _storedUsername = username;
+            _storedPassword = password;
+        }
+
+        LoginMessage login;
+        std::strncpy(login.username, username.c_str(), sizeof(login.username) - 1);
+        login.username[sizeof(login.username) - 1] = '\0';
+        std::strncpy(login.password, password.c_str(), sizeof(login.password) - 1);
+        login.password[sizeof(login.password) - 1] = '\0';
+
+        Header head = {.isAuthenticated = false, .type = static_cast<uint16_t>(MessageType::Login), .payload_size = sizeof(login)};
+
+        const size_t totalSize = Header::WIRE_SIZE + sizeof(login);
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+        head.to_bytes(buf->data());
+        login.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), totalSize),
+            [this, buf](const boost::system::error_code &error, std::size_t) {
+                if (error && _onError) {
+                    _onError("Write error: " + error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::sendRegisterData(const std::string& username, const std::string& email, const std::string& password) {
+        RegisterMessage registerUser;
+        std::strncpy(registerUser.username, username.c_str(), sizeof(registerUser.username) - 1);
+        registerUser.username[sizeof(registerUser.username) - 1] = '\0';
+        std::strncpy(registerUser.email, email.c_str(), sizeof(registerUser.email) - 1);
+        registerUser.email[sizeof(registerUser.email) - 1] = '\0';
+        std::strncpy(registerUser.password, password.c_str(), sizeof(registerUser.password) - 1);
+        registerUser.password[sizeof(registerUser.password) - 1] = '\0';
+
+        Header head = {.isAuthenticated = false, .type = static_cast<uint16_t>(MessageType::Register), .payload_size = sizeof(registerUser)};
+
+        const size_t totalSize = Header::WIRE_SIZE + sizeof(registerUser);
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+        head.to_bytes(buf->data());
+        registerUser.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), totalSize),
+            [this, buf](const boost::system::error_code &error, std::size_t) {
+                if (error && _onError) {
+                    _onError("Write error: " + error.message());
+                }
+            }
+        );
+    }
+
+    bool TCPClient::isAuthenticated() const {
+        return _isAuthenticated;
+    }
+
+    void TCPClient::sendHeartbeat() {
+        // Check socket is open (works for both connected and connecting states)
+        if (!_socket.is_open()) {
+            return;
+        }
+
+        Header head{
+            .isAuthenticated = _isAuthenticated.load(),
+            .type = static_cast<uint16_t>(MessageType::HeartBeat),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), Header::WIRE_SIZE),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("HeartBeat write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::scheduleHeartbeat() {
+        _heartbeatTimer.expires_after(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
+        _heartbeatTimer.async_wait([this](boost::system::error_code ec) {
+            // Continue if connected OR connecting (waiting for HeartBeatAck)
+            if (ec || (!_connected.load() && !_connecting.load())) {
+                return;
+            }
+
+            std::chrono::steady_clock::time_point lastResponse;
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                lastResponse = _lastServerResponse;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - lastResponse
+            ).count();
+
+            if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+                auto logger = client::logging::Logger::getNetworkLogger();
+
+                if (_connecting.load()) {
+                    logger->warn("Initial TCP connection timeout ({}ms) - server not responding", elapsed);
+                    _eventQueue.push(TCPErrorEvent{"Timeout: Serveur TCP injoignable"});
+                } else {
+                    logger->warn("TCP Server heartbeat timeout ({}ms)", elapsed);
+                    _eventQueue.push(TCPErrorEvent{"Timeout: Serveur d'authentification injoignable"});
+                }
+
+                if (_onError) {
+                    _onError("Timeout: Serveur d'authentification injoignable");
+                }
+
+                disconnect();
+                return;
+            }
+
+            sendHeartbeat();
+            scheduleHeartbeat();
+        });
+    }
+
+    std::optional<TCPEvent> TCPClient::pollEvent() {
+        return _eventQueue.poll();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Stored credentials for auto-reconnection
+    // ═══════════════════════════════════════════════════════════════════
+
+    bool TCPClient::hasStoredCredentials() const {
+        std::scoped_lock lock(_mutex);
+        return !_storedUsername.empty() && !_storedPassword.empty();
+    }
+
+    std::pair<std::string, std::string> TCPClient::getStoredCredentials() const {
+        std::scoped_lock lock(_mutex);
+        return {_storedUsername, _storedPassword};
+    }
+
+    void TCPClient::clearStoredCredentials() {
+        std::scoped_lock lock(_mutex);
+        _storedUsername.clear();
+        _storedPassword.clear();
+        _sessionToken.reset();
+        _isAuthenticated.store(false);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Session token management
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::setSessionToken(const SessionToken& token) {
+        std::scoped_lock lock(_mutex);
+        _sessionToken = token;
+    }
+
+    std::optional<SessionToken> TCPClient::getSessionToken() const {
+        std::scoped_lock lock(_mutex);
+        return _sessionToken;
+    }
+
+    bool TCPClient::hasSessionToken() const {
+        std::scoped_lock lock(_mutex);
+        return _sessionToken.has_value();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Room operations
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::createRoom(const std::string& name, uint8_t maxPlayers, bool isPrivate) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        CreateRoomRequest req;
+        std::strncpy(req.name, name.c_str(), ROOM_NAME_LEN - 1);
+        req.name[ROOM_NAME_LEN - 1] = '\0';
+        req.maxPlayers = maxPlayers;
+        req.isPrivate = isPrivate ? 1 : 0;
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::CreateRoom),
+            .payload_size = static_cast<uint32_t>(CreateRoomRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + CreateRoomRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("CreateRoom write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::joinRoomByCode(const std::string& code) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        JoinRoomByCodeRequest req;
+        std::memcpy(req.roomCode, code.c_str(), std::min(code.size(), ROOM_CODE_LEN));
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::JoinRoomByCode),
+            .payload_size = static_cast<uint32_t>(JoinRoomByCodeRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + JoinRoomByCodeRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("JoinRoomByCode write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::leaveRoom() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::LeaveRoom),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("LeaveRoom write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::setReady(bool ready) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        SetReadyRequest req;
+        req.isReady = ready ? 1 : 0;
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::SetReady),
+            .payload_size = static_cast<uint32_t>(SetReadyRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SetReadyRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("SetReady write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::startGame() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::StartGame),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("StartGame write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::kickPlayer(const std::string& email, const std::string& reason) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        KickPlayerRequest req;
+        std::strncpy(req.email, email.c_str(), MAX_EMAIL_LEN - 1);
+        req.email[MAX_EMAIL_LEN - 1] = '\0';
+        std::strncpy(req.reason, reason.c_str(), MAX_ERROR_MSG_LEN - 1);
+        req.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::KickPlayer),
+            .payload_size = static_cast<uint32_t>(KickPlayerRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + KickPlayerRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("KickPlayer write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::browsePublicRooms() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::BrowsePublicRooms),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("BrowsePublicRooms write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::quickJoin() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::QuickJoin),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("QuickJoin write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // User Settings operations (Phase 2)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::requestUserSettings() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::GetUserSettings),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("GetUserSettings write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::saveUserSettings(const UserSettingsPayload& settings) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        SaveUserSettingsRequest req;
+        req.settings = settings;
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::SaveUserSettings),
+            .payload_size = static_cast<uint32_t>(SaveUserSettingsRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SaveUserSettingsRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("SaveUserSettings write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Chat System (Phase 2)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::sendChatMessage(const std::string& message) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        if (message.empty() || message.length() > CHAT_MESSAGE_LEN - 1) {
+            return;
+        }
+
+        SendChatMessageRequest req;
+        std::strncpy(req.message, message.c_str(), CHAT_MESSAGE_LEN);
+        req.message[CHAT_MESSAGE_LEN - 1] = '\0';
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::SendChatMessage),
+            .payload_size = static_cast<uint32_t>(SendChatMessageRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SendChatMessageRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("SendChatMessage write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Room state getters
+    // ═══════════════════════════════════════════════════════════════════
+
+    bool TCPClient::isInRoom() const {
+        std::scoped_lock lock(_mutex);
+        return _currentRoomCode.has_value();
+    }
+
+    std::optional<std::string> TCPClient::getCurrentRoomCode() const {
+        std::scoped_lock lock(_mutex);
+        return _currentRoomCode;
+    }
+
+    bool TCPClient::isHost() const {
+        std::scoped_lock lock(_mutex);
+        return _isHost;
+    }
+
+    bool TCPClient::isReady() const {
+        std::scoped_lock lock(_mutex);
+        return _isReady;
+    }
+
+}

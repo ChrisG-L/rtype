@@ -5,6 +5,10 @@ LABEL maintainer="Killian Pluenet"
 LABEL project="R-Type"
 LABEL description="Dockerfile to build R-Type project"
 
+# FIX : Prioriser les binaires système standard (GNU) pour éviter les conflits avec Nix
+# Cela garantit que /usr/bin/install est utilisé au lieu de /nix/forwarding/bin/install
+ENV PATH="/usr/bin:/bin:${PATH}"
+
 # Installer les dépendances nécessaires pour la construction
 RUN apt-get update && \
     apt-get install -y \
@@ -32,9 +36,18 @@ RUN apt-get update && \
         libudev-dev \
         libgl1-mesa-dev \
         pkg-config \
+        python3-full \
+        python3-pip \
+        python3-venv \
         python3 \
+        python3-jinja2 \
         rsync \
         clang \
+        autoconf \
+        autoconf-archive \
+        automake \
+        libtool \
+        libsystemd-dev \
         # Outils de cross-compilation Windows
         mingw-w64 \
         g++-mingw-w64-x86-64 \

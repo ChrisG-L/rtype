@@ -427,3 +427,4 @@ python .claude/scripts/bootstrap.py --incremental  # Update
 5. **Missiles are server-authoritative** - Client sends request, server spawns
 6. **GameSnapshot is the source of truth** - Broadcast at 20Hz
 7. **Use agentDB** - Query file context and impact before refactoring
+8. **Never compile** - The user compiles the project themselves. If compilation is needed to verify changes, stop and ask the user to compile, then wait for their feedback before continuing.

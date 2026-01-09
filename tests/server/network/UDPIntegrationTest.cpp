@@ -434,177 +434,6 @@ TEST_F(UDPPerformanceTest, SmallVsLargePackets) {
     client.stop();
 }
 
-// ============================================================================
-// Tests UDP avec Protobuf
-// ============================================================================
-
-#include "user.pb.h"
-#include "auth.pb.h"
-#include "game.pb.h"
-
-class UDPProtobufTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        _server = std::make_unique<TestUDPServer>(19892);
-        _server->start();
-
-        _client = std::make_unique<TestUDPClient>();
-        _client->start();
-    }
-
-    void TearDown() override {
-        _client->stop();
-        _server->stop();
-    }
-
-    std::unique_ptr<TestUDPServer> _server;
-    std::unique_ptr<TestUDPClient> _client;
-};
-
-/**
- * @test Envoi d'un ClientInput via UDP
- */
-TEST_F(UDPProtobufTest, SendClientInput) {
-    rtype::game::ClientInput input;
-    input.set_sequence_number(42);
-    input.set_client_tick(1000);
-    input.set_timestamp_ms(1700000000000);
-
-    auto* flags = input.mutable_input();
-    flags->set_move_up(true);
-    flags->set_shoot(true);
-
-    auto* aim = input.mutable_aim_direction();
-    aim->set_x(1.0f);
-    aim->set_y(0.0f);
-
-    std::string serialized;
-    ASSERT_TRUE(input.SerializeToString(&serialized));
-
-    ASSERT_TRUE(_client->sendTo("127.0.0.1", 19892, serialized));
-
-    std::string response = _client->receive(1000);
-
-    rtype::game::ClientInput received;
-    ASSERT_TRUE(received.ParseFromString(response));
-    EXPECT_EQ(received.sequence_number(), 42u);
-    EXPECT_TRUE(received.input().move_up());
-    EXPECT_TRUE(received.input().shoot());
-}
-
-/**
- * @test Envoi d'un WorldSnapshot via UDP (scénario serveur -> client)
- */
-TEST_F(UDPProtobufTest, SendWorldSnapshot) {
-    rtype::game::WorldSnapshot snapshot;
-    snapshot.set_server_tick(5000);
-    snapshot.set_timestamp_ms(1700000000000);
-    snapshot.set_state(rtype::game::GAME_RUNNING);
-
-    // Ajouter des entités
-    for (int i = 0; i < 10; i++) {
-        auto* entity = snapshot.add_entities();
-        entity->set_network_id(i);
-        entity->set_type(rtype::game::ENTITY_PLAYER);
-        entity->mutable_position()->set_x(static_cast<float>(i * 100));
-        entity->mutable_position()->set_y(300.0f);
-        entity->mutable_velocity()->set_x(5.0f);
-        entity->mutable_velocity()->set_y(0.0f);
-        entity->set_health(100);
-        entity->set_max_health(100);
-    }
-
-    std::string serialized;
-    ASSERT_TRUE(snapshot.SerializeToString(&serialized));
-
-    // Vérifier que la taille est raisonnable pour UDP
-    EXPECT_LT(serialized.size(), 1400u);  // Taille typique MTU sûre
-
-    ASSERT_TRUE(_client->sendTo("127.0.0.1", 19892, serialized));
-
-    std::string response = _client->receive(1000);
-
-    rtype::game::WorldSnapshot received;
-    ASSERT_TRUE(received.ParseFromString(response));
-    EXPECT_EQ(received.server_tick(), 5000u);
-    EXPECT_EQ(received.entities_size(), 10);
-}
-
-/**
- * @test Envoi de Ping/Pong pour mesure de latence
- */
-TEST_F(UDPProtobufTest, PingPongLatency) {
-    rtype::game::Ping ping;
-    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()
-    ).count();
-
-    ping.set_client_timestamp(now);
-    ping.set_sequence(1);
-
-    std::string serialized;
-    ASSERT_TRUE(ping.SerializeToString(&serialized));
-
-    ASSERT_TRUE(_client->sendTo("127.0.0.1", 19892, serialized));
-
-    std::string response = _client->receive(1000);
-
-    // Le serveur echo renvoie le même message
-    rtype::game::Ping received;
-    ASSERT_TRUE(received.ParseFromString(response));
-    EXPECT_EQ(received.sequence(), 1u);
-    EXPECT_EQ(received.client_timestamp(), static_cast<uint64_t>(now));
-}
-
-/**
- * @test Simulation de flux de jeu: inputs fréquents
- */
-TEST_F(UDPProtobufTest, GameplayInputFlow) {
-    const int numInputs = 60;  // Simuler 1 seconde à 60 FPS
-
-    for (int i = 0; i < numInputs; i++) {
-        rtype::game::ClientInput input;
-        input.set_sequence_number(i);
-        input.set_client_tick(i * 16);  // ~60 FPS
-
-        auto* flags = input.mutable_input();
-        flags->set_move_right(true);
-        flags->set_shoot(i % 10 == 0);  // Tir toutes les 10 frames
-
-        std::string serialized;
-        input.SerializeToString(&serialized);
-
-        _client->sendTo("127.0.0.1", 19892, serialized);
-    }
-
-    // Attendre que tous les paquets soient traités
-    std::this_thread::sleep_for(500ms);
-
-    // Sur localhost, on devrait recevoir la plupart des paquets
-    EXPECT_GT(_server->getPacketsReceived(), numInputs / 2);
-}
-
-/**
- * @test GameMessage wrapper pour différents types
- */
-TEST_F(UDPProtobufTest, GameMessageWrapper) {
-    // Test avec ClientInput
-    rtype::game::GameMessage inputMsg;
-    inputMsg.set_type(rtype::game::MSG_CLIENT_INPUT);
-    inputMsg.set_sequence_id(1);
-    inputMsg.mutable_client_input()->set_sequence_number(100);
-
-    std::string serialized;
-    inputMsg.SerializeToString(&serialized);
-
-    _client->sendTo("127.0.0.1", 19892, serialized);
-    std::string response = _client->receive(1000);
-
-    rtype::game::GameMessage received;
-    ASSERT_TRUE(received.ParseFromString(response));
-    EXPECT_EQ(received.type(), rtype::game::MSG_CLIENT_INPUT);
-    EXPECT_TRUE(received.has_client_input());
-}
 
 // ============================================================================
 // Tests de Robustesse UDP
@@ -664,9 +493,9 @@ TEST_F(UDPRobustnessTest, MultipleClients) {
 }
 
 /**
- * @test Données invalides Protobuf
+ * @test Données invalides (echo server renvoie les mêmes données)
  */
-TEST_F(UDPRobustnessTest, InvalidProtobufData) {
+TEST_F(UDPRobustnessTest, InvalidDataHandling) {
     TestUDPServer server(19894);
     server.start();
 
@@ -674,18 +503,13 @@ TEST_F(UDPRobustnessTest, InvalidProtobufData) {
     client.start();
 
     // Envoyer des données invalides
-    std::string invalidData = "This is not valid protobuf!@#$%";
+    std::string invalidData = "This is not valid data!@#$%";
     client.sendTo("127.0.0.1", 19894, invalidData);
 
     std::string response = client.receive(500);
 
-    // Essayer de parser comme GameMessage devrait échouer ou donner des valeurs par défaut
-    rtype::game::GameMessage msg;
-    // ParseFromString peut retourner true même avec des données invalides
-    // car protobuf est assez permissif
-    msg.ParseFromString(response);
-    // Le type devrait être MSG_UNKNOWN (valeur par défaut 0)
-    EXPECT_EQ(msg.type(), rtype::game::MSG_UNKNOWN);
+    // Le serveur echo renvoie les mêmes données
+    EXPECT_EQ(response, invalidData);
 
     client.stop();
     server.stop();

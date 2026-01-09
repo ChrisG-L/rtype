@@ -36,7 +36,9 @@ DIM='\033[2m'
 # Répertoires
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="${PROJECT_ROOT}/build"
+# Utiliser le même dossier de build que build.sh (buildLinux par défaut)
+PLATFORM="linux"
+BUILD_DIR="${PROJECT_ROOT}/buildLinux"
 TESTS_OUTPUT_DIR="${PROJECT_ROOT}/artifacts/tests"
 
 # Options par défaut
@@ -146,6 +148,7 @@ ${BOLD}OPTIONS:${NC}
     -f, --filter PATTERN  Filtre les tests avec un pattern GTest
     -j, --jobs N        Nombre de jobs parallèles pour la compilation
     -l, --list          Liste tous les tests disponibles
+    -p, --platform P    Plateforme cible: linux (défaut), windows, macos
     --clean             Nettoie le répertoire de build avant
 
 ${BOLD}EXEMPLES:${NC}
@@ -214,6 +217,14 @@ parse_args() {
                 CLEAN_BUILD=true
                 shift
                 ;;
+            -p|--platform)
+                PLATFORM="$2"
+                shift 2
+                ;;
+            --platform=*)
+                PLATFORM="${1#*=}"
+                shift
+                ;;
             *)
                 print_error "Option inconnue: $1"
                 echo "Utilisez --help pour voir les options disponibles."
@@ -221,6 +232,23 @@ parse_args() {
                 ;;
         esac
     done
+
+    # Déterminer le dossier de build selon la plateforme
+    case $PLATFORM in
+        linux)
+            BUILD_DIR="${PROJECT_ROOT}/buildLinux"
+            ;;
+        windows)
+            BUILD_DIR="${PROJECT_ROOT}/buildWin"
+            ;;
+        macos)
+            BUILD_DIR="${PROJECT_ROOT}/buildMac"
+            ;;
+        *)
+            print_error "Plateforme invalide: $PLATFORM (linux, windows, macos)"
+            exit 1
+            ;;
+    esac
 }
 
 #===============================================================================
@@ -415,6 +443,7 @@ main() {
 
     print_header "R-Type Test Runner"
     print_info "Projet: ${PROJECT_ROOT}"
+    print_info "Platform: ${PLATFORM}"
     print_info "Build: ${BUILD_DIR}"
     print_info "Output: ${TESTS_OUTPUT_DIR}"
 

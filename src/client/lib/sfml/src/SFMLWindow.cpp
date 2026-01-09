@@ -12,6 +12,16 @@
 #include <optional>
 #include <stdexcept>
 
+static events::MouseButton sfmlButtonToMouseButton(sf::Mouse::Button button)
+{
+    switch (button) {
+        case sf::Mouse::Button::Left: return events::MouseButton::Left;
+        case sf::Mouse::Button::Right: return events::MouseButton::Right;
+        case sf::Mouse::Button::Middle: return events::MouseButton::Middle;
+        default: return events::MouseButton::Unknown;
+    }
+}
+
 static events::Key scancodeToKey(sf::Keyboard::Scancode scancode)
 {
     switch (scancode) {
@@ -102,6 +112,31 @@ events::Event SFMLWindow::pollEvent()
         if (const auto* keyReleased = ev->getIf<sf::Event::KeyReleased>()) {
             return events::KeyReleased{scancodeToKey(keyReleased->scancode)};
         }
+        if (const auto* mousePressed = ev->getIf<sf::Event::MouseButtonPressed>()) {
+            return events::MouseButtonPressed{
+                sfmlButtonToMouseButton(mousePressed->button),
+                static_cast<int>(mousePressed->position.x),
+                static_cast<int>(mousePressed->position.y)
+            };
+        }
+        if (const auto* mouseReleased = ev->getIf<sf::Event::MouseButtonReleased>()) {
+            return events::MouseButtonReleased{
+                sfmlButtonToMouseButton(mouseReleased->button),
+                static_cast<int>(mouseReleased->position.x),
+                static_cast<int>(mouseReleased->position.y)
+            };
+        }
+        if (const auto* mouseMoved = ev->getIf<sf::Event::MouseMoved>()) {
+            return events::MouseMoved{
+                static_cast<int>(mouseMoved->position.x),
+                static_cast<int>(mouseMoved->position.y)
+            };
+        }
+        if (const auto* textEntered = ev->getIf<sf::Event::TextEntered>()) {
+            return events::TextEntered{textEntered->unicode};
+        }
+        // Événement non géré (Resized, FocusGained, etc.) → continuer à vider la queue
+        return pollEvent();
     }
     return events::None{};
 }

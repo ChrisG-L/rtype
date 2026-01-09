@@ -15,8 +15,10 @@
 
 #include "scenes/SceneManager.hpp"
 #include "network/UDPClient.hpp"
+#include "network/TCPClient.hpp"
 #include "IGameLoop.hpp"
 #include "core/IRenderer.hpp"
+#include "core/ConnectionState.hpp"
 #include "events/Event.hpp"
 #include "events/Signal.hpp"
 #include "../graphics/Graphics.hpp"
@@ -28,7 +30,8 @@ namespace core {
             GameLoop(
                 std::shared_ptr<graphics::IWindow> window,
                 graphics::IGraphicPlugin* _graphicPlugin,
-                std::shared_ptr<client::network::UDPClient> udpClient = nullptr
+                std::shared_ptr<client::network::UDPClient> udpClient = nullptr,
+                std::shared_ptr<client::network::TCPClient> tcpClient = nullptr
             );
             ~GameLoop();
 
@@ -37,11 +40,21 @@ namespace core {
             void display() override;
 
         private:
+            void checkConnectionStatus();
+            void updateConnectionState();
+            bool isFullyConnected() const;
+
             float _deltatime;
             std::shared_ptr<graphics::IWindow> _window;
             std::shared_ptr<IRenderer> _renderer;
             std::unique_ptr<SceneManager> _sceneManager;
             std::shared_ptr<client::network::UDPClient> _udpClient;
+            std::shared_ptr<client::network::TCPClient> _tcpClient;
+
+            // Connection monitoring
+            ConnectionState _connectionState;
+            bool _wasConnected = false;
+            bool _connectionOverlayActive = false;
     };
 }
 

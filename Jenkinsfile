@@ -233,6 +233,51 @@ pipeline {
             }
         }
 
+        stage('🔍 Clang-Tidy') {
+            steps {
+                script {
+                    echo '🔍 Analyse statique avec clang-tidy...'
+
+                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                    // Lancer clang-tidy dans le workspace Linux
+                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'lint')
+
+                    echo "[LINT] Job créé: ${jobId}"
+
+                    // Attendre la fin de l'analyse
+                    def result = api.waitForJob(jobId, 10, 3600)
+
+                    echo "✅ Analyse clang-tidy terminée"
+                }
+            }
+        }
+
+        stage('🧪 Run Tests') {
+            // Tests uniquement sur Linux (Windows = cross-compile, non exécutable)
+            stages {
+                stage('🐧 Linux Tests') {
+                    steps {
+                        script {
+                            echo '🧪 Exécution des tests sur Linux...'
+
+                            def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                            // Lancer les tests dans le workspace Linux
+                            def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
+
+                            echo "[LINUX] Job créé: ${jobId}"
+
+                            // Attendre la fin des tests
+                            def result = api.waitForJob(jobId, 10, 7200)
+
+                            echo "✅ [LINUX] Tests exécutés avec succès"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('📦 Download Artifacts') {
             parallel {
                 stage('Download Linux Artifacts') {
@@ -291,6 +336,77 @@ pipeline {
                                     allowEmptyArchive: false
 
                     echo "✅ Artefacts archivés dans Jenkins"
+                }
+            }
+        }
+
+        stage('🚀 GitHub Release') {
+            when {
+                anyOf {
+                    tag pattern: "v*", comparator: "GLOB"
+                    branch 'main'
+                }
+            }
+            steps {
+                script {
+                    echo '🚀 Création de la release GitHub...'
+
+                    // Déterminer le nom de la release
+                    def releaseTag = env.TAG_NAME ?: "latest-${env.BUILD_NUMBER}"
+                    def releaseName = env.TAG_NAME ? "Release ${env.TAG_NAME}" : "Build #${env.BUILD_NUMBER}"
+                    def isPrerelease = env.TAG_NAME ? "" : "--prerelease"
+
+                    // Préparer les fichiers à uploader
+                    sh """
+                        mkdir -p release_assets
+
+                        # Copier les binaires Linux
+                        if [ -d "artifacts/${env.WORKSPACE_ID_LINUX}" ]; then
+                            cp -r artifacts/${env.WORKSPACE_ID_LINUX}/server/linux release_assets/rtype-server-linux || true
+                            cp -r artifacts/${env.WORKSPACE_ID_LINUX}/client/linux release_assets/rtype-client-linux || true
+                        fi
+
+                        # Copier les binaires Windows
+                        if [ -d "artifacts/${env.WORKSPACE_ID_WINDOWS}" ]; then
+                            cp -r artifacts/${env.WORKSPACE_ID_WINDOWS}/server/windows release_assets/rtype-server-windows || true
+                            cp -r artifacts/${env.WORKSPACE_ID_WINDOWS}/client/windows release_assets/rtype-client-windows || true
+                        fi
+
+                        # Créer les archives
+                        cd release_assets
+                        if [ -d "rtype-server-linux" ]; then
+                            tar -czvf rtype-server-linux.tar.gz rtype-server-linux/
+                        fi
+                        if [ -d "rtype-client-linux" ]; then
+                            tar -czvf rtype-client-linux.tar.gz rtype-client-linux/
+                        fi
+                        if [ -d "rtype-server-windows" ]; then
+                            zip -r rtype-server-windows.zip rtype-server-windows/
+                        fi
+                        if [ -d "rtype-client-windows" ]; then
+                            zip -r rtype-client-windows.zip rtype-client-windows/
+                        fi
+                        cd ..
+                    """
+
+                    // Créer la release GitHub
+                    withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
+                        sh """
+                            # Supprimer l'ancienne release latest si c'est un build sur main
+                            if [ -z "${env.TAG_NAME}" ]; then
+                                gh release delete "${releaseTag}" --yes || true
+                            fi
+
+                            # Créer la nouvelle release
+                            gh release create "${releaseTag}" \
+                                --title "${releaseName}" \
+                                --notes "Automated release from Jenkins build #${env.BUILD_NUMBER}" \
+                                ${isPrerelease} \
+                                release_assets/*.tar.gz release_assets/*.zip || true
+                        """
+                    }
+
+                    echo "✅ Release GitHub créée: ${releaseName}"
                 }
             }
         }

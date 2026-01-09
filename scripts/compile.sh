@@ -2,6 +2,9 @@
 
 set -e # Arreter en cas d'erreur
 
+# Nécessaire pour vcpkg lors de la reconfiguration automatique de CMake
+export VCPKG_FORCE_SYSTEM_BINARIES=1
+
 # ==============================================================================
 # Couleurs et Formatage
 # ==============================================================================
@@ -114,7 +117,7 @@ print_summary() {
     echo -e "${BLUE}${BOLD}  RESUME DE LA COMPILATION${NC}"
     echo -e "${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-    if [[ $ERROR_COUNT -eq 0 ]] && [[ $WARNING_COUNT -eq 0 ]]; then
+    if [[ $BUILD_STATUS -eq 0 ]] && [[ $ERROR_COUNT -eq 0 ]] && [[ $WARNING_COUNT -eq 0 ]]; then
         echo -e "  ${GREEN}${BOLD}✓ Compilation reussie sans erreur ni warning${NC}"
     else
         if [[ $ERROR_COUNT -gt 0 ]]; then

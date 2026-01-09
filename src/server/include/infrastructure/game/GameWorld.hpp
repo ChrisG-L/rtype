@@ -14,6 +14,7 @@
 #include <mutex>
 #include <optional>
 #include <vector>
+#include <chrono>
 
 namespace infrastructure::game {
     using boost::asio::ip::udp;
@@ -25,6 +26,7 @@ namespace infrastructure::game {
         uint8_t health;
         bool alive;
         udp::endpoint endpoint;
+        std::chrono::steady_clock::time_point lastActivity;
     };
 
     struct Missile {
@@ -170,6 +172,9 @@ namespace infrastructure::game {
         std::vector<uint8_t> getDeadPlayers();
 
         bool isPlayerAlive(uint8_t playerId) const;
+
+        void updatePlayerActivity(uint8_t playerId);
+        std::vector<uint8_t> checkPlayerTimeouts(std::chrono::milliseconds timeout);
 
     private:
         std::unordered_map<uint8_t, ConnectedPlayer> _players;

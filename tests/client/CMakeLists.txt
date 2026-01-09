@@ -43,9 +43,11 @@ target_link_libraries(client_tests PRIVATE
     GTest::gtest_main
 )
 
-# Enregistrer les tests avec CTest
-include(GoogleTest)
-gtest_discover_tests(client_tests)
+# Enregistrer les tests avec CTest (sauf en cross-compilation)
+if(NOT CMAKE_CROSSCOMPILING)
+    include(GoogleTest)
+    gtest_discover_tests(client_tests)
+endif()
 
 # Définir la sortie des tests dans artifacts/tests
 set_target_properties(client_tests PROPERTIES

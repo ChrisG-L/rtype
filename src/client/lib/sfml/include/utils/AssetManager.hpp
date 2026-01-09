@@ -21,7 +21,6 @@
 
 struct SpriteData {
     sf::Sprite sprite;
-    int zIndex = 0;
 };
 
 class AssetManager {
@@ -34,8 +33,8 @@ class AssetManager {
         bool registerTexture(graphic::GraphicTexture&, const std::string& file);
         void removeTexture(const std::string& file);
 
-        void addSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite, int zIndex = 0);
-        void setSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite, int zIndex = 0);
+        void addSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite);
+        void setSprite(const std::string& textureKey, const std::string& spriteKey, const sf::Sprite& sprite);
         void removeSprite(const std::string& textureKey, const std::string& spriteKey);
         void drawAll(sf::RenderWindow* window);
 

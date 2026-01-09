@@ -5,12 +5,14 @@
   "dependencies": [
     "boost-asio",
     "gtest",
+    "mongo-cxx-driver",
     "openssl",
     "protobuf",
     "sdl2",
     "sdl2-image",
     "sdl2-ttf",
     "sdl2-mixer",
+    "sfml",
     "spdlog"
   ],
   "overrides": [

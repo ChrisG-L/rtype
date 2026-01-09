@@ -70,6 +70,12 @@ namespace client::logging {
         if (s_bootLogger) {
             s_bootLogger->info("Shutting down logging system");
         }
+        s_networkLogger.reset();
+        s_engineLogger.reset();
+        s_graphicsLogger.reset();
+        s_sceneLogger.reset();
+        s_uiLogger.reset();
+        s_bootLogger.reset();
         spdlog::shutdown();
     }
 

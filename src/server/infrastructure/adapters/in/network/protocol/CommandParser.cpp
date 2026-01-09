@@ -8,7 +8,7 @@
 #include "infrastructure/adapters/in/network/protocol/CommandParser.hpp"
 
 namespace infrastructure::adapters::in::network::protocol {
-    Command CommandParser::parse(const std::string &rawData) {
+    Command CommandParser::parse([[maybe_unused]] const std::string &rawData) {
         Command cmd;
         // std::stringstream ss(rawData);
         // std::string t;

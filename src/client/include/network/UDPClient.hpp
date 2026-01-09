@@ -17,8 +17,11 @@
 #include <queue>
 #include <functional>
 #include <optional>
+#include <chrono>
+#include <atomic>
 
 #include "Protocol.hpp"
+#include "NetworkEvents.hpp"
 
 namespace client::network
 {
@@ -65,6 +68,11 @@ namespace client::network
         void connect(const std::string &host, std::uint16_t port);
         void disconnect();
         bool isConnected() const;
+        bool isConnecting() const;
+
+        // Get last connection info (for reconnection)
+        const std::string& getLastHost() const { return _lastHost; }
+        std::uint16_t getLastPort() const { return _lastPort; }
 
         void send(const std::string &message);
 
@@ -79,6 +87,7 @@ namespace client::network
 
         void movePlayer(uint16_t x, uint16_t y);
         void shootMissile();
+        void joinGame(const SessionToken& token);
 
         std::optional<uint8_t> getLocalPlayerId() const;
         std::vector<NetworkPlayer> getPlayers() const;
@@ -86,6 +95,9 @@ namespace client::network
         std::vector<NetworkEnemy> getEnemies() const;
         std::vector<NetworkMissile> getEnemyMissiles() const;
         bool isLocalPlayerDead() const;
+
+        // Event queue for thread-safe event polling
+        std::optional<UDPEvent> pollEvent();
 
     private:
         void asyncReceiveFrom();
@@ -102,12 +114,21 @@ namespace client::network
         void handleMissileDestroyed(const uint8_t* payload, size_t size);
         void handlePlayerDied(const uint8_t* payload, size_t size);
 
+        void scheduleHeartbeat();
+        void sendHeartbeat();
+
         boost::asio::io_context _ioContext;
         udp::socket _socket;
         std::jthread _ioThread;
         udp::endpoint _endpoint;
 
-        bool _connected;
+        boost::asio::steady_timer _heartbeatTimer;
+        std::chrono::steady_clock::time_point _lastServerResponse;
+        mutable std::mutex _heartbeatMutex;
+
+        std::atomic<bool> _connected{false};
+        std::atomic<bool> _connecting{false};  // Waiting for HeartBeatAck
+        std::atomic<bool> _disconnecting{false};
         mutable std::mutex _mutex;
 
         std::array<char, 1> _sendBuf;
@@ -138,6 +159,13 @@ namespace client::network
         OnMissileSpawnedCallback _onMissileSpawned;
         OnMissileDestroyedCallback _onMissileDestroyed;
         OnPlayerDiedCallback _onPlayerDied;
+
+        // Last connection info (for reconnection)
+        std::string _lastHost;
+        std::uint16_t _lastPort = 0;
+
+        // Event queue for thread-safe main thread communication
+        EventQueue<UDPEvent> _eventQueue;
     };
 
 }

@@ -2,10 +2,11 @@
 ** EPITECH PROJECT, 2025
 ** rtype [WSL: Ubuntu-24.04]
 ** File description:
-** ExecuteAuth
+** ExecutePlayer
 */
 
 #include "infrastructure/adapters/in/network/execute/player/ExecutePlayer.hpp"
+#include "infrastructure/logging/Logger.hpp"
 #include "Protocol.hpp"
 
 namespace infrastructure::adapters::in::network::execute::player {
@@ -17,14 +18,14 @@ namespace infrastructure::adapters::in::network::execute::player {
         if (_cmd.type == static_cast<uint16_t>(MessageType::MovePlayer)) {
             move();
         } else {
-            std::cout << "COMMAND NOT FOUND!" << std::endl;
+            server::logging::Logger::getNetworkLogger()->warn("Command not found: type={}", _cmd.type);
         }
     }
 
     void ExecutePlayer::move() {
         auto movePlayerOpt = MovePlayer::from_bytes(_cmd.buf.data(), _cmd.buf.size());
         if (!movePlayerOpt) {
-            std::cout << "Invalid MovePlayer message received!" << std::endl;
+            server::logging::Logger::getNetworkLogger()->warn("Invalid MovePlayer message received!");
             return;
         }
         _movePlayer->execute(PlayerId("1"), movePlayerOpt->x, movePlayerOpt->y, 0);

@@ -7,6 +7,7 @@
 
 #include "scenes/GameScene.hpp"
 #include "scenes/SceneManager.hpp"
+#include "scenes/MainMenuScene.hpp"
 #include "core/Logger.hpp"
 #include "events/Event.hpp"
 #include "utils/Vecs.hpp"
@@ -88,12 +89,62 @@ void GameScene::initAudio()
 
 void GameScene::handleEvent(const events::Event& event)
 {
+    // Handle chat input when open
+    if (_chatInputOpen && _chatInput) {
+        _chatInput->handleEvent(event);
+
+        if (std::holds_alternative<events::KeyPressed>(event)) {
+            auto& key = std::get<events::KeyPressed>(event);
+            if (key.key == events::Key::Enter) {
+                onSendChatMessage();
+                return;
+            } else if (key.key == events::Key::Escape) {
+                _chatInputOpen = false;
+                _chatInput->clear();
+                return;
+            }
+        }
+        return;  // Don't process other input when chat is open
+    }
+
     if (std::holds_alternative<events::KeyPressed>(event)) {
         auto& key = std::get<events::KeyPressed>(event);
         _keysPressed.insert(key.key);
+
+        // If kicked, any key returns to main menu
+        if (_wasKicked && _sceneManager) {
+            _sceneManager->changeScene(std::make_unique<MainMenuScene>());
+            return;
+        }
+
+        // Toggle chat with T key
+        if (key.key == events::Key::T && !_context.udpClient->isLocalPlayerDead() && !_wasKicked) {
+            _chatInputOpen = true;
+            if (_chatInput) {
+                _chatInput->setFocused(true);
+            }
+            return;
+        }
     } else if (std::holds_alternative<events::KeyReleased>(event)) {
         auto& key = std::get<events::KeyReleased>(event);
         _keysPressed.erase(key.key);
+    }
+}
+
+void GameScene::processUDPEvents()
+{
+    if (!_context.udpClient) return;
+
+    while (auto eventOpt = _context.udpClient->pollEvent()) {
+        std::visit([this](auto&& event) {
+            using T = std::decay_t<decltype(event)>;
+
+            if constexpr (std::is_same_v<T, client::network::UDPKickedEvent>) {
+                client::logging::Logger::getSceneLogger()->warn("Kicked from game!");
+                _wasKicked = true;
+            }
+            // Other events are handled by UDPClient internally
+        }, *eventOpt);
     }
 }
 
@@ -111,6 +162,36 @@ void GameScene::update(float deltatime)
 
     if (!_audioInitialized) {
         initAudio();
+    }
+
+    if (!_chatUIInitialized) {
+        initChatUI();
+    }
+
+    // Process UDP events (check for kick)
+    processUDPEvents();
+
+    // Process TCP events (chat messages)
+    processTCPEvents();
+
+    // Update chat message display timers
+    for (auto it = _chatDisplayMessages.begin(); it != _chatDisplayMessages.end(); ) {
+        it->displayTime -= deltatime;
+        if (it->displayTime <= 0) {
+            it = _chatDisplayMessages.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Update chat input if open
+    if (_chatInputOpen && _chatInput) {
+        _chatInput->update(deltatime);
+    }
+
+    // If kicked, don't update gameplay
+    if (_wasKicked) {
+        return;
     }
 
     auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
@@ -390,6 +471,31 @@ void GameScene::renderDeathScreen()
     }
 }
 
+void GameScene::renderKickedScreen()
+{
+    _context.window->drawRect(0, 0, SCREEN_WIDTH + 20, SCREEN_HEIGHT + 20, {0, 0, 0, 200});
+
+    const std::string kickedText = "KICKED";
+    float textX = SCREEN_WIDTH / 2.0f - 80.0f;
+    float textY = SCREEN_HEIGHT / 2.0f - 50.0f;
+
+    if (_assetsLoaded) {
+        _context.window->drawText(FONT_KEY, kickedText, textX, textY, 48, {255, 150, 50, 255});
+
+        const std::string instructionText = "You have been kicked from the game";
+        float instrX = SCREEN_WIDTH / 2.0f - 180.0f;
+        float instrY = textY + 80.0f;
+        _context.window->drawText(FONT_KEY, instructionText, instrX, instrY, 24, {200, 200, 200, 255});
+
+        const std::string hintText = "Press any key to return to menu";
+        float hintX = SCREEN_WIDTH / 2.0f - 150.0f;
+        float hintY = textY + 130.0f;
+        _context.window->drawText(FONT_KEY, hintText, hintX, hintY, 18, {150, 150, 150, 255});
+    } else {
+        _context.window->drawRect(textX, textY, 160.0f, 60.0f, {255, 150, 50, 255});
+    }
+}
+
 void GameScene::render()
 {
     if (!_context.window || !_context.udpClient) return;
@@ -401,7 +507,139 @@ void GameScene::render()
     renderEnemyMissiles();
     renderHUD();
 
-    if (_context.udpClient->isLocalPlayerDead()) {
+    // Always render chat overlay (even when dead)
+    renderChatOverlay();
+
+    if (_wasKicked) {
+        renderKickedScreen();
+    } else if (_context.udpClient->isLocalPlayerDead()) {
         renderDeathScreen();
+    }
+}
+
+// ============================================================================
+// Chat System (Phase 2)
+// ============================================================================
+
+void GameScene::initChatUI()
+{
+    if (_chatUIInitialized || !_context.window) return;
+
+    _chatInput = std::make_unique<ui::TextInput>(
+        Vec2f{20.0f, SCREEN_HEIGHT - 50.0f},
+        Vec2f{400.0f, 40.0f},
+        "Press Enter to send...",
+        FONT_KEY
+    );
+    _chatInput->setMaxLength(200);
+
+    _chatUIInitialized = true;
+}
+
+void GameScene::processTCPEvents()
+{
+    if (!_context.tcpClient) return;
+
+    while (auto eventOpt = _context.tcpClient->pollEvent()) {
+        std::visit([this](auto&& event) {
+            using T = std::decay_t<decltype(event)>;
+
+            if constexpr (std::is_same_v<T, client::network::TCPChatMessageEvent>) {
+                appendChatMessage(client::network::ChatMessageInfo{
+                    event.displayName,
+                    event.message,
+                    event.timestamp
+                });
+            }
+            // Ignore other TCP events during gameplay
+        }, *eventOpt);
+    }
+}
+
+void GameScene::onSendChatMessage()
+{
+    if (!_chatInput || !_chatInputOpen) return;
+
+    std::string message = _chatInput->getText();
+    if (message.empty()) {
+        _chatInputOpen = false;
+        return;
+    }
+
+    if (_context.tcpClient && _context.tcpClient->isConnected()) {
+        _context.tcpClient->sendChatMessage(message);
+    }
+
+    _chatInput->clear();
+    _chatInputOpen = false;
+}
+
+void GameScene::appendChatMessage(const client::network::ChatMessageInfo& msg)
+{
+    ChatDisplayMessage displayMsg;
+    displayMsg.displayName = msg.displayName;
+    displayMsg.message = msg.message;
+    displayMsg.displayTime = CHAT_MESSAGE_DISPLAY_TIME;
+
+    _chatDisplayMessages.push_back(std::move(displayMsg));
+
+    // Keep only last MAX_CHAT_DISPLAY_MESSAGES
+    while (_chatDisplayMessages.size() > MAX_CHAT_DISPLAY_MESSAGES) {
+        _chatDisplayMessages.erase(_chatDisplayMessages.begin());
+    }
+}
+
+void GameScene::renderChatOverlay()
+{
+    if (!_context.window) return;
+
+    // Render chat messages in bottom-left corner
+    float msgX = 20.0f;
+    float msgY = SCREEN_HEIGHT - 100.0f;
+    float msgSpacing = 28.0f;
+
+    // Draw from bottom to top (most recent at bottom)
+    for (int i = static_cast<int>(_chatDisplayMessages.size()) - 1; i >= 0; --i) {
+        const auto& msg = _chatDisplayMessages[i];
+
+        // Calculate alpha based on remaining display time
+        uint8_t alpha = 255;
+        if (msg.displayTime < 2.0f) {
+            alpha = static_cast<uint8_t>(255 * (msg.displayTime / 2.0f));
+        }
+
+        // Semi-transparent background for readability
+        float textWidth = 400.0f;  // Approximate
+        _context.window->drawRect(msgX - 5, msgY - 2, textWidth, 24, {0, 0, 0, static_cast<uint8_t>(alpha * 0.5f)});
+
+        // Draw name in blue
+        std::string nameText = msg.displayName + ": ";
+        _context.window->drawText(FONT_KEY, nameText, msgX, msgY, 14, {100, 180, 255, alpha});
+
+        // Draw message in white (truncate if too long)
+        std::string displayText = msg.message;
+        if (displayText.length() > 50) {
+            displayText = displayText.substr(0, 47) + "...";
+        }
+        _context.window->drawText(FONT_KEY, displayText, msgX + 100, msgY, 14, {255, 255, 255, alpha});
+
+        msgY -= msgSpacing;
+    }
+
+    // Render chat input if open
+    if (_chatInputOpen && _chatInput) {
+        // Dark background for input
+        _context.window->drawRect(15, SCREEN_HEIGHT - 55, 450, 50, {0, 0, 0, 200});
+        _context.window->drawRect(15, SCREEN_HEIGHT - 55, 450, 2, {60, 100, 140, 255});
+
+        _chatInput->render(*_context.window);
+
+        // Hint text
+        _context.window->drawText(FONT_KEY, "[Enter] Send  [Esc] Cancel",
+            430, SCREEN_HEIGHT - 40, 12, {150, 150, 170, 255});
+    } else if (!_chatDisplayMessages.empty()) {
+        // Show hint to open chat
+        _context.window->drawText(FONT_KEY, "[T] Chat",
+            20, SCREEN_HEIGHT - 30, 12, {100, 100, 120, 255});
     }
 }

@@ -10,7 +10,16 @@
 #include "infrastructure/logging/Logger.hpp"
 #include "infrastructure/configuration/EnvLoader.hpp"
 
+#ifdef _WIN32
+    #include <windows.h>
+#endif
+
 int main(void) {
+    #ifdef _WIN32
+        // Configure la console Windows pour utiliser UTF-8
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    #endif
     using infrastructure::bootstrap::GameBootstrap;
     using infrastructure::configuration::EnvLoader;
 

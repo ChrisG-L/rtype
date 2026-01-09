@@ -12,6 +12,10 @@
 #include <fstream>
 #include <cstdlib>
 
+#ifdef _WIN32
+    #include <cstring>
+#endif
+
 namespace infrastructure::configuration {
 
     class EnvLoader {
@@ -39,13 +43,22 @@ namespace infrastructure::configuration {
                     value = removeQuotes(value);
 
                     if (!key.empty()) {
-                        setenv(key.c_str(), value.c_str(), 0);
+                        setEnvVar(key, value);
                     }
                 }
                 return true;
             }
 
         private:
+            static void setEnvVar(const std::string& key, const std::string& value) {
+                #ifdef _WIN32
+                    std::string envStr = key + "=" + value;
+                    _putenv(envStr.c_str());
+                #else
+                    setenv(key.c_str(), value.c_str(), 0);
+                #endif
+            }
+
             static std::string trim(const std::string& str) {
                 size_t start = str.find_first_not_of(" \t\r\n");
                 if (start == std::string::npos) return "";

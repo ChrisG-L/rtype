@@ -532,7 +532,7 @@ using namespace infrastructure::adapters::out::persistence;
 int main() {
     // 1. Créer configuration
     DBConfig config;
-    config.uri = "mongodb://localhost:27017";
+    config.uri = "mongodb://localhost:8089";
     config.databaseName = "rtype";
 
     // 2. Initialiser MongoDB
@@ -561,7 +561,7 @@ int main() {
 
 ```cpp
 struct DBConfig {
-    std::string uri;            // "mongodb://localhost:27017"
+    std::string uri;            // "mongodb://localhost:8089"
     std::string databaseName;   // "rtype"
 };
 ```
@@ -850,7 +850,7 @@ class Session: public std::enable_shared_from_this<Session> {
 
 ```bash
 # MongoDB
-RTYPE_MONGODB_URI=mongodb://localhost:27017
+RTYPE_MONGODB_URI=mongodb://localhost:8089
 RTYPE_MONGODB_DB=rtype
 
 # Network
@@ -872,7 +872,7 @@ RTYPE_BROADCAST_RATE=20
     "max_missiles": 32
   },
   "database": {
-    "uri": "mongodb://localhost:27017",
+    "uri": "mongodb://localhost:8089",
     "name": "rtype"
   }
 }
@@ -921,7 +921,7 @@ TEST(TCPServerTest, AcceptsConnection) {
 // tests/infrastructure/persistence/MongoDBConfigurationTest.cpp
 TEST(MongoDBConfigurationTest, ConnectsToMongoDB) {
     DBConfig config;
-    config.uri = "mongodb://localhost:27017";
+    config.uri = "mongodb://localhost:8089";
     config.databaseName = "rtype_test";
 
     MongoDBConfiguration mongoConfig(config);

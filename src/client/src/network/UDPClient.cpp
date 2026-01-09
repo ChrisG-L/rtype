@@ -12,13 +12,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <unistd.h>
 #include <vector>
+
+#ifndef _WIN32
+    #include <unistd.h>
+#else
+    #include <winsock2.h>
+    #include <mstcpip.h>
+#endif
 
 namespace client::network
 {
+    static constexpr int HEARTBEAT_INTERVAL_MS = 1000;
+    static constexpr int HEARTBEAT_TIMEOUT_MS = 2000;
+
     UDPClient::UDPClient()
-        : _socket(_ioContext), _connected(false), _isWriting(false), _localPlayerId(std::nullopt)
+        : _socket(_ioContext), _heartbeatTimer(_ioContext), _isWriting(false), _localPlayerId(std::nullopt)
     {
         client::logging::Logger::getNetworkLogger()->debug("UDPClient created");
     }
@@ -26,6 +35,9 @@ namespace client::network
     UDPClient::~UDPClient()
     {
         disconnect();
+        if (_ioThread.joinable()) {
+            _ioThread.join();
+        }
     }
 
     void UDPClient::setOnConnected(const OnConnectedCallback& callback)
@@ -71,10 +83,31 @@ namespace client::network
     void UDPClient::connect(const std::string &host, std::uint16_t port)
     {
         auto logger = client::logging::Logger::getNetworkLogger();
-        if (_connected) {
-            logger->warn("Already connected, disconnecting...");
+
+        // Close any existing connection (connected or connecting)
+        if (_connected.load() || _connecting.load()) {
+            logger->warn("Already connected or connecting, disconnecting...");
             disconnect();
         }
+
+        // Wait for previous IO thread to finish
+        if (_ioThread.joinable()) {
+            _ioThread.join();
+        }
+
+        // Ensure socket is closed before reopening
+        if (_socket.is_open()) {
+            boost::system::error_code ec;
+            _socket.close(ec);
+        }
+
+        // Reset io_context for reuse
+        _ioContext.restart();
+
+        // Store connection info for potential reconnection
+        _lastHost = host;
+        _lastPort = port;
+
         logger->info("Connecting to {}:{}...", host, port);
 
         try {
@@ -84,7 +117,22 @@ namespace client::network
 
             _socket.open(udp::v4());
 
-            _connected = true;
+            // Bind à un port local (nécessaire sur Windows avant async_receive_from)
+            _socket.bind(udp::endpoint(udp::v4(), 0));
+
+            // Windows: désactiver ICMP Port Unreachable qui cause des erreurs sur UDP
+            #ifdef _WIN32
+                BOOL bNewBehavior = FALSE;
+                DWORD dwBytesReturned = 0;
+                WSAIoctl(
+                    _socket.native_handle(), SIO_UDP_CONNRESET,
+                    &bNewBehavior, sizeof(bNewBehavior),
+                    NULL, 0, &dwBytesReturned, NULL, NULL
+                );
+            #endif
+
+            _disconnecting.store(false);
+            _connecting.store(true);  // Wait for HeartBeatAck to confirm connection
 
             asyncReceiveFrom();
 
@@ -94,24 +142,24 @@ namespace client::network
                 logger->debug("IO thread terminated");
             });
 
-            logger->info("Connected to server UDP at {}:{}",
+            logger->info("Waiting for server response UDP at {}:{}...",
                         _endpoint.address().to_string(), _endpoint.port());
 
-            UDPHeader head{
-                .type = static_cast<uint16_t>(MessageType::HeartBeat),
-                .sequence_num = 0,
-                .timestamp = UDPHeader::getTimestamp()
-            };
-            auto buf = std::make_shared<std::vector<uint8_t>>(UDPHeader::WIRE_SIZE);
-            head.to_bytes(buf->data());
-            asyncSendTo(buf, UDPHeader::WIRE_SIZE);
-
-            if (_onConnected) {
-                _onConnected();
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
             }
+
+            // Send initial heartbeat to verify server is reachable
+            sendHeartbeat();
+            scheduleHeartbeat();
+
+            // Note: _onConnected and connected event will be triggered
+            // when we receive HeartBeatAck in handleRead()
 
         } catch (const std::exception &e) {
             logger->error("Connection error: {}", e.what());
+            _eventQueue.push(UDPErrorEvent{std::string("Connexion echouee: ") + e.what()});
             if (_onError) {
                 _onError(std::string("Connexion echouee: ") + e.what());
             }
@@ -120,15 +168,29 @@ namespace client::network
 
     void UDPClient::disconnect()
     {
-        std::scoped_lock lock(_mutex);
-        if (!_connected) {
+        // Prevent multiple disconnect calls
+        if (_disconnecting.exchange(true)) {
             return;
         }
+
+        // Check if we were connected or connecting
+        bool wasConnected = _connected.load();
+        bool wasConnecting = _connecting.load();
+
+        if (!wasConnected && !wasConnecting) {
+            _disconnecting.store(false);
+            return;
+        }
+
+        _connecting.store(false);
 
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Disconnecting UDP...");
 
-        _connected = false;
+        _connected.store(false);
+
+        _heartbeatTimer.cancel();
+
         _ioContext.stop();
 
         boost::system::error_code ec;
@@ -155,8 +217,15 @@ namespace client::network
             _enemyMissiles.clear();
         }
 
-        if (_onDisconnected) {
-            _onDisconnected();
+        _accumulator.clear();
+
+        // Only push disconnected event if we were actually connected
+        // (not just "connecting" waiting for HeartBeatAck)
+        if (wasConnected) {
+            _eventQueue.push(UDPDisconnectedEvent{});
+            if (_onDisconnected) {
+                _onDisconnected();
+            }
         }
 
         logger->info("UDP disconnected successfully");
@@ -164,7 +233,12 @@ namespace client::network
 
     bool UDPClient::isConnected() const
     {
-        return _connected && _socket.is_open();
+        return _connected.load() && _socket.is_open();
+    }
+
+    bool UDPClient::isConnecting() const
+    {
+        return _connecting.load() && _socket.is_open();
     }
 
     std::optional<uint8_t> UDPClient::getLocalPlayerId() const
@@ -205,7 +279,8 @@ namespace client::network
 
     void UDPClient::asyncReceiveFrom()
     {
-        if (!isConnected()) {
+        // Check socket is open (works for both connected and connecting states)
+        if (!_socket.is_open()) {
             return;
         }
         _socket.async_receive_from(
@@ -218,8 +293,9 @@ namespace client::network
     }
 
     void UDPClient::asyncSendTo(std::shared_ptr<std::vector<uint8_t>>& buf, size_t totalSize) {
-        if (!isConnected()) {
-            client::logging::Logger::getNetworkLogger()->warn("Not connected");
+        // Check socket is open (works for both connected and connecting states)
+        if (!_socket.is_open()) {
+            client::logging::Logger::getNetworkLogger()->warn("Socket not open");
             return;
         }
         _socket.async_send_to(
@@ -242,21 +318,43 @@ namespace client::network
 
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Joined game as player {}", static_cast<int>(*_localPlayerId));
+
+        // Note: UDPConnectedEvent is pushed when HeartBeatAck is received
+        // PlayerJoin just updates the player ID
+        _eventQueue.push(UDPPlayerJoinedEvent{pjOpt->player_id});
     }
 
     void UDPClient::handlePlayerLeave(const uint8_t* payload, size_t size) {
         auto plOpt = PlayerLeave::from_bytes(payload, size);
         if (!plOpt) return;
 
-        std::lock_guard<std::mutex> lock(_playersMutex);
-        _players.erase(
-            std::remove_if(_players.begin(), _players.end(),
-                [&](const NetworkPlayer& p) { return p.id == plOpt->player_id; }),
-            _players.end()
-        );
-
         auto logger = client::logging::Logger::getNetworkLogger();
+
+        bool isLocalPlayer = false;
+        {
+            std::lock_guard<std::mutex> lock(_playersMutex);
+
+            // Check if this is our own ID (we got kicked)
+            if (_localPlayerId && *_localPlayerId == plOpt->player_id) {
+                isLocalPlayer = true;
+                logger->warn("We were kicked from the game!");
+                _localPlayerId = std::nullopt;
+            }
+
+            _players.erase(
+                std::remove_if(_players.begin(), _players.end(),
+                    [&](const NetworkPlayer& p) { return p.id == plOpt->player_id; }),
+                _players.end()
+            );
+        }
+
         logger->info("Player {} left the game", static_cast<int>(plOpt->player_id));
+
+        if (isLocalPlayer) {
+            _eventQueue.push(UDPKickedEvent{});
+        } else {
+            _eventQueue.push(UDPPlayerLeftEvent{plOpt->player_id});
+        }
     }
 
     void UDPClient::handleSnapshot(const uint8_t* payload, size_t size) {
@@ -401,8 +499,18 @@ namespace client::network
 
     void UDPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
     {
+        // Ignore operation_aborted - expected when intentionally disconnecting
+        if (error == boost::asio::error::operation_aborted) {
+            return;
+        }
+
         auto logger = client::logging::Logger::getNetworkLogger();
         if (!error && bytes > 0) {
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                _lastServerResponse = std::chrono::steady_clock::now();
+            }
+
             if (bytes >= UDPHeader::WIRE_SIZE) {
                 auto headOpt = UDPHeader::from_bytes(_readBuffer, bytes);
                 if (!headOpt) {
@@ -414,6 +522,17 @@ namespace client::network
                 const uint8_t* payload = reinterpret_cast<const uint8_t*>(_readBuffer) + UDPHeader::WIRE_SIZE;
 
                 switch (static_cast<MessageType>(head.type)) {
+                    case MessageType::HeartBeatAck:
+                        // Confirm connection on first HeartBeatAck
+                        if (_connecting.exchange(false)) {
+                            _connected.store(true);
+                            logger->info("UDP connection confirmed by server");
+                            _eventQueue.push(UDPConnectedEvent{0});  // Player ID will be set by PlayerJoin
+                            if (_onConnected) {
+                                _onConnected();
+                            }
+                        }
+                        break;
                     case MessageType::PlayerJoin:
                         handlePlayerJoin(payload, payload_size);
                         break;
@@ -432,6 +551,29 @@ namespace client::network
                     case MessageType::PlayerDied:
                         handlePlayerDied(payload, payload_size);
                         break;
+                    case MessageType::JoinGameAck:
+                        if (payload_size >= JoinGameAck::WIRE_SIZE) {
+                            auto ackOpt = JoinGameAck::from_bytes(payload, payload_size);
+                            if (ackOpt) {
+                                logger->info("JoinGame accepted, player_id={}", ackOpt->player_id);
+                                {
+                                    std::scoped_lock lock(_playersMutex);
+                                    _localPlayerId = ackOpt->player_id;
+                                }
+                                _eventQueue.push(UDPJoinGameAckEvent{ackOpt->player_id});
+                            }
+                        }
+                        break;
+                    case MessageType::JoinGameNack:
+                        if (payload_size >= JoinGameNack::WIRE_SIZE) {
+                            auto nackOpt = JoinGameNack::from_bytes(payload, payload_size);
+                            if (nackOpt) {
+                                std::string reason(nackOpt->reason);
+                                logger->warn("JoinGame rejected: {}", reason);
+                                _eventQueue.push(UDPJoinGameNackEvent{reason});
+                            }
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -444,6 +586,7 @@ namespace client::network
                 logger->error("Read error: {}", error.message());
             }
 
+            _eventQueue.push(UDPErrorEvent{"Erreur lecture: " + error.message()});
             if (_onError) {
                 _onError("Erreur lecture: " + error.message());
             }
@@ -482,6 +625,84 @@ namespace client::network
         auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
         head.to_bytes(buf->data());
         asyncSendTo(buf, totalSize);
+    }
+
+    void UDPClient::joinGame(const SessionToken& token) {
+        auto logger = client::logging::Logger::getNetworkLogger();
+        logger->info("Sending JoinGame with token");
+
+        JoinGame joinGame;
+        joinGame.token = token;
+
+        UDPHeader head = {
+            .type = static_cast<uint16_t>(MessageType::JoinGame),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + JoinGame::WIRE_SIZE;
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+        head.to_bytes(buf->data());
+        joinGame.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
+        asyncSendTo(buf, totalSize);
+    }
+
+    void UDPClient::sendHeartbeat() {
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::HeartBeat),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        auto buf = std::make_shared<std::vector<uint8_t>>(UDPHeader::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        asyncSendTo(buf, UDPHeader::WIRE_SIZE);
+    }
+
+    void UDPClient::scheduleHeartbeat() {
+        _heartbeatTimer.expires_after(std::chrono::milliseconds(HEARTBEAT_INTERVAL_MS));
+        _heartbeatTimer.async_wait([this](boost::system::error_code ec) {
+            // Continue if connected OR connecting (waiting for HeartBeatAck)
+            if (ec || (!_connected.load() && !_connecting.load())) {
+                return;
+            }
+
+            std::chrono::steady_clock::time_point lastResponse;
+            {
+                std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                lastResponse = _lastServerResponse;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - lastResponse
+            ).count();
+
+            if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+                auto logger = client::logging::Logger::getNetworkLogger();
+
+                if (_connecting.load()) {
+                    logger->warn("Initial connection timeout ({}ms) - server not responding", elapsed);
+                    _eventQueue.push(UDPErrorEvent{"Timeout: Serveur UDP injoignable"});
+                } else {
+                    logger->warn("Server heartbeat timeout ({}ms)", elapsed);
+                    _eventQueue.push(UDPErrorEvent{"Timeout: Serveur injoignable"});
+                }
+
+                if (_onError) {
+                    _onError("Timeout: Serveur injoignable");
+                }
+
+                disconnect();
+                return;
+            }
+
+            sendHeartbeat();
+            scheduleHeartbeat();
+        });
+    }
+
+    std::optional<UDPEvent> UDPClient::pollEvent() {
+        return _eventQueue.poll();
     }
 
 }

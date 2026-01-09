@@ -54,7 +54,8 @@ namespace infrastructure::game {
             .y = startY,
             .health = DEFAULT_HEALTH,
             .alive = true,
-            .endpoint = endpoint
+            .endpoint = endpoint,
+            .lastActivity = std::chrono::steady_clock::now()
         };
 
         _players[newId] = player;
@@ -115,11 +116,12 @@ namespace infrastructure::game {
         snapshot.missile_count = 0;
         for (const auto& [id, missile] : _missiles) {
             if (snapshot.missile_count >= MAX_MISSILES) break;
+            // Clamp pour éviter UB lors de la conversion float négatif -> uint16_t
             snapshot.missiles[snapshot.missile_count] = MissileState{
                 .id = missile.id,
                 .owner_id = missile.owner_id,
-                .x = static_cast<uint16_t>(missile.x),
-                .y = static_cast<uint16_t>(missile.y)
+                .x = static_cast<uint16_t>(std::clamp(missile.x, 0.0f, static_cast<float>(UINT16_MAX))),
+                .y = static_cast<uint16_t>(std::clamp(missile.y, 0.0f, static_cast<float>(UINT16_MAX)))
             };
             snapshot.missile_count++;
         }
@@ -127,10 +129,11 @@ namespace infrastructure::game {
         snapshot.enemy_count = 0;
         for (const auto& [id, enemy] : _enemies) {
             if (snapshot.enemy_count >= MAX_ENEMIES) break;
+            // Clamp pour éviter UB lors de la conversion float négatif -> uint16_t
             snapshot.enemies[snapshot.enemy_count] = EnemyState{
                 .id = enemy.id,
-                .x = static_cast<uint16_t>(enemy.x),
-                .y = static_cast<uint16_t>(enemy.y),
+                .x = static_cast<uint16_t>(std::clamp(enemy.x, 0.0f, static_cast<float>(UINT16_MAX))),
+                .y = static_cast<uint16_t>(std::clamp(enemy.y, 0.0f, static_cast<float>(UINT16_MAX))),
                 .health = enemy.health,
                 .enemy_type = enemy.enemy_type
             };
@@ -140,11 +143,12 @@ namespace infrastructure::game {
         snapshot.enemy_missile_count = 0;
         for (const auto& [id, missile] : _enemyMissiles) {
             if (snapshot.enemy_missile_count >= MAX_ENEMY_MISSILES) break;
+            // Clamp pour éviter UB lors de la conversion float négatif -> uint16_t
             snapshot.enemy_missiles[snapshot.enemy_missile_count] = MissileState{
                 .id = missile.id,
                 .owner_id = ENEMY_OWNER_ID,
-                .x = static_cast<uint16_t>(missile.x),
-                .y = static_cast<uint16_t>(missile.y)
+                .x = static_cast<uint16_t>(std::clamp(missile.x, 0.0f, static_cast<float>(UINT16_MAX))),
+                .y = static_cast<uint16_t>(std::clamp(missile.y, 0.0f, static_cast<float>(UINT16_MAX)))
             };
             snapshot.enemy_missile_count++;
         }
@@ -544,5 +548,34 @@ namespace infrastructure::game {
         auto it = _players.find(playerId);
         if (it == _players.end()) return false;
         return it->second.alive;
+    }
+
+    void GameWorld::updatePlayerActivity(uint8_t playerId) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto it = _players.find(playerId);
+        if (it != _players.end()) {
+            it->second.lastActivity = std::chrono::steady_clock::now();
+        }
+    }
+
+    std::vector<uint8_t> GameWorld::checkPlayerTimeouts(std::chrono::milliseconds timeout) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        std::vector<uint8_t> timedOutPlayers;
+        auto now = std::chrono::steady_clock::now();
+
+        for (const auto& [id, player] : _players) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - player.lastActivity
+            );
+            if (elapsed > timeout) {
+                timedOutPlayers.push_back(id);
+            }
+        }
+
+        for (uint8_t id : timedOutPlayers) {
+            _players.erase(id);
+        }
+
+        return timedOutPlayers;
     }
 }

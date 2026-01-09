@@ -59,11 +59,10 @@ void SFMLRenderer::initGraphicElement(graphic::GraphicElement& element) {
     Vec2f pos = element.getPos();
     Vec2f scale = element.getScale();
     std::string path = element.getTexture().getFileName();
-    int zIndex = static_cast<int>(element.getLayer());
     sf::Sprite sprite(mAsset->getTexture(path));
     sprite.setPosition(sf::Vector2f(pos.x, pos.y));
     sprite.scale(sf::Vector2f(scale.x, scale.y));
-    mAsset->addSprite(path, element.getName(), sprite, zIndex);
+    mAsset->addSprite(path, element.getName(), sprite);
 }
 
 void SFMLRenderer::setGraphicTexture(graphic::GraphicTexture& textureAsset) {
@@ -82,9 +81,8 @@ void SFMLRenderer::setGraphicElement(graphic::GraphicElement& element) {
     std::string path = element.getTexture().getFileName();
     Vec2f pos = element.getPos();
     Vec2f scale = element.getScale();
-    int zIndex = static_cast<int>(element.getLayer());
     sf::Sprite sprite(mAsset->getTexture(path));
     sprite.setPosition(sf::Vector2f(pos.x, pos.y));
     sprite.scale(sf::Vector2f(scale.x, scale.y));
-    mAsset->setSprite(path, element.getName(), sprite, zIndex);
+    mAsset->setSprite(path, element.getName(), sprite);
 }

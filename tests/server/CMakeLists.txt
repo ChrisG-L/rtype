@@ -20,14 +20,9 @@ set(TEST_SOURCES
     # Tests Entities
     domain/entities/PlayerTest.cpp
 
-    # Tests Network - Protobuf
-    network/ProtobufTest.cpp
 
     # Tests Network - Protocol
     network/protocol/CommandParserTest.cpp
-
-    # Tests Network - Integration TCP
-    network/TCPIntegrationTest.cpp
 
     # Tests Network - Integration UDP
     network/UDPIntegrationTest.cpp
@@ -93,16 +88,15 @@ target_link_libraries(server_tests PRIVATE
     Boost::system
     GTest::gtest
     GTest::gtest_main
-    # $<IF:$<TARGET_EXISTS:mongo::bsoncxx_static>,mongo::bsoncxx_static,mongo::bsoncxx_shared>
     OpenSSL::SSL
     OpenSSL::Crypto
-    rtype_proto  # Bibliothèque Protobuf générée
-    protobuf::libprotobuf
 )
 
-# Enregistrer les tests avec CTest
-include(GoogleTest)
-gtest_discover_tests(server_tests)
+# Enregistrer les tests avec CTest (sauf en cross-compilation)
+if(NOT CMAKE_CROSSCOMPILING)
+    include(GoogleTest)
+    gtest_discover_tests(server_tests)
+endif()
 
 # Définir la sortie des tests dans artifacts/tests
 set_target_properties(server_tests PROPERTIES

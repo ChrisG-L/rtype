@@ -8,7 +8,13 @@
 #ifndef DYNAMICLIB_HPP_
 #define DYNAMICLIB_HPP_
 
-#include <dlfcn.h>
+#ifdef _WIN32
+    #include <windows.h>
+    using LibHandle = HMODULE;
+#else
+    #include <dlfcn.h>
+    using LibHandle = void*;
+#endif
 
 #include "../graphics/IGraphicPlugin.hpp"
 
@@ -21,9 +27,9 @@ namespace core {
             graphics::IGraphicPlugin* openGraphicLib(const std::string& libName);
             void destroyGraphicLib(graphics::IGraphicPlugin* graphLib);
         private:
-            void checkDlError();
+            void checkError();
 
-            void* _handle = nullptr;
+            LibHandle _handle = nullptr;
             create_t _create_lib = nullptr;
             destroy_t _destroy_lib = nullptr;
     };

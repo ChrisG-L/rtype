@@ -13,10 +13,13 @@
 #include "graphics/IWindow.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
 #include "audio/AudioManager.hpp"
+#include "network/NetworkEvents.hpp"
+#include "ui/TextInput.hpp"
 #include <iostream>
 #include <unordered_set>
 #include <vector>
 #include <random>
+#include <memory>
 
 class GameScene : public IScene
 {
@@ -36,9 +39,16 @@ private:
     void renderEnemies();
     void renderEnemyMissiles();
     void renderDeathScreen();
+    void renderKickedScreen();
+    void renderChatOverlay();
     void loadAssets();
     void initStars();
     void initAudio();
+    void initChatUI();
+    void processUDPEvents();
+    void processTCPEvents();
+    void onSendChatMessage();
+    void appendChatMessage(const client::network::ChatMessageInfo& msg);
 
     uint16_t _localX = 100;
     uint16_t _localY = 300;
@@ -48,6 +58,7 @@ private:
     bool _assetsLoaded = false;
     bool _starsInitialized = false;
     bool _audioInitialized = false;
+    bool _wasKicked = false;
 
     struct Star {
         float x, y;
@@ -85,5 +96,18 @@ private:
     static constexpr size_t STAR_COUNT = 150;
     static constexpr float STAR_MIN_SPEED = 20.0f;
     static constexpr float STAR_MAX_SPEED = 150.0f;
+
+    // Chat overlay (Phase 2)
+    struct ChatDisplayMessage {
+        std::string displayName;
+        std::string message;
+        float displayTime;  // Time remaining to display
+    };
+    std::vector<ChatDisplayMessage> _chatDisplayMessages;
+    std::unique_ptr<ui::TextInput> _chatInput;
+    bool _chatInputOpen = false;
+    bool _chatUIInitialized = false;
+    static constexpr float CHAT_MESSAGE_DISPLAY_TIME = 8.0f;
+    static constexpr size_t MAX_CHAT_DISPLAY_MESSAGES = 5;
 };
 #endif /* !GAMESCENE_HPP_ */

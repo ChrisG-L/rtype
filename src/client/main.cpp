@@ -6,23 +6,27 @@
 */
 
 #include "main.hpp"
-#include "accessibility/AccessibilityConfig.hpp"
 
-int main(void) {
+#ifdef _WIN32
+    #include <windows.h>
+#endif
+
+int main(int argc, char* argv[]) {
+    #ifdef _WIN32
+        // Configure la console Windows pour utiliser UTF-8
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    #endif
     try
     {
         client::logging::Logger::init();
+        client::logging::Logger::getBootLogger()->info("Using default accessibility settings (loaded from server after login)");
 
-        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
-        if (accessConfig.loadFromFile("assets/accessibility.cfg")) {
-            client::logging::Logger::getBootLogger()->info("Accessibility config loaded");
-        } else {
-            client::logging::Logger::getBootLogger()->info("Using default accessibility settings");
-            accessConfig.saveToFile("assets/accessibility.cfg");
-        }
+        {
+            Boot boot(argc, argv);
+            boot.core();
+        } // Boot détruit ici, avant shutdown du logger
 
-        Boot boot;
-        boot.core();
         client::logging::Logger::shutdown();
     }
     catch(const std::exception& e)

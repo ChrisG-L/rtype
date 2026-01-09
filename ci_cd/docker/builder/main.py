@@ -32,7 +32,7 @@ WORKSPACE_404 = "workspace not found"
 WORKSPACE_PATHPREFIX = "/workspace/"
 
 # Commandes disponibles pour les workspaces
-AVAILABLE_COMMANDS = ["build", "compile"]
+AVAILABLE_COMMANDS = ["build", "compile", "test", "lint"]
 
 # jobs: uuid -> dict(status, command, pid, started_at, finished_at, returncode, log_path)
 jobs = {}
@@ -277,6 +277,8 @@ class Handler(BaseHTTPRequestHandler):
         script_mapping = {
             "build": "scripts/build.sh",
             "compile": "scripts/compile.sh",
+            "test": "scripts/test.sh",
+            "lint": "scripts/lint.sh",
         }
 
         if base_cmd not in script_mapping:

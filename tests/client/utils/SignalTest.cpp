@@ -280,7 +280,7 @@ TEST_F(SignalTest, StateModificationCallback) {
     });
 
     // Second slot : bonus si score > 100
-    onScoreChange.connect([&totalScore](int points) {
+    onScoreChange.connect([&totalScore]([[maybe_unused]] int points) {
         if (totalScore > 100) {
             totalScore += 10;  // Bonus
         }
@@ -304,7 +304,7 @@ TEST_F(SignalTest, LambdaCaptureByValue) {
     Signal<int> signal;
     int capturedValue = 100;
 
-    signal.connect([capturedValue](int v) {
+    signal.connect([capturedValue]([[maybe_unused]] int v) {
         // capturedValue est une copie
         EXPECT_EQ(capturedValue, 100);
     });

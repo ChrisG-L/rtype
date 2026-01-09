@@ -73,6 +73,10 @@ static events::Key scancodeToKey(SDL_Scancode scancode)
 SDL2Window::SDL2Window(Vec2u winSize, const std::string& name)
     : _window(nullptr), _renderer(nullptr), _isOpen(true)
 {
+    // Windows: désactiver le DPI scaling pour avoir des pixels 1:1
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "0");
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         throw std::runtime_error("Failed to initialize SDL: " + std::string(SDL_GetError()));
     }
@@ -145,6 +149,16 @@ void SDL2Window::close()
     _isOpen = false;
 }
 
+static events::MouseButton sdlButtonToMouseButton(Uint8 button)
+{
+    switch (button) {
+        case SDL_BUTTON_LEFT: return events::MouseButton::Left;
+        case SDL_BUTTON_RIGHT: return events::MouseButton::Right;
+        case SDL_BUTTON_MIDDLE: return events::MouseButton::Middle;
+        default: return events::MouseButton::Unknown;
+    }
+}
+
 events::Event SDL2Window::pollEvent()
 {
     SDL_Event sdlEvent;
@@ -159,6 +173,30 @@ events::Event SDL2Window::pollEvent()
                 break;
             case SDL_KEYUP:
                 return events::KeyReleased{scancodeToKey(sdlEvent.key.keysym.scancode)};
+            case SDL_MOUSEBUTTONDOWN:
+                return events::MouseButtonPressed{
+                    sdlButtonToMouseButton(sdlEvent.button.button),
+                    sdlEvent.button.x,
+                    sdlEvent.button.y
+                };
+            case SDL_MOUSEBUTTONUP:
+                return events::MouseButtonReleased{
+                    sdlButtonToMouseButton(sdlEvent.button.button),
+                    sdlEvent.button.x,
+                    sdlEvent.button.y
+                };
+            case SDL_MOUSEMOTION:
+                return events::MouseMoved{
+                    sdlEvent.motion.x,
+                    sdlEvent.motion.y
+                };
+            case SDL_TEXTINPUT:
+                if (sdlEvent.text.text[0] != '\0') {
+                    return events::TextEntered{
+                        static_cast<uint32_t>(static_cast<unsigned char>(sdlEvent.text.text[0]))
+                    };
+                }
+                break;
             default:
                 break;
         }
