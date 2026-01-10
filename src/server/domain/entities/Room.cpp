@@ -44,6 +44,14 @@ Room::State Room::getState() const {
     return _state;
 }
 
+uint16_t Room::getGameSpeedPercent() const {
+    return _gameSpeedPercent;
+}
+
+void Room::setGameSpeedPercent(uint16_t percent) {
+    _gameSpeedPercent = std::clamp(percent, MIN_GAME_SPEED_PERCENT, MAX_GAME_SPEED_PERCENT);
+}
+
 std::optional<uint8_t> Room::addPlayer(const std::string& email,
                                         const std::string& displayName) {
     if (hasPlayer(email)) {

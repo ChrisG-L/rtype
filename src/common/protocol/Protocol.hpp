@@ -63,6 +63,8 @@ enum class MessageType: uint16_t {
     // TCP Room Notifications (broadcast to room members)
     RoomUpdate = 0x0250,
     GameStarting = 0x0251,
+    SetRoomConfig = 0x0252,
+    SetRoomConfigAck = 0x0253,
     // Phase 2 - Kick System (0x026x)
     KickPlayer = 0x0260,
     KickPlayerAck = 0x0261,
@@ -272,7 +274,7 @@ struct Header {
 
 static constexpr size_t MAX_USERNAME_LEN = 32;
 static constexpr size_t MAX_PASSWORD_LEN = 64;
-static constexpr size_t MAX_EMAIL_LEN = 64;
+static constexpr size_t MAX_EMAIL_LEN = 255;  // RFC 5321: max 254 chars + null terminator
 
 struct LoginMessage {
     char username[MAX_USERNAME_LEN];
@@ -708,10 +710,11 @@ struct RoomUpdate {
     char roomCode[ROOM_CODE_LEN];
     uint8_t maxPlayers;
     uint8_t playerCount;
+    uint16_t gameSpeedPercent;  // 50-200, default 100
     RoomPlayerState players[MAX_ROOM_PLAYERS];
 
     size_t wire_size() const {
-        return ROOM_NAME_LEN + ROOM_CODE_LEN + 1 + 1 + playerCount * RoomPlayerState::WIRE_SIZE;
+        return ROOM_NAME_LEN + ROOM_CODE_LEN + 1 + 1 + 2 + playerCount * RoomPlayerState::WIRE_SIZE;
     }
 
     void to_bytes(void* buf) const {
@@ -720,7 +723,9 @@ struct RoomUpdate {
         std::memcpy(ptr + ROOM_NAME_LEN, roomCode, ROOM_CODE_LEN);
         ptr[ROOM_NAME_LEN + ROOM_CODE_LEN] = maxPlayers;
         ptr[ROOM_NAME_LEN + ROOM_CODE_LEN + 1] = playerCount;
-        size_t offset = ROOM_NAME_LEN + ROOM_CODE_LEN + 2;
+        uint16_t net_speed = swap16(gameSpeedPercent);
+        std::memcpy(ptr + ROOM_NAME_LEN + ROOM_CODE_LEN + 2, &net_speed, 2);
+        size_t offset = ROOM_NAME_LEN + ROOM_CODE_LEN + 4;
         for (uint8_t i = 0; i < playerCount; ++i) {
             players[i].to_bytes(ptr + offset);
             offset += RoomPlayerState::WIRE_SIZE;
@@ -728,7 +733,7 @@ struct RoomUpdate {
     }
 
     static std::optional<RoomUpdate> from_bytes(const void* buf, size_t buf_len) {
-        constexpr size_t HEADER_SIZE = ROOM_NAME_LEN + ROOM_CODE_LEN + 2;
+        constexpr size_t HEADER_SIZE = ROOM_NAME_LEN + ROOM_CODE_LEN + 4;  // +2 for gameSpeedPercent
         if (buf == nullptr || buf_len < HEADER_SIZE) return std::nullopt;
         auto* ptr = static_cast<const uint8_t*>(buf);
         RoomUpdate update;
@@ -737,6 +742,9 @@ struct RoomUpdate {
         std::memcpy(update.roomCode, ptr + ROOM_NAME_LEN, ROOM_CODE_LEN);
         update.maxPlayers = ptr[ROOM_NAME_LEN + ROOM_CODE_LEN];
         update.playerCount = ptr[ROOM_NAME_LEN + ROOM_CODE_LEN + 1];
+        uint16_t net_speed;
+        std::memcpy(&net_speed, ptr + ROOM_NAME_LEN + ROOM_CODE_LEN + 2, 2);
+        update.gameSpeedPercent = swap16(net_speed);
         if (update.playerCount > MAX_ROOM_PLAYERS) return std::nullopt;
         size_t required = HEADER_SIZE + update.playerCount * RoomPlayerState::WIRE_SIZE;
         if (buf_len < required) return std::nullopt;
@@ -766,6 +774,41 @@ struct GameStarting {
         GameStarting gs;
         gs.countdownSeconds = static_cast<const uint8_t*>(buf)[0];
         return gs;
+    }
+};
+
+// SetRoomConfig: Host sets room configuration (e.g., game speed)
+struct SetRoomConfigRequest {
+    uint16_t gameSpeedPercent;  // 50-200 (0.5x to 2.0x)
+
+    static constexpr size_t WIRE_SIZE = 2;
+
+    void to_bytes(void* buf) const {
+        uint16_t net_speed = swap16(gameSpeedPercent);
+        std::memcpy(buf, &net_speed, 2);
+    }
+
+    static std::optional<SetRoomConfigRequest> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        uint16_t net_speed;
+        std::memcpy(&net_speed, buf, 2);
+        return SetRoomConfigRequest{.gameSpeedPercent = swap16(net_speed)};
+    }
+};
+
+// SetRoomConfigAck: Server confirms room config change
+struct SetRoomConfigAck {
+    uint8_t success;  // 1 = success, 0 = failed (not host)
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(void* buf) const {
+        static_cast<uint8_t*>(buf)[0] = success;
+    }
+
+    static std::optional<SetRoomConfigAck> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        return SetRoomConfigAck{.success = static_cast<const uint8_t*>(buf)[0]};
     }
 };
 

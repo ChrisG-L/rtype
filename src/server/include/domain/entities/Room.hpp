@@ -36,6 +36,9 @@ class Room {
 public:
     static constexpr size_t MAX_SLOTS = 6;
     static constexpr size_t MIN_PLAYERS_TO_START = 2;
+    static constexpr uint16_t MIN_GAME_SPEED_PERCENT = 50;
+    static constexpr uint16_t MAX_GAME_SPEED_PERCENT = 200;
+    static constexpr uint16_t DEFAULT_GAME_SPEED_PERCENT = 100;
 
     enum class State {
         Waiting,   // Waiting for players to join/ready
@@ -53,6 +56,10 @@ public:
     uint8_t getMaxPlayers() const;
     bool isPrivate() const;
     State getState() const;
+    uint16_t getGameSpeedPercent() const;
+
+    // Game speed configuration (host only)
+    void setGameSpeedPercent(uint16_t percent);
 
     // Player management
     std::optional<uint8_t> addPlayer(const std::string& email,
@@ -99,6 +106,7 @@ private:
     std::string _hostEmail;
     std::array<RoomSlot, MAX_SLOTS> _slots;
     std::vector<ChatMessage> _chatHistory;
+    uint16_t _gameSpeedPercent = DEFAULT_GAME_SPEED_PERCENT;
 
     std::optional<uint8_t> findEmptySlot() const;
     std::optional<uint8_t> findNextOccupiedSlot(uint8_t afterSlot) const;
