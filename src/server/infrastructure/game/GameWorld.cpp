@@ -18,6 +18,12 @@ namespace infrastructure::game {
         std::srand(static_cast<unsigned>(std::time(nullptr)));
     }
 
+    void GameWorld::setGameSpeedPercent(uint16_t percent) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _gameSpeedPercent = std::clamp(percent, static_cast<uint16_t>(50), static_cast<uint16_t>(200));
+        _gameSpeedMultiplier = static_cast<float>(_gameSpeedPercent) / 100.0f;
+    }
+
     uint8_t GameWorld::findAvailableId() const {
         for (uint8_t id = 1; id <= MAX_PLAYERS; ++id) {
             if (_players.find(id) == _players.end()) {
@@ -181,8 +187,11 @@ namespace infrastructure::game {
         std::lock_guard<std::mutex> lock(_mutex);
         _destroyedMissiles.clear();
 
+        // Apply game speed multiplier to missile movement
+        float adjustedDelta = deltaTime * _gameSpeedMultiplier;
+
         for (auto it = _missiles.begin(); it != _missiles.end();) {
-            it->second.x += it->second.velocityX * deltaTime;
+            it->second.x += it->second.velocityX * adjustedDelta;
 
             if (it->second.x > SCREEN_WIDTH) {
                 _destroyedMissiles.push_back(it->first);
@@ -229,8 +238,11 @@ namespace infrastructure::game {
             return;
         }
 
+        // Apply game speed multiplier to wave timing
+        float adjustedDelta = deltaTime * _gameSpeedMultiplier;
+
         for (auto it = _spawnQueue.begin(); it != _spawnQueue.end();) {
-            it->delay -= deltaTime;
+            it->delay -= adjustedDelta;
             if (it->delay <= 0.0f && _enemies.size() < MAX_ENEMIES) {
                 uint16_t enemyId = _nextEnemyId++;
                 uint8_t typeValue = static_cast<uint8_t>(it->type);
@@ -266,7 +278,7 @@ namespace infrastructure::game {
             }
         }
 
-        _waveTimer += deltaTime;
+        _waveTimer += adjustedDelta;
 
         if (_waveTimer >= _currentWaveInterval) {
             _waveTimer = 0.0f;
@@ -394,13 +406,16 @@ namespace infrastructure::game {
         std::lock_guard<std::mutex> lock(_mutex);
         _destroyedEnemies.clear();
 
+        // Apply game speed multiplier to enemy updates
+        float adjustedDelta = deltaTime * _gameSpeedMultiplier;
+
         for (auto it = _enemies.begin(); it != _enemies.end();) {
             Enemy& enemy = it->second;
-            enemy.aliveTime += deltaTime;
+            enemy.aliveTime += adjustedDelta;
 
-            updateEnemyMovement(enemy, deltaTime);
+            updateEnemyMovement(enemy, adjustedDelta);
 
-            enemy.shootCooldown -= deltaTime;
+            enemy.shootCooldown -= adjustedDelta;
             if (enemy.shootCooldown <= 0.0f && enemy.x < SCREEN_WIDTH && enemy.x > 0.0f) {
                 enemy.shootCooldown = enemy.getShootInterval();
 
@@ -441,8 +456,9 @@ namespace infrastructure::game {
             }
         }
 
+        // Update enemy missiles with game speed multiplier
         for (auto it = _enemyMissiles.begin(); it != _enemyMissiles.end();) {
-            it->second.x += it->second.velocityX * deltaTime;
+            it->second.x += it->second.velocityX * adjustedDelta;
 
             if (it->second.x < 0.0f) {
                 it = _enemyMissiles.erase(it);

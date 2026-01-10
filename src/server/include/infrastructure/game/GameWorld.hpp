@@ -148,6 +148,20 @@ namespace infrastructure::game {
     public:
         GameWorld();
 
+        // ═══════════════════════════════════════════════════════════════════
+        // Game Speed Configuration (per-room setting)
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Set game speed from percentage (50-200, default 100)
+        // This affects missiles, enemies, wave spawning, etc.
+        void setGameSpeedPercent(uint16_t percent);
+        uint16_t getGameSpeedPercent() const { return _gameSpeedPercent; }
+        float getGameSpeedMultiplier() const { return _gameSpeedMultiplier; }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Player Management
+        // ═══════════════════════════════════════════════════════════════════
+
         std::optional<uint8_t> addPlayer(const udp::endpoint& endpoint);
         void removePlayer(uint8_t playerId);
         void removePlayerByEndpoint(const udp::endpoint& endpoint);
@@ -177,6 +191,10 @@ namespace infrastructure::game {
         std::vector<uint8_t> checkPlayerTimeouts(std::chrono::milliseconds timeout);
 
     private:
+        // Game speed configuration
+        uint16_t _gameSpeedPercent = 100;      // 50-200, default 100%
+        float _gameSpeedMultiplier = 1.0f;     // 0.5-2.0, derived from percent
+
         std::unordered_map<uint8_t, ConnectedPlayer> _players;
         std::unordered_map<uint16_t, Missile> _missiles;
         std::vector<uint16_t> _destroyedMissiles;

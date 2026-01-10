@@ -32,6 +32,9 @@ struct Session {
     std::string udpEndpoint;        // "ip:port" string
     std::optional<uint8_t> playerId;
 
+    // Room configuration (set when game starts)
+    uint16_t roomGameSpeedPercent = 100;  // 50-200, default 100%
+
     // Session state
     enum class Status { Pending, Active, Expired };
     Status status = Status::Pending;
@@ -92,6 +95,12 @@ public:
 
     // Gets playerId by endpoint (quick lookup for message handling)
     std::optional<uint8_t> getPlayerIdByEndpoint(const std::string& endpoint);
+
+    // Sets room game speed for a session (called when game starts)
+    void setRoomGameSpeed(const std::string& email, uint16_t gameSpeedPercent);
+
+    // Gets room game speed by endpoint (for JoinGame handling)
+    uint16_t getRoomGameSpeedByEndpoint(const std::string& endpoint) const;
 
     // Gets email by playerId (for kick system - reverse lookup)
     std::optional<std::string> getEmailByPlayerId(uint8_t playerId) const;

@@ -458,6 +458,13 @@ namespace infrastructure::adapters::in::network {
                 return;
             }
 
+            // Apply room game speed to GameWorld (set by TCPAuthServer when game starts)
+            uint16_t gameSpeedPercent = _sessionManager->getRoomGameSpeedByEndpoint(endpointStr);
+            _gameWorld.setGameSpeedPercent(gameSpeedPercent);
+            server::logging::Logger::getGameLogger()->info(
+                "Game speed set to {}% (multiplier: {:.2f})",
+                gameSpeedPercent, _gameWorld.getGameSpeedMultiplier());
+
             // Bind playerId to session
             _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);
 

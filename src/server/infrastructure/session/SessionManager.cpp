@@ -185,6 +185,31 @@ std::optional<std::string> SessionManager::getEmailByPlayerId(uint8_t playerId) 
     return std::nullopt;
 }
 
+void SessionManager::setRoomGameSpeed(const std::string& email, uint16_t gameSpeedPercent) {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto sessionIt = _sessionsByEmail.find(email);
+    if (sessionIt != _sessionsByEmail.end()) {
+        sessionIt->second.roomGameSpeedPercent = gameSpeedPercent;
+    }
+}
+
+uint16_t SessionManager::getRoomGameSpeedByEndpoint(const std::string& endpoint) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto epIt = _endpointToEmail.find(endpoint);
+    if (epIt == _endpointToEmail.end()) {
+        return 100;  // Default game speed
+    }
+
+    auto sessionIt = _sessionsByEmail.find(epIt->second);
+    if (sessionIt == _sessionsByEmail.end()) {
+        return 100;
+    }
+
+    return sessionIt->second.roomGameSpeedPercent;
+}
+
 std::optional<Session> SessionManager::getSessionByEmail(const std::string& email) const {
     std::lock_guard<std::mutex> lock(_mutex);
 
