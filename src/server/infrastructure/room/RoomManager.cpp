@@ -526,6 +526,33 @@ std::optional<RoomManager::KickResult> RoomManager::kickPlayer(
     return KickResult{.roomCode = roomCode, .targetEmail = targetEmail};
 }
 
+domain::entities::Room* RoomManager::setRoomGameSpeed(const std::string& hostEmail, uint16_t gameSpeedPercent) {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    // Find the room the host is in
+    auto hostRoomIt = _playerToRoom.find(hostEmail);
+    if (hostRoomIt == _playerToRoom.end()) {
+        return nullptr;  // Host not in any room
+    }
+
+    auto roomIt = _roomsByCode.find(hostRoomIt->second);
+    if (roomIt == _roomsByCode.end()) {
+        return nullptr;  // Room doesn't exist
+    }
+
+    domain::entities::Room* room = roomIt->second.get();
+
+    // Verify the requester is the host
+    if (!room->isHost(hostEmail)) {
+        return nullptr;  // Only host can change config
+    }
+
+    // Set the game speed (Room::setGameSpeedPercent handles clamping)
+    room->setGameSpeedPercent(gameSpeedPercent);
+
+    return room;
+}
+
 void RoomManager::unregisterSessionCallbacks(const std::string& email) {
     std::lock_guard<std::mutex> lock(_mutex);
     _sessionCallbacks.erase(email);
@@ -538,6 +565,7 @@ RoomUpdate RoomManager::buildRoomUpdate(const domain::entities::Room* room) cons
     update.roomName[ROOM_NAME_LEN - 1] = '\0';
     std::memcpy(update.roomCode, room->getCode().c_str(), ROOM_CODE_LEN);
     update.maxPlayers = room->getMaxPlayers();
+    update.gameSpeedPercent = room->getGameSpeedPercent();
 
     const auto& slots = room->getSlots();
     update.playerCount = 0;

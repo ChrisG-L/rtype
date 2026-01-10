@@ -286,6 +286,9 @@ namespace infrastructure::adapters::in::network {
                 case MessageType::KickPlayer:
                     handleKickPlayer(payload);
                     return;
+                case MessageType::SetRoomConfig:
+                    handleSetRoomConfig(payload);
+                    return;
                 case MessageType::BrowsePublicRooms:
                     handleBrowsePublicRooms();
                     return;
@@ -731,6 +734,14 @@ namespace infrastructure::adapters::in::network {
 
         logger->info("Game starting in room {} by host {}", room->getCode(), email);
 
+        // Set room game speed on all member sessions (for UDPServer to read on JoinGame)
+        uint16_t gameSpeedPercent = room->getGameSpeedPercent();
+        auto memberEmails = _roomManager->getRoomMemberEmails(room->getCode());
+        for (const auto& memberEmail : memberEmails) {
+            _sessionManager->setRoomGameSpeed(memberEmail, gameSpeedPercent);
+        }
+        logger->debug("Set game speed {}% for {} room members", gameSpeedPercent, memberEmails.size());
+
         do_write_start_game_ack();
 
         // Broadcast countdown (3, 2, 1, 0)
@@ -1028,6 +1039,62 @@ namespace infrastructure::adapters::in::network {
                 if (ec) {
                     auto logger = server::logging::Logger::getNetworkLogger();
                     logger->error("PlayerKicked write error: {}", ec.message());
+                }
+            });
+    }
+
+    // =========================================================================
+    // Room Configuration Implementation
+    // =========================================================================
+
+    void Session::handleSetRoomConfig(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+        std::string email = _user->getEmail().value();
+
+        auto reqOpt = SetRoomConfigRequest::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            logger->warn("Invalid SetRoomConfig payload from {}", email);
+            do_write_set_room_config_ack(false);
+            return;
+        }
+
+        // Try to set the game speed
+        auto* room = _roomManager->setRoomGameSpeed(email, reqOpt->gameSpeedPercent);
+        if (!room) {
+            logger->warn("{} failed to set room config (not host or not in room)", email);
+            do_write_set_room_config_ack(false);
+            return;
+        }
+
+        logger->info("{} set game speed to {}%", email, reqOpt->gameSpeedPercent);
+
+        // Send ack to the host
+        do_write_set_room_config_ack(true);
+
+        // Broadcast room update to all members
+        broadcastRoomUpdate(room);
+    }
+
+    void Session::do_write_set_room_config_ack(bool success) {
+        SetRoomConfigAck ack;
+        ack.success = success ? 1 : 0;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::SetRoomConfigAck),
+            .payload_size = static_cast<uint32_t>(SetRoomConfigAck::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SetRoomConfigAck::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        ack.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("SetRoomConfigAck write error: {}", ec.message());
                 }
             });
     }

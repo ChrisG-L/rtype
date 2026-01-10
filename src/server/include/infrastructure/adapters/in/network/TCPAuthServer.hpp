@@ -84,6 +84,7 @@ namespace infrastructure::adapters::in::network {
             void handleSetReady(const std::vector<uint8_t>& payload);
             void handleStartGame();
             void handleKickPlayer(const std::vector<uint8_t>& payload);
+            void handleSetRoomConfig(const std::vector<uint8_t>& payload);
             void handleBrowsePublicRooms();
             void handleQuickJoin();
 
@@ -106,6 +107,7 @@ namespace infrastructure::adapters::in::network {
             void do_write_game_starting(const GameStarting& gs);
             void do_write_kick_player_ack();
             void do_write_player_kicked(const PlayerKickedNotification& notif);
+            void do_write_set_room_config_ack(bool success);
             void do_write_browse_public_rooms(const BrowsePublicRoomsResponse& resp);
             void do_write_quick_join_nack(const QuickJoinNack& nack);
 

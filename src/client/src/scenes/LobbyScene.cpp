@@ -103,6 +103,34 @@ void LobbyScene::initUI()
     _sendChatButton->setNormalColor({60, 100, 140, 255});
     _sendChatButton->setHoveredColor({80, 130, 170, 255});
 
+    // Game speed buttons (host only) - positioned in player box
+    // Layout: "GAME SPEED: [-] 100% [+]"
+    float speedBtnSize = 35.0f;
+    float speedY = 150.0f + 550.0f - 60.0f;  // Near bottom of player box
+    float boxX = (SCREEN_WIDTH - 900.0f) / 2;  // Player box X position
+
+    // [-] button after "GAME SPEED:" label
+    _speedDecBtn = std::make_unique<ui::Button>(
+        Vec2f{boxX + 180.0f, speedY},
+        Vec2f{speedBtnSize, speedBtnSize},
+        "-",
+        FONT_KEY
+    );
+    _speedDecBtn->setOnClick([this]() { onSpeedDecreaseClick(); });
+    _speedDecBtn->setNormalColor({80, 80, 120, 255});
+    _speedDecBtn->setHoveredColor({100, 100, 150, 255});
+
+    // [+] button after percentage value
+    _speedIncBtn = std::make_unique<ui::Button>(
+        Vec2f{boxX + 295.0f, speedY},
+        Vec2f{speedBtnSize, speedBtnSize},
+        "+",
+        FONT_KEY
+    );
+    _speedIncBtn->setOnClick([this]() { onSpeedIncreaseClick(); });
+    _speedIncBtn->setNormalColor({80, 80, 120, 255});
+    _speedIncBtn->setHoveredColor({100, 100, 150, 255});
+
     _uiInitialized = true;
 }
 
@@ -193,6 +221,38 @@ void LobbyScene::onSendChatClick()
 
     _context.tcpClient->sendChatMessage(message);
     _chatInput->clear();
+}
+
+void LobbyScene::onSpeedDecreaseClick()
+{
+    if (!_isHost) {
+        showError("Only host can change game speed");
+        return;
+    }
+    if (!_context.tcpClient || !_context.tcpClient->isConnected()) {
+        showError("Not connected to server");
+        return;
+    }
+
+    // Decrease by 25%, min 50%
+    uint16_t newSpeed = (_roomGameSpeedPercent > 75) ? (_roomGameSpeedPercent - 25) : 50;
+    _context.tcpClient->setRoomConfig(newSpeed);
+}
+
+void LobbyScene::onSpeedIncreaseClick()
+{
+    if (!_isHost) {
+        showError("Only host can change game speed");
+        return;
+    }
+    if (!_context.tcpClient || !_context.tcpClient->isConnected()) {
+        showError("Not connected to server");
+        return;
+    }
+
+    // Increase by 25%, max 200%
+    uint16_t newSpeed = (_roomGameSpeedPercent < 175) ? (_roomGameSpeedPercent + 25) : 200;
+    _context.tcpClient->setRoomConfig(newSpeed);
 }
 
 void LobbyScene::appendChatMessage(const client::network::ChatMessageInfo& msg)
@@ -312,6 +372,7 @@ void LobbyScene::processTCPEvents()
                 _roomCode = event.roomCode;
                 _maxPlayers = event.maxPlayers;
                 _players = event.players;
+                _roomGameSpeedPercent = event.gameSpeedPercent;
 
                 // Check if we're still host
                 for (const auto& player : _players) {
@@ -385,9 +446,9 @@ void LobbyScene::processUDPEvents()
 
             if constexpr (std::is_same_v<T, client::network::UDPJoinGameAckEvent>) {
                 // We successfully joined the game via UDP
-                // Transition to GameScene
+                // Transition to GameScene with room game speed
                 if (_sceneManager && _transitioningToGame) {
-                    _sceneManager->changeScene(std::make_unique<GameScene>());
+                    _sceneManager->changeScene(std::make_unique<GameScene>(_roomGameSpeedPercent));
                 }
             }
             else if constexpr (std::is_same_v<T, client::network::UDPJoinGameNackEvent>) {
@@ -481,6 +542,12 @@ void LobbyScene::handleEvent(const events::Event& event)
         }
     }
 
+    // Handle game speed buttons (host only)
+    if (_isHost && _speedDecBtn && _speedIncBtn) {
+        _speedDecBtn->handleEvent(event);
+        _speedIncBtn->handleEvent(event);
+    }
+
     // Handle chat input and send button
     if (_chatInput) _chatInput->handleEvent(event);
     if (_sendChatButton) _sendChatButton->handleEvent(event);
@@ -529,6 +596,12 @@ void LobbyScene::update(float deltaTime)
     // Update chat UI
     if (_chatInput) _chatInput->update(deltaTime);
     if (_sendChatButton) _sendChatButton->update(deltaTime);
+
+    // Update game speed buttons (host only)
+    if (_isHost && _speedDecBtn && _speedIncBtn) {
+        _speedDecBtn->update(deltaTime);
+        _speedIncBtn->update(deltaTime);
+    }
 
     if (_statusDisplayTimer > 0) {
         _statusDisplayTimer -= deltaTime;
@@ -657,6 +730,23 @@ void LobbyScene::render()
         _context.window->drawText(FONT_KEY, "- Empty -",
             boxX + 40, playerY, 20, {80, 80, 100, 255});
         playerY += playerSpacing;
+    }
+
+    // Game speed display (near bottom of player box)
+    // Layout: "GAME SPEED: [-] 100% [+]"
+    float speedY = boxY + boxHeight - 60.0f;
+    _context.window->drawText(FONT_KEY, "GAME SPEED:",
+        boxX + 40, speedY + 8, 18, {150, 150, 180, 255});
+
+    // Speed value (between buttons)
+    std::string speedText = std::to_string(_roomGameSpeedPercent) + "%";
+    _context.window->drawText(FONT_KEY, speedText,
+        boxX + 225, speedY + 8, 18, {100, 200, 255, 255});
+
+    // Render speed buttons (host only, not during countdown)
+    if (_isHost && !_countdown.has_value() && _speedDecBtn && _speedIncBtn) {
+        _speedDecBtn->render(*_context.window);
+        _speedIncBtn->render(*_context.window);
     }
 
     // Draw chat panel on the right side

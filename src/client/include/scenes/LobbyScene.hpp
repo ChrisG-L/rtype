@@ -42,6 +42,8 @@ private:
     void onLeaveClick();
     void onKickClick(const std::string& email);
     void onSendChatClick();
+    void onSpeedDecreaseClick();
+    void onSpeedIncreaseClick();
 
     void showError(const std::string& message);
     void showInfo(const std::string& message);
@@ -66,6 +68,7 @@ private:
     bool _isHost;
     bool _isReady = false;
     std::vector<client::network::RoomPlayerInfo> _players;
+    uint16_t _roomGameSpeedPercent = 100;  // 50-200, host configurable
 
     // Countdown state
     std::optional<uint8_t> _countdown;
@@ -75,6 +78,10 @@ private:
     std::unique_ptr<ui::Button> _readyButton;
     std::unique_ptr<ui::Button> _startButton;
     std::unique_ptr<ui::Button> _leaveButton;
+
+    // Game speed UI (host only)
+    std::unique_ptr<ui::Button> _speedDecBtn;
+    std::unique_ptr<ui::Button> _speedIncBtn;
 
     // Chat UI Components
     std::unique_ptr<ui::TextInput> _chatInput;

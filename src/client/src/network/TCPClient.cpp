@@ -455,6 +455,7 @@ namespace client::network
                         event.roomName = std::string(updateOpt->roomName);
                         event.roomCode = std::string(updateOpt->roomCode, ROOM_CODE_LEN);
                         event.maxPlayers = updateOpt->maxPlayers;
+                        event.gameSpeedPercent = updateOpt->gameSpeedPercent;
                         for (uint8_t i = 0; i < updateOpt->playerCount; ++i) {
                             const auto& ps = updateOpt->players[i];
                             event.players.push_back(RoomPlayerInfo{
@@ -1008,6 +1009,35 @@ namespace client::network
             [buf](const boost::system::error_code &error, std::size_t) {
                 if (error) {
                     client::logging::Logger::getNetworkLogger()->error("KickPlayer write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::setRoomConfig(uint16_t gameSpeedPercent) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        SetRoomConfigRequest req;
+        req.gameSpeedPercent = gameSpeedPercent;
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::SetRoomConfig),
+            .payload_size = static_cast<uint32_t>(SetRoomConfigRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SetRoomConfigRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("SetRoomConfig write error: {}", error.message());
                 }
             }
         );

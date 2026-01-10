@@ -78,6 +78,7 @@ namespace client::network
         void setReady(bool ready);
         void startGame();
         void kickPlayer(const std::string& email, const std::string& reason = "");
+        void setRoomConfig(uint16_t gameSpeedPercent);
 
         // Room Browser (Phase 2)
         void browsePublicRooms();

@@ -103,6 +103,14 @@ public:
         const std::string& targetEmail,
         const std::string& reason);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // Room Configuration (Host only)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Set room game speed (host only)
+    // Returns the room for broadcasting, nullptr if not host or not in room
+    domain::entities::Room* setRoomGameSpeed(const std::string& hostEmail, uint16_t gameSpeedPercent);
+
     using PlayerKickedCallback = std::function<void(const PlayerKickedNotification&)>;
 
     // Register kicked callback for a player's session

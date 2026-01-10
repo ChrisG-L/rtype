@@ -59,6 +59,7 @@ namespace client::network
         std::string roomName;
         std::string roomCode;
         uint8_t maxPlayers;
+        uint16_t gameSpeedPercent = 100;  // 50-200, default 100
         std::vector<RoomPlayerInfo> players;
     };
     struct TCPGameStartingEvent {
