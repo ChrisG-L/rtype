@@ -34,8 +34,7 @@ private:
 
     // Button callbacks
     void onColorBlindModeClick();
-    void onSpeedDecreaseClick();
-    void onSpeedIncreaseClick();
+    // Game speed is now per-room (configured in LobbyScene by host)
     void onKeyBindClick(accessibility::GameAction action, bool isPrimary);
     void onResetBindingsClick();
     void onApplyClick();
@@ -61,7 +60,7 @@ private:
 
     // Working copy of settings (applied on Save)
     accessibility::ColorBlindMode _colorBlindMode;
-    float _gameSpeed;
+    // Game speed removed - now per-room (configured in LobbyScene by host)
     static constexpr size_t ACTION_COUNT = static_cast<size_t>(accessibility::GameAction::ActionCount);
     std::array<std::array<events::Key, 2>, ACTION_COUNT> _keyBindings;
 
@@ -81,8 +80,7 @@ private:
 
     // Section: Accessibility
     std::unique_ptr<ui::Button> _colorBlindModeBtn;
-    std::unique_ptr<ui::Button> _speedDecBtn;
-    std::unique_ptr<ui::Button> _speedIncBtn;
+    // Speed buttons removed - game speed is now per-room (LobbyScene)
 
     // Section: Key Bindings (6 actions x 2 keys)
     struct KeyBindButtons {

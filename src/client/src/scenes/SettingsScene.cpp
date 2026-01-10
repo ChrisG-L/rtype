@@ -19,7 +19,6 @@ SettingsScene::SettingsScene()
     auto& config = accessibility::AccessibilityConfig::getInstance();
 
     _colorBlindMode = config.getColorBlindMode();
-    _gameSpeed = config.getGameSpeedMultiplier();
 
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
@@ -58,24 +57,7 @@ void SettingsScene::initUI()
     _colorBlindModeBtn->setNormalColor({50, 80, 120, 255});
     _colorBlindModeBtn->setHoveredColor({70, 100, 150, 255});
 
-    // Game Speed controls
-    float speedY = accessY + ROW_HEIGHT + 10;
-
-    _speedDecBtn = std::make_unique<ui::Button>(
-        Vec2f{CONTROL_X, speedY},
-        Vec2f{50.0f, KEY_BTN_HEIGHT},
-        "-",
-        FONT_KEY
-    );
-    _speedDecBtn->setOnClick([this]() { onSpeedDecreaseClick(); });
-
-    _speedIncBtn = std::make_unique<ui::Button>(
-        Vec2f{CONTROL_X + 130, speedY},
-        Vec2f{50.0f, KEY_BTN_HEIGHT},
-        "+",
-        FONT_KEY
-    );
-    _speedIncBtn->setOnClick([this]() { onSpeedIncreaseClick(); });
+    // Game Speed removed - now per-room (configured in LobbyScene by host)
 
     // === CONTROLS SECTION ===
     float controlsStartY = 400.0f;
@@ -265,17 +247,7 @@ void SettingsScene::onColorBlindModeClick()
     _hasUnsavedChanges = true;
 }
 
-void SettingsScene::onSpeedDecreaseClick()
-{
-    _gameSpeed = std::max(0.5f, _gameSpeed - 0.1f);
-    _hasUnsavedChanges = true;
-}
-
-void SettingsScene::onSpeedIncreaseClick()
-{
-    _gameSpeed = std::min(2.0f, _gameSpeed + 0.1f);
-    _hasUnsavedChanges = true;
-}
+// Game speed callbacks removed - now per-room (configured in LobbyScene by host)
 
 void SettingsScene::onKeyBindClick(accessibility::GameAction action, bool isPrimary)
 {
@@ -312,7 +284,7 @@ void SettingsScene::onApplyClick()
 
     // Apply settings to singleton
     config.setColorBlindMode(_colorBlindMode);
-    config.setGameSpeedMultiplier(_gameSpeed);
+    // Game speed removed - now per-room (configured in LobbyScene by host)
 
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
@@ -326,7 +298,7 @@ void SettingsScene::onApplyClick()
             accessibility::AccessibilityConfig::colorBlindModeToString(_colorBlindMode).c_str(),
             COLORBLIND_MODE_LEN - 1);
         payload.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
-        payload.gameSpeedPercent = static_cast<uint16_t>(_gameSpeed * 100.0f);
+        payload.gameSpeedPercent = 100;  // Game speed now per-room, not per-player
 
         for (size_t i = 0; i < ACTION_COUNT; ++i) {
             payload.keyBindings[i * 2] = static_cast<uint8_t>(_keyBindings[i][0]);
@@ -403,7 +375,7 @@ void SettingsScene::processTCPEvents()
                 // Apply received settings (if we requested them)
                 if (event.found) {
                     _colorBlindMode = accessibility::AccessibilityConfig::stringToColorBlindMode(event.colorBlindMode);
-                    _gameSpeed = event.gameSpeed;
+                    // Game speed ignored - now per-room (configured in LobbyScene by host)
 
                     for (size_t i = 0; i < ACTION_COUNT; ++i) {
                         _keyBindings[i][0] = static_cast<events::Key>(event.keyBindings[i * 2]);
@@ -484,8 +456,7 @@ void SettingsScene::handleEvent(const events::Event& event)
 
     // Normal event handling
     _colorBlindModeBtn->handleEvent(event);
-    _speedDecBtn->handleEvent(event);
-    _speedIncBtn->handleEvent(event);
+    // Speed buttons removed - game speed is now per-room (LobbyScene)
 
     for (auto& bindBtn : _keyBindButtons) {
         bindBtn.primary->handleEvent(event);
@@ -523,8 +494,7 @@ void SettingsScene::update(float deltaTime)
 
     // Update all buttons
     _colorBlindModeBtn->update(deltaTime);
-    _speedDecBtn->update(deltaTime);
-    _speedIncBtn->update(deltaTime);
+    // Speed buttons removed - game speed is now per-room (LobbyScene)
 
     for (auto& bindBtn : _keyBindButtons) {
         bindBtn.primary->update(deltaTime);
@@ -575,20 +545,7 @@ void SettingsScene::render()
         LABEL_X, 185, 20, {200, 200, 220, 255});
     _colorBlindModeBtn->render(*_context.window);
 
-    // Game Speed label and value
-    float speedY = 180.0f + ROW_HEIGHT + 10;
-    _context.window->drawText(FONT_KEY, "Game Speed:",
-        LABEL_X, speedY + 10, 20, {200, 200, 220, 255});
-
-    _speedDecBtn->render(*_context.window);
-
-    // Display speed value
-    std::ostringstream speedStr;
-    speedStr << std::fixed << std::setprecision(1) << _gameSpeed << "x";
-    _context.window->drawText(FONT_KEY, speedStr.str(),
-        CONTROL_X + 65, speedY + 10, 22, {255, 255, 255, 255});
-
-    _speedIncBtn->render(*_context.window);
+    // Game Speed removed - now per-room (configured in LobbyScene by host)
 
     // === CONTROLS SECTION ===
     float controlsBoxY = 320.0f;

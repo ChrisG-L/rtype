@@ -24,7 +24,8 @@
 class GameScene : public IScene
 {
 public:
-    GameScene();
+    // Constructor accepts room game speed percent (50-200, default 100)
+    explicit GameScene(uint16_t roomGameSpeedPercent = 100);
     ~GameScene() override = default;
 
     void handleEvent(const events::Event& event) override;
@@ -32,6 +33,8 @@ public:
     void render() override;
 
 private:
+    // Room game speed (replaces per-player AccessibilityConfig gameSpeed)
+    float _roomGameSpeedMultiplier = 1.0f;
     void renderBackground();
     void renderHUD();
     void renderPlayers();

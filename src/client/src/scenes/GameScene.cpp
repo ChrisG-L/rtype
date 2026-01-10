@@ -16,9 +16,11 @@
 #include <algorithm>
 #include <cmath>
 
-GameScene::GameScene()
+GameScene::GameScene(uint16_t roomGameSpeedPercent)
+    : _roomGameSpeedMultiplier(static_cast<float>(std::clamp(roomGameSpeedPercent, static_cast<uint16_t>(50), static_cast<uint16_t>(200))) / 100.0f)
 {
-    client::logging::Logger::getSceneLogger()->debug("GameScene created");
+    client::logging::Logger::getSceneLogger()->debug("GameScene created with room game speed {}% (multiplier: {:.2f})",
+        roomGameSpeedPercent, _roomGameSpeedMultiplier);
 }
 
 void GameScene::loadAssets()
@@ -189,8 +191,9 @@ void GameScene::update(float deltatime)
         return;
     }
 
+    // Use room game speed instead of per-player AccessibilityConfig
     auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
-    float adjustedDeltaTime = deltatime * accessConfig.getGameSpeedMultiplier();
+    float adjustedDeltaTime = deltatime * _roomGameSpeedMultiplier;
 
     for (auto& star : _stars) {
         star.x -= star.speed * adjustedDeltaTime;
