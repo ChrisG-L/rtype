@@ -14,10 +14,12 @@
 #include "accessibility/AccessibilityConfig.hpp"
 #include "audio/AudioManager.hpp"
 #include "network/NetworkEvents.hpp"
+#include "network/UDPClient.hpp"
 #include "ui/TextInput.hpp"
 #include <iostream>
 #include <unordered_set>
 #include <vector>
+#include <deque>
 #include <random>
 #include <memory>
 
@@ -53,9 +55,24 @@ private:
     void onSendChatMessage();
     void appendChatMessage(const client::network::ChatMessageInfo& msg);
 
+    // Client-side prediction
+    void applyInputToPosition(float& x, float& y, uint16_t keys, float dt);
+    void reconcileWithServer(const client::network::NetworkPlayer& serverState);
+
     uint16_t _localX = 100;
     uint16_t _localY = 300;
     std::unordered_set<events::Key> _keysPressed;
+
+    // Client-side prediction state
+    struct PendingInput {
+        uint16_t sequenceNum;
+        uint16_t keys;
+        float deltaTime;
+    };
+    std::deque<PendingInput> _pendingInputs;
+    float _predictedX = 100.0f;
+    float _predictedY = 300.0f;
+    uint16_t _nextInputSeq = 0;
 
     float _shootCooldown = 0.0f;
     bool _assetsLoaded = false;

@@ -221,20 +221,27 @@ struct JoinGameNack {
 
 // PlayerInput: Client sends input keys (not position!)
 struct PlayerInput {
-    uint16_t keys;  // Bitfield using InputKeys namespace
-    static constexpr size_t WIRE_SIZE = 2;
+    uint16_t keys;        // Bitfield using InputKeys namespace
+    uint16_t sequenceNum; // For client-side prediction reconciliation
+    static constexpr size_t WIRE_SIZE = 4;
 
     void to_bytes(uint8_t* buf) const {
         uint16_t net_keys = swap16(keys);
+        uint16_t net_seq = swap16(sequenceNum);
         std::memcpy(buf, &net_keys, 2);
+        std::memcpy(buf + 2, &net_seq, 2);
     }
 
     static std::optional<PlayerInput> from_bytes(const void* buf, size_t len) {
         if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
         auto* ptr = static_cast<const uint8_t*>(buf);
-        uint16_t net_keys;
+        uint16_t net_keys, net_seq;
         std::memcpy(&net_keys, ptr, 2);
-        return PlayerInput{.keys = swap16(net_keys)};
+        std::memcpy(&net_seq, ptr + 2, 2);
+        return PlayerInput{
+            .keys = swap16(net_keys),
+            .sequenceNum = swap16(net_seq)
+        };
     }
 };
 
@@ -1453,16 +1460,19 @@ struct PlayerState {
     uint16_t y;
     uint8_t health;
     uint8_t alive;
-    static constexpr size_t WIRE_SIZE = 7;
+    uint16_t lastAckedInputSeq;  // Last processed input sequence (for client-side prediction)
+    static constexpr size_t WIRE_SIZE = 9;
 
     void to_bytes(uint8_t* buf) const {
         buf[0] = id;
         uint16_t net_x = swap16(x);
         uint16_t net_y = swap16(y);
+        uint16_t net_seq = swap16(lastAckedInputSeq);
         std::memcpy(buf + 1, &net_x, 2);
         std::memcpy(buf + 3, &net_y, 2);
         buf[5] = health;
         buf[6] = alive;
+        std::memcpy(buf + 7, &net_seq, 2);
     }
 
     static std::optional<PlayerState> from_bytes(const void* buf, size_t buf_len) {
@@ -1472,13 +1482,15 @@ struct PlayerState {
         auto* ptr = static_cast<const uint8_t*>(buf);
         PlayerState ps;
         ps.id = ptr[0];
-        uint16_t net_x, net_y;
+        uint16_t net_x, net_y, net_seq;
         std::memcpy(&net_x, ptr + 1, 2);
         std::memcpy(&net_y, ptr + 3, 2);
+        std::memcpy(&net_seq, ptr + 7, 2);
         ps.x = swap16(net_x);
         ps.y = swap16(net_y);
         ps.health = ptr[5];
         ps.alive = ptr[6];
+        ps.lastAckedInputSeq = swap16(net_seq);
         return ps;
     }
 };

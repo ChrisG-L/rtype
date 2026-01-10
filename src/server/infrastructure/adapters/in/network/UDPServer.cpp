@@ -212,6 +212,9 @@ namespace infrastructure::adapters::in::network {
                         "Player {} timed out (no heartbeat)", static_cast<int>(playerId));
                 }
 
+                // Update player positions based on inputs (server-authoritative)
+                _gameWorld.updatePlayers(deltaTime);
+
                 _gameWorld.updateMissiles(deltaTime);
 
                 _gameWorld.updateWaveSpawning(deltaTime);
@@ -506,24 +509,14 @@ namespace infrastructure::adapters::in::network {
             }
 
             // ═══════════════════════════════════════════════════════════════
-            // MovePlayer (backward compatibility - TODO: Replace with PlayerInput)
+            // PlayerInput (server authoritative movement)
+            // MovePlayer removed - server is now authoritative
             // ═══════════════════════════════════════════════════════════════
-            if (head.type == static_cast<uint16_t>(MessageType::MovePlayer)) {
-                if (payload_size >= MovePlayer::WIRE_SIZE) {
-                    auto moveOpt = MovePlayer::from_bytes(payload, payload_size);
-                    if (moveOpt) {
-                        _gameWorld.movePlayer(playerId, moveOpt->x, moveOpt->y);
-                    }
-                }
-            }
-            // ═══════════════════════════════════════════════════════════════
-            // PlayerInput (new - server authoritative)
-            // ═══════════════════════════════════════════════════════════════
-            else if (head.type == static_cast<uint16_t>(MessageType::PlayerInput)) {
+            if (head.type == static_cast<uint16_t>(MessageType::PlayerInput)) {
                 if (payload_size >= PlayerInput::WIRE_SIZE) {
                     auto inputOpt = PlayerInput::from_bytes(payload, payload_size);
                     if (inputOpt) {
-                        // TODO: Implement in Phase 5: _gameWorld.applyPlayerInput(playerId, inputOpt->keys);
+                        _gameWorld.applyPlayerInput(playerId, inputOpt->keys, inputOpt->sequenceNum);
                     }
                 }
             }

@@ -12,6 +12,7 @@
 #include "events/Event.hpp"
 #include "utils/Vecs.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
+#include "Protocol.hpp"  // For InputKeys
 #include <variant>
 #include <algorithm>
 #include <cmath>
@@ -115,6 +116,10 @@ void GameScene::handleEvent(const events::Event& event)
 
         // If kicked or dead, any key returns to main menu
         if ((_wasKicked || _context.udpClient->isLocalPlayerDead()) && _sceneManager) {
+            // Leave the room before returning to main menu
+            if (_context.tcpClient && _context.tcpClient->isConnected()) {
+                _context.tcpClient->leaveRoom();
+            }
             _sceneManager->changeScene(std::make_unique<MainMenuScene>());
             return;
         }
@@ -142,6 +147,51 @@ void GameScene::processUDPEvents()
             // UDP events are handled by UDPClient internally
             // Kick notifications are now handled via TCP (TCPPlayerKickedEvent)
         }, *eventOpt);
+    }
+
+    // Client-side prediction reconciliation
+    // After processing events, reconcile our predicted position with server state
+    auto localId = _context.udpClient->getLocalPlayerId();
+    if (localId) {
+        auto players = _context.udpClient->getPlayers();
+        for (const auto& p : players) {
+            if (p.id == *localId) {
+                reconcileWithServer(p);
+                break;
+            }
+        }
+    }
+}
+
+void GameScene::applyInputToPosition(float& x, float& y, uint16_t keys, float dt)
+{
+    float speed = MOVE_SPEED * dt;
+
+    if (keys & InputKeys::UP)    y -= speed;
+    if (keys & InputKeys::DOWN)  y += speed;
+    if (keys & InputKeys::LEFT)  x -= speed;
+    if (keys & InputKeys::RIGHT) x += speed;
+
+    // Clamp to screen bounds (same as server)
+    x = std::clamp(x, 0.0f, SCREEN_WIDTH - SHIP_WIDTH);
+    y = std::clamp(y, 0.0f, SCREEN_HEIGHT - SHIP_HEIGHT);
+}
+
+void GameScene::reconcileWithServer(const client::network::NetworkPlayer& serverState)
+{
+    // Remove inputs that have been acknowledged by the server
+    while (!_pendingInputs.empty() &&
+           _pendingInputs.front().sequenceNum <= serverState.lastAckedInputSeq) {
+        _pendingInputs.pop_front();
+    }
+
+    // Start from server's authoritative position
+    _predictedX = static_cast<float>(serverState.x);
+    _predictedY = static_cast<float>(serverState.y);
+
+    // Replay all pending inputs that haven't been acknowledged yet
+    for (const auto& input : _pendingInputs) {
+        applyInputToPosition(_predictedX, _predictedY, input.keys, input.deltaTime);
     }
 }
 
@@ -206,47 +256,41 @@ void GameScene::update(float deltatime)
         return;
     }
 
-    float dx = 0.0f;
-    float dy = 0.0f;
+    // Build input keys bitfield from pressed keys
+    uint16_t inputKeys = 0;
+    bool shootPressed = false;
 
     for (const auto& key : _keysPressed) {
         if (accessConfig.isActionKey(accessibility::GameAction::MoveUp, key)) {
-            dy -= MOVE_SPEED * adjustedDeltaTime;
+            inputKeys |= InputKeys::UP;
         }
         if (accessConfig.isActionKey(accessibility::GameAction::MoveDown, key)) {
-            dy += MOVE_SPEED * adjustedDeltaTime;
+            inputKeys |= InputKeys::DOWN;
         }
         if (accessConfig.isActionKey(accessibility::GameAction::MoveLeft, key)) {
-            dx -= MOVE_SPEED * adjustedDeltaTime;
+            inputKeys |= InputKeys::LEFT;
         }
         if (accessConfig.isActionKey(accessibility::GameAction::MoveRight, key)) {
-            dx += MOVE_SPEED * adjustedDeltaTime;
+            inputKeys |= InputKeys::RIGHT;
         }
-    }
-
-    if (dx != 0.0f || dy != 0.0f) {
-        int newX = static_cast<int>(_localX) + static_cast<int>(dx);
-        int newY = static_cast<int>(_localY) + static_cast<int>(dy);
-
-        newX = std::clamp(newX, 0, 1920 - static_cast<int>(SHIP_WIDTH));
-        newY = std::clamp(newY, 0, 1080 - static_cast<int>(SHIP_HEIGHT));
-
-        _localX = static_cast<uint16_t>(newX);
-        _localY = static_cast<uint16_t>(newY);
-
-        _context.udpClient->movePlayer(_localX, _localY);
-    }
-
-    if (_shootCooldown > 0.0f) {
-        _shootCooldown -= adjustedDeltaTime;
-    }
-
-    bool shootPressed = false;
-    for (const auto& key : _keysPressed) {
         if (accessConfig.isActionKey(accessibility::GameAction::Shoot, key)) {
             shootPressed = true;
-            break;
         }
+    }
+
+    // Client-side prediction: send input with sequence, store pending, apply locally
+    uint16_t seq = _nextInputSeq++;
+    _context.udpClient->sendPlayerInput(inputKeys, seq);
+
+    // Store pending input for reconciliation
+    _pendingInputs.push_back({seq, inputKeys, adjustedDeltaTime});
+
+    // Apply prediction locally (immediate response)
+    applyInputToPosition(_predictedX, _predictedY, inputKeys, adjustedDeltaTime);
+
+    // Handle shooting (with client-side cooldown for feedback)
+    if (_shootCooldown > 0.0f) {
+        _shootCooldown -= adjustedDeltaTime;
     }
 
     if (shootPressed && _shootCooldown <= 0.0f) {
@@ -334,8 +378,16 @@ void GameScene::renderPlayers()
             continue;
         }
 
-        float px = static_cast<float>(player.x);
-        float py = static_cast<float>(player.y);
+        float px, py;
+        if (localId && player.id == *localId) {
+            // Local player: use predicted position (client-side prediction)
+            px = _predictedX;
+            py = _predictedY;
+        } else {
+            // Other players: use server position
+            px = static_cast<float>(player.x);
+            py = static_cast<float>(player.y);
+        }
 
         if (_assetsLoaded) {
             _context.window->drawSprite(

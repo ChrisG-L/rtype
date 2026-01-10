@@ -371,7 +371,8 @@ namespace client::network
                 .x = ps.x,
                 .y = ps.y,
                 .health = ps.health,
-                .alive = ps.alive != 0
+                .alive = ps.alive != 0,
+                .lastAckedInputSeq = ps.lastAckedInputSeq
             });
         }
 
@@ -596,21 +597,21 @@ namespace client::network
     }
 
 
-    void UDPClient::movePlayer(uint16_t x, uint16_t y) {
-        MovePlayer movePlayer = {.x = x, .y = y};
+    void UDPClient::sendPlayerInput(uint16_t keys, uint16_t sequenceNum) {
+        PlayerInput input = {.keys = keys, .sequenceNum = sequenceNum};
 
         UDPHeader head = {
-            .type = static_cast<uint16_t>(MessageType::MovePlayer),
+            .type = static_cast<uint16_t>(MessageType::PlayerInput),
             .sequence_num = 0,
             .timestamp = UDPHeader::getTimestamp()
         };
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + MovePlayer::WIRE_SIZE;
+        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerInput::WIRE_SIZE;
 
         auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
 
         head.to_bytes(buf->data());
-        movePlayer.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
+        input.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
         asyncSendTo(buf, totalSize);
     }
 

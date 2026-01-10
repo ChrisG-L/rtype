@@ -33,6 +33,7 @@ namespace client::network
         uint16_t y;
         uint8_t health;
         bool alive;
+        uint16_t lastAckedInputSeq;  // For client-side prediction reconciliation
     };
 
     struct NetworkMissile {
@@ -85,7 +86,9 @@ namespace client::network
         void setOnMissileDestroyed(const OnMissileDestroyedCallback& callback);
         void setOnPlayerDied(const OnPlayerDiedCallback& callback);
 
-        void movePlayer(uint16_t x, uint16_t y);
+        // Server-authoritative: Send input keys with sequence number
+        void sendPlayerInput(uint16_t keys, uint16_t sequenceNum);
+
         void shootMissile();
         void joinGame(const SessionToken& token);
 

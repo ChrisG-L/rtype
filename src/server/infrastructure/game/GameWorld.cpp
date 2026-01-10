@@ -71,24 +71,66 @@ namespace infrastructure::game {
     void GameWorld::removePlayer(uint8_t playerId) {
         std::lock_guard<std::mutex> lock(_mutex);
         _players.erase(playerId);
+        _playerInputs.erase(playerId);        // Clean up inputs
+        _playerLastInputSeq.erase(playerId);  // Clean up sequence tracking
     }
 
     void GameWorld::removePlayerByEndpoint(const udp::endpoint& endpoint) {
         std::lock_guard<std::mutex> lock(_mutex);
         for (auto it = _players.begin(); it != _players.end(); ++it) {
             if (it->second.endpoint == endpoint) {
+                _playerInputs.erase(it->first);        // Clean up inputs
+                _playerLastInputSeq.erase(it->first);  // Clean up sequence tracking
                 _players.erase(it);
                 return;
             }
         }
     }
 
-    void GameWorld::movePlayer(uint8_t playerId, uint16_t x, uint16_t y) {
+    void GameWorld::applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum) {
         std::lock_guard<std::mutex> lock(_mutex);
-        auto it = _players.find(playerId);
-        if (it != _players.end()) {
-            it->second.x = x;
-            it->second.y = y;
+        _playerInputs[playerId] = keys;
+        _playerLastInputSeq[playerId] = sequenceNum;
+    }
+
+    uint16_t GameWorld::getPlayerLastInputSeq(uint8_t playerId) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto it = _playerLastInputSeq.find(playerId);
+        return (it != _playerLastInputSeq.end()) ? it->second : 0;
+    }
+
+    void GameWorld::updatePlayers(float deltaTime) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        // Apply game speed multiplier to player movement
+        float speed = PLAYER_MOVE_SPEED * _gameSpeedMultiplier * deltaTime;
+
+        for (auto& [id, player] : _players) {
+            if (!player.alive) continue;
+
+            // Get input keys for this player (default to 0 if none)
+            uint16_t keys = 0;
+            auto inputIt = _playerInputs.find(id);
+            if (inputIt != _playerInputs.end()) {
+                keys = inputIt->second;
+            }
+
+            // Calculate movement from inputs
+            float newX = static_cast<float>(player.x);
+            float newY = static_cast<float>(player.y);
+
+            if (keys & InputKeys::UP)    newY -= speed;
+            if (keys & InputKeys::DOWN)  newY += speed;
+            if (keys & InputKeys::LEFT)  newX -= speed;
+            if (keys & InputKeys::RIGHT) newX += speed;
+
+            // Clamp to screen bounds
+            newX = std::clamp(newX, 0.0f, SCREEN_WIDTH - PLAYER_SHIP_WIDTH);
+            newY = std::clamp(newY, 0.0f, SCREEN_HEIGHT - PLAYER_SHIP_HEIGHT);
+
+            // Update player position
+            player.x = static_cast<uint16_t>(newX);
+            player.y = static_cast<uint16_t>(newY);
         }
     }
 
@@ -109,12 +151,21 @@ namespace infrastructure::game {
 
         for (const auto& [id, player] : _players) {
             if (snapshot.player_count >= MAX_PLAYERS) break;
+
+            // Get last acked input sequence for this player
+            uint16_t lastSeq = 0;
+            auto seqIt = _playerLastInputSeq.find(id);
+            if (seqIt != _playerLastInputSeq.end()) {
+                lastSeq = seqIt->second;
+            }
+
             snapshot.players[snapshot.player_count] = PlayerState{
                 .id = player.id,
                 .x = player.x,
                 .y = player.y,
                 .health = player.health,
-                .alive = static_cast<uint8_t>(player.alive ? 1 : 0)
+                .alive = static_cast<uint8_t>(player.alive ? 1 : 0),
+                .lastAckedInputSeq = lastSeq
             };
             snapshot.player_count++;
         }

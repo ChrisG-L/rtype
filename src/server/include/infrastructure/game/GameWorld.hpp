@@ -132,6 +132,11 @@ namespace infrastructure::game {
     static constexpr float MISSILE_SPAWN_OFFSET_X = 64.0f;
     static constexpr float MISSILE_SPAWN_OFFSET_Y = 15.0f;
 
+    // Player movement constants (server-authoritative)
+    static constexpr float PLAYER_MOVE_SPEED = 200.0f;
+    static constexpr float PLAYER_SHIP_WIDTH = 64.0f;
+    static constexpr float PLAYER_SHIP_HEIGHT = 30.0f;
+
     static constexpr float WAVE_INTERVAL_MIN = 6.0f;
     static constexpr float WAVE_INTERVAL_MAX = 12.0f;
     static constexpr uint8_t ENEMIES_PER_WAVE_MIN = 2;
@@ -166,7 +171,19 @@ namespace infrastructure::game {
         void removePlayer(uint8_t playerId);
         void removePlayerByEndpoint(const udp::endpoint& endpoint);
 
-        void movePlayer(uint8_t playerId, uint16_t x, uint16_t y);
+        // ═══════════════════════════════════════════════════════════════════
+        // Server-Authoritative Movement
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Apply player input keys (called when PlayerInput message received)
+        void applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum);
+
+        // Get last acknowledged input sequence for a player (for client-side prediction)
+        uint16_t getPlayerLastInputSeq(uint8_t playerId) const;
+
+        // Update all player positions based on their inputs (called each tick)
+        void updatePlayers(float deltaTime);
+
         std::optional<uint8_t> getPlayerIdByEndpoint(const udp::endpoint& endpoint);
 
         GameSnapshot getSnapshot() const;
@@ -196,6 +213,8 @@ namespace infrastructure::game {
         float _gameSpeedMultiplier = 1.0f;     // 0.5-2.0, derived from percent
 
         std::unordered_map<uint8_t, ConnectedPlayer> _players;
+        std::unordered_map<uint8_t, uint16_t> _playerInputs;      // Player ID -> input keys bitfield
+        std::unordered_map<uint8_t, uint16_t> _playerLastInputSeq; // Player ID -> last input sequence
         std::unordered_map<uint16_t, Missile> _missiles;
         std::vector<uint16_t> _destroyedMissiles;
         mutable std::mutex _mutex;

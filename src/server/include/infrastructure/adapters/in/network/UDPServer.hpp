@@ -26,7 +26,6 @@ namespace infrastructure::adapters::in::network {
             // Message types that require authentication (session bound to endpoint)
             // Messages NOT in this set can be processed without authentication
             static inline const std::unordered_set<uint16_t> _authRequiredMessages = {
-                static_cast<uint16_t>(MessageType::MovePlayer),
                 static_cast<uint16_t>(MessageType::PlayerInput),
                 static_cast<uint16_t>(MessageType::ShootMissile),
             };
