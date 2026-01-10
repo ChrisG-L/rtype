@@ -20,12 +20,13 @@ namespace infrastructure::tui {
  * @brief Type of selectable element for determining available actions
  */
 enum class ElementType {
-    Email,          // Can: Ban, Kick (via lookup), Copy
+    Email,          // Can: Ban, Kick (via lookup), Copy, Details (user)
     DisplayName,    // Can: Copy
     PlayerId,       // Can: Kick, Copy
     Endpoint,       // Can: Copy
-    RoomCode,       // Can: Copy, View details
+    RoomCode,       // Can: Copy, Details (room)
     RoomName,       // Can: Copy
+    UserField,      // Can: Edit, Copy (editable user field)
     Generic         // Can: Copy only
 };
 
@@ -47,6 +48,7 @@ struct SelectableElement {
     std::optional<uint8_t> associatedPlayerId;
     std::optional<std::string> associatedEmail;
     std::optional<std::string> associatedRoomCode;
+    std::optional<std::string> fieldName;  ///< Field name for editable elements (e.g., "email", "username")
 };
 
 /**
@@ -100,7 +102,8 @@ enum class InteractAction {
     Insert,     // Enter - Insert value into prompt
     Exit,       // Escape - Exit interact mode
     Close,      // X key - Close room (for rooms list)
-    Details     // D key - Show room details
+    Details,    // D key - Show details (room or user)
+    Edit        // E key - Edit selected field value
 };
 
 /**

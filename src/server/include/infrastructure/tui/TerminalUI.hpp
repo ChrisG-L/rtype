@@ -81,6 +81,15 @@ public:
     // Get currently selected element (nullptr if none)
     const SelectableElement* getSelectedElement() const;
 
+    // Edit mode control
+    void enterEditMode(const SelectableElement& element);
+    void exitEditMode(bool confirm);
+    bool isInEditMode() const { return _editModeActive; }
+
+    // Edit mode callback (called when user confirms an edit)
+    using EditConfirmCallback = std::function<void(const SelectableElement&, const std::string&)>;
+    void setEditConfirmCallback(EditConfirmCallback callback);
+
 private:
     void renderLoop();
     void renderSplitScreen();
@@ -102,6 +111,10 @@ private:
     void renderLineWithSelection(const std::string& line,
                                   const SelectableElement& element,
                                   uint16_t maxCols);
+
+    // Edit mode processing and rendering
+    void processEditKeyInput(int ch);
+    void renderEditStatusBar(uint16_t row);
 
     std::shared_ptr<LogBuffer> _logBuffer;
     Mode _mode = Mode::SplitScreen;
@@ -128,6 +141,14 @@ private:
     Mode _previousMode = Mode::SplitScreen;  // Mode to return to after interact
     InteractActionCallback _interactCallback;
     mutable std::mutex _interactMutex;
+
+    // Edit mode state
+    bool _editModeActive = false;
+    std::string _editBuffer;           // Value being edited
+    std::string _editFieldName;        // Field name (email, username, password)
+    size_t _editCursorPos = 0;         // Cursor position in _editBuffer
+    SelectableElement _editElement;    // Element being edited
+    EditConfirmCallback _editConfirmCallback;
 
     // Render thread
     std::jthread _renderThread;

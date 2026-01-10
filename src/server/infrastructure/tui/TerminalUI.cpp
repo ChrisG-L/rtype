@@ -470,6 +470,12 @@ const SelectableElement* TerminalUI::getSelectedElement() const {
 }
 
 void TerminalUI::processInteractKeyInput(int ch) {
+    // If in edit mode, delegate to edit mode handler
+    if (_editModeActive) {
+        processEditKeyInput(ch);
+        return;
+    }
+
     InteractAction pendingAction = InteractAction::None;
 
     {
@@ -559,6 +565,11 @@ void TerminalUI::processInteractKeyInput(int ch) {
                 pendingAction = InteractAction::Details;
                 break;
 
+            case 'e':
+            case 'E':
+                pendingAction = InteractAction::Edit;
+                break;
+
             case '\n':
             case '\r':
                 pendingAction = InteractAction::Insert;
@@ -577,6 +588,7 @@ void TerminalUI::executeInteractAction(InteractAction action) {
     InteractActionCallback callbackCopy;
     bool valid = false;
     bool shouldExit = false;
+    bool shouldEnterEdit = false;
 
     {
         std::lock_guard<std::mutex> lock(_interactMutex);
@@ -602,8 +614,17 @@ void TerminalUI::executeInteractAction(InteractAction action) {
                 valid = (elementCopy.type == ElementType::Email);
                 break;
             case InteractAction::Close:
-            case InteractAction::Details:
                 valid = (elementCopy.type == ElementType::RoomCode);
+                break;
+            case InteractAction::Details:
+                // Details works on RoomCode (room details) and Email (user details)
+                valid = (elementCopy.type == ElementType::RoomCode ||
+                         elementCopy.type == ElementType::Email);
+                break;
+            case InteractAction::Edit:
+                // Edit works on UserField elements - enter edit mode outside lock
+                valid = (elementCopy.type == ElementType::UserField);
+                shouldEnterEdit = valid;
                 break;
             case InteractAction::Copy:
             case InteractAction::Insert:
@@ -618,6 +639,12 @@ void TerminalUI::executeInteractAction(InteractAction action) {
         // Determine if we should exit after action
         shouldExit = (action == InteractAction::Ban || action == InteractAction::Kick ||
                       action == InteractAction::Unban || action == InteractAction::Close);
+    }
+
+    // Enter edit mode outside the lock to avoid deadlock
+    if (shouldEnterEdit) {
+        enterEditMode(elementCopy);
+        return;
     }
 
     // Execute callback outside the lock to avoid deadlock
@@ -683,8 +710,12 @@ void TerminalUI::renderInteractMode() {
         }
     }
 
-    // Render status bar (pass the copied data)
-    renderInteractStatusBar(termSize.rows, outputCopy, selectedIdx);
+    // Render status bar (use edit status bar if in edit mode)
+    if (_editModeActive) {
+        renderEditStatusBar(termSize.rows);
+    } else {
+        renderInteractStatusBar(termSize.rows, outputCopy, selectedIdx);
+    }
 }
 
 void TerminalUI::renderInteractStatusBar(uint16_t row,
@@ -706,7 +737,7 @@ void TerminalUI::renderInteractStatusBar(uint16_t row,
                 if (output.sourceCommand == "bans") {
                     status << " [U]Unban";
                 } else {
-                    status << " [B]Ban [K]Kick";
+                    status << " [B]Ban [K]Kick [D]Details";
                 }
                 break;
             case ElementType::PlayerId:
@@ -714,6 +745,9 @@ void TerminalUI::renderInteractStatusBar(uint16_t row,
                 break;
             case ElementType::RoomCode:
                 status << " [D]Details [X]Close";
+                break;
+            case ElementType::UserField:
+                status << " [E]Edit";
                 break;
             default:
                 break;
@@ -813,6 +847,173 @@ void TerminalUI::renderLineWithSelection(const std::string& line,
     // Truncate to fit terminal
     std::string truncated = utf8::truncateWithEllipsis(output, maxCols);
     TerminalRenderer::rawWrite(truncated);
+}
+
+// ============================================================================
+// Edit Mode Implementation
+// ============================================================================
+
+void TerminalUI::enterEditMode(const SelectableElement& element) {
+    std::lock_guard<std::mutex> lock(_interactMutex);
+    _editModeActive = true;
+    _editElement = element;
+    _editBuffer = element.value;
+    _editFieldName = element.fieldName.value_or("field");
+    _editCursorPos = _editBuffer.size();  // Cursor at the end
+    _needsRefresh = true;
+}
+
+void TerminalUI::exitEditMode(bool confirm) {
+    SelectableElement elementCopy;
+    std::string newValue;
+    EditConfirmCallback callbackCopy;
+
+    {
+        std::lock_guard<std::mutex> lock(_interactMutex);
+        if (!_editModeActive) return;
+
+        elementCopy = _editElement;
+        newValue = _editBuffer;
+        callbackCopy = _editConfirmCallback;
+
+        _editModeActive = false;
+        _editBuffer.clear();
+        _editFieldName.clear();
+        _editCursorPos = 0;
+        _needsRefresh = true;
+    }
+
+    // Call callback outside the lock to avoid deadlock
+    if (confirm && callbackCopy) {
+        callbackCopy(elementCopy, newValue);
+    }
+}
+
+void TerminalUI::processEditKeyInput(int ch) {
+    bool shouldExit = false;
+    bool confirmEdit = false;
+
+    {
+        std::lock_guard<std::mutex> lock(_interactMutex);
+
+        switch (ch) {
+            case KEY_ESCAPE:
+                shouldExit = true;
+                confirmEdit = false;
+                break;
+
+            case '\n':
+            case '\r':
+                shouldExit = true;
+                confirmEdit = true;
+                break;
+
+            case 127:  // Backspace (Linux/macOS)
+            case 8:    // Backspace (Windows, same as '\b')
+                if (_editCursorPos > 0) {
+                    _editBuffer.erase(_editCursorPos - 1, 1);
+                    _editCursorPos--;
+                    _needsRefresh = true;
+                }
+                break;
+
+            case KEY_LEFT:
+                if (_editCursorPos > 0) {
+                    _editCursorPos--;
+                    _needsRefresh = true;
+                }
+                break;
+
+            case KEY_RIGHT:
+                if (_editCursorPos < _editBuffer.size()) {
+                    _editCursorPos++;
+                    _needsRefresh = true;
+                }
+                break;
+
+            default:
+                // Printable ASCII characters
+                if (ch >= 32 && ch < 127) {
+                    _editBuffer.insert(_editCursorPos, 1, static_cast<char>(ch));
+                    _editCursorPos++;
+                    _needsRefresh = true;
+                }
+                break;
+        }
+    }
+
+    // Exit edit mode outside the lock to avoid deadlock
+    if (shouldExit) {
+        exitEditMode(confirmEdit);
+    }
+}
+
+void TerminalUI::setEditConfirmCallback(EditConfirmCallback callback) {
+    std::lock_guard<std::mutex> lock(_interactMutex);
+    _editConfirmCallback = std::move(callback);
+}
+
+void TerminalUI::renderEditStatusBar(uint16_t row) {
+    auto termSize = TerminalRenderer::getTerminalSize();
+    TerminalRenderer::moveCursor(row, 1);
+
+    std::string fieldName;
+    std::string editBuffer;
+    size_t cursorPos;
+
+    {
+        std::lock_guard<std::mutex> lock(_interactMutex);
+        fieldName = _editFieldName;
+        editBuffer = _editBuffer;
+        cursorPos = _editCursorPos;
+    }
+
+    std::ostringstream status;
+    status << TerminalRenderer::reverseVideo()
+           << " EDIT " << fieldName << ": ";
+
+    // Calculate prefix width
+    std::string prefix = status.str();
+    size_t prefixWidth = utf8::displayWidthIgnoringAnsi(prefix);
+
+    // Calculate available width for the buffer
+    size_t hintsWidth = 25;  // " [Enter]OK [ESC]Cancel"
+    size_t availableWidth = (termSize.cols > prefixWidth + hintsWidth)
+        ? termSize.cols - prefixWidth - hintsWidth : 20;
+
+    // Display buffer with scroll if too long
+    std::string displayBuffer = editBuffer;
+    size_t displayCursor = cursorPos;
+
+    if (editBuffer.size() > availableWidth) {
+        // Scroll to keep cursor visible
+        size_t scrollOffset = 0;
+        if (cursorPos > availableWidth - 3) {
+            scrollOffset = cursorPos - (availableWidth - 3);
+        }
+        displayBuffer = editBuffer.substr(scrollOffset, availableWidth);
+        displayCursor = cursorPos - scrollOffset;
+    }
+
+    // Build the line
+    status << displayBuffer;
+
+    // Add hints
+    status << " [Enter]OK [ESC]Cancel";
+
+    // Pad to fill line
+    std::string statusStr = status.str();
+    size_t visibleLen = utf8::displayWidthIgnoringAnsi(statusStr);
+    if (visibleLen < termSize.cols) {
+        statusStr += std::string(termSize.cols - visibleLen, ' ');
+    }
+    statusStr += TerminalRenderer::resetColor();
+
+    TerminalRenderer::rawWrite(statusStr);
+
+    // Position the cursor
+    TerminalRenderer::showCursor();
+    TerminalRenderer::moveCursor(row, static_cast<uint16_t>(prefixWidth + displayCursor + 1));
 }
 
 } // namespace infrastructure::tui

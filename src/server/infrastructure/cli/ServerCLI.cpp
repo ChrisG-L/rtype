@@ -9,6 +9,10 @@
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
 #include "infrastructure/logging/Logger.hpp"
 #include "infrastructure/tui/Utf8Utils.hpp"
+#include "domain/value_objects/user/Email.hpp"
+#include "domain/value_objects/user/Username.hpp"
+#include "domain/value_objects/user/Password.hpp"
+#include "domain/value_objects/user/utils/PasswordUtils.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -54,6 +58,7 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["unban"] = [this](const std::string& args) { unbanUser(args); };
     _commands["bans"] = [this](const std::string&) { listBans(); };
     _commands["users"] = [this](const std::string&) { listUsers(); };
+    _commands["user"] = [this](const std::string& args) { showUser(args); };
     _commands["logs"] = [this](const std::string& args) { toggleLogs(args); };
     _commands["debug"] = [this](const std::string& args) { toggleDebug(args); };
     _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
@@ -66,6 +71,10 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
         _terminalUI->setInteractActionCallback(
             [this](tui::InteractAction action, const tui::SelectableElement& element) {
                 handleInteractAction(action, element);
+            });
+        _terminalUI->setEditConfirmCallback(
+            [this](const tui::SelectableElement& element, const std::string& newValue) {
+                handleEditConfirm(element, newValue);
             });
     }
 }
@@ -212,6 +221,7 @@ void ServerCLI::printHelp() {
     output("║ room <code>          - Show room details + chat history      ║");
     output("║ closeroom <code>     - Force close a room (kicks all)        ║");
     output("║ users                - List all registered users (DB)        ║");
+    output("║ user <email>         - Show user details                     ║");
     output("║ kick <email> [reason]- Kick player (from room and/or game)   ║");
     output("║ ban <email>          - Ban a user permanently                ║");
     output("║ unban <email>        - Unban a user                          ║");
@@ -220,7 +230,7 @@ void ServerCLI::printHelp() {
     output("║ debug <on|off>       - Enable/disable debug logs             ║");
     output("║ zoom                 - Full-screen log view (ESC to exit)    ║");
     output("║ interact [cmd]       - Navigate output (sessions/bans/users/ ║");
-    output("║                        rooms/room <code>)                    ║");
+    output("║                        rooms/room/user)                      ║");
     output("║ quit/exit            - Stop the server                       ║");
     output("╠══════════════════════════════════════════════════════════════╣");
     output("║                      KEYBOARD SHORTCUTS                      ║");
@@ -611,6 +621,99 @@ void ServerCLI::listUsers() {
     }
 }
 
+void ServerCLI::showUser(const std::string& args) {
+    if (args.empty()) {
+        output("[CLI] Usage: user <email>");
+        return;
+    }
+
+    if (!_userRepository) {
+        output("[CLI] User repository not available.");
+        return;
+    }
+
+    auto userOpt = _userRepository->findByEmail(args);
+    if (!userOpt) {
+        output("[CLI] User not found: " + args);
+        return;
+    }
+
+    const auto& user = *userOpt;
+    std::string email = user.getEmail().value();
+    std::string username = user.getUsername().value();
+    std::string oderId = user.getId().value();
+    std::string passwordHash = user.getPasswordHash().value();
+
+    // Get status from session manager
+    std::string statusStr;
+    if (_sessionManager->isBanned(email)) {
+        statusStr = "Banned";
+    } else if (_sessionManager->hasActiveSession(email)) {
+        statusStr = "Online";
+    } else {
+        statusStr = "Offline";
+    }
+
+    // Format timestamps
+    auto formatTime = [](const std::chrono::system_clock::time_point& tp) -> std::string {
+        auto time = std::chrono::system_clock::to_time_t(tp);
+        std::tm tm = *std::localtime(&time);
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+        return oss.str();
+    };
+
+    std::string createdAt = formatTime(user.getCreatedAt());
+    std::string lastLogin = formatTime(user.getLastLogin());
+
+    output("");
+    output("╔═════════════════════════════════════════════════════════════════╗");
+    output("║                         USER DETAILS                            ║");
+    output("╠═════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream oss;
+    oss << "║ Email:      " << std::left << std::setw(52) << email << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Username:   " << std::left << std::setw(52) << username << "║";
+    output(oss.str());
+    oss.str("");
+
+    // Truncate password hash for display (it can be long)
+    std::string hashTrunc = tui::utf8::truncateWithEllipsis(passwordHash, 51);
+    oss << "║ Password:   " << std::left << std::setw(52) << hashTrunc << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ User ID:    " << std::left << std::setw(52) << oderId << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Status:     " << std::left << std::setw(52) << statusStr << "║";
+    output(oss.str());
+    oss.str("");
+
+    output("╠═════════════════════════════════════════════════════════════════╣");
+
+    oss << "║ Created:    " << std::left << std::setw(52) << createdAt << "║";
+    output(oss.str());
+    oss.str("");
+
+    oss << "║ Last Login: " << std::left << std::setw(52) << lastLogin << "║";
+    output(oss.str());
+
+    output("╚═════════════════════════════════════════════════════════════════╝");
+    output("");
+
+    // Store interactive output for interact mode
+    _lastInteractiveOutput = buildUserDetailsInteractiveOutput(email);
+    _lastCommand = "user";
+    if (_terminalUI) {
+        _terminalUI->setInteractiveOutput(_lastInteractiveOutput);
+    }
+}
+
 void ServerCLI::listRooms() {
     if (!_roomManager) {
         output("[CLI] Room manager not available.");
@@ -909,9 +1012,17 @@ void ServerCLI::enterInteractMode(const std::string& args) {
                 return;
             }
             showRoom(roomCode);
+        } else if (args.rfind("user ", 0) == 0) {
+            // "user <email>" - show specific user details
+            std::string userEmail = args.substr(5);
+            if (userEmail.empty()) {
+                output("[CLI] Usage: interact user <email>");
+                return;
+            }
+            showUser(userEmail);
         } else {
             output("[CLI] Unknown interact target: " + args);
-            output("[CLI] Valid targets: sessions, bans, users, rooms, room <code>");
+            output("[CLI] Valid targets: sessions, bans, users, rooms, room <code>, user <email>");
             return;
         }
     }
@@ -1538,6 +1649,148 @@ tui::InteractiveOutput ServerCLI::buildRoomDetailsInteractiveOutput(const std::s
     return output;
 }
 
+tui::InteractiveOutput ServerCLI::buildUserDetailsInteractiveOutput(const std::string& email) {
+    tui::InteractiveOutput output;
+    output.sourceCommand = "user";
+
+    if (!_userRepository) return output;
+
+    auto userOpt = _userRepository->findByEmail(email);
+    if (!userOpt) return output;
+
+    const auto& user = *userOpt;
+    std::string userEmail = user.getEmail().value();
+    std::string username = user.getUsername().value();
+    std::string passwordHash = user.getPasswordHash().value();
+    std::string oderId = user.getId().value();
+
+    // Get status from session manager
+    std::string statusStr;
+    if (_sessionManager->isBanned(userEmail)) {
+        statusStr = "Banned";
+    } else if (_sessionManager->hasActiveSession(userEmail)) {
+        statusStr = "Online";
+    } else {
+        statusStr = "Offline";
+    }
+
+    // Format timestamps
+    auto formatTime = [](const std::chrono::system_clock::time_point& tp) -> std::string {
+        auto time = std::chrono::system_clock::to_time_t(tp);
+        std::tm tm = *std::localtime(&time);
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+        return oss.str();
+    };
+
+    std::string createdAt = formatTime(user.getCreatedAt());
+    std::string lastLogin = formatTime(user.getLastLogin());
+
+    size_t lineIdx = 0;
+
+    // Header lines
+    output.lines.push_back("");
+    output.lines.push_back("╔═════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                         USER DETAILS                            ║");
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    lineIdx = 4;
+
+    // Email (selectable - UserField, editable)
+    std::ostringstream oss;
+    oss << "║ Email:      " << std::left << std::setw(52) << userEmail << "║";
+    output.lines.push_back(oss.str());
+
+    tui::SelectableElement emailElem;
+    emailElem.lineIndex = lineIdx;
+    emailElem.startCol = 14;
+    emailElem.endCol = 14 + 52;
+    emailElem.value = userEmail;
+    emailElem.truncatedValue = userEmail;
+    emailElem.type = tui::ElementType::UserField;
+    emailElem.fieldName = "email";
+    emailElem.associatedEmail = userEmail;
+    output.elements.push_back(emailElem);
+    lineIdx++;
+
+    // Username (selectable - UserField, editable)
+    oss.str("");
+    oss << "║ Username:   " << std::left << std::setw(52) << username << "║";
+    output.lines.push_back(oss.str());
+
+    tui::SelectableElement usernameElem;
+    usernameElem.lineIndex = lineIdx;
+    usernameElem.startCol = 14;
+    usernameElem.endCol = 14 + 52;
+    usernameElem.value = username;
+    usernameElem.truncatedValue = username;
+    usernameElem.type = tui::ElementType::UserField;
+    usernameElem.fieldName = "username";
+    usernameElem.associatedEmail = userEmail;
+    output.elements.push_back(usernameElem);
+    lineIdx++;
+
+    // Password hash (selectable - UserField, editable)
+    std::string hashTrunc = tui::utf8::truncateWithEllipsis(passwordHash, 51);
+    oss.str("");
+    oss << "║ Password:   " << std::left << std::setw(52) << hashTrunc << "║";
+    output.lines.push_back(oss.str());
+
+    tui::SelectableElement passwordElem;
+    passwordElem.lineIndex = lineIdx;
+    passwordElem.startCol = 14;
+    passwordElem.endCol = 14 + 52;
+    passwordElem.value = passwordHash;
+    passwordElem.truncatedValue = hashTrunc;
+    passwordElem.type = tui::ElementType::UserField;
+    passwordElem.fieldName = "password";
+    passwordElem.associatedEmail = userEmail;
+    output.elements.push_back(passwordElem);
+    lineIdx++;
+
+    // User ID (selectable - Generic, copy only)
+    oss.str("");
+    oss << "║ User ID:    " << std::left << std::setw(52) << oderId << "║";
+    output.lines.push_back(oss.str());
+
+    tui::SelectableElement idElem;
+    idElem.lineIndex = lineIdx;
+    idElem.startCol = 14;
+    idElem.endCol = 14 + 52;
+    idElem.value = oderId;
+    idElem.truncatedValue = oderId;
+    idElem.type = tui::ElementType::Generic;
+    idElem.associatedEmail = userEmail;
+    output.elements.push_back(idElem);
+    lineIdx++;
+
+    // Status (not selectable - display only)
+    oss.str("");
+    oss << "║ Status:     " << std::left << std::setw(52) << statusStr << "║";
+    output.lines.push_back(oss.str());
+    lineIdx++;
+
+    // Separator
+    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    lineIdx++;
+
+    // Created (not selectable)
+    oss.str("");
+    oss << "║ Created:    " << std::left << std::setw(52) << createdAt << "║";
+    output.lines.push_back(oss.str());
+    lineIdx++;
+
+    // Last Login (not selectable)
+    oss.str("");
+    oss << "║ Last Login: " << std::left << std::setw(52) << lastLogin << "║";
+    output.lines.push_back(oss.str());
+    lineIdx++;
+
+    output.lines.push_back("╚═════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("");
+
+    return output;
+}
+
 void ServerCLI::handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element) {
     switch (action) {
         case tui::InteractAction::Ban:
@@ -1584,11 +1837,109 @@ void ServerCLI::handleInteractAction(tui::InteractAction action, const tui::Sele
         case tui::InteractAction::Details:
             if (element.type == tui::ElementType::RoomCode) {
                 showRoom(element.value);
+            } else if (element.type == tui::ElementType::Email) {
+                showUser(element.value);
             }
+            break;
+
+        case tui::InteractAction::Edit:
+            // Edit is handled directly by TerminalUI's edit mode
+            // This case should not be reached
             break;
 
         default:
             break;
+    }
+}
+
+void ServerCLI::handleEditConfirm(const tui::SelectableElement& element,
+                                   const std::string& newValue) {
+    if (!element.associatedEmail.has_value()) {
+        output("[CLI] Error: No associated email for edit");
+        return;
+    }
+
+    if (!_userRepository) {
+        output("[CLI] Error: User repository not available");
+        return;
+    }
+
+    std::string email = *element.associatedEmail;
+    std::string fieldName = element.fieldName.value_or("unknown");
+
+    // Get the current user
+    auto userOpt = _userRepository->findByEmail(email);
+    if (!userOpt) {
+        output("[CLI] Error: User not found: " + email);
+        return;
+    }
+
+    const auto& oldUser = *userOpt;
+
+    try {
+        // Create new user with modified field
+        if (fieldName == "email") {
+            domain::value_objects::user::Email newEmail(newValue);
+            domain::entities::User newUser(
+                oldUser.getId(),
+                oldUser.getUsername(),
+                newEmail,
+                oldUser.getPasswordHash(),
+                oldUser.getLastLogin(),
+                oldUser.getCreatedAt()
+            );
+            _userRepository->update(newUser);
+            output("[CLI] Email updated: " + email + " -> " + newValue);
+
+        } else if (fieldName == "username") {
+            domain::value_objects::user::Username newUsername(newValue);
+            domain::entities::User newUser(
+                oldUser.getId(),
+                newUsername,
+                oldUser.getEmail(),
+                oldUser.getPasswordHash(),
+                oldUser.getLastLogin(),
+                oldUser.getCreatedAt()
+            );
+            _userRepository->update(newUser);
+            output("[CLI] Username updated for " + email);
+
+        } else if (fieldName == "password") {
+            // If newValue is a SHA-256 hash (64 hex chars), use it directly
+            // Otherwise, validate and hash the password
+            std::string passwordHash = newValue;
+            if (newValue.length() < 64) {
+                // Validate password length BEFORE hashing (min 6 chars)
+                /* if (newValue.length() < 6) { // @TEMP @TODO -> For debug purposes only
+                    throw domain::exceptions::user::PasswordException(newValue);
+                } */
+                passwordHash = domain::value_objects::user::utils::hashPassword(newValue);
+            }
+
+            domain::value_objects::user::Password newPassword(passwordHash);
+            domain::entities::User newUser(
+                oldUser.getId(),
+                oldUser.getUsername(),
+                oldUser.getEmail(),
+                newPassword,
+                oldUser.getLastLogin(),
+                oldUser.getCreatedAt()
+            );
+            _userRepository->update(newUser);
+            output("[CLI] Password updated for " + email);
+
+        } else {
+            output("[CLI] Error: Unknown field: " + fieldName);
+            return;
+        }
+
+        // Refresh user details display
+        // Use the new email if that's what was modified
+        std::string refreshEmail = (fieldName == "email") ? newValue : email;
+        showUser(refreshEmail);
+
+    } catch (const std::exception& e) {
+        output("[CLI] Error updating user: " + std::string(e.what()));
     }
 }
 

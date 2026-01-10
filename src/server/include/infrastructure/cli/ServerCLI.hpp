@@ -67,6 +67,7 @@ private:
     void listUsers();
     void listRooms();
     void showRoom(const std::string& args);
+    void showUser(const std::string& args);
     void closeRoom(const std::string& args);
     void kickFromRoom(const std::string& args);
     void toggleLogs(const std::string& args);
@@ -81,9 +82,13 @@ private:
     tui::InteractiveOutput buildUsersInteractiveOutput();
     tui::InteractiveOutput buildRoomsInteractiveOutput();
     tui::InteractiveOutput buildRoomDetailsInteractiveOutput(const std::string& roomCode);
+    tui::InteractiveOutput buildUserDetailsInteractiveOutput(const std::string& email);
 
     // Interact action handler
     void handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element);
+
+    // Edit confirm handler
+    void handleEditConfirm(const tui::SelectableElement& element, const std::string& newValue);
 
     // Clipboard utility
     void copyToClipboard(const std::string& text);

@@ -73,7 +73,20 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     void MongoDBUserRepository::update(const User& user) {
-        // Non implémenté pour le moment
+        // Find by ObjectId and update the fields
+        bsoncxx::oid oid(user.getId().value());
+
+        auto filter = make_document(kvp("_id", oid));
+        auto update = make_document(
+            kvp("$set", make_document(
+                kvp("username", user.getUsername().value()),
+                kvp("email", user.getEmail().value()),
+                kvp("password", user.getPasswordHash().value()),
+                kvp("lastLogin", timePointToDate(user.getLastLogin()))
+            ))
+        );
+
+        _collection->update_one(filter.view(), update.view());
     }
 
     std::optional<User> MongoDBUserRepository::findById(const std::string& id) {
