@@ -20,10 +20,6 @@ set(TEST_SOURCES
     # Tests Entities
     domain/entities/PlayerTest.cpp
 
-
-    # Tests Network - Protocol
-    network/protocol/CommandParserTest.cpp
-
     # Tests Network - Integration UDP
     network/UDPIntegrationTest.cpp
 )
@@ -54,9 +50,6 @@ set(SERVER_SOURCES
     # Domain - Entities
     ${CMAKE_SOURCE_DIR}/src/server/domain/entities/Player.cpp
     ${CMAKE_SOURCE_DIR}/src/server/domain/entities/User.cpp
-
-    # Infrastructure - Network Protocol
-    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/adapters/in/network/protocol/CommandParser.cpp
 )
 
 # Créer l'exécutable de tests

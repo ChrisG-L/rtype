@@ -108,12 +108,10 @@ namespace client::network
         // Méthodes async
         void asyncConnect(tcp::resolver::results_type endpoints);
         void asyncRead();
-        // void asyncWrite();
 
         // Handlers
         void handleConnect(const boost::system::error_code &error);
         void handleRead(const boost::system::error_code &error, std::size_t bytes);
-        // void handleWrite(const boost::system::error_code &error);
 
         // HeartBeat
         void scheduleHeartbeat();

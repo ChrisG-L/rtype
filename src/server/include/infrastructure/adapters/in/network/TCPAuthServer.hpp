@@ -17,14 +17,14 @@
 #include <functional>
 #include <chrono>
 
-#include "protocol/CommandParser.hpp"
 #include "Protocol.hpp"
 
 #include "application/ports/out/persistence/IUserRepository.hpp"
 #include "application/ports/out/persistence/IUserSettingsRepository.hpp"
 #include "application/ports/out/IIdGenerator.hpp"
 #include "application/ports/out/ILogger.hpp"
-#include "infrastructure/adapters/in/network/execute/Execute.hpp"
+#include "application/use_cases/auth/Login.hpp"
+#include "application/use_cases/auth/Register.hpp"
 #include "infrastructure/session/SessionManager.hpp"
 #include "infrastructure/room/RoomManager.hpp"
 

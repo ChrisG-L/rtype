@@ -27,17 +27,12 @@ add_executable(rtype_server
     domain/entities/Room.cpp
 
     # Application - Use Cases
-    application/use_cases/player/Move.cpp
     application/use_cases/auth/Login.cpp
     application/use_cases/auth/Register.cpp
 
     # Infrastructure - Adapters In
-    infrastructure/adapters/in/cli/CLIGameController.cpp
     infrastructure/adapters/in/network/UDPServer.cpp
     infrastructure/adapters/in/network/TCPAuthServer.cpp
-    infrastructure/adapters/in/network/protocol/CommandParser.cpp
-    infrastructure/adapters/in/network/execute/Execute.cpp
-    infrastructure/adapters/in/network/execute/auth/ExecuteAuth.cpp
 
     # Infrastructure - Adapters Out (Persistence)
     infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp

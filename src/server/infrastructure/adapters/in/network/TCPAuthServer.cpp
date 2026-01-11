@@ -252,10 +252,11 @@ namespace infrastructure::adapters::in::network {
     }
 
     void Session::handle_command(const Header& head) {
-        using infrastructure::adapters::in::network::execute::Execute;
+        using application::use_cases::auth::Login;
+        using application::use_cases::auth::Register;
         auto networkLogger = server::logging::Logger::getNetworkLogger();
 
-        // Handle HeartBeat separately - no Execute needed
+        // Handle HeartBeat separately
         if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
             do_write_heartbeat_ack();
             return;
@@ -309,15 +310,36 @@ namespace infrastructure::adapters::in::network {
             }
         }
 
-        Command cmd = {.type = head.type, .buf = payload};
-
         // Determine response type based on request type
         MessageType responseType = (head.type == static_cast<uint16_t>(MessageType::Login))
             ? MessageType::LoginAck
             : MessageType::RegisterAck;
 
         try {
-            Execute execute(cmd, _userRepository, _idGenerator, _logger, _onAuthSuccess);
+            // Inline auth logic (previously in Execute/ExecuteAuth)
+            std::shared_ptr<Login> login = std::make_shared<Login>(_userRepository, _logger);
+            std::shared_ptr<Register> registerUseCase = std::make_shared<Register>(_userRepository, _idGenerator, _logger);
+
+            std::optional<User> userOpt;
+            if (head.type == static_cast<uint16_t>(MessageType::Login)) {
+                auto loginOpt = LoginMessage::from_bytes(payload.data(), payload.size());
+                if (loginOpt) {
+                    userOpt = login->execute(loginOpt->username, loginOpt->password);
+                } else {
+                    networkLogger->warn("Invalid LoginMessage received!");
+                }
+            } else if (head.type == static_cast<uint16_t>(MessageType::Register)) {
+                auto registerOpt = RegisterMessage::from_bytes(payload.data(), payload.size());
+                if (registerOpt) {
+                    userOpt = registerUseCase->execute(registerOpt->username, registerOpt->email, registerOpt->password);
+                } else {
+                    networkLogger->warn("Invalid RegisterMessage received!");
+                }
+            }
+
+            if (userOpt.has_value()) {
+                _onAuthSuccess(userOpt.value());
+            }
 
             // Check if authentication succeeded
             if (_isAuthenticated && _user.has_value()) {

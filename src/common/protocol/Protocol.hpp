@@ -27,18 +27,14 @@ enum class MessageType: uint16_t {
     JoinGame = 0x0010,
     JoinGameAck = 0x0011,
     JoinGameNack = 0x0012,
-    Basic = 0x0030,
-    BasicAck = 0x0031,
+    // UDP Game messages
     Snapshot = 0x0040,
-    Player = 0x0050,
-    MovePlayer = 0x0060,
     PlayerInput = 0x0061,
     PlayerJoin = 0x0070,
     PlayerLeave = 0x0071,
     ShootMissile = 0x0080,
     MissileSpawned = 0x0081,
     MissileDestroyed = 0x0082,
-    EnemySpawned = 0x0090,
     EnemyDestroyed = 0x0091,
     PlayerDamaged = 0x00A0,
     PlayerDied = 0x00A1,
@@ -1274,39 +1270,6 @@ struct UDPHeader {
                 duration)
                 .count();
         return milliseconds;
-    }
-};
-
-
-struct MovePlayer {
-    uint16_t x;
-    uint16_t y;
-    static constexpr size_t WIRE_SIZE = 4;
-
-
-    void to_bytes(uint8_t* buf) const {
-        uint16_t x_pos = swap16(static_cast<uint16_t>(x));
-        uint16_t y_pos = swap16(static_cast<uint16_t>(y));
-
-        std::memcpy(buf, &x_pos, 2);
-        std::memcpy(buf + 2, &y_pos, 2);
-    }
-
-    static std::optional<MovePlayer> from_bytes(const void* buf, size_t buf_len) {
-        if (buf == nullptr || buf_len < WIRE_SIZE) {
-            return std::nullopt;
-        }
-        auto* ptr = static_cast<const uint8_t*>(buf);
-        MovePlayer movePlayer;
-        uint16_t x_pos;
-        uint16_t y_pos;
-
-        memcpy(&x_pos, ptr, 2);
-        memcpy(&y_pos, ptr + 2, 2);
-
-        movePlayer.x = swap16(x_pos);
-        movePlayer.y = swap16(y_pos);
-        return movePlayer;
     }
 };
 
