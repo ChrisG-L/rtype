@@ -1280,6 +1280,7 @@ namespace infrastructure::adapters::in::network {
             UserSettingsData defaults;
             defaults.setDefaultKeyBindings();
             std::memcpy(resp.settings.keyBindings, defaults.keyBindings.data(), KEY_BINDINGS_COUNT);
+            resp.settings.shipSkin = defaults.shipSkin;
             do_write_get_user_settings_response(resp);
             return;
         }
@@ -1291,6 +1292,7 @@ namespace infrastructure::adapters::in::network {
             resp.settings.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
             resp.settings.gameSpeedPercent = settingsOpt->gameSpeedPercent;
             std::memcpy(resp.settings.keyBindings, settingsOpt->keyBindings.data(), KEY_BINDINGS_COUNT);
+            resp.settings.shipSkin = settingsOpt->shipSkin;
             logger->debug("GetUserSettings: found settings for {}", email);
         } else {
             resp.found = 0;
@@ -1300,6 +1302,7 @@ namespace infrastructure::adapters::in::network {
             UserSettingsData defaults;
             defaults.setDefaultKeyBindings();
             std::memcpy(resp.settings.keyBindings, defaults.keyBindings.data(), KEY_BINDINGS_COUNT);
+            resp.settings.shipSkin = defaults.shipSkin;
             logger->debug("GetUserSettings: no settings found for {}, returning defaults", email);
         }
 
@@ -1334,6 +1337,7 @@ namespace infrastructure::adapters::in::network {
         data.colorBlindMode = std::string(reqOpt->settings.colorBlindMode);
         data.gameSpeedPercent = reqOpt->settings.gameSpeedPercent;
         std::memcpy(data.keyBindings.data(), reqOpt->settings.keyBindings, KEY_BINDINGS_COUNT);
+        data.shipSkin = reqOpt->settings.shipSkin;
 
         try {
             _userSettingsRepository->save(email, data);
