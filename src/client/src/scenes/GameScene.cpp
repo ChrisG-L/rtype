@@ -28,6 +28,14 @@ void GameScene::loadAssets()
 {
     if (_assetsLoaded || !_context.window) return;
 
+    // Load all 6 ship skin textures
+    for (int i = 1; i <= 6; ++i) {
+        std::string key = "ship" + std::to_string(i);
+        std::string path = "assets/spaceship/Ship" + std::to_string(i) + ".png";
+        _context.window->loadTexture(key, path);
+    }
+
+    // Keep backward compatibility with old texture key
     _context.window->loadTexture(SHIP_TEXTURE_KEY, "assets/spaceship/Ship1.png");
     _context.window->loadTexture(MISSILE_TEXTURE_KEY, "assets/spaceship/missile.png");
     _context.window->loadTexture(ENEMY_TEXTURE_KEY, "assets/spaceship/Ship1.png");
@@ -390,8 +398,12 @@ void GameScene::renderPlayers()
         }
 
         if (_assetsLoaded) {
+            // Use player's ship skin (clamp to valid range 1-6)
+            uint8_t skinId = std::clamp(player.shipSkin, static_cast<uint8_t>(1), static_cast<uint8_t>(6));
+            std::string textureKey = "ship" + std::to_string(skinId);
+
             _context.window->drawSprite(
-                SHIP_TEXTURE_KEY,
+                textureKey,
                 px,
                 py,
                 SHIP_WIDTH,

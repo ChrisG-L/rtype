@@ -8,6 +8,7 @@
 #include "network/UDPClient.hpp"
 #include "Protocol.hpp"
 #include "core/Logger.hpp"
+#include "accessibility/AccessibilityConfig.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -372,7 +373,8 @@ namespace client::network
                 .y = ps.y,
                 .health = ps.health,
                 .alive = ps.alive != 0,
-                .lastAckedInputSeq = ps.lastAckedInputSeq
+                .lastAckedInputSeq = ps.lastAckedInputSeq,
+                .shipSkin = ps.shipSkin
             });
         }
 
@@ -632,8 +634,13 @@ namespace client::network
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Sending JoinGame with token");
 
+        // Get the player's ship skin from settings
+        auto& config = accessibility::AccessibilityConfig::getInstance();
+        uint8_t shipSkin = config.getShipSkin();
+
         JoinGame joinGame;
         joinGame.token = token;
+        joinGame.shipSkin = shipSkin;
 
         UDPHeader head = {
             .type = static_cast<uint16_t>(MessageType::JoinGame),
@@ -646,6 +653,8 @@ namespace client::network
         head.to_bytes(buf->data());
         joinGame.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
         asyncSendTo(buf, totalSize);
+
+        logger->debug("JoinGame sent with shipSkin={}", static_cast<int>(shipSkin));
     }
 
     void UDPClient::sendHeartbeat() {

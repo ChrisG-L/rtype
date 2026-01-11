@@ -27,6 +27,7 @@ namespace infrastructure::game {
         bool alive;
         udp::endpoint endpoint;
         std::chrono::steady_clock::time_point lastActivity;
+        uint8_t shipSkin = 1;  // Ship skin variant (1-6 for Ship1.png to Ship6.png)
     };
 
     struct Missile {
@@ -170,6 +171,7 @@ namespace infrastructure::game {
         std::optional<uint8_t> addPlayer(const udp::endpoint& endpoint);
         void removePlayer(uint8_t playerId);
         void removePlayerByEndpoint(const udp::endpoint& endpoint);
+        void setPlayerSkin(uint8_t playerId, uint8_t skinId);
 
         // ═══════════════════════════════════════════════════════════════════
         // Server-Authoritative Movement

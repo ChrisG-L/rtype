@@ -20,12 +20,14 @@ struct UserSettingsData {
     std::string colorBlindMode;     // "none", "protanopia", "deuteranopia", "tritanopia", "high_contrast"
     uint16_t gameSpeedPercent;      // 50-200 (represents 0.5x-2.0x)
     std::array<uint8_t, 12> keyBindings;  // 6 actions × 2 keys
+    uint8_t shipSkin;               // Ship skin variant (1-6 for Ship1.png to Ship6.png)
 
     // Default constructor with default values
     UserSettingsData()
         : colorBlindMode("none")
         , gameSpeedPercent(100)
-        , keyBindings{} {}
+        , keyBindings{}
+        , shipSkin(1) {}
 
     // Set default key bindings (matches AccessibilityConfig defaults)
     void setDefaultKeyBindings() {

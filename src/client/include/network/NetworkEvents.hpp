@@ -98,6 +98,7 @@ namespace client::network
         std::string colorBlindMode;         // "none", "protanopia", etc.
         float gameSpeed;                    // 0.5 to 2.0
         std::array<uint8_t, 12> keyBindings; // 6 actions × 2 keys
+        uint8_t shipSkin;                   // Ship skin variant (1-6)
     };
 
     struct TCPSaveSettingsResultEvent {

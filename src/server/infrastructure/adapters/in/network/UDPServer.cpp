@@ -468,6 +468,9 @@ namespace infrastructure::adapters::in::network {
                 "Game speed set to {}% (multiplier: {:.2f})",
                 gameSpeedPercent, _gameWorld.getGameSpeedMultiplier());
 
+            // Set player's ship skin (from JoinGame message)
+            _gameWorld.setPlayerSkin(*playerIdOpt, joinOpt->shipSkin);
+
             // Bind playerId to session
             _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);
 

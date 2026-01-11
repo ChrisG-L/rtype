@@ -81,6 +81,9 @@ public:
     void setGameSpeedMultiplier(float multiplier);
     float getGameSpeedMultiplier() const;
 
+    void setShipSkin(uint8_t skinId);
+    uint8_t getShipSkin() const;
+
     bool loadFromFile(const std::string& filepath);
     bool saveToFile(const std::string& filepath) const;
 
@@ -102,6 +105,7 @@ private:
 
     ColorBlindMode _colorBlindMode = ColorBlindMode::None;
     float _gameSpeedMultiplier = 1.0f;
+    uint8_t _shipSkin = 1;  // Ship skin variant (1-6 for Ship1.png to Ship6.png)
 
     Color _playerColor;
     Color _otherPlayerColor;

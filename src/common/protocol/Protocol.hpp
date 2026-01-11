@@ -167,17 +167,20 @@ struct SessionToken {
 // JoinGame: Client sends token to authenticate UDP session
 struct JoinGame {
     SessionToken token;
-    static constexpr size_t WIRE_SIZE = TOKEN_SIZE;
+    uint8_t shipSkin;  // Ship skin variant (1-6)
+    static constexpr size_t WIRE_SIZE = TOKEN_SIZE + 1;
 
     void to_bytes(uint8_t* buf) const {
         token.to_bytes(buf);
+        buf[TOKEN_SIZE] = shipSkin;
     }
 
     static std::optional<JoinGame> from_bytes(const void* buf, size_t len) {
         if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
         auto tokenOpt = SessionToken::from_bytes(buf, len);
         if (!tokenOpt) return std::nullopt;
-        return JoinGame{.token = *tokenOpt};
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        return JoinGame{.token = *tokenOpt, .shipSkin = ptr[TOKEN_SIZE]};
     }
 };
 
@@ -1008,8 +1011,9 @@ struct UserSettingsPayload {
     char colorBlindMode[COLORBLIND_MODE_LEN];  // "none", "protanopia", etc.
     uint16_t gameSpeedPercent;                  // 50-200 (represents 0.5x-2.0x)
     uint8_t keyBindings[KEY_BINDINGS_COUNT];    // [action0_primary, action0_secondary, ...]
+    uint8_t shipSkin;                           // Ship skin variant (1-6)
 
-    static constexpr size_t WIRE_SIZE = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT;
+    static constexpr size_t WIRE_SIZE = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT + 1;
 
     void to_bytes(void* buf) const {
         auto* ptr = static_cast<uint8_t*>(buf);
@@ -1017,6 +1021,7 @@ struct UserSettingsPayload {
         uint16_t net_speed = swap16(gameSpeedPercent);
         std::memcpy(ptr + COLORBLIND_MODE_LEN, &net_speed, 2);
         std::memcpy(ptr + COLORBLIND_MODE_LEN + 2, keyBindings, KEY_BINDINGS_COUNT);
+        ptr[COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT] = shipSkin;
     }
 
     static std::optional<UserSettingsPayload> from_bytes(const void* buf, size_t buf_len) {
@@ -1029,6 +1034,7 @@ struct UserSettingsPayload {
         std::memcpy(&net_speed, ptr + COLORBLIND_MODE_LEN, 2);
         payload.gameSpeedPercent = swap16(net_speed);
         std::memcpy(payload.keyBindings, ptr + COLORBLIND_MODE_LEN + 2, KEY_BINDINGS_COUNT);
+        payload.shipSkin = ptr[COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT];
         return payload;
     }
 };
@@ -1424,7 +1430,8 @@ struct PlayerState {
     uint8_t health;
     uint8_t alive;
     uint16_t lastAckedInputSeq;  // Last processed input sequence (for client-side prediction)
-    static constexpr size_t WIRE_SIZE = 9;
+    uint8_t shipSkin;  // Ship skin variant (1-6 for Ship1.png to Ship6.png)
+    static constexpr size_t WIRE_SIZE = 10;
 
     void to_bytes(uint8_t* buf) const {
         buf[0] = id;
@@ -1436,6 +1443,7 @@ struct PlayerState {
         buf[5] = health;
         buf[6] = alive;
         std::memcpy(buf + 7, &net_seq, 2);
+        buf[9] = shipSkin;
     }
 
     static std::optional<PlayerState> from_bytes(const void* buf, size_t buf_len) {
@@ -1454,6 +1462,7 @@ struct PlayerState {
         ps.health = ptr[5];
         ps.alive = ptr[6];
         ps.lastAckedInputSeq = swap16(net_seq);
+        ps.shipSkin = ptr[9];
         return ps;
     }
 };

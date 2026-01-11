@@ -47,6 +47,13 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
         }
     }
 
+    // Ship skin (default to 1 if not present)
+    if (doc["shipSkin"]) {
+        settings.shipSkin = static_cast<uint8_t>(doc["shipSkin"].get_int32().value);
+    } else {
+        settings.shipSkin = 1;
+    }
+
     return settings;
 }
 
@@ -75,6 +82,7 @@ void MongoDBUserSettingsRepository::save(
         kvp("colorBlindMode", settings.colorBlindMode),
         kvp("gameSpeedPercent", static_cast<int32_t>(settings.gameSpeedPercent)),
         kvp("keyBindings", keyBindingsArray),
+        kvp("shipSkin", static_cast<int32_t>(settings.shipSkin)),
         kvp("updatedAt", bsoncxx::types::b_date{std::chrono::system_clock::now()})
     );
 

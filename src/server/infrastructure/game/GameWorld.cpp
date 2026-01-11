@@ -87,6 +87,15 @@ namespace infrastructure::game {
         }
     }
 
+    void GameWorld::setPlayerSkin(uint8_t playerId, uint8_t skinId) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto it = _players.find(playerId);
+        if (it != _players.end()) {
+            // Clamp to valid range (1-6)
+            it->second.shipSkin = std::clamp(skinId, static_cast<uint8_t>(1), static_cast<uint8_t>(6));
+        }
+    }
+
     void GameWorld::applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum) {
         std::lock_guard<std::mutex> lock(_mutex);
         _playerInputs[playerId] = keys;
@@ -165,7 +174,8 @@ namespace infrastructure::game {
                 .y = player.y,
                 .health = player.health,
                 .alive = static_cast<uint8_t>(player.alive ? 1 : 0),
-                .lastAckedInputSeq = lastSeq
+                .lastAckedInputSeq = lastSeq,
+                .shipSkin = player.shipSkin
             };
             snapshot.player_count++;
         }

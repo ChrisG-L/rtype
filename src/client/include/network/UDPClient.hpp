@@ -34,6 +34,7 @@ namespace client::network
         uint8_t health;
         bool alive;
         uint16_t lastAckedInputSeq;  // For client-side prediction reconciliation
+        uint8_t shipSkin;  // Ship skin variant (1-6)
     };
 
     struct NetworkMissile {

@@ -19,6 +19,7 @@ SettingsScene::SettingsScene()
     auto& config = accessibility::AccessibilityConfig::getInstance();
 
     _colorBlindMode = config.getColorBlindMode();
+    _shipSkin = config.getShipSkin();
 
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
@@ -33,6 +34,13 @@ void SettingsScene::loadAssets()
 
     _context.window->loadFont(FONT_KEY, "assets/fonts/ARIA.TTF");
     _starfield = std::make_unique<ui::StarfieldBackground>(SCREEN_WIDTH, SCREEN_HEIGHT, STAR_COUNT);
+
+    // Load ship textures for preview
+    for (size_t i = 1; i <= SHIP_SKIN_COUNT; ++i) {
+        std::string key = "settings_ship" + std::to_string(i);
+        std::string path = "assets/spaceship/Ship" + std::to_string(i) + ".png";
+        _context.window->loadTexture(key, path);
+    }
 
     _assetsLoaded = true;
 }
@@ -59,8 +67,34 @@ void SettingsScene::initUI()
 
     // Game Speed removed - now per-room (configured in LobbyScene by host)
 
+    // === SHIP SELECTION SECTION ===
+    float shipY = 270.0f;
+    float shipBtnSize = 70.0f;
+    float shipSpacing = 20.0f;
+    float shipStartX = CONTROL_X;
+
+    for (size_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
+        uint8_t skinId = static_cast<uint8_t>(i + 1);
+        _shipSkinBtns[i] = std::make_unique<ui::Button>(
+            Vec2f{shipStartX + i * (shipBtnSize + shipSpacing), shipY},
+            Vec2f{shipBtnSize, shipBtnSize},
+            std::to_string(skinId),
+            FONT_KEY
+        );
+        _shipSkinBtns[i]->setOnClick([this, skinId]() { onShipSkinClick(skinId); });
+
+        // Highlight selected skin
+        if (skinId == _shipSkin) {
+            _shipSkinBtns[i]->setNormalColor({80, 150, 80, 255});
+            _shipSkinBtns[i]->setHoveredColor({100, 180, 100, 255});
+        } else {
+            _shipSkinBtns[i]->setNormalColor({50, 50, 70, 255});
+            _shipSkinBtns[i]->setHoveredColor({70, 70, 100, 255});
+        }
+    }
+
     // === CONTROLS SECTION ===
-    float controlsStartY = 400.0f;
+    float controlsStartY = 450.0f;  // Adjusted for ship selection section
     float primaryX = CONTROL_X;
     float secondaryX = CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING;
 
@@ -247,6 +281,25 @@ void SettingsScene::onColorBlindModeClick()
     _hasUnsavedChanges = true;
 }
 
+void SettingsScene::onShipSkinClick(uint8_t skinId)
+{
+    _shipSkin = skinId;
+    _hasUnsavedChanges = true;
+
+    // Update button colors to highlight selected skin
+    for (size_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
+        if (_shipSkinBtns[i]) {
+            if ((i + 1) == skinId) {
+                _shipSkinBtns[i]->setNormalColor({80, 150, 80, 255});
+                _shipSkinBtns[i]->setHoveredColor({100, 180, 100, 255});
+            } else {
+                _shipSkinBtns[i]->setNormalColor({50, 50, 70, 255});
+                _shipSkinBtns[i]->setHoveredColor({70, 70, 100, 255});
+            }
+        }
+    }
+}
+
 // Game speed callbacks removed - now per-room (configured in LobbyScene by host)
 
 void SettingsScene::onKeyBindClick(accessibility::GameAction action, bool isPrimary)
@@ -284,6 +337,7 @@ void SettingsScene::onApplyClick()
 
     // Apply settings to singleton
     config.setColorBlindMode(_colorBlindMode);
+    config.setShipSkin(_shipSkin);
     // Game speed removed - now per-room (configured in LobbyScene by host)
 
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
@@ -304,6 +358,8 @@ void SettingsScene::onApplyClick()
             payload.keyBindings[i * 2] = static_cast<uint8_t>(_keyBindings[i][0]);
             payload.keyBindings[i * 2 + 1] = static_cast<uint8_t>(_keyBindings[i][1]);
         }
+
+        payload.shipSkin = _shipSkin;
 
         _context.tcpClient->saveUserSettings(payload);
         showInfo("Saving to server...");
@@ -375,6 +431,7 @@ void SettingsScene::processTCPEvents()
                 // Apply received settings (if we requested them)
                 if (event.found) {
                     _colorBlindMode = accessibility::AccessibilityConfig::stringToColorBlindMode(event.colorBlindMode);
+                    _shipSkin = event.shipSkin;
                     // Game speed ignored - now per-room (configured in LobbyScene by host)
 
                     for (size_t i = 0; i < ACTION_COUNT; ++i) {
@@ -385,6 +442,18 @@ void SettingsScene::processTCPEvents()
                     // Update UI
                     if (_colorBlindModeBtn) {
                         _colorBlindModeBtn->setText(getColorBlindModeDisplayName(_colorBlindMode));
+                    }
+                    // Update ship skin buttons
+                    for (size_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
+                        if (_shipSkinBtns[i]) {
+                            if ((i + 1) == _shipSkin) {
+                                _shipSkinBtns[i]->setNormalColor({80, 150, 80, 255});
+                                _shipSkinBtns[i]->setHoveredColor({100, 180, 100, 255});
+                            } else {
+                                _shipSkinBtns[i]->setNormalColor({50, 50, 70, 255});
+                                _shipSkinBtns[i]->setHoveredColor({70, 70, 100, 255});
+                            }
+                        }
                     }
                     updateAllKeyBindButtonTexts();
 
@@ -456,6 +525,12 @@ void SettingsScene::handleEvent(const events::Event& event)
 
     // Normal event handling
     _colorBlindModeBtn->handleEvent(event);
+
+    // Ship skin buttons
+    for (auto& btn : _shipSkinBtns) {
+        if (btn) btn->handleEvent(event);
+    }
+
     // Speed buttons removed - game speed is now per-room (LobbyScene)
 
     for (auto& bindBtn : _keyBindButtons) {
@@ -494,6 +569,12 @@ void SettingsScene::update(float deltaTime)
 
     // Update all buttons
     _colorBlindModeBtn->update(deltaTime);
+
+    // Ship skin buttons
+    for (auto& btn : _shipSkinBtns) {
+        if (btn) btn->update(deltaTime);
+    }
+
     // Speed buttons removed - game speed is now per-room (LobbyScene)
 
     for (auto& bindBtn : _keyBindButtons) {
@@ -530,7 +611,7 @@ void SettingsScene::render()
 
     // === ACCESSIBILITY SECTION ===
     float accessBoxY = 120.0f;
-    float accessBoxHeight = 160.0f;
+    float accessBoxHeight = 200.0f;  // Increased for ship selection
 
     // Section box
     _context.window->drawRect(BOX_MARGIN_X, accessBoxY, BOX_WIDTH, accessBoxHeight, {20, 20, 40, 200});
@@ -545,11 +626,30 @@ void SettingsScene::render()
         LABEL_X, 185, 20, {200, 200, 220, 255});
     _colorBlindModeBtn->render(*_context.window);
 
+    // Ship Selection label
+    _context.window->drawText(FONT_KEY, "Ship Skin:",
+        LABEL_X, 275, 20, {200, 200, 220, 255});
+
+    // Ship skin buttons with sprite preview
+    float shipBtnSize = 70.0f;
+    float shipSpacing = 20.0f;
+    float shipStartX = CONTROL_X;
+    for (size_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
+        if (_shipSkinBtns[i]) {
+            _shipSkinBtns[i]->render(*_context.window);
+            // Draw ship sprite on top of button
+            std::string textureKey = "settings_ship" + std::to_string(i + 1);
+            float spriteX = shipStartX + i * (shipBtnSize + shipSpacing) + 11;
+            float spriteY = 275.0f + 11;
+            _context.window->drawSprite(textureKey, spriteX, spriteY, 48.0f, 48.0f);
+        }
+    }
+
     // Game Speed removed - now per-room (configured in LobbyScene by host)
 
     // === CONTROLS SECTION ===
-    float controlsBoxY = 320.0f;
-    float controlsBoxHeight = 450.0f;
+    float controlsBoxY = 360.0f;  // Adjusted for ship selection
+    float controlsBoxHeight = 420.0f;
 
     // Section box
     _context.window->drawRect(BOX_MARGIN_X, controlsBoxY, BOX_WIDTH, controlsBoxHeight, {20, 20, 40, 200});
@@ -566,7 +666,7 @@ void SettingsScene::render()
         CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING + 15, controlsBoxY + 55, 16, {120, 120, 150, 255});
 
     // Key bindings
-    float controlsStartY = 400.0f;
+    float controlsStartY = 450.0f;  // Adjusted for ship selection section
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
         float rowY = controlsStartY + i * ROW_HEIGHT;

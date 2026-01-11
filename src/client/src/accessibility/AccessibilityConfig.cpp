@@ -155,6 +155,16 @@ float AccessibilityConfig::getGameSpeedMultiplier() const
     return _gameSpeedMultiplier;
 }
 
+void AccessibilityConfig::setShipSkin(uint8_t skinId)
+{
+    _shipSkin = std::clamp(skinId, static_cast<uint8_t>(1), static_cast<uint8_t>(6));
+}
+
+uint8_t AccessibilityConfig::getShipSkin() const
+{
+    return _shipSkin;
+}
+
 std::string AccessibilityConfig::keyToString(events::Key key)
 {
     static const std::unordered_map<events::Key, std::string> keyNames = {

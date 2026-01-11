@@ -575,6 +575,7 @@ namespace client::network
                         event.colorBlindMode = std::string(respOpt->settings.colorBlindMode);
                         event.gameSpeed = static_cast<float>(respOpt->settings.gameSpeedPercent) / 100.0f;
                         std::memcpy(event.keyBindings.data(), respOpt->settings.keyBindings, KEY_BINDINGS_COUNT);
+                        event.shipSkin = respOpt->settings.shipSkin;
                         logger->debug("Received user settings (found={})", event.found);
                         _eventQueue.push(std::move(event));
                     }
