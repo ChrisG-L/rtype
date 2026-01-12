@@ -14,12 +14,14 @@
 
 namespace infrastructure::game {
 
-    GameWorld::GameWorld() : _nextPlayerId(1) {
+    GameWorld::GameWorld(boost::asio::io_context& io_ctx)
+        : _strand(boost::asio::make_strand(io_ctx))
+        , _nextPlayerId(1)
+    {
         std::srand(static_cast<unsigned>(std::time(nullptr)));
     }
 
     void GameWorld::setGameSpeedPercent(uint16_t percent) {
-        std::lock_guard<std::mutex> lock(_mutex);
         _gameSpeedPercent = std::clamp(percent, static_cast<uint16_t>(50), static_cast<uint16_t>(200));
         _gameSpeedMultiplier = static_cast<float>(_gameSpeedPercent) / 100.0f;
     }
@@ -34,8 +36,6 @@ namespace infrastructure::game {
     }
 
     std::optional<uint8_t> GameWorld::addPlayer(const udp::endpoint& endpoint) {
-        std::lock_guard<std::mutex> lock(_mutex);
-
         for (const auto& [id, player] : _players) {
             if (player.endpoint == endpoint) {
                 return id;
@@ -69,14 +69,12 @@ namespace infrastructure::game {
     }
 
     void GameWorld::removePlayer(uint8_t playerId) {
-        std::lock_guard<std::mutex> lock(_mutex);
         _players.erase(playerId);
         _playerInputs.erase(playerId);        // Clean up inputs
         _playerLastInputSeq.erase(playerId);  // Clean up sequence tracking
     }
 
     void GameWorld::removePlayerByEndpoint(const udp::endpoint& endpoint) {
-        std::lock_guard<std::mutex> lock(_mutex);
         for (auto it = _players.begin(); it != _players.end(); ++it) {
             if (it->second.endpoint == endpoint) {
                 _playerInputs.erase(it->first);        // Clean up inputs
@@ -88,7 +86,6 @@ namespace infrastructure::game {
     }
 
     void GameWorld::setPlayerSkin(uint8_t playerId, uint8_t skinId) {
-        std::lock_guard<std::mutex> lock(_mutex);
         auto it = _players.find(playerId);
         if (it != _players.end()) {
             // Clamp to valid range (1-6)
@@ -97,20 +94,16 @@ namespace infrastructure::game {
     }
 
     void GameWorld::applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum) {
-        std::lock_guard<std::mutex> lock(_mutex);
         _playerInputs[playerId] = keys;
         _playerLastInputSeq[playerId] = sequenceNum;
     }
 
     uint16_t GameWorld::getPlayerLastInputSeq(uint8_t playerId) const {
-        std::lock_guard<std::mutex> lock(_mutex);
         auto it = _playerLastInputSeq.find(playerId);
         return (it != _playerLastInputSeq.end()) ? it->second : 0;
     }
 
     void GameWorld::updatePlayers(float deltaTime) {
-        std::lock_guard<std::mutex> lock(_mutex);
-
         // Apply game speed multiplier to player movement
         float speed = PLAYER_MOVE_SPEED * _gameSpeedMultiplier * deltaTime;
 
@@ -144,7 +137,6 @@ namespace infrastructure::game {
     }
 
     std::optional<uint8_t> GameWorld::getPlayerIdByEndpoint(const udp::endpoint& endpoint) {
-        std::lock_guard<std::mutex> lock(_mutex);
         for (const auto& [id, player] : _players) {
             if (player.endpoint == endpoint) {
                 return id;
@@ -154,7 +146,6 @@ namespace infrastructure::game {
     }
 
     GameSnapshot GameWorld::getSnapshot() const {
-        std::lock_guard<std::mutex> lock(_mutex);
         GameSnapshot snapshot{};
         snapshot.player_count = 0;
 
@@ -224,8 +215,6 @@ namespace infrastructure::game {
     }
 
     uint16_t GameWorld::spawnMissile(uint8_t playerId) {
-        std::lock_guard<std::mutex> lock(_mutex);
-
         auto it = _players.find(playerId);
         if (it == _players.end()) return 0;
 
@@ -245,7 +234,6 @@ namespace infrastructure::game {
     }
 
     void GameWorld::updateMissiles(float deltaTime) {
-        std::lock_guard<std::mutex> lock(_mutex);
         _destroyedMissiles.clear();
 
         // Apply game speed multiplier to missile movement
@@ -264,19 +252,16 @@ namespace infrastructure::game {
     }
 
     std::vector<uint16_t> GameWorld::getDestroyedMissiles() {
-        std::lock_guard<std::mutex> lock(_mutex);
         return _destroyedMissiles;
     }
 
     std::optional<Missile> GameWorld::getMissile(uint16_t missileId) const {
-        std::lock_guard<std::mutex> lock(_mutex);
         auto it = _missiles.find(missileId);
         if (it == _missiles.end()) return std::nullopt;
         return it->second;
     }
 
     std::vector<udp::endpoint> GameWorld::getAllEndpoints() const {
-        std::lock_guard<std::mutex> lock(_mutex);
         std::vector<udp::endpoint> endpoints;
         endpoints.reserve(_players.size());
         for (const auto& [id, player] : _players) {
@@ -286,13 +271,10 @@ namespace infrastructure::game {
     }
 
     size_t GameWorld::getPlayerCount() const {
-        std::lock_guard<std::mutex> lock(_mutex);
         return _players.size();
     }
 
     void GameWorld::updateWaveSpawning(float deltaTime) {
-        std::lock_guard<std::mutex> lock(_mutex);
-
         if (_players.empty()) {
             _waveTimer = 0.0f;
             _spawnQueue.clear();
@@ -464,7 +446,6 @@ namespace infrastructure::game {
     }
 
     void GameWorld::updateEnemies(float deltaTime) {
-        std::lock_guard<std::mutex> lock(_mutex);
         _destroyedEnemies.clear();
 
         // Apply game speed multiplier to enemy updates
@@ -530,7 +511,6 @@ namespace infrastructure::game {
     }
 
     void GameWorld::checkCollisions() {
-        std::lock_guard<std::mutex> lock(_mutex);
         _playerDamageEvents.clear();
         _deadPlayers.clear();
 
@@ -606,29 +586,24 @@ namespace infrastructure::game {
     }
 
     std::vector<uint16_t> GameWorld::getDestroyedEnemies() {
-        std::lock_guard<std::mutex> lock(_mutex);
         return _destroyedEnemies;
     }
 
     std::vector<std::pair<uint8_t, uint8_t>> GameWorld::getPlayerDamageEvents() {
-        std::lock_guard<std::mutex> lock(_mutex);
         return _playerDamageEvents;
     }
 
     std::vector<uint8_t> GameWorld::getDeadPlayers() {
-        std::lock_guard<std::mutex> lock(_mutex);
         return _deadPlayers;
     }
 
     bool GameWorld::isPlayerAlive(uint8_t playerId) const {
-        std::lock_guard<std::mutex> lock(_mutex);
         auto it = _players.find(playerId);
         if (it == _players.end()) return false;
         return it->second.alive;
     }
 
     void GameWorld::updatePlayerActivity(uint8_t playerId) {
-        std::lock_guard<std::mutex> lock(_mutex);
         auto it = _players.find(playerId);
         if (it != _players.end()) {
             it->second.lastActivity = std::chrono::steady_clock::now();
@@ -636,7 +611,6 @@ namespace infrastructure::game {
     }
 
     std::vector<uint8_t> GameWorld::checkPlayerTimeouts(std::chrono::milliseconds timeout) {
-        std::lock_guard<std::mutex> lock(_mutex);
         std::vector<uint8_t> timedOutPlayers;
         auto now = std::chrono::steady_clock::now();
 

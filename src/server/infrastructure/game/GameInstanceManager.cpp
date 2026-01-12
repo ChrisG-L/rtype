@@ -18,8 +18,8 @@ std::shared_ptr<GameWorld> GameInstanceManager::getOrCreateInstance(const std::s
         return it->second;
     }
 
-    // Create new instance
-    auto gameWorld = std::make_shared<GameWorld>();
+    // Create new instance with io_context (for strand creation)
+    auto gameWorld = std::make_shared<GameWorld>(_io_ctx);
     _instances.emplace(roomCode, gameWorld);
 
     server::logging::Logger::getGameLogger()->info(

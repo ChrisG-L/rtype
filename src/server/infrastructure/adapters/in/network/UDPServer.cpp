@@ -24,6 +24,7 @@ namespace infrastructure::adapters::in::network {
     UDPServer::UDPServer(boost::asio::io_context& io_ctx, std::shared_ptr<SessionManager> sessionManager)
         : _io_ctx(io_ctx),
           _socket(io_ctx, udp::endpoint(udp::v4(), 4124)),
+          _instanceManager(io_ctx),
           _sessionManager(sessionManager),
           _broadcastTimer(io_ctx) {
         // Windows: désactiver ICMP Port Unreachable qui cause des erreurs sur UDP
@@ -292,19 +293,28 @@ namespace infrastructure::adapters::in::network {
                 // Get all active room codes (snapshot to avoid modification during iteration)
                 auto roomCodes = _instanceManager.getActiveRoomCodes();
 
-                // Update each game instance independently
+                // Update each game instance independently - POST TO EACH ROOM'S STRAND
+                // This allows rooms to be processed IN PARALLEL on different threads
                 for (const auto& roomCode : roomCodes) {
                     auto gameWorld = _instanceManager.getInstance(roomCode);
                     if (!gameWorld) continue;
 
-                    updateAndBroadcastRoom(roomCode, gameWorld, deltaTime);
+                    // Post the update work to this room's strand
+                    // Each room's strand serializes its own operations
+                    // but different rooms can run concurrently on different threads
+                    boost::asio::post(gameWorld->getStrand(),
+                        [this, roomCode, gameWorld, deltaTime]() {
+                            updateAndBroadcastRoom(roomCode, gameWorld, deltaTime);
 
-                    // Cleanup empty instances
-                    if (gameWorld->getPlayerCount() == 0) {
-                        _instanceManager.removeInstance(roomCode);
-                        server::logging::Logger::getGameLogger()->info(
-                            "Removed empty game instance for room '{}'", roomCode);
-                    }
+                            // Cleanup empty instances (post to main io_context for thread safety)
+                            if (gameWorld->getPlayerCount() == 0) {
+                                boost::asio::post(_io_ctx, [this, roomCode]() {
+                                    _instanceManager.removeInstance(roomCode);
+                                    server::logging::Logger::getGameLogger()->info(
+                                        "Removed empty game instance for room '{}'", roomCode);
+                                });
+                            }
+                        });
                 }
 
                 scheduleBroadcast();
@@ -500,7 +510,12 @@ namespace infrastructure::adapters::in::network {
                 if (roomCodeOpt) {
                     auto gameWorld = _instanceManager.getInstance(*roomCodeOpt);
                     if (gameWorld) {
-                        gameWorld->updatePlayerActivity(*playerIdOpt);
+                        // Post to room's strand for thread safety
+                        uint8_t playerId = *playerIdOpt;
+                        boost::asio::post(gameWorld->getStrand(),
+                            [gameWorld, playerId]() {
+                                gameWorld->updatePlayerActivity(playerId);
+                            });
                     }
                 }
             }
@@ -546,37 +561,48 @@ namespace infrastructure::adapters::in::network {
                 return;
             }
 
-            // Create player in the room's GameWorld
-            auto playerIdOpt = gameWorld->addPlayer(_remote_endpoint);
-            if (!playerIdOpt) {
-                sendJoinGameNack(_remote_endpoint, "Room full");
-                _sessionManager->removeSessionByEndpoint(endpointStr);
-                do_read();
-                return;
-            }
-
-            // Apply room game speed to this GameWorld instance
+            // Capture endpoint for lambda (remote_endpoint is a member, may change before lambda runs)
+            auto remoteEndpoint = _remote_endpoint;
+            uint8_t shipSkin = joinOpt->shipSkin;
             uint16_t gameSpeedPercent = _sessionManager->getRoomGameSpeedByEndpoint(endpointStr);
-            gameWorld->setGameSpeedPercent(gameSpeedPercent);
-            server::logging::Logger::getGameLogger()->info(
-                "Room '{}' game speed set to {}% (multiplier: {:.2f})",
-                roomCode, gameSpeedPercent, gameWorld->getGameSpeedMultiplier());
+            std::string displayName = validateResult->displayName;
+            std::string email = validateResult->email;
 
-            // Set player's ship skin (from JoinGame message)
-            gameWorld->setPlayerSkin(*playerIdOpt, joinOpt->shipSkin);
+            // Post player creation to room's strand for thread safety
+            boost::asio::post(gameWorld->getStrand(),
+                [this, gameWorld, roomCode, remoteEndpoint, endpointStr, shipSkin,
+                 gameSpeedPercent, displayName, email]() {
 
-            // Bind playerId to session
-            _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);
+                    // Create player in the room's GameWorld
+                    auto playerIdOpt = gameWorld->addPlayer(remoteEndpoint);
+                    if (!playerIdOpt) {
+                        sendJoinGameNack(remoteEndpoint, "Room full");
+                        _sessionManager->removeSessionByEndpoint(endpointStr);
+                        return;
+                    }
 
-            // Send confirmation
-            sendJoinGameAck(_remote_endpoint, *playerIdOpt);
+                    // Apply room game speed to this GameWorld instance
+                    gameWorld->setGameSpeedPercent(gameSpeedPercent);
+                    server::logging::Logger::getGameLogger()->info(
+                        "Room '{}' game speed set to {}% (multiplier: {:.2f})",
+                        roomCode, gameSpeedPercent, gameWorld->getGameSpeedMultiplier());
 
-            // Broadcast to other players in the same room
-            sendPlayerJoin(_remote_endpoint, *playerIdOpt, gameWorld);
+                    // Set player's ship skin (from JoinGame message)
+                    gameWorld->setPlayerSkin(*playerIdOpt, shipSkin);
 
-            server::logging::Logger::getNetworkLogger()->info(
-                "Player {} (email: {}) joined room '{}' as player {}",
-                validateResult->displayName, validateResult->email, roomCode, static_cast<int>(*playerIdOpt));
+                    // Bind playerId to session (SessionManager is thread-safe)
+                    _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);
+
+                    // Send confirmation (sendTo uses async_send_to, thread-safe)
+                    sendJoinGameAck(remoteEndpoint, *playerIdOpt);
+
+                    // Broadcast to other players in the same room
+                    sendPlayerJoin(remoteEndpoint, *playerIdOpt, gameWorld);
+
+                    server::logging::Logger::getNetworkLogger()->info(
+                        "Player {} (email: {}) joined room '{}' as player {}",
+                        displayName, email, roomCode, static_cast<int>(*playerIdOpt));
+                });
 
             do_read();
             return;
@@ -608,15 +634,8 @@ namespace infrastructure::adapters::in::network {
                 return;
             }
 
-            // Update activity timestamp
+            // Update activity timestamp (SessionManager is thread-safe)
             _sessionManager->updateActivity(endpointStr);
-            gameWorld->updatePlayerActivity(playerId);
-
-            // Check if player is alive for gameplay messages
-            if (!gameWorld->isPlayerAlive(playerId)) {
-                do_read();
-                return;
-            }
 
             // ═══════════════════════════════════════════════════════════════
             // PlayerInput (server authoritative movement)
@@ -625,7 +644,18 @@ namespace infrastructure::adapters::in::network {
                 if (payload_size >= PlayerInput::WIRE_SIZE) {
                     auto inputOpt = PlayerInput::from_bytes(payload, payload_size);
                     if (inputOpt) {
-                        gameWorld->applyPlayerInput(playerId, inputOpt->keys, inputOpt->sequenceNum);
+                        uint16_t keys = inputOpt->keys;
+                        uint16_t seqNum = inputOpt->sequenceNum;
+
+                        // Post to room's strand for thread safety
+                        boost::asio::post(gameWorld->getStrand(),
+                            [gameWorld, playerId, keys, seqNum]() {
+                                // Update activity and check alive status in the strand
+                                gameWorld->updatePlayerActivity(playerId);
+                                if (gameWorld->isPlayerAlive(playerId)) {
+                                    gameWorld->applyPlayerInput(playerId, keys, seqNum);
+                                }
+                            });
                     }
                 }
             }
@@ -633,10 +663,19 @@ namespace infrastructure::adapters::in::network {
             // ShootMissile
             // ═══════════════════════════════════════════════════════════════
             else if (head.type == static_cast<uint16_t>(MessageType::ShootMissile)) {
-                uint16_t missileId = gameWorld->spawnMissile(playerId);
-                if (missileId > 0) {
-                    broadcastMissileSpawned(missileId, playerId, gameWorld);
-                }
+                // Post to room's strand for thread safety
+                boost::asio::post(gameWorld->getStrand(),
+                    [this, gameWorld, playerId]() {
+                        // Update activity and check alive status in the strand
+                        gameWorld->updatePlayerActivity(playerId);
+                        if (gameWorld->isPlayerAlive(playerId)) {
+                            uint16_t missileId = gameWorld->spawnMissile(playerId);
+                            if (missileId > 0) {
+                                // broadcastMissileSpawned uses async_send_to, thread-safe
+                                broadcastMissileSpawned(missileId, playerId, gameWorld);
+                            }
+                        }
+                    });
             }
         }
         // ═══════════════════════════════════════════════════════════════════
@@ -654,30 +693,35 @@ namespace infrastructure::adapters::in::network {
             auto gameWorld = _instanceManager.getInstance(roomCode);
             if (!gameWorld) continue;
 
-            auto endpoints = gameWorld->getAllEndpoints();
-            for (const auto& ep : endpoints) {
-                auto pid = gameWorld->getPlayerIdByEndpoint(ep);
-                if (pid && *pid == playerId) {
-                    std::string endpointStr = endpointToString(ep);
+            // We need to check if player exists, which requires accessing GameWorld
+            // Post the entire kick operation to the room's strand for thread safety
+            boost::asio::post(gameWorld->getStrand(),
+                [this, gameWorld, playerId, roomCode]() {
+                    auto endpoints = gameWorld->getAllEndpoints();
+                    for (const auto& ep : endpoints) {
+                        auto pid = gameWorld->getPlayerIdByEndpoint(ep);
+                        if (pid && *pid == playerId) {
+                            std::string endpointStr = endpointToString(ep);
 
-                    // Clear the UDP binding from SessionManager
-                    _sessionManager->clearUDPBinding(endpointStr);
+                            // Clear the UDP binding from SessionManager (thread-safe)
+                            _sessionManager->clearUDPBinding(endpointStr);
 
-                    // Remove from GameWorld
-                    gameWorld->removePlayer(playerId);
+                            // Remove from GameWorld (we're in the strand, safe)
+                            gameWorld->removePlayer(playerId);
 
-                    // Broadcast PlayerLeave to remaining players in this room
-                    sendPlayerLeave(playerId, gameWorld);
+                            // Broadcast PlayerLeave to remaining players in this room
+                            sendPlayerLeave(playerId, gameWorld);
 
-                    server::logging::Logger::getMainLogger()->info(
-                        "[CLI] Player {} kicked from room '{}'.", static_cast<int>(playerId), roomCode);
-                    return;
-                }
-            }
+                            server::logging::Logger::getMainLogger()->info(
+                                "[CLI] Player {} kicked from room '{}'.", static_cast<int>(playerId), roomCode);
+                            return;
+                        }
+                    }
+                });
         }
-
-        server::logging::Logger::getMainLogger()->warn(
-            "[CLI] Player {} not found in any game.", static_cast<int>(playerId));
+        // Note: "Player not found" warning is no longer logged here because
+        // the check happens asynchronously in the strand. This is a trade-off
+        // for thread safety.
     }
 
     size_t UDPServer::getPlayerCount() const {
@@ -695,19 +739,25 @@ namespace infrastructure::adapters::in::network {
             return;
         }
 
-        // Remove player from GameWorld
-        gameWorld->removePlayer(playerId);
+        // Post to room's strand for thread safety
+        boost::asio::post(gameWorld->getStrand(),
+            [this, gameWorld, playerId, roomCode, logger]() {
+                // Remove player from GameWorld (we're in the strand, safe)
+                gameWorld->removePlayer(playerId);
 
-        // Broadcast PlayerLeave to remaining players in this room
-        sendPlayerLeave(playerId, gameWorld);
+                // Broadcast PlayerLeave to remaining players in this room
+                sendPlayerLeave(playerId, gameWorld);
 
-        logger->info("Player {} left game in room '{}' (via TCP leaveRoom)",
-                    static_cast<int>(playerId), roomCode);
+                logger->info("Player {} left game in room '{}' (via TCP leaveRoom)",
+                            static_cast<int>(playerId), roomCode);
 
-        // Cleanup empty instance
-        if (gameWorld->getPlayerCount() == 0) {
-            _instanceManager.removeInstance(roomCode);
-            logger->info("Removed empty game instance for room '{}'", roomCode);
-        }
+                // Cleanup empty instance (post to main context for thread safety)
+                if (gameWorld->getPlayerCount() == 0) {
+                    boost::asio::post(_io_ctx, [this, roomCode, logger]() {
+                        _instanceManager.removeInstance(roomCode);
+                        logger->info("Removed empty game instance for room '{}'", roomCode);
+                    });
+                }
+            });
     }
 }

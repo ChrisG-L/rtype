@@ -11,7 +11,6 @@
 #include "Protocol.hpp"
 #include <boost/asio.hpp>
 #include <unordered_map>
-#include <mutex>
 #include <optional>
 #include <vector>
 #include <chrono>
@@ -152,7 +151,13 @@ namespace infrastructure::game {
 
     class GameWorld {
     public:
-        GameWorld();
+        // Constructor requires io_context to create the strand
+        explicit GameWorld(boost::asio::io_context& io_ctx);
+
+        // Get the strand for this GameWorld (used to serialize operations)
+        boost::asio::strand<boost::asio::io_context::executor_type>& getStrand() {
+            return _strand;
+        }
 
         // ═══════════════════════════════════════════════════════════════════
         // Game Speed Configuration (per-room setting)
@@ -211,6 +216,10 @@ namespace infrastructure::game {
         std::vector<uint8_t> checkPlayerTimeouts(std::chrono::milliseconds timeout);
 
     private:
+        // Strand for serializing all operations on this GameWorld
+        // All access to this GameWorld should go through this strand
+        boost::asio::strand<boost::asio::io_context::executor_type> _strand;
+
         // Game speed configuration
         uint16_t _gameSpeedPercent = 100;      // 50-200, default 100%
         float _gameSpeedMultiplier = 1.0f;     // 0.5-2.0, derived from percent
@@ -220,7 +229,6 @@ namespace infrastructure::game {
         std::unordered_map<uint8_t, uint16_t> _playerLastInputSeq; // Player ID -> last input sequence
         std::unordered_map<uint16_t, Missile> _missiles;
         std::vector<uint16_t> _destroyedMissiles;
-        mutable std::mutex _mutex;
         uint8_t _nextPlayerId;
         uint16_t _nextMissileId = 1;
 

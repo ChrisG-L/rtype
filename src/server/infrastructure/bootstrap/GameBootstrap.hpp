@@ -26,6 +26,8 @@
 #include <memory>
 #include <cstdlib>
 #include <csignal>
+#include <vector>
+#include <thread>
 
 namespace infrastructure::bootstrap {
 
@@ -53,6 +55,10 @@ namespace infrastructure::bootstrap {
                 mainLogger->info("=== Démarrage du serveur R-Type ===");
 
                 boost::asio::io_context io_ctx;
+
+                // Work guard keeps io_context running even when there's no work
+                // This is needed because threads may start before async operations are posted
+                auto workGuard = boost::asio::make_work_guard(io_ctx);
 
                 // Get MongoDB URI from environment variable or use default
                 const char* mongoUri = std::getenv("MONGODB_URI");
@@ -100,6 +106,7 @@ namespace infrastructure::bootstrap {
                     mainLogger->info("CLI requested shutdown");
                     udpServer.stop();
                     tcpAuthServer.stop();
+                    workGuard.reset();  // Allow io_context to finish when no more work
                     io_ctx.stop();
                 });
 
@@ -111,10 +118,26 @@ namespace infrastructure::bootstrap {
                     serverCLI.stop();
                     udpServer.stop();
                     tcpAuthServer.stop();
+                    workGuard.reset();  // Allow io_context to finish when no more work
                     io_ctx.stop();
                 });
 
-                io_ctx.run();
+                // Thread pool for parallel execution of io_context handlers
+                constexpr size_t THREAD_POOL_SIZE = 4;
+                std::vector<std::jthread> threadPool;
+                threadPool.reserve(THREAD_POOL_SIZE);
+
+                mainLogger->info("Starting thread pool with {} workers", THREAD_POOL_SIZE);
+
+                for (size_t i = 0; i < THREAD_POOL_SIZE; ++i) {
+                    threadPool.emplace_back([&io_ctx, &mainLogger, i]() {
+                        mainLogger->debug("Thread pool worker {} started", i);
+                        io_ctx.run();
+                        mainLogger->debug("Thread pool worker {} stopped", i);
+                    });
+                }
+
+                // std::jthread automatically joins on destruction when threadPool goes out of scope
 
                 // Wait for CLI to finish
                 serverCLI.join();

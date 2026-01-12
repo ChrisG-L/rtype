@@ -13,6 +13,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+#include <boost/asio.hpp>
 #include "GameWorld.hpp"
 
 namespace infrastructure::game {
@@ -28,7 +29,9 @@ namespace infrastructure::game {
  */
 class GameInstanceManager {
 public:
-    GameInstanceManager() = default;
+    // Constructor requires io_context to pass to GameWorld instances
+    explicit GameInstanceManager(boost::asio::io_context& io_ctx)
+        : _io_ctx(io_ctx) {}
     ~GameInstanceManager() = default;
 
     // Disable copy (owns shared_ptrs)
@@ -94,6 +97,7 @@ public:
     size_t getInstanceCount() const;
 
 private:
+    boost::asio::io_context& _io_ctx;
     mutable std::mutex _mutex;
     std::unordered_map<std::string, std::shared_ptr<GameWorld>> _instances;
 };
