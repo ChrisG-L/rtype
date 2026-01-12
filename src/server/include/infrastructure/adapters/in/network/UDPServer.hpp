@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include "Protocol.hpp"
 #include "infrastructure/game/GameWorld.hpp"
+#include "infrastructure/game/GameInstanceManager.hpp"
 #include "infrastructure/session/SessionManager.hpp"
 #include <memory>
 
@@ -37,25 +38,27 @@ namespace infrastructure::adapters::in::network {
             boost::asio::io_context& _io_ctx;
             udp::socket _socket;
             udp::endpoint _remote_endpoint;
-            game::GameWorld _gameWorld;
+            game::GameInstanceManager _instanceManager;
             std::shared_ptr<SessionManager> _sessionManager;
             boost::asio::steady_timer _broadcastTimer;
 
             char _readBuffer[BUFFER_SIZE];
 
             void sendTo(const udp::endpoint& endpoint, const void* data, size_t size);
-            void sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId);
-            void sendPlayerLeave(uint8_t playerId);
+            void sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId, game::GameWorld* gameWorld);
+            void sendPlayerLeave(uint8_t playerId, game::GameWorld* gameWorld);
             void sendHeartbeatAck(const udp::endpoint& endpoint);
             void sendJoinGameAck(const udp::endpoint& endpoint, uint8_t playerId);
             void sendJoinGameNack(const udp::endpoint& endpoint, const std::string& reason);
-            void broadcastSnapshot();
-            void broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId);
-            void broadcastMissileDestroyed(uint16_t missileId);
-            void broadcastEnemyDestroyed(uint16_t enemyId);
-            void broadcastPlayerDamaged(uint8_t playerId, uint8_t damage);
-            void broadcastPlayerDied(uint8_t playerId);
+            void broadcastSnapshotForRoom(const std::string& roomCode, game::GameWorld* gameWorld);
+            void broadcastAllSnapshots();
+            void broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId, game::GameWorld* gameWorld);
+            void broadcastMissileDestroyed(uint16_t missileId, game::GameWorld* gameWorld);
+            void broadcastEnemyDestroyed(uint16_t enemyId, game::GameWorld* gameWorld);
+            void broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, game::GameWorld* gameWorld);
+            void broadcastPlayerDied(uint8_t playerId, game::GameWorld* gameWorld);
             void scheduleBroadcast();
+            void updateAndBroadcastRoom(const std::string& roomCode, game::GameWorld* gameWorld, float deltaTime);
 
             void do_read();
             void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred);

@@ -210,6 +210,35 @@ uint16_t SessionManager::getRoomGameSpeedByEndpoint(const std::string& endpoint)
     return sessionIt->second.roomGameSpeedPercent;
 }
 
+void SessionManager::setRoomCode(const std::string& email, const std::string& roomCode) {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto sessionIt = _sessionsByEmail.find(email);
+    if (sessionIt != _sessionsByEmail.end()) {
+        sessionIt->second.roomCode = roomCode;
+    }
+}
+
+std::optional<std::string> SessionManager::getRoomCodeByEndpoint(const std::string& endpoint) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto epIt = _endpointToEmail.find(endpoint);
+    if (epIt == _endpointToEmail.end()) {
+        return std::nullopt;
+    }
+
+    auto sessionIt = _sessionsByEmail.find(epIt->second);
+    if (sessionIt == _sessionsByEmail.end()) {
+        return std::nullopt;
+    }
+
+    if (sessionIt->second.roomCode.empty()) {
+        return std::nullopt;
+    }
+
+    return sessionIt->second.roomCode;
+}
+
 std::optional<Session> SessionManager::getSessionByEmail(const std::string& email) const {
     std::lock_guard<std::mutex> lock(_mutex);
 

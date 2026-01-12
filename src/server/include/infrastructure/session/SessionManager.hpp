@@ -34,6 +34,7 @@ struct Session {
 
     // Room configuration (set when game starts)
     uint16_t roomGameSpeedPercent = 100;  // 50-200, default 100%
+    std::string roomCode;           // Room code for multi-instance routing
 
     // Session state
     enum class Status { Pending, Active, Expired };
@@ -101,6 +102,12 @@ public:
 
     // Gets room game speed by endpoint (for JoinGame handling)
     uint16_t getRoomGameSpeedByEndpoint(const std::string& endpoint) const;
+
+    // Sets room code for a session (called when game starts)
+    void setRoomCode(const std::string& email, const std::string& roomCode);
+
+    // Gets room code by endpoint (for routing UDP messages to correct GameWorld)
+    std::optional<std::string> getRoomCodeByEndpoint(const std::string& endpoint) const;
 
     // Gets email by playerId (for kick system - reverse lookup)
     std::optional<std::string> getEmailByPlayerId(uint8_t playerId) const;

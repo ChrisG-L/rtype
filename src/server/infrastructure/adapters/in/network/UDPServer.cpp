@@ -73,7 +73,9 @@ namespace infrastructure::adapters::in::network {
         );
     }
 
-    void UDPServer::sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId) {
+    void UDPServer::sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId, game::GameWorld* gameWorld) {
+        if (!gameWorld) return;
+
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerJoin::WIRE_SIZE;
         std::vector<uint8_t> buf(totalSize);
 
@@ -87,14 +89,20 @@ namespace infrastructure::adapters::in::network {
         PlayerJoin pj{.player_id = playerId};
         pj.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        sendTo(endpoint, buf.data(), buf.size());
+        // Broadcast to all players in the same game instance
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
 
         server::logging::Logger::getNetworkLogger()->info(
             "Player {} joined from {}:{}",
             static_cast<int>(playerId), endpoint.address().to_string(), endpoint.port());
     }
 
-    void UDPServer::sendPlayerLeave(uint8_t playerId) {
+    void UDPServer::sendPlayerLeave(uint8_t playerId, game::GameWorld* gameWorld) {
+        if (!gameWorld) return;
+
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerLeave::WIRE_SIZE;
         std::vector<uint8_t> buf(totalSize);
 
@@ -108,7 +116,7 @@ namespace infrastructure::adapters::in::network {
         PlayerLeave pl{.player_id = playerId};
         pl.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        auto endpoints = _gameWorld.getAllEndpoints();
+        auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
             sendTo(ep, buf.data(), buf.size());
         }
@@ -174,12 +182,12 @@ namespace infrastructure::adapters::in::network {
             endpoint.address().to_string(), endpoint.port(), reason);
     }
 
-    void UDPServer::broadcastSnapshot() {
-        if (_gameWorld.getPlayerCount() == 0) {
+    void UDPServer::broadcastSnapshotForRoom(const std::string& roomCode, game::GameWorld* gameWorld) {
+        if (!gameWorld || gameWorld->getPlayerCount() == 0) {
             return;
         }
 
-        GameSnapshot snapshot = _gameWorld.getSnapshot();
+        GameSnapshot snapshot = gameWorld->getSnapshot();
         const size_t totalSize = UDPHeader::WIRE_SIZE + snapshot.wire_size();
         std::vector<uint8_t> buf(totalSize);
 
@@ -191,10 +199,76 @@ namespace infrastructure::adapters::in::network {
         head.to_bytes(buf.data());
         snapshot.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        auto endpoints = _gameWorld.getAllEndpoints();
+        // Only send to players in THIS game instance
+        auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
             sendTo(ep, buf.data(), buf.size());
         }
+    }
+
+    void UDPServer::broadcastAllSnapshots() {
+        auto roomCodes = _instanceManager.getActiveRoomCodes();
+        for (const auto& roomCode : roomCodes) {
+            game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+            if (gameWorld) {
+                broadcastSnapshotForRoom(roomCode, gameWorld);
+            }
+        }
+    }
+
+    void UDPServer::updateAndBroadcastRoom(const std::string& roomCode, game::GameWorld* gameWorld, float deltaTime) {
+        if (!gameWorld) return;
+
+        // Check for timed out players
+        auto timedOutPlayers = gameWorld->checkPlayerTimeouts(
+            std::chrono::milliseconds(PLAYER_TIMEOUT_MS)
+        );
+        for (uint8_t playerId : timedOutPlayers) {
+            sendPlayerLeave(playerId, gameWorld);
+            server::logging::Logger::getNetworkLogger()->warn(
+                "Player {} timed out in room {} (no heartbeat)",
+                static_cast<int>(playerId), roomCode);
+        }
+
+        // Update player positions based on inputs (server-authoritative)
+        gameWorld->updatePlayers(deltaTime);
+
+        // Update missiles
+        gameWorld->updateMissiles(deltaTime);
+
+        // Update waves and enemies
+        gameWorld->updateWaveSpawning(deltaTime);
+        gameWorld->updateEnemies(deltaTime);
+
+        // Check collisions
+        gameWorld->checkCollisions();
+
+        // Process destroyed missiles
+        auto destroyedMissiles = gameWorld->getDestroyedMissiles();
+        for (uint16_t id : destroyedMissiles) {
+            broadcastMissileDestroyed(id, gameWorld);
+        }
+
+        // Process destroyed enemies
+        auto destroyedEnemies = gameWorld->getDestroyedEnemies();
+        for (uint16_t id : destroyedEnemies) {
+            broadcastEnemyDestroyed(id, gameWorld);
+        }
+
+        // Process damage events
+        auto damageEvents = gameWorld->getPlayerDamageEvents();
+        for (const auto& [playerId, damage] : damageEvents) {
+            broadcastPlayerDamaged(playerId, damage, gameWorld);
+        }
+
+        // Process dead players
+        auto deadPlayers = gameWorld->getDeadPlayers();
+        for (uint8_t playerId : deadPlayers) {
+            broadcastPlayerDied(playerId, gameWorld);
+        }
+
+        // Broadcast snapshot for this room
+        broadcastSnapshotForRoom(roomCode, gameWorld);
     }
 
     void UDPServer::scheduleBroadcast() {
@@ -203,53 +277,33 @@ namespace infrastructure::adapters::in::network {
             if (!ec) {
                 float deltaTime = BROADCAST_INTERVAL_MS / 1000.0f;
 
-                auto timedOutPlayers = _gameWorld.checkPlayerTimeouts(
-                    std::chrono::milliseconds(PLAYER_TIMEOUT_MS)
-                );
-                for (uint8_t playerId : timedOutPlayers) {
-                    sendPlayerLeave(playerId);
-                    server::logging::Logger::getNetworkLogger()->warn(
-                        "Player {} timed out (no heartbeat)", static_cast<int>(playerId));
+                // Get all active room codes (snapshot to avoid modification during iteration)
+                auto roomCodes = _instanceManager.getActiveRoomCodes();
+
+                // Update each game instance independently
+                for (const auto& roomCode : roomCodes) {
+                    game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+                    if (!gameWorld) continue;
+
+                    updateAndBroadcastRoom(roomCode, gameWorld, deltaTime);
+
+                    // Cleanup empty instances
+                    if (gameWorld->getPlayerCount() == 0) {
+                        _instanceManager.removeInstance(roomCode);
+                        server::logging::Logger::getGameLogger()->info(
+                            "Removed empty game instance for room '{}'", roomCode);
+                    }
                 }
 
-                // Update player positions based on inputs (server-authoritative)
-                _gameWorld.updatePlayers(deltaTime);
-
-                _gameWorld.updateMissiles(deltaTime);
-
-                _gameWorld.updateWaveSpawning(deltaTime);
-                _gameWorld.updateEnemies(deltaTime);
-
-                _gameWorld.checkCollisions();
-
-                auto destroyedMissiles = _gameWorld.getDestroyedMissiles();
-                for (uint16_t id : destroyedMissiles) {
-                    broadcastMissileDestroyed(id);
-                }
-
-                auto destroyedEnemies = _gameWorld.getDestroyedEnemies();
-                for (uint16_t id : destroyedEnemies) {
-                    broadcastEnemyDestroyed(id);
-                }
-
-                auto damageEvents = _gameWorld.getPlayerDamageEvents();
-                for (const auto& [playerId, damage] : damageEvents) {
-                    broadcastPlayerDamaged(playerId, damage);
-                }
-
-                auto deadPlayers = _gameWorld.getDeadPlayers();
-                for (uint8_t playerId : deadPlayers) {
-                    broadcastPlayerDied(playerId);
-                }
-
-                broadcastSnapshot();
                 scheduleBroadcast();
             }
         });
     }
 
-    void UDPServer::broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId) {
-        auto missileOpt = _gameWorld.getMissile(missileId);
+    void UDPServer::broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId, game::GameWorld* gameWorld) {
+        if (!gameWorld) return;
+
+        auto missileOpt = gameWorld->getMissile(missileId);
         if (!missileOpt) return;
 
         const auto& m = *missileOpt;
@@ -272,13 +326,15 @@ namespace infrastructure::adapters::in::network {
         };
         ms.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        auto endpoints = _gameWorld.getAllEndpoints();
+        auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
             sendTo(ep, buf.data(), buf.size());
         }
     }
 
-    void UDPServer::broadcastMissileDestroyed(uint16_t missileId) {
+    void UDPServer::broadcastMissileDestroyed(uint16_t missileId, game::GameWorld* gameWorld) {
+        if (!gameWorld) return;
+
         const size_t totalSize = UDPHeader::WIRE_SIZE + MissileDestroyed::WIRE_SIZE;
         std::vector<uint8_t> buf(totalSize);
 
@@ -292,13 +348,15 @@ namespace infrastructure::adapters::in::network {
         MissileDestroyed md{.missile_id = missileId};
         md.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        auto endpoints = _gameWorld.getAllEndpoints();
+        auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
             sendTo(ep, buf.data(), buf.size());
         }
     }
 
-    void UDPServer::broadcastEnemyDestroyed(uint16_t enemyId) {
+    void UDPServer::broadcastEnemyDestroyed(uint16_t enemyId, game::GameWorld* gameWorld) {
+        if (!gameWorld) return;
+
         const size_t totalSize = UDPHeader::WIRE_SIZE + EnemyDestroyed::WIRE_SIZE;
         std::vector<uint8_t> buf(totalSize);
 
@@ -312,13 +370,15 @@ namespace infrastructure::adapters::in::network {
         EnemyDestroyed ed{.enemy_id = enemyId};
         ed.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        auto endpoints = _gameWorld.getAllEndpoints();
+        auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
             sendTo(ep, buf.data(), buf.size());
         }
     }
 
-    void UDPServer::broadcastPlayerDamaged(uint8_t playerId, uint8_t damage) {
+    void UDPServer::broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, game::GameWorld* gameWorld) {
+        if (!gameWorld) return;
+
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDamaged::WIRE_SIZE;
         std::vector<uint8_t> buf(totalSize);
 
@@ -329,7 +389,7 @@ namespace infrastructure::adapters::in::network {
         };
         head.to_bytes(buf.data());
 
-        auto snapshot = _gameWorld.getSnapshot();
+        auto snapshot = gameWorld->getSnapshot();
         uint8_t newHealth = 0;
         for (uint8_t i = 0; i < snapshot.player_count; ++i) {
             if (snapshot.players[i].id == playerId) {
@@ -345,13 +405,15 @@ namespace infrastructure::adapters::in::network {
         };
         pd.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        auto endpoints = _gameWorld.getAllEndpoints();
+        auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
             sendTo(ep, buf.data(), buf.size());
         }
     }
 
-    void UDPServer::broadcastPlayerDied(uint8_t playerId) {
+    void UDPServer::broadcastPlayerDied(uint8_t playerId, game::GameWorld* gameWorld) {
+        if (!gameWorld) return;
+
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDied::WIRE_SIZE;
         std::vector<uint8_t> buf(totalSize);
 
@@ -365,7 +427,7 @@ namespace infrastructure::adapters::in::network {
         PlayerDied pd{.player_id = playerId};
         pd.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
-        auto endpoints = _gameWorld.getAllEndpoints();
+        auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
             sendTo(ep, buf.data(), buf.size());
         }
@@ -420,7 +482,15 @@ namespace infrastructure::adapters::in::network {
             auto playerIdOpt = _sessionManager->getPlayerIdByEndpoint(endpointStr);
             if (playerIdOpt) {
                 _sessionManager->updateActivity(endpointStr);
-                _gameWorld.updatePlayerActivity(*playerIdOpt);
+
+                // Get the room code to find the correct GameWorld
+                auto roomCodeOpt = _sessionManager->getRoomCodeByEndpoint(endpointStr);
+                if (roomCodeOpt) {
+                    game::GameWorld* gameWorld = _instanceManager.getInstance(*roomCodeOpt);
+                    if (gameWorld) {
+                        gameWorld->updatePlayerActivity(*playerIdOpt);
+                    }
+                }
             }
 
             do_read();
@@ -444,6 +514,9 @@ namespace infrastructure::adapters::in::network {
                 return;
             }
 
+            // Extract room code from JoinGame message
+            std::string roomCode(joinOpt->roomCode, ROOM_CODE_LEN);
+
             // Validate token via SessionManager
             auto validateResult = _sessionManager->validateAndBindUDP(joinOpt->token, endpointStr);
             if (!validateResult) {
@@ -452,24 +525,33 @@ namespace infrastructure::adapters::in::network {
                 return;
             }
 
-            // Create player in GameWorld
-            auto playerIdOpt = _gameWorld.addPlayer(_remote_endpoint);
-            if (!playerIdOpt) {
-                sendJoinGameNack(_remote_endpoint, "Server full");
+            // Get or create the GameWorld for this room
+            game::GameWorld* gameWorld = _instanceManager.getOrCreateInstance(roomCode);
+            if (!gameWorld) {
+                sendJoinGameNack(_remote_endpoint, "Failed to create game instance");
                 _sessionManager->removeSessionByEndpoint(endpointStr);
                 do_read();
                 return;
             }
 
-            // Apply room game speed to GameWorld (set by TCPAuthServer when game starts)
+            // Create player in the room's GameWorld
+            auto playerIdOpt = gameWorld->addPlayer(_remote_endpoint);
+            if (!playerIdOpt) {
+                sendJoinGameNack(_remote_endpoint, "Room full");
+                _sessionManager->removeSessionByEndpoint(endpointStr);
+                do_read();
+                return;
+            }
+
+            // Apply room game speed to this GameWorld instance
             uint16_t gameSpeedPercent = _sessionManager->getRoomGameSpeedByEndpoint(endpointStr);
-            _gameWorld.setGameSpeedPercent(gameSpeedPercent);
+            gameWorld->setGameSpeedPercent(gameSpeedPercent);
             server::logging::Logger::getGameLogger()->info(
-                "Game speed set to {}% (multiplier: {:.2f})",
-                gameSpeedPercent, _gameWorld.getGameSpeedMultiplier());
+                "Room '{}' game speed set to {}% (multiplier: {:.2f})",
+                roomCode, gameSpeedPercent, gameWorld->getGameSpeedMultiplier());
 
             // Set player's ship skin (from JoinGame message)
-            _gameWorld.setPlayerSkin(*playerIdOpt, joinOpt->shipSkin);
+            gameWorld->setPlayerSkin(*playerIdOpt, joinOpt->shipSkin);
 
             // Bind playerId to session
             _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);
@@ -477,12 +559,12 @@ namespace infrastructure::adapters::in::network {
             // Send confirmation
             sendJoinGameAck(_remote_endpoint, *playerIdOpt);
 
-            // Broadcast to other players
-            sendPlayerJoin(_remote_endpoint, *playerIdOpt);
+            // Broadcast to other players in the same room
+            sendPlayerJoin(_remote_endpoint, *playerIdOpt, gameWorld);
 
             server::logging::Logger::getNetworkLogger()->info(
-                "Player {} (email: {}) joined as player {}",
-                validateResult->displayName, validateResult->email, static_cast<int>(*playerIdOpt));
+                "Player {} (email: {}) joined room '{}' as player {}",
+                validateResult->displayName, validateResult->email, roomCode, static_cast<int>(*playerIdOpt));
 
             do_read();
             return;
@@ -501,25 +583,37 @@ namespace infrastructure::adapters::in::network {
 
             uint8_t playerId = *playerIdOpt;
 
+            // Get the room code to find the correct GameWorld
+            auto roomCodeOpt = _sessionManager->getRoomCodeByEndpoint(endpointStr);
+            if (!roomCodeOpt) {
+                do_read();
+                return;
+            }
+
+            game::GameWorld* gameWorld = _instanceManager.getInstance(*roomCodeOpt);
+            if (!gameWorld) {
+                do_read();
+                return;
+            }
+
             // Update activity timestamp
             _sessionManager->updateActivity(endpointStr);
-            _gameWorld.updatePlayerActivity(playerId);
+            gameWorld->updatePlayerActivity(playerId);
 
             // Check if player is alive for gameplay messages
-            if (!_gameWorld.isPlayerAlive(playerId)) {
+            if (!gameWorld->isPlayerAlive(playerId)) {
                 do_read();
                 return;
             }
 
             // ═══════════════════════════════════════════════════════════════
             // PlayerInput (server authoritative movement)
-            // MovePlayer removed - server is now authoritative
             // ═══════════════════════════════════════════════════════════════
             if (head.type == static_cast<uint16_t>(MessageType::PlayerInput)) {
                 if (payload_size >= PlayerInput::WIRE_SIZE) {
                     auto inputOpt = PlayerInput::from_bytes(payload, payload_size);
                     if (inputOpt) {
-                        _gameWorld.applyPlayerInput(playerId, inputOpt->keys, inputOpt->sequenceNum);
+                        gameWorld->applyPlayerInput(playerId, inputOpt->keys, inputOpt->sequenceNum);
                     }
                 }
             }
@@ -527,57 +621,54 @@ namespace infrastructure::adapters::in::network {
             // ShootMissile
             // ═══════════════════════════════════════════════════════════════
             else if (head.type == static_cast<uint16_t>(MessageType::ShootMissile)) {
-                uint16_t missileId = _gameWorld.spawnMissile(playerId);
+                uint16_t missileId = gameWorld->spawnMissile(playerId);
                 if (missileId > 0) {
-                    broadcastMissileSpawned(missileId, playerId);
+                    broadcastMissileSpawned(missileId, playerId, gameWorld);
                 }
             }
         }
         // ═══════════════════════════════════════════════════════════════════
         // MESSAGES NOT REQUIRING AUTH: Process directly
         // (Currently none besides HeartBeat which is handled above)
-        // Future: Could add lobby messages, server info requests, etc.
         // ═══════════════════════════════════════════════════════════════════
 
         do_read();
     }
 
     void UDPServer::kickPlayer(uint8_t playerId) {
-        // Find the endpoint for this player from GameWorld
-        auto endpoints = _gameWorld.getAllEndpoints();
-        std::optional<udp::endpoint> targetEndpoint;
+        // Search through all game instances to find the player
+        auto roomCodes = _instanceManager.getActiveRoomCodes();
+        for (const auto& roomCode : roomCodes) {
+            game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+            if (!gameWorld) continue;
 
-        for (const auto& ep : endpoints) {
-            auto pid = _gameWorld.getPlayerIdByEndpoint(ep);
-            if (pid && *pid == playerId) {
-                targetEndpoint = ep;
-                break;
+            auto endpoints = gameWorld->getAllEndpoints();
+            for (const auto& ep : endpoints) {
+                auto pid = gameWorld->getPlayerIdByEndpoint(ep);
+                if (pid && *pid == playerId) {
+                    std::string endpointStr = endpointToString(ep);
+
+                    // Clear the UDP binding from SessionManager
+                    _sessionManager->clearUDPBinding(endpointStr);
+
+                    // Remove from GameWorld
+                    gameWorld->removePlayer(playerId);
+
+                    // Broadcast PlayerLeave to remaining players in this room
+                    sendPlayerLeave(playerId, gameWorld);
+
+                    server::logging::Logger::getMainLogger()->info(
+                        "[CLI] Player {} kicked from room '{}'.", static_cast<int>(playerId), roomCode);
+                    return;
+                }
             }
         }
 
-        if (!targetEndpoint) {
-            server::logging::Logger::getMainLogger()->warn(
-                "[CLI] Player {} not found in game.", static_cast<int>(playerId));
-            return;
-        }
-
-        std::string endpointStr = endpointToString(*targetEndpoint);
-
-        // Clear the UDP binding from SessionManager but keep the TCP session active
-        // This allows the player to rejoin a new room after being kicked
-        _sessionManager->clearUDPBinding(endpointStr);
-
-        // Remove from GameWorld (this will also remove the player)
-        _gameWorld.removePlayer(playerId);
-
-        // Broadcast PlayerLeave to remaining players
-        sendPlayerLeave(playerId);
-
-        server::logging::Logger::getMainLogger()->info(
-            "[CLI] Player {} kicked from game.", static_cast<int>(playerId));
+        server::logging::Logger::getMainLogger()->warn(
+            "[CLI] Player {} not found in any game.", static_cast<int>(playerId));
     }
 
     size_t UDPServer::getPlayerCount() const {
-        return _gameWorld.getPlayerCount();
+        return _instanceManager.getTotalPlayerCount();
     }
 }

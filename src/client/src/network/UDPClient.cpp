@@ -314,14 +314,13 @@ namespace client::network
         auto pjOpt = PlayerJoin::from_bytes(payload, size);
         if (!pjOpt) return;
 
-        std::lock_guard<std::mutex> lock(_playersMutex);
-        _localPlayerId = pjOpt->player_id;
-
         auto logger = client::logging::Logger::getNetworkLogger();
-        logger->info("Joined game as player {}", static_cast<int>(*_localPlayerId));
 
-        // Note: UDPConnectedEvent is pushed when HeartBeatAck is received
-        // PlayerJoin just updates the player ID
+        // PlayerJoin is a BROADCAST - it notifies ALL players when someone joins
+        // We should NOT overwrite _localPlayerId here - it's set by JoinGameAck
+        // This handler is just for notification purposes
+        logger->info("Player {} joined the game", static_cast<int>(pjOpt->player_id));
+
         _eventQueue.push(UDPPlayerJoinedEvent{pjOpt->player_id});
     }
 
@@ -630,9 +629,9 @@ namespace client::network
         asyncSendTo(buf, totalSize);
     }
 
-    void UDPClient::joinGame(const SessionToken& token) {
+    void UDPClient::joinGame(const SessionToken& token, const std::string& roomCode) {
         auto logger = client::logging::Logger::getNetworkLogger();
-        logger->info("Sending JoinGame with token");
+        logger->info("Sending JoinGame with token for room '{}'", roomCode);
 
         // Get the player's ship skin from settings
         auto& config = accessibility::AccessibilityConfig::getInstance();
@@ -641,6 +640,11 @@ namespace client::network
         JoinGame joinGame;
         joinGame.token = token;
         joinGame.shipSkin = shipSkin;
+
+        // Copy room code (pad with zeros if shorter than ROOM_CODE_LEN)
+        std::memset(joinGame.roomCode, 0, ROOM_CODE_LEN);
+        std::memcpy(joinGame.roomCode, roomCode.c_str(),
+                    std::min(roomCode.size(), static_cast<size_t>(ROOM_CODE_LEN)));
 
         UDPHeader head = {
             .type = static_cast<uint16_t>(MessageType::JoinGame),
@@ -654,7 +658,8 @@ namespace client::network
         joinGame.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
         asyncSendTo(buf, totalSize);
 
-        logger->debug("JoinGame sent with shipSkin={}", static_cast<int>(shipSkin));
+        logger->debug("JoinGame sent with shipSkin={} for room '{}'",
+                      static_cast<int>(shipSkin), roomCode);
     }
 
     void UDPClient::sendHeartbeat() {

@@ -756,13 +756,17 @@ namespace infrastructure::adapters::in::network {
 
         logger->info("Game starting in room {} by host {}", room->getCode(), email);
 
-        // Set room game speed on all member sessions (for UDPServer to read on JoinGame)
+        // Set room game speed and room code on all member sessions
+        // (for UDPServer to read on JoinGame and route to correct GameWorld)
+        std::string roomCode = room->getCode();
         uint16_t gameSpeedPercent = room->getGameSpeedPercent();
-        auto memberEmails = _roomManager->getRoomMemberEmails(room->getCode());
+        auto memberEmails = _roomManager->getRoomMemberEmails(roomCode);
         for (const auto& memberEmail : memberEmails) {
             _sessionManager->setRoomGameSpeed(memberEmail, gameSpeedPercent);
+            _sessionManager->setRoomCode(memberEmail, roomCode);
         }
-        logger->debug("Set game speed {}% for {} room members", gameSpeedPercent, memberEmails.size());
+        logger->debug("Set game speed {}% and room code '{}' for {} members",
+                      gameSpeedPercent, roomCode, memberEmails.size());
 
         do_write_start_game_ack();
 

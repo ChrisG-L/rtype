@@ -464,11 +464,11 @@ void LobbyScene::transitionToGame()
     if (_transitioningToGame) return;
     _transitioningToGame = true;
 
-    // Send JoinGame to UDP server with session token
+    // Send JoinGame to UDP server with session token and room code
     if (_context.udpClient && _context.tcpClient && _context.tcpClient->hasSessionToken()) {
         auto tokenOpt = _context.tcpClient->getSessionToken();
         if (tokenOpt) {
-            _context.udpClient->joinGame(*tokenOpt);
+            _context.udpClient->joinGame(*tokenOpt, _roomCode);
             showInfo("Joining game...");
         } else {
             showError("No session token available");

@@ -168,11 +168,13 @@ struct SessionToken {
 struct JoinGame {
     SessionToken token;
     uint8_t shipSkin;  // Ship skin variant (1-6)
-    static constexpr size_t WIRE_SIZE = TOKEN_SIZE + 1;
+    char roomCode[ROOM_CODE_LEN];  // Room code for multi-instance routing
+    static constexpr size_t WIRE_SIZE = TOKEN_SIZE + 1 + ROOM_CODE_LEN;
 
     void to_bytes(uint8_t* buf) const {
         token.to_bytes(buf);
         buf[TOKEN_SIZE] = shipSkin;
+        std::memcpy(buf + TOKEN_SIZE + 1, roomCode, ROOM_CODE_LEN);
     }
 
     static std::optional<JoinGame> from_bytes(const void* buf, size_t len) {
@@ -180,7 +182,11 @@ struct JoinGame {
         auto tokenOpt = SessionToken::from_bytes(buf, len);
         if (!tokenOpt) return std::nullopt;
         auto* ptr = static_cast<const uint8_t*>(buf);
-        return JoinGame{.token = *tokenOpt, .shipSkin = ptr[TOKEN_SIZE]};
+        JoinGame msg;
+        msg.token = *tokenOpt;
+        msg.shipSkin = ptr[TOKEN_SIZE];
+        std::memcpy(msg.roomCode, ptr + TOKEN_SIZE + 1, ROOM_CODE_LEN);
+        return msg;
     }
 };
 

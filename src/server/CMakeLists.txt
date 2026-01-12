@@ -41,6 +41,7 @@ add_executable(rtype_server
 
     # Infrastructure - Game
     infrastructure/game/GameWorld.cpp
+    infrastructure/game/GameInstanceManager.cpp
 
     # Infrastructure - Session
     infrastructure/session/SessionManager.cpp

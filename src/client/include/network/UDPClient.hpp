@@ -91,7 +91,7 @@ namespace client::network
         void sendPlayerInput(uint16_t keys, uint16_t sequenceNum);
 
         void shootMissile();
-        void joinGame(const SessionToken& token);
+        void joinGame(const SessionToken& token, const std::string& roomCode);
 
         std::optional<uint8_t> getLocalPlayerId() const;
         std::vector<NetworkPlayer> getPlayers() const;
