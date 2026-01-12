@@ -149,8 +149,10 @@ void RoomBrowserScene::processTCPEvents()
 {
     if (!_context.tcpClient) return;
 
+    bool sceneChanged = false;
+
     while (auto eventOpt = _context.tcpClient->pollEvent()) {
-        std::visit([this](auto&& event) {
+        std::visit([this, &sceneChanged](auto&& event) {
             using T = std::decay_t<decltype(event)>;
 
             if constexpr (std::is_same_v<T, client::network::TCPRoomListEvent>) {
@@ -170,6 +172,7 @@ void RoomBrowserScene::processTCPEvents()
                         event.roomName, event.roomCode, event.maxPlayers,
                         event.isHost, event.slotId, event.players
                     ));
+                    sceneChanged = true;  // Stop processing, let new scene handle remaining events
                 }
             }
             else if constexpr (std::is_same_v<T, client::network::TCPRoomJoinFailedEvent>) {
@@ -185,6 +188,8 @@ void RoomBrowserScene::processTCPEvents()
                 showError(event.message);
             }
         }, *eventOpt);
+
+        if (sceneChanged) break;  // Let new scene handle remaining events (like ChatHistory)
     }
 }
 
