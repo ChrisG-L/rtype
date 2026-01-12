@@ -31,28 +31,30 @@ public:
     GameInstanceManager() = default;
     ~GameInstanceManager() = default;
 
-    // Disable copy (owns unique_ptrs)
+    // Disable copy (owns shared_ptrs)
     GameInstanceManager(const GameInstanceManager&) = delete;
     GameInstanceManager& operator=(const GameInstanceManager&) = delete;
 
     /**
      * @brief Get or create a GameWorld instance for a room
      * @param roomCode The unique room code
-     * @return Pointer to the GameWorld (never null after call)
+     * @return shared_ptr to the GameWorld (never null after call)
      *
      * Creates the instance lazily on first access.
-     * Thread-safe.
+     * Thread-safe. The returned shared_ptr keeps the instance alive
+     * even if removeInstance is called while it's being used.
      */
-    GameWorld* getOrCreateInstance(const std::string& roomCode);
+    std::shared_ptr<GameWorld> getOrCreateInstance(const std::string& roomCode);
 
     /**
      * @brief Get an existing GameWorld instance
      * @param roomCode The room code to look up
-     * @return Pointer to GameWorld, or nullptr if not found
+     * @return shared_ptr to GameWorld, or nullptr if not found
      *
-     * Thread-safe.
+     * Thread-safe. The returned shared_ptr keeps the instance alive
+     * even if removeInstance is called while it's being used.
      */
-    GameWorld* getInstance(const std::string& roomCode);
+    std::shared_ptr<GameWorld> getInstance(const std::string& roomCode);
 
     /**
      * @brief Remove a GameWorld instance
@@ -93,7 +95,7 @@ public:
 
 private:
     mutable std::mutex _mutex;
-    std::unordered_map<std::string, std::unique_ptr<GameWorld>> _instances;
+    std::unordered_map<std::string, std::shared_ptr<GameWorld>> _instances;
 };
 
 } // namespace infrastructure::game

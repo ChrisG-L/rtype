@@ -85,7 +85,7 @@ namespace infrastructure::adapters::in::network {
         );
     }
 
-    void UDPServer::sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId, game::GameWorld* gameWorld) {
+    void UDPServer::sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerJoin::WIRE_SIZE;
@@ -112,7 +112,7 @@ namespace infrastructure::adapters::in::network {
             static_cast<int>(playerId), endpoint.address().to_string(), endpoint.port());
     }
 
-    void UDPServer::sendPlayerLeave(uint8_t playerId, game::GameWorld* gameWorld) {
+    void UDPServer::sendPlayerLeave(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerLeave::WIRE_SIZE;
@@ -194,7 +194,7 @@ namespace infrastructure::adapters::in::network {
             endpoint.address().to_string(), endpoint.port(), reason);
     }
 
-    void UDPServer::broadcastSnapshotForRoom(const std::string& roomCode, game::GameWorld* gameWorld) {
+    void UDPServer::broadcastSnapshotForRoom(const std::string& roomCode, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld || gameWorld->getPlayerCount() == 0) {
             return;
         }
@@ -221,14 +221,14 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::broadcastAllSnapshots() {
         auto roomCodes = _instanceManager.getActiveRoomCodes();
         for (const auto& roomCode : roomCodes) {
-            game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+            auto gameWorld = _instanceManager.getInstance(roomCode);
             if (gameWorld) {
                 broadcastSnapshotForRoom(roomCode, gameWorld);
             }
         }
     }
 
-    void UDPServer::updateAndBroadcastRoom(const std::string& roomCode, game::GameWorld* gameWorld, float deltaTime) {
+    void UDPServer::updateAndBroadcastRoom(const std::string& roomCode, const std::shared_ptr<game::GameWorld>& gameWorld, float deltaTime) {
         if (!gameWorld) return;
 
         // Check for timed out players
@@ -294,7 +294,7 @@ namespace infrastructure::adapters::in::network {
 
                 // Update each game instance independently
                 for (const auto& roomCode : roomCodes) {
-                    game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+                    auto gameWorld = _instanceManager.getInstance(roomCode);
                     if (!gameWorld) continue;
 
                     updateAndBroadcastRoom(roomCode, gameWorld, deltaTime);
@@ -312,7 +312,7 @@ namespace infrastructure::adapters::in::network {
         });
     }
 
-    void UDPServer::broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId, game::GameWorld* gameWorld) {
+    void UDPServer::broadcastMissileSpawned(uint16_t missileId, uint8_t ownerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
         auto missileOpt = gameWorld->getMissile(missileId);
@@ -344,7 +344,7 @@ namespace infrastructure::adapters::in::network {
         }
     }
 
-    void UDPServer::broadcastMissileDestroyed(uint16_t missileId, game::GameWorld* gameWorld) {
+    void UDPServer::broadcastMissileDestroyed(uint16_t missileId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
         const size_t totalSize = UDPHeader::WIRE_SIZE + MissileDestroyed::WIRE_SIZE;
@@ -366,7 +366,7 @@ namespace infrastructure::adapters::in::network {
         }
     }
 
-    void UDPServer::broadcastEnemyDestroyed(uint16_t enemyId, game::GameWorld* gameWorld) {
+    void UDPServer::broadcastEnemyDestroyed(uint16_t enemyId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
         const size_t totalSize = UDPHeader::WIRE_SIZE + EnemyDestroyed::WIRE_SIZE;
@@ -388,7 +388,7 @@ namespace infrastructure::adapters::in::network {
         }
     }
 
-    void UDPServer::broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, game::GameWorld* gameWorld) {
+    void UDPServer::broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDamaged::WIRE_SIZE;
@@ -423,7 +423,7 @@ namespace infrastructure::adapters::in::network {
         }
     }
 
-    void UDPServer::broadcastPlayerDied(uint8_t playerId, game::GameWorld* gameWorld) {
+    void UDPServer::broadcastPlayerDied(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
         const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDied::WIRE_SIZE;
@@ -498,7 +498,7 @@ namespace infrastructure::adapters::in::network {
                 // Get the room code to find the correct GameWorld
                 auto roomCodeOpt = _sessionManager->getRoomCodeByEndpoint(endpointStr);
                 if (roomCodeOpt) {
-                    game::GameWorld* gameWorld = _instanceManager.getInstance(*roomCodeOpt);
+                    auto gameWorld = _instanceManager.getInstance(*roomCodeOpt);
                     if (gameWorld) {
                         gameWorld->updatePlayerActivity(*playerIdOpt);
                     }
@@ -538,7 +538,7 @@ namespace infrastructure::adapters::in::network {
             }
 
             // Get or create the GameWorld for this room
-            game::GameWorld* gameWorld = _instanceManager.getOrCreateInstance(roomCode);
+            auto gameWorld = _instanceManager.getOrCreateInstance(roomCode);
             if (!gameWorld) {
                 sendJoinGameNack(_remote_endpoint, "Failed to create game instance");
                 _sessionManager->removeSessionByEndpoint(endpointStr);
@@ -602,7 +602,7 @@ namespace infrastructure::adapters::in::network {
                 return;
             }
 
-            game::GameWorld* gameWorld = _instanceManager.getInstance(*roomCodeOpt);
+            auto gameWorld = _instanceManager.getInstance(*roomCodeOpt);
             if (!gameWorld) {
                 do_read();
                 return;
@@ -651,7 +651,7 @@ namespace infrastructure::adapters::in::network {
         // Search through all game instances to find the player
         auto roomCodes = _instanceManager.getActiveRoomCodes();
         for (const auto& roomCode : roomCodes) {
-            game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+            auto gameWorld = _instanceManager.getInstance(roomCode);
             if (!gameWorld) continue;
 
             auto endpoints = gameWorld->getAllEndpoints();
@@ -688,7 +688,7 @@ namespace infrastructure::adapters::in::network {
         auto logger = server::logging::Logger::getGameLogger();
 
         // Get the game instance for this room
-        game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+        auto gameWorld = _instanceManager.getInstance(roomCode);
         if (!gameWorld) {
             logger->debug("Player {} left game but room '{}' instance not found",
                          static_cast<int>(playerId), roomCode);

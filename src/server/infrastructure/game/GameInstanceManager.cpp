@@ -10,31 +10,30 @@
 
 namespace infrastructure::game {
 
-GameWorld* GameInstanceManager::getOrCreateInstance(const std::string& roomCode) {
+std::shared_ptr<GameWorld> GameInstanceManager::getOrCreateInstance(const std::string& roomCode) {
     std::lock_guard<std::mutex> lock(_mutex);
 
     auto it = _instances.find(roomCode);
     if (it != _instances.end()) {
-        return it->second.get();
+        return it->second;
     }
 
     // Create new instance
-    auto gameWorld = std::make_unique<GameWorld>();
-    GameWorld* ptr = gameWorld.get();
-    _instances.emplace(roomCode, std::move(gameWorld));
+    auto gameWorld = std::make_shared<GameWorld>();
+    _instances.emplace(roomCode, gameWorld);
 
     server::logging::Logger::getGameLogger()->info(
         "GameInstanceManager: Created new game instance for room '{}'", roomCode);
 
-    return ptr;
+    return gameWorld;
 }
 
-GameWorld* GameInstanceManager::getInstance(const std::string& roomCode) {
+std::shared_ptr<GameWorld> GameInstanceManager::getInstance(const std::string& roomCode) {
     std::lock_guard<std::mutex> lock(_mutex);
 
     auto it = _instances.find(roomCode);
     if (it != _instances.end()) {
-        return it->second.get();
+        return it->second;
     }
     return nullptr;
 }

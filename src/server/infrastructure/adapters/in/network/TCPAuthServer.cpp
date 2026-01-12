@@ -107,7 +107,6 @@ namespace infrastructure::adapters::in::network {
                         _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
                     }
 
-                    logger->debug("Received: {} bytes", bytes);
                     do_read();
                 }
             }
