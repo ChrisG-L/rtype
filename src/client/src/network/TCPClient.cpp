@@ -388,7 +388,8 @@ namespace client::network
                                 std::string(ps.displayName),
                                 std::string(ps.email),
                                 ps.isReady != 0,
-                                ps.isHost != 0
+                                ps.isHost != 0,
+                                ps.shipSkin
                             });
                         }
 
@@ -463,7 +464,8 @@ namespace client::network
                                 std::string(ps.displayName),
                                 std::string(ps.email),
                                 ps.isReady != 0,
-                                ps.isHost != 0
+                                ps.isHost != 0,
+                                ps.shipSkin
                             });
                         }
                         logger->debug("Room update: {} players", event.players.size());
@@ -542,7 +544,8 @@ namespace client::network
                                 std::string(ps.displayName),
                                 std::string(ps.email),
                                 ps.isReady != 0,
-                                ps.isHost != 0
+                                ps.isHost != 0,
+                                ps.shipSkin
                             });
                         }
 

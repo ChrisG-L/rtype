@@ -30,6 +30,7 @@ struct RoomSlot {
     std::string displayName;
     bool isReady = false;
     bool isHost = false;
+    uint8_t shipSkin = 1;  // Ship skin variant (1-6)
 };
 
 class Room {
@@ -63,7 +64,8 @@ public:
 
     // Player management
     std::optional<uint8_t> addPlayer(const std::string& email,
-                                      const std::string& displayName);
+                                      const std::string& displayName,
+                                      uint8_t shipSkin = 1);
     void removePlayer(const std::string& email);
     bool hasPlayer(const std::string& email) const;
     std::optional<uint8_t> getPlayerSlot(const std::string& email) const;

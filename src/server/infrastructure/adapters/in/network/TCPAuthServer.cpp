@@ -580,8 +580,17 @@ namespace infrastructure::adapters::in::network {
             return;
         }
 
+        // Get player's ship skin from their settings
+        uint8_t shipSkin = 1;  // Default
+        if (_userSettingsRepository) {
+            auto settingsOpt = _userSettingsRepository->findByEmail(email);
+            if (settingsOpt) {
+                shipSkin = settingsOpt->shipSkin;
+            }
+        }
+
         auto result = _roomManager->createRoom(email, displayName, req.name,
-                                                req.maxPlayers, req.isPrivate != 0);
+                                                req.maxPlayers, req.isPrivate != 0, shipSkin);
         if (!result) {
             logger->warn("Failed to create room for {} (already in room?)", email);
             CreateRoomAck ack;
@@ -623,7 +632,16 @@ namespace infrastructure::adapters::in::network {
 
         std::string code(reqOpt->roomCode, ROOM_CODE_LEN);
 
-        auto result = _roomManager->joinRoomByCode(code, email, displayName);
+        // Get player's ship skin from their settings
+        uint8_t shipSkin = 1;  // Default
+        if (_userSettingsRepository) {
+            auto settingsOpt = _userSettingsRepository->findByEmail(email);
+            if (settingsOpt) {
+                shipSkin = settingsOpt->shipSkin;
+            }
+        }
+
+        auto result = _roomManager->joinRoomByCode(code, email, displayName, shipSkin);
         if (!result) {
             logger->warn("Failed to join room {} for {}", code, email);
             JoinRoomNack nack;
@@ -1116,7 +1134,16 @@ namespace infrastructure::adapters::in::network {
         std::string email = _user->getEmail().value();
         std::string displayName = _user->getUsername().value();
 
-        auto result = _roomManager->quickJoin(email, displayName);
+        // Get player's ship skin from their settings
+        uint8_t shipSkin = 1;  // Default
+        if (_userSettingsRepository) {
+            auto settingsOpt = _userSettingsRepository->findByEmail(email);
+            if (settingsOpt) {
+                shipSkin = settingsOpt->shipSkin;
+            }
+        }
+
+        auto result = _roomManager->quickJoin(email, displayName, shipSkin);
         if (!result) {
             logger->info("QuickJoin failed for {} - no rooms available", email);
             QuickJoinNack nack;
@@ -1159,6 +1186,7 @@ namespace infrastructure::adapters::in::network {
                 state.email[MAX_EMAIL_LEN - 1] = '\0';
                 state.isReady = slots[i].isReady ? 1 : 0;
                 state.isHost = slots[i].isHost ? 1 : 0;
+                state.shipSkin = slots[i].shipSkin;
                 ++ack.playerCount;
             }
         }

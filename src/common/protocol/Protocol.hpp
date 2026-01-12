@@ -498,8 +498,9 @@ struct RoomPlayerState {
     char email[MAX_EMAIL_LEN];  // Added for kick functionality (Phase 2)
     uint8_t isReady;
     uint8_t isHost;
+    uint8_t shipSkin;  // Ship skin variant (1-6)
 
-    static constexpr size_t WIRE_SIZE = 1 + 1 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1 + 1;
+    static constexpr size_t WIRE_SIZE = 1 + 1 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1 + 1 + 1;
 
     void to_bytes(void* buf) const {
         auto* ptr = static_cast<uint8_t*>(buf);
@@ -509,6 +510,7 @@ struct RoomPlayerState {
         std::memcpy(ptr + 2 + MAX_USERNAME_LEN, email, MAX_EMAIL_LEN);
         ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN] = isReady;
         ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1] = isHost;
+        ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 2] = shipSkin;
     }
 
     static std::optional<RoomPlayerState> from_bytes(const void* buf, size_t buf_len) {
@@ -523,6 +525,7 @@ struct RoomPlayerState {
         state.email[MAX_EMAIL_LEN - 1] = '\0';
         state.isReady = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN];
         state.isHost = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 1];
+        state.shipSkin = ptr[2 + MAX_USERNAME_LEN + MAX_EMAIL_LEN + 2];
         return state;
     }
 };

@@ -53,7 +53,8 @@ void Room::setGameSpeedPercent(uint16_t percent) {
 }
 
 std::optional<uint8_t> Room::addPlayer(const std::string& email,
-                                        const std::string& displayName) {
+                                        const std::string& displayName,
+                                        uint8_t shipSkin) {
     if (hasPlayer(email)) {
         return std::nullopt;
     }
@@ -77,6 +78,7 @@ std::optional<uint8_t> Room::addPlayer(const std::string& email,
     _slots[slotId].displayName = displayName;
     _slots[slotId].isReady = isFirstPlayer;  // Host is always ready
     _slots[slotId].isHost = isFirstPlayer;
+    _slots[slotId].shipSkin = shipSkin;
 
     if (isFirstPlayer) {
         _hostEmail = email;

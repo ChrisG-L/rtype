@@ -46,7 +46,8 @@ public:
         const std::string& hostDisplayName,
         const std::string& name,
         uint8_t maxPlayers,
-        bool isPrivate);
+        bool isPrivate,
+        uint8_t shipSkin = 1);
 
     // ═══════════════════════════════════════════════════════════════════
     // Room Lookup
@@ -77,7 +78,8 @@ public:
     std::optional<JoinResult> joinRoomByCode(
         const std::string& code,
         const std::string& email,
-        const std::string& displayName);
+        const std::string& displayName,
+        uint8_t shipSkin = 1);
 
     // Leave current room
     // Returns the room code that was left (for cleanup), empty if not in room
@@ -138,7 +140,8 @@ public:
     // Returns same as joinRoomByCode if successful
     std::optional<JoinResult> quickJoin(
         const std::string& email,
-        const std::string& displayName);
+        const std::string& displayName,
+        uint8_t shipSkin = 1);
 
     // ═══════════════════════════════════════════════════════════════════
     // Chat System (Phase 2)

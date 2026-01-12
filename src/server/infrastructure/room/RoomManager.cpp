@@ -70,7 +70,8 @@ std::optional<RoomManager::CreateResult> RoomManager::createRoom(
     const std::string& hostDisplayName,
     const std::string& name,
     uint8_t maxPlayers,
-    bool isPrivate)
+    bool isPrivate,
+    uint8_t shipSkin)
 {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -86,7 +87,7 @@ std::optional<RoomManager::CreateResult> RoomManager::createRoom(
     auto room = std::make_unique<domain::entities::Room>(name, code, maxPlayers, isPrivate);
 
     // Add host as first player
-    auto slotOpt = room->addPlayer(hostEmail, hostDisplayName);
+    auto slotOpt = room->addPlayer(hostEmail, hostDisplayName, shipSkin);
     if (!slotOpt) {
         return std::nullopt;
     }
@@ -141,7 +142,8 @@ bool RoomManager::isPlayerInRoom(const std::string& email) const {
 std::optional<RoomManager::JoinResult> RoomManager::joinRoomByCode(
     const std::string& code,
     const std::string& email,
-    const std::string& displayName)
+    const std::string& displayName,
+    uint8_t shipSkin)
 {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -159,7 +161,7 @@ std::optional<RoomManager::JoinResult> RoomManager::joinRoomByCode(
     domain::entities::Room* room = it->second.get();
 
     // Try to add player
-    auto slotOpt = room->addPlayer(email, displayName);
+    auto slotOpt = room->addPlayer(email, displayName, shipSkin);
     if (!slotOpt) {
         return std::nullopt;
     }
@@ -616,6 +618,7 @@ RoomUpdate RoomManager::buildRoomUpdate(const domain::entities::Room* room) cons
             state.email[MAX_EMAIL_LEN - 1] = '\0';
             state.isReady = slots[i].isReady ? 1 : 0;
             state.isHost = slots[i].isHost ? 1 : 0;
+            state.shipSkin = slots[i].shipSkin;
             ++update.playerCount;
         }
     }
@@ -702,7 +705,8 @@ std::vector<RoomManager::BrowserEntry> RoomManager::getPublicRooms() const {
 
 std::optional<RoomManager::JoinResult> RoomManager::quickJoin(
     const std::string& email,
-    const std::string& displayName)
+    const std::string& displayName,
+    uint8_t shipSkin)
 {
     std::string selectedCode;
 
@@ -734,7 +738,7 @@ std::optional<RoomManager::JoinResult> RoomManager::quickJoin(
     }
 
     // Use existing joinRoomByCode logic (will re-acquire lock)
-    return joinRoomByCode(selectedCode, email, displayName);
+    return joinRoomByCode(selectedCode, email, displayName, shipSkin);
 }
 
 // ============================================================================
