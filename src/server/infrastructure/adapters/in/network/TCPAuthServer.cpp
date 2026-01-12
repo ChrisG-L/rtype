@@ -635,55 +635,8 @@ namespace infrastructure::adapters::in::network {
 
         logger->info("{} joined room {} (slot {})", email, code, result->slotId);
 
-        JoinRoomAck ack{};
-        ack.slotId = result->slotId;
-        std::strncpy(ack.roomName, result->room->getName().c_str(), ROOM_NAME_LEN);
-        ack.roomName[ROOM_NAME_LEN - 1] = '\0';
-        std::memcpy(ack.roomCode, result->room->getCode().c_str(), ROOM_CODE_LEN);
-        ack.maxPlayers = result->room->getMaxPlayers();
-        ack.isHost = result->room->isHost(email) ? 1 : 0;
-
-        // Include current player list in the ack (fixes race condition with RoomUpdate)
-        const auto& slots = result->room->getSlots();
-        ack.playerCount = 0;
-        for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
-            if (slots[i].occupied && ack.playerCount < MAX_ROOM_PLAYERS) {
-                RoomPlayerState& state = ack.players[ack.playerCount];
-                state.slotId = static_cast<uint8_t>(i);
-                state.occupied = 1;
-                std::strncpy(state.displayName, slots[i].displayName.c_str(), MAX_USERNAME_LEN);
-                state.displayName[MAX_USERNAME_LEN - 1] = '\0';
-                std::strncpy(state.email, slots[i].email.c_str(), MAX_EMAIL_LEN);
-                state.email[MAX_EMAIL_LEN - 1] = '\0';
-                state.isReady = slots[i].isReady ? 1 : 0;
-                state.isHost = slots[i].isHost ? 1 : 0;
-                ++ack.playerCount;
-            }
-        }
-        do_write_join_room_ack(ack);
-
-        // Send chat history to the joining player
-        auto chatHistory = _roomManager->getChatHistory(code);
-        if (!chatHistory.empty()) {
-            ChatHistoryResponse histResp{};
-            histResp.messageCount = static_cast<uint8_t>(std::min(chatHistory.size(), static_cast<size_t>(MAX_CHAT_HISTORY)));
-            for (uint8_t i = 0; i < histResp.messageCount; ++i) {
-                const auto& msg = chatHistory[i];
-                std::strncpy(histResp.messages[i].displayName, msg.displayName.c_str(), MAX_USERNAME_LEN);
-                histResp.messages[i].displayName[MAX_USERNAME_LEN - 1] = '\0';
-                std::strncpy(histResp.messages[i].message, msg.message.c_str(), CHAT_MESSAGE_LEN);
-                histResp.messages[i].message[CHAT_MESSAGE_LEN - 1] = '\0';
-                histResp.messages[i].timestamp = static_cast<uint32_t>(
-                    std::chrono::duration_cast<std::chrono::seconds>(
-                        msg.timestamp.time_since_epoch()
-                    ).count()
-                );
-            }
-            do_write_chat_history(histResp);
-        }
-
-        // Broadcast room update to all members
-        broadcastRoomUpdate(result->room);
+        // Use factorized join success handling
+        sendJoinSuccessResponse(*result, MessageType::JoinRoomAck);
     }
 
     void Session::handleLeaveRoom() {
@@ -1175,17 +1128,25 @@ namespace infrastructure::adapters::in::network {
 
         logger->info("{} quick-joined room {} (slot {})", email, result->room->getCode(), result->slotId);
 
-        // Send JoinRoomAck (using QuickJoinAck message type)
+        // Use factorized join success handling
+        sendJoinSuccessResponse(*result, MessageType::QuickJoinAck);
+    }
+
+    void Session::sendJoinSuccessResponse(const RoomManager::JoinResult& result, MessageType ackType) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+        std::string email = _user->getEmail().value();
+
+        // Build JoinRoomAck with player list
         JoinRoomAck ack{};
-        ack.slotId = result->slotId;
-        std::strncpy(ack.roomName, result->room->getName().c_str(), ROOM_NAME_LEN);
+        ack.slotId = result.slotId;
+        std::strncpy(ack.roomName, result.room->getName().c_str(), ROOM_NAME_LEN);
         ack.roomName[ROOM_NAME_LEN - 1] = '\0';
-        std::memcpy(ack.roomCode, result->room->getCode().c_str(), ROOM_CODE_LEN);
-        ack.maxPlayers = result->room->getMaxPlayers();
-        ack.isHost = result->room->isHost(email) ? 1 : 0;
+        std::memcpy(ack.roomCode, result.room->getCode().c_str(), ROOM_CODE_LEN);
+        ack.maxPlayers = result.room->getMaxPlayers();
+        ack.isHost = result.room->isHost(email) ? 1 : 0;
 
         // Include current player list in the ack (fixes race condition with RoomUpdate)
-        const auto& slots = result->room->getSlots();
+        const auto& slots = result.room->getSlots();
         ack.playerCount = 0;
         for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
             if (slots[i].occupied && ack.playerCount < MAX_ROOM_PLAYERS) {
@@ -1202,11 +1163,11 @@ namespace infrastructure::adapters::in::network {
             }
         }
 
-        // Write using QuickJoinAck message type
+        // Send ack with appropriate message type
         size_t payloadSize = ack.wire_size();
         Header head = {
             .isAuthenticated = _isAuthenticated,
-            .type = static_cast<uint16_t>(MessageType::QuickJoinAck),
+            .type = static_cast<uint16_t>(ackType),
             .payload_size = static_cast<uint32_t>(payloadSize)
         };
 
@@ -1216,15 +1177,17 @@ namespace infrastructure::adapters::in::network {
 
         auto self = shared_from_this();
         boost::asio::async_write(_socket, boost::asio::buffer(*buf),
-            [self, buf](boost::system::error_code ec, std::size_t) {
+            [self, buf, ackType](boost::system::error_code ec, std::size_t) {
                 if (ec) {
                     auto logger = server::logging::Logger::getNetworkLogger();
-                    logger->error("QuickJoinAck write error: {}", ec.message());
+                    logger->error("{} write error: {}",
+                        ackType == MessageType::QuickJoinAck ? "QuickJoinAck" : "JoinRoomAck",
+                        ec.message());
                 }
             });
 
         // Send chat history to the joining player
-        std::string roomCode = result->room->getCode();
+        std::string roomCode = result.room->getCode();
         auto chatHistory = _roomManager->getChatHistory(roomCode);
         if (!chatHistory.empty()) {
             ChatHistoryResponse histResp{};
@@ -1245,7 +1208,7 @@ namespace infrastructure::adapters::in::network {
         }
 
         // Broadcast room update to all members
-        broadcastRoomUpdate(result->room);
+        broadcastRoomUpdate(result.room);
     }
 
     void Session::do_write_browse_public_rooms(const BrowsePublicRoomsResponse& resp) {

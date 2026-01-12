@@ -88,6 +88,9 @@ namespace infrastructure::adapters::in::network {
             void handleBrowsePublicRooms();
             void handleQuickJoin();
 
+            // Helper for successful join (factorizes JoinRoomByCode and QuickJoin)
+            void sendJoinSuccessResponse(const RoomManager::JoinResult& result, MessageType ackType);
+
             // User settings handlers
             void handleGetUserSettings();
             void handleSaveUserSettings(const std::vector<uint8_t>& payload);
