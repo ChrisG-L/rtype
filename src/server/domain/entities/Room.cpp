@@ -120,6 +120,15 @@ std::optional<uint8_t> Room::getPlayerSlot(const std::string& email) const {
     return std::nullopt;
 }
 
+void Room::setPlayerShipSkin(const std::string& email, uint8_t shipSkin) {
+    for (auto& slot : _slots) {
+        if (slot.occupied && slot.email == email) {
+            slot.shipSkin = shipSkin;
+            return;
+        }
+    }
+}
+
 uint8_t Room::getPlayerCount() const {
     uint8_t count = 0;
     for (const auto& slot : _slots) {

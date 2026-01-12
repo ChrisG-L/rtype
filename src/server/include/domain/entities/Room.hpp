@@ -69,6 +69,7 @@ public:
     void removePlayer(const std::string& email);
     bool hasPlayer(const std::string& email) const;
     std::optional<uint8_t> getPlayerSlot(const std::string& email) const;
+    void setPlayerShipSkin(const std::string& email, uint8_t shipSkin);
     uint8_t getPlayerCount() const;
     bool isFull() const;
     bool isEmpty() const;

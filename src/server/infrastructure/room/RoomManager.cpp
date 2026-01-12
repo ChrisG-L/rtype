@@ -590,6 +590,31 @@ domain::entities::Room* RoomManager::setRoomGameSpeed(const std::string& hostEma
     return room;
 }
 
+void RoomManager::updatePlayerShipSkin(const std::string& email, uint8_t shipSkin) {
+    domain::entities::Room* room = nullptr;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        // Find the room the player is in
+        auto playerIt = _playerToRoom.find(email);
+        if (playerIt == _playerToRoom.end()) {
+            return;  // Player not in any room
+        }
+
+        auto roomIt = _roomsByCode.find(playerIt->second);
+        if (roomIt == _roomsByCode.end()) {
+            return;  // Room doesn't exist
+        }
+
+        room = roomIt->second.get();
+        room->setPlayerShipSkin(email, shipSkin);
+    }
+
+    // Broadcast room update to all members (outside lock)
+    broadcastRoomUpdate(room);
+}
+
 void RoomManager::unregisterSessionCallbacks(const std::string& email) {
     std::lock_guard<std::mutex> lock(_mutex);
     _sessionCallbacks.erase(email);

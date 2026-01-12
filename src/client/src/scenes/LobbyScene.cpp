@@ -9,7 +9,10 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/GameScene.hpp"
 #include "scenes/MainMenuScene.hpp"
+#include "accessibility/AccessibilityConfig.hpp"
+#include "Protocol.hpp"
 #include <algorithm>
+#include <cstring>
 #include <variant>
 
 LobbyScene::LobbyScene(const std::string& roomName, const std::string& roomCode,
@@ -512,6 +515,40 @@ void LobbyScene::handleEvent(const events::Event& event)
     // Don't handle input during countdown
     if (_countdown.has_value()) return;
 
+    // Handle ship skin panel events first (it's an overlay)
+    if (_shipSkinPanelOpen) {
+        if (auto* mousePressed = std::get_if<events::MouseButtonPressed>(&event)) {
+            if (mousePressed->button == events::MouseButton::Left) {
+                float clickX = static_cast<float>(mousePressed->x);
+                float clickY = static_cast<float>(mousePressed->y);
+
+                // Check if clicking on a skin option
+                uint8_t selectedSkin = 0;
+                if (isShipSkinOptionClicked(clickX, clickY, selectedSkin)) {
+                    onShipSkinSelect(selectedSkin);
+                } else {
+                    // Clicking outside the panel closes it
+                    float panelWidth = 360.0f;
+                    float panelHeight = 280.0f;
+                    float panelX = (SCREEN_WIDTH - panelWidth) / 2.0f;
+                    float panelY = (SCREEN_HEIGHT - panelHeight) / 2.0f;
+
+                    if (clickX < panelX || clickX > panelX + panelWidth ||
+                        clickY < panelY || clickY > panelY + panelHeight) {
+                        _shipSkinPanelOpen = false;
+                    }
+                }
+            }
+        }
+        // Escape closes the panel
+        if (auto* keyPressed = std::get_if<events::KeyPressed>(&event)) {
+            if (keyPressed->key == events::Key::Escape) {
+                _shipSkinPanelOpen = false;
+            }
+        }
+        return;  // Don't process other events while panel is open
+    }
+
     // Host doesn't have a Ready button (always ready)
     if (!_isHost) {
         _readyButton->handleEvent(event);
@@ -520,6 +557,19 @@ void LobbyScene::handleEvent(const events::Event& event)
         _startButton->handleEvent(event);
     }
     _leaveButton->handleEvent(event);
+
+    // Handle click on local player's ship to open skin selection panel
+    if (auto* mousePressed = std::get_if<events::MouseButtonPressed>(&event)) {
+        if (mousePressed->button == events::MouseButton::Left) {
+            float clickX = static_cast<float>(mousePressed->x);
+            float clickY = static_cast<float>(mousePressed->y);
+
+            if (isLocalPlayerShipClicked(clickX, clickY)) {
+                _shipSkinPanelOpen = true;
+                return;  // Don't process other clicks
+            }
+        }
+    }
 
     // Handle kick button clicks (host only)
     if (_isHost) {
@@ -826,6 +876,9 @@ void LobbyScene::render()
     rgba connColor = (_context.tcpClient && _context.tcpClient->isConnected())
         ? rgba{100, 255, 100, 255} : rgba{255, 100, 100, 255};
     _context.window->drawText(FONT_KEY, connStatus, 20, SCREEN_HEIGHT - 40, 14, connColor);
+
+    // Draw ship skin selection panel (overlay on top of everything else)
+    renderShipSkinPanel();
 }
 
 void LobbyScene::renderKickedScreen()
@@ -856,4 +909,168 @@ void LobbyScene::renderKickedScreen()
     float hintX = SCREEN_WIDTH / 2.0f - 150.0f;
     float hintY = _kickReason.empty() ? (instrY + 50.0f) : (instrY + 90.0f);
     _context.window->drawText(FONT_KEY, hintText, hintX, hintY, 18, {150, 150, 150, 255});
+}
+
+bool LobbyScene::isLocalPlayerShipClicked(float clickX, float clickY) const
+{
+    // Find local player's position in the list
+    float totalWidth = 900.0f;
+    float boxX = (SCREEN_WIDTH - totalWidth) / 2;
+    float boxY = 150.0f;
+    float listY = boxY + 160.0f;
+    float playerY = listY + 55.0f;
+    float playerSpacing = 50.0f;
+    float shipBoxSize = 46.0f;
+    float shipBoxX = boxX + 30.0f;
+
+    for (const auto& player : _players) {
+        if (player.slotId == _slotId) {
+            float shipBoxY = playerY - 8.0f;
+            return clickX >= shipBoxX && clickX <= shipBoxX + shipBoxSize &&
+                   clickY >= shipBoxY && clickY <= shipBoxY + shipBoxSize;
+        }
+        playerY += playerSpacing;
+    }
+    return false;
+}
+
+bool LobbyScene::isShipSkinOptionClicked(float clickX, float clickY, uint8_t& outSkinId) const
+{
+    // Panel dimensions (same as in renderShipSkinPanel)
+    float panelWidth = 360.0f;
+    float panelHeight = 280.0f;
+    float panelX = (SCREEN_WIDTH - panelWidth) / 2.0f;
+    float panelY = (SCREEN_HEIGHT - panelHeight) / 2.0f;
+
+    // Skin options grid: 3 columns x 2 rows
+    float skinSize = 80.0f;
+    float skinSpacing = 20.0f;
+    float gridStartX = panelX + 30.0f;
+    float gridStartY = panelY + 60.0f;
+
+    for (uint8_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
+        uint8_t row = i / 3;
+        uint8_t col = i % 3;
+        float skinX = gridStartX + col * (skinSize + skinSpacing);
+        float skinY = gridStartY + row * (skinSize + skinSpacing);
+
+        if (clickX >= skinX && clickX <= skinX + skinSize &&
+            clickY >= skinY && clickY <= skinY + skinSize) {
+            outSkinId = i + 1;  // Skin IDs are 1-based
+            return true;
+        }
+    }
+    return false;
+}
+
+void LobbyScene::onShipSkinSelect(uint8_t skinId)
+{
+    // Update local AccessibilityConfig
+    auto& config = accessibility::AccessibilityConfig::getInstance();
+    config.setShipSkin(skinId);
+
+    // Save settings via TCP (like in SettingsScene)
+    if (_context.tcpClient && _context.tcpClient->isConnected()) {
+        UserSettingsPayload payload;
+        std::strncpy(payload.colorBlindMode,
+            accessibility::AccessibilityConfig::colorBlindModeToString(config.getColorBlindMode()).c_str(),
+            COLORBLIND_MODE_LEN - 1);
+        payload.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
+        payload.gameSpeedPercent = 100;  // Game speed is per-room, not per-player
+        payload.shipSkin = skinId;
+
+        // Copy key bindings from AccessibilityConfig
+        constexpr size_t actionCount = static_cast<size_t>(accessibility::GameAction::ActionCount);
+        for (size_t i = 0; i < actionCount; ++i) {
+            auto action = static_cast<accessibility::GameAction>(i);
+            payload.keyBindings[i * 2] = static_cast<uint8_t>(config.getPrimaryKey(action));
+            payload.keyBindings[i * 2 + 1] = static_cast<uint8_t>(config.getSecondaryKey(action));
+        }
+
+        _context.tcpClient->saveUserSettings(payload);
+    }
+
+    // Close the panel
+    _shipSkinPanelOpen = false;
+}
+
+void LobbyScene::renderShipSkinPanel()
+{
+    if (!_shipSkinPanelOpen || !_context.window) return;
+
+    // Semi-transparent background overlay
+    _context.window->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, {0, 0, 0, 150});
+
+    // Panel dimensions
+    float panelWidth = 360.0f;
+    float panelHeight = 280.0f;
+    float panelX = (SCREEN_WIDTH - panelWidth) / 2.0f;
+    float panelY = (SCREEN_HEIGHT - panelHeight) / 2.0f;
+
+    // Panel background
+    _context.window->drawRect(panelX, panelY, panelWidth, panelHeight, {25, 25, 50, 245});
+
+    // Panel border
+    _context.window->drawRect(panelX, panelY, panelWidth, 3, {80, 100, 150, 255});
+    _context.window->drawRect(panelX, panelY + panelHeight - 3, panelWidth, 3, {80, 100, 150, 255});
+    _context.window->drawRect(panelX, panelY, 3, panelHeight, {80, 100, 150, 255});
+    _context.window->drawRect(panelX + panelWidth - 3, panelY, 3, panelHeight, {80, 100, 150, 255});
+
+    // Title
+    _context.window->drawText(FONT_KEY, "SELECT SHIP SKIN",
+        panelX + 70, panelY + 15, 24, {200, 200, 255, 255});
+
+    // Get current skin
+    auto& config = accessibility::AccessibilityConfig::getInstance();
+    uint8_t currentSkin = config.getShipSkin();
+
+    // Skin options grid: 3 columns x 2 rows
+    float skinSize = 80.0f;
+    float skinSpacing = 20.0f;
+    float gridStartX = panelX + 30.0f;
+    float gridStartY = panelY + 60.0f;
+
+    for (uint8_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
+        uint8_t skinId = i + 1;
+        uint8_t row = i / 3;
+        uint8_t col = i % 3;
+        float skinX = gridStartX + col * (skinSize + skinSpacing);
+        float skinY = gridStartY + row * (skinSize + skinSpacing);
+
+        // Determine if hovered
+        bool isHovered = _mouseX >= skinX && _mouseX <= skinX + skinSize &&
+                         _mouseY >= skinY && _mouseY <= skinY + skinSize;
+        bool isSelected = (skinId == currentSkin);
+
+        // Background color based on state
+        rgba bgColor;
+        if (isSelected) {
+            bgColor = {60, 120, 60, 255};  // Green for selected
+        } else if (isHovered) {
+            bgColor = {60, 60, 100, 255};  // Light blue for hovered
+        } else {
+            bgColor = {40, 40, 60, 255};   // Default dark
+        }
+        _context.window->drawRect(skinX, skinY, skinSize, skinSize, bgColor);
+
+        // Border (thicker for selected)
+        rgba borderColor = isSelected ? rgba{100, 200, 100, 255} : rgba{60, 80, 100, 255};
+        float borderWidth = isSelected ? 3.0f : 2.0f;
+        _context.window->drawRect(skinX, skinY, skinSize, borderWidth, borderColor);
+        _context.window->drawRect(skinX, skinY + skinSize - borderWidth, skinSize, borderWidth, borderColor);
+        _context.window->drawRect(skinX, skinY, borderWidth, skinSize, borderColor);
+        _context.window->drawRect(skinX + skinSize - borderWidth, skinY, borderWidth, skinSize, borderColor);
+
+        // Ship sprite
+        std::string textureKey = "lobby_ship" + std::to_string(skinId);
+        float spriteSize = skinSize - 16.0f;
+        float spriteOffset = 8.0f;
+        _context.window->drawSprite(textureKey,
+            skinX + spriteOffset, skinY + spriteOffset,
+            spriteSize, spriteSize);
+    }
+
+    // Hint text
+    _context.window->drawText(FONT_KEY, "Click a ship to select, click outside to close",
+        panelX + 20, panelY + panelHeight - 30, 14, {150, 150, 180, 255});
 }

@@ -1365,6 +1365,11 @@ namespace infrastructure::adapters::in::network {
             _userSettingsRepository->save(email, data);
             logger->info("SaveUserSettings: saved settings for {}", email);
 
+            // If player is in a room, update their ship skin and broadcast to other players
+            if (_roomManager) {
+                _roomManager->updatePlayerShipSkin(email, data.shipSkin);
+            }
+
             SaveUserSettingsResponse resp;
             resp.success = 1;
             std::strncpy(resp.message, "Settings saved successfully", MAX_ERROR_MSG_LEN);

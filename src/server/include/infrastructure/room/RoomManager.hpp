@@ -117,6 +117,9 @@ public:
     // Returns the room for broadcasting, nullptr if not host or not in room
     domain::entities::Room* setRoomGameSpeed(const std::string& hostEmail, uint16_t gameSpeedPercent);
 
+    // Update player's ship skin in their current room and broadcast
+    void updatePlayerShipSkin(const std::string& email, uint8_t shipSkin);
+
     using PlayerKickedCallback = std::function<void(const PlayerKickedNotification&)>;
 
     // Register kicked callback for a player's session

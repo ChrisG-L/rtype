@@ -52,6 +52,12 @@ private:
     void renderChatPanel();
     void appendChatMessage(const client::network::ChatMessageInfo& msg);
 
+    // Ship skin selection panel
+    void renderShipSkinPanel();
+    bool isLocalPlayerShipClicked(float clickX, float clickY) const;
+    bool isShipSkinOptionClicked(float clickX, float clickY, uint8_t& outSkinId) const;
+    void onShipSkinSelect(uint8_t skinId);
+
     // Returns true if mouse is hovering over kick area for this player
     bool isKickButtonHovered(float playerY) const;
 
@@ -110,6 +116,9 @@ private:
     // Mouse state for kick buttons
     float _mouseX = 0.0f;
     float _mouseY = 0.0f;
+
+    // Ship skin selection panel state
+    bool _shipSkinPanelOpen = false;
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;
