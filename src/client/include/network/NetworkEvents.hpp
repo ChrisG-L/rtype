@@ -33,6 +33,7 @@ namespace client::network
         std::string email;  // Added for kick functionality (Phase 2)
         bool isReady;
         bool isHost;
+        uint8_t shipSkin = 1;  // Ship skin variant (1-6)
     };
 
     struct TCPRoomCreatedEvent {

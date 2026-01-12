@@ -9,6 +9,7 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/GameScene.hpp"
 #include "scenes/MainMenuScene.hpp"
+#include <algorithm>
 #include <variant>
 
 LobbyScene::LobbyScene(const std::string& roomName, const std::string& roomCode,
@@ -30,6 +31,13 @@ void LobbyScene::loadAssets()
     _context.window->loadFont(FONT_KEY, "assets/fonts/ARIA.TTF");
 
     _starfield = std::make_unique<ui::StarfieldBackground>(SCREEN_WIDTH, SCREEN_HEIGHT, STAR_COUNT);
+
+    // Load ship textures for player preview (same as SettingsScene)
+    for (size_t i = 1; i <= SHIP_SKIN_COUNT; ++i) {
+        std::string key = "lobby_ship" + std::to_string(i);
+        std::string path = "assets/spaceship/Ship" + std::to_string(i) + ".png";
+        _context.window->loadTexture(key, path);
+    }
 
     _assetsLoaded = true;
 }
@@ -667,8 +675,10 @@ void LobbyScene::render()
 
     // Players list header
     float listY = boxY + 160;
+    _context.window->drawText(FONT_KEY, "SHIP",
+        boxX + 30, listY, 18, {150, 150, 180, 255});
     _context.window->drawText(FONT_KEY, "PLAYERS",
-        boxX + 40, listY, 24, {150, 150, 180, 255});
+        boxX + 90, listY, 24, {150, 150, 180, 255});
     _context.window->drawText(FONT_KEY, "STATUS",
         boxX + boxWidth - 200, listY, 24, {150, 150, 180, 255});
 
@@ -678,9 +688,25 @@ void LobbyScene::render()
     // Players list
     float playerY = listY + 55;
     float playerSpacing = 50.0f;
+    float shipBoxSize = 46.0f;  // Ship preview box size
+    float shipPadding = 3.0f;   // Padding inside the box
 
     for (const auto& player : _players) {
-        // Player name with host indicator
+        // Ship preview box (like in SettingsScene)
+        float shipBoxX = boxX + 30;
+        float shipBoxY = playerY - 8;
+
+        // Draw ship preview background
+        _context.window->drawRect(shipBoxX, shipBoxY, shipBoxSize, shipBoxSize, {40, 40, 60, 255});
+
+        // Draw ship sprite
+        uint8_t skinId = std::clamp(player.shipSkin, static_cast<uint8_t>(1), static_cast<uint8_t>(SHIP_SKIN_COUNT));
+        std::string textureKey = "lobby_ship" + std::to_string(skinId);
+        _context.window->drawSprite(textureKey,
+            shipBoxX + shipPadding, shipBoxY + shipPadding,
+            SHIP_PREVIEW_SIZE, SHIP_PREVIEW_SIZE);
+
+        // Player name with host indicator (shifted right to make room for ship preview)
         std::string displayName = player.displayName;
         if (player.isHost) {
             displayName += " [HOST]";
@@ -695,7 +721,7 @@ void LobbyScene::render()
         }
 
         _context.window->drawText(FONT_KEY, displayName,
-            boxX + 40, playerY, 22, nameColor);
+            boxX + 90, playerY, 22, nameColor);
 
         // Ready status
         std::string statusText = player.isReady ? "READY" : "NOT READY";
@@ -727,8 +753,13 @@ void LobbyScene::render()
 
     // Empty slots
     for (size_t i = _players.size(); i < _maxPlayers; ++i) {
+        // Empty ship preview box
+        float shipBoxX = boxX + 30;
+        float shipBoxY = playerY - 8;
+        _context.window->drawRect(shipBoxX, shipBoxY, shipBoxSize, shipBoxSize, {30, 30, 45, 255});
+
         _context.window->drawText(FONT_KEY, "- Empty -",
-            boxX + 40, playerY, 20, {80, 80, 100, 255});
+            boxX + 90, playerY, 20, {80, 80, 100, 255});
         playerY += playerSpacing;
     }
 

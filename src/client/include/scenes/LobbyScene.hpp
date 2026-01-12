@@ -116,6 +116,8 @@ private:
     static constexpr const char* FONT_KEY = "lobby_font";
     static constexpr float STATUS_DISPLAY_DURATION = 3.0f;
     static constexpr int STAR_COUNT = 100;
+    static constexpr size_t SHIP_SKIN_COUNT = 6;  // Number of ship skins available
+    static constexpr float SHIP_PREVIEW_SIZE = 40.0f;  // Size of ship preview in player list
 };
 
 #endif /* !LOBBYSCENE_HPP_ */

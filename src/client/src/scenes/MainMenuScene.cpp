@@ -382,6 +382,7 @@ void MainMenuScene::processTCPEvents()
                     config.setColorBlindMode(
                         accessibility::AccessibilityConfig::stringToColorBlindMode(event.colorBlindMode));
                     config.setGameSpeedMultiplier(event.gameSpeed);
+                    config.setShipSkin(event.shipSkin);
 
                     for (size_t i = 0; i < 6; ++i) {
                         auto action = static_cast<accessibility::GameAction>(i);
