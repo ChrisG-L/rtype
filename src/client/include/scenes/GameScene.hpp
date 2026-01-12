@@ -124,13 +124,17 @@ private:
     struct ChatDisplayMessage {
         std::string displayName;
         std::string message;
-        float displayTime;  // Time remaining to display
+        float displayTime;  // Time remaining to display (0 = expired/archived)
+        bool expired = false;  // True when timer reached 0, message goes to collapsed list
     };
     std::vector<ChatDisplayMessage> _chatDisplayMessages;
     std::unique_ptr<ui::TextInput> _chatInput;
     bool _chatInputOpen = false;
     bool _chatUIInitialized = false;
+    bool _skipNextTextEntered = false;  // Skip first TextEntered after opening chat (avoid 'T' in input)
+    bool _chatExpanded = false;  // Show all messages (including expired) when expanded
     static constexpr float CHAT_MESSAGE_DISPLAY_TIME = 8.0f;
-    static constexpr size_t MAX_CHAT_DISPLAY_MESSAGES = 5;
+    static constexpr size_t MAX_CHAT_DISPLAY_MESSAGES = 20;  // Keep more history
+    static constexpr size_t ALWAYS_VISIBLE_MESSAGES = 3;  // Last N messages never expire
 };
 #endif /* !GAMESCENE_HPP_ */

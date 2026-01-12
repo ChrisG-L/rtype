@@ -49,6 +49,10 @@ struct BannedUser {
 // Callback type for kick notifications (used by TCP sessions)
 using KickedCallback = std::function<void(const std::string& reason)>;
 
+// Callback type for when a player leaves the game (used by UDPServer to clean up GameWorld)
+// Parameters: playerId, roomCode, udpEndpoint
+using PlayerLeaveGameCallback = std::function<void(uint8_t playerId, const std::string& roomCode, const std::string& endpoint)>;
+
 class SessionManager {
 public:
     // Token validity before UDP connection (5 minutes)
@@ -175,6 +179,17 @@ public:
     // Returns true if the player was found and notified, false otherwise
     bool kickPlayerByEmail(const std::string& email, const std::string& reason);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // Player leave game notification (for UDPServer cleanup)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Register callback for when a player leaves the game (called by UDPServer)
+    void setPlayerLeaveGameCallback(PlayerLeaveGameCallback callback);
+
+    // Notify that a player is leaving the game (clears UDP binding and calls callback)
+    // Called by TCPAuthServer when player leaves room during active game
+    void notifyPlayerLeaveGame(const std::string& email);
+
 private:
     mutable std::mutex _mutex;
 
@@ -192,6 +207,9 @@ private:
 
     // Kick callbacks (email -> callback) for in-game kick notifications
     std::unordered_map<std::string, KickedCallback> _kickedCallbacks;
+
+    // Callback for player leaving game (called to notify UDPServer)
+    PlayerLeaveGameCallback _playerLeaveGameCallback;
 
     // Generates a cryptographically random token
     SessionToken generateToken();

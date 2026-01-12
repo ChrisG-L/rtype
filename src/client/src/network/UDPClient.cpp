@@ -633,6 +633,26 @@ namespace client::network
         auto logger = client::logging::Logger::getNetworkLogger();
         logger->info("Sending JoinGame with token for room '{}'", roomCode);
 
+        // Reset all game state from previous session
+        {
+            std::lock_guard<std::mutex> lock(_playersMutex);
+            _isLocalPlayerDead = false;
+            _localPlayerId = std::nullopt;
+            _players.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(_missilesMutex);
+            _missiles.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(_enemiesMutex);
+            _enemies.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(_enemyMissilesMutex);
+            _enemyMissiles.clear();
+        }
+
         // Get the player's ship skin from settings
         auto& config = accessibility::AccessibilityConfig::getInstance();
         uint8_t shipSkin = config.getShipSkin();

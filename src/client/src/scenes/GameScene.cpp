@@ -102,6 +102,12 @@ void GameScene::handleEvent(const events::Event& event)
 {
     // Handle chat input when open
     if (_chatInputOpen && _chatInput) {
+        // Skip the first TextEntered event after opening chat (avoids 'T' appearing in input)
+        if (_skipNextTextEntered && std::holds_alternative<events::TextEntered>(event)) {
+            _skipNextTextEntered = false;
+            return;
+        }
+
         _chatInput->handleEvent(event);
 
         if (std::holds_alternative<events::KeyPressed>(event)) {
@@ -135,9 +141,16 @@ void GameScene::handleEvent(const events::Event& event)
         // Toggle chat with T key
         if (key.key == events::Key::T && !_context.udpClient->isLocalPlayerDead() && !_wasKicked) {
             _chatInputOpen = true;
+            _skipNextTextEntered = true;  // Prevent 'T' from appearing in chat input
             if (_chatInput) {
                 _chatInput->setFocused(true);
             }
+            return;
+        }
+
+        // Toggle chat expansion with O key
+        if (key.key == events::Key::O && !_chatDisplayMessages.empty()) {
+            _chatExpanded = !_chatExpanded;
             return;
         }
     } else if (std::holds_alternative<events::KeyReleased>(event)) {
@@ -229,14 +242,30 @@ void GameScene::update(float deltatime)
     // Process TCP events (chat messages)
     processTCPEvents();
 
-    // Update chat message display timers
-    for (auto it = _chatDisplayMessages.begin(); it != _chatDisplayMessages.end(); ) {
-        it->displayTime -= deltatime;
-        if (it->displayTime <= 0) {
-            it = _chatDisplayMessages.erase(it);
-        } else {
-            ++it;
+    // Update chat message display timers (mark as expired when timer reaches 0)
+    // Last ALWAYS_VISIBLE_MESSAGES messages never expire
+    size_t msgCount = _chatDisplayMessages.size();
+    for (size_t i = 0; i < msgCount; ++i) {
+        auto& msg = _chatDisplayMessages[i];
+
+        // Skip if already expired
+        if (msg.expired) continue;
+
+        // Last ALWAYS_VISIBLE_MESSAGES never expire
+        // If we have <= ALWAYS_VISIBLE_MESSAGES, none expire
+        if (msgCount <= ALWAYS_VISIBLE_MESSAGES || i >= msgCount - ALWAYS_VISIBLE_MESSAGES) continue;
+
+        if (msg.displayTime > 0) {
+            msg.displayTime -= deltatime;
+            if (msg.displayTime <= 0) {
+                msg.expired = true;
+            }
         }
+    }
+
+    // Remove oldest expired messages if we exceed MAX_CHAT_DISPLAY_MESSAGES
+    while (_chatDisplayMessages.size() > MAX_CHAT_DISPLAY_MESSAGES) {
+        _chatDisplayMessages.erase(_chatDisplayMessages.begin());
     }
 
     // Update chat input if open
@@ -644,8 +673,7 @@ void GameScene::onSendChatMessage()
 
     std::string message = _chatInput->getText();
     if (message.empty()) {
-        _chatInputOpen = false;
-        return;
+        return;  // Don't close chat on empty message, user must press Escape
     }
 
     if (_context.tcpClient && _context.tcpClient->isConnected()) {
@@ -653,7 +681,7 @@ void GameScene::onSendChatMessage()
     }
 
     _chatInput->clear();
-    _chatInputOpen = false;
+    // Keep chat open for quick consecutive messages (Escape to close)
 }
 
 void GameScene::appendChatMessage(const client::network::ChatMessageInfo& msg)
@@ -680,13 +708,24 @@ void GameScene::renderChatOverlay()
     float msgY = SCREEN_HEIGHT - 100.0f;
     float msgSpacing = 28.0f;
 
+    // Count expired (archived) messages
+    size_t expiredCount = 0;
+    for (const auto& msg : _chatDisplayMessages) {
+        if (msg.expired) expiredCount++;
+    }
+
     // Draw from bottom to top (most recent at bottom)
     for (int i = static_cast<int>(_chatDisplayMessages.size()) - 1; i >= 0; --i) {
         const auto& msg = _chatDisplayMessages[i];
 
-        // Calculate alpha based on remaining display time
+        // Skip expired messages unless expanded
+        if (msg.expired && !_chatExpanded) {
+            continue;
+        }
+
+        // Calculate alpha based on remaining display time (fade out effect)
         uint8_t alpha = 255;
-        if (msg.displayTime < 2.0f) {
+        if (!msg.expired && msg.displayTime < 2.0f) {
             alpha = static_cast<uint8_t>(255 * (msg.displayTime / 2.0f));
         }
 
@@ -708,6 +747,17 @@ void GameScene::renderChatOverlay()
         msgY -= msgSpacing;
     }
 
+    // Show indicator for hidden (expired) messages
+    if (expiredCount > 0 && !_chatExpanded) {
+        std::string expandHint = "[+" + std::to_string(expiredCount) + " messages - O to show]";
+        _context.window->drawRect(msgX - 5, msgY - 2, 260, 22, {40, 40, 60, 180});
+        _context.window->drawText(FONT_KEY, expandHint, msgX, msgY, 12, {180, 180, 200, 255});
+    } else if (_chatExpanded && expiredCount > 0) {
+        // Show collapse hint when expanded
+        _context.window->drawRect(msgX - 5, msgY - 2, 150, 22, {40, 40, 60, 180});
+        _context.window->drawText(FONT_KEY, "[O to hide]", msgX, msgY, 12, {180, 180, 200, 255});
+    }
+
     // Render chat input if open
     if (_chatInputOpen && _chatInput) {
         // Dark background for input
@@ -717,7 +767,7 @@ void GameScene::renderChatOverlay()
         _chatInput->render(*_context.window);
 
         // Hint text
-        _context.window->drawText(FONT_KEY, "[Enter] Send  [Esc] Cancel",
+        _context.window->drawText(FONT_KEY, "[Enter] Send  [Esc] Close",
             430, SCREEN_HEIGHT - 40, 12, {150, 150, 170, 255});
     } else if (!_chatDisplayMessages.empty()) {
         // Show hint to open chat

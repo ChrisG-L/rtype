@@ -36,6 +36,18 @@ namespace infrastructure::adapters::in::network {
                 NULL, 0, &dwBytesReturned, NULL, NULL
             );
         #endif
+
+        // Register callback to handle player leaving game via TCP
+        if (_sessionManager) {
+            _sessionManager->setPlayerLeaveGameCallback(
+                [this](uint8_t playerId, const std::string& roomCode, const std::string& endpoint) {
+                    // Post to io_context to ensure thread-safety
+                    boost::asio::post(_io_ctx, [this, playerId, roomCode, endpoint]() {
+                        handlePlayerLeaveGame(playerId, roomCode, endpoint);
+                    });
+                }
+            );
+        }
     }
 
     std::string UDPServer::endpointToString(const udp::endpoint& ep) const {
@@ -670,5 +682,32 @@ namespace infrastructure::adapters::in::network {
 
     size_t UDPServer::getPlayerCount() const {
         return _instanceManager.getTotalPlayerCount();
+    }
+
+    void UDPServer::handlePlayerLeaveGame(uint8_t playerId, const std::string& roomCode, const std::string& endpoint) {
+        auto logger = server::logging::Logger::getGameLogger();
+
+        // Get the game instance for this room
+        game::GameWorld* gameWorld = _instanceManager.getInstance(roomCode);
+        if (!gameWorld) {
+            logger->debug("Player {} left game but room '{}' instance not found",
+                         static_cast<int>(playerId), roomCode);
+            return;
+        }
+
+        // Remove player from GameWorld
+        gameWorld->removePlayer(playerId);
+
+        // Broadcast PlayerLeave to remaining players in this room
+        sendPlayerLeave(playerId, gameWorld);
+
+        logger->info("Player {} left game in room '{}' (via TCP leaveRoom)",
+                    static_cast<int>(playerId), roomCode);
+
+        // Cleanup empty instance
+        if (gameWorld->getPlayerCount() == 0) {
+            _instanceManager.removeInstance(roomCode);
+            logger->info("Removed empty game instance for room '{}'", roomCode);
+        }
     }
 }

@@ -690,6 +690,12 @@ namespace infrastructure::adapters::in::network {
         auto logger = server::logging::Logger::getNetworkLogger();
         std::string email = _user->getEmail().value();
 
+        // Notify UDPServer to clean up GameWorld before leaving room
+        // This will clear the UDP binding and remove player from game instance
+        if (_sessionManager) {
+            _sessionManager->notifyPlayerLeaveGame(email);
+        }
+
         // Get room before leaving (for broadcast)
         auto* room = _roomManager->getRoomByPlayerEmail(email);
         std::string code = _roomManager->leaveRoom(email);

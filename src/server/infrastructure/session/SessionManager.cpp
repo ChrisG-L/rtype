@@ -496,4 +496,54 @@ bool SessionManager::kickPlayerByEmail(const std::string& email, const std::stri
     return false;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Player leave game notification
+// ═══════════════════════════════════════════════════════════════════
+
+void SessionManager::setPlayerLeaveGameCallback(PlayerLeaveGameCallback callback) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _playerLeaveGameCallback = std::move(callback);
+}
+
+void SessionManager::notifyPlayerLeaveGame(const std::string& email) {
+    uint8_t playerId = 0;
+    std::string roomCode;
+    std::string endpoint;
+    PlayerLeaveGameCallback callback;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        auto sessionIt = _sessionsByEmail.find(email);
+        if (sessionIt == _sessionsByEmail.end()) {
+            return;
+        }
+
+        auto& session = sessionIt->second;
+
+        // Only notify if player is bound to UDP (in a game)
+        if (!session.udpBound || !session.playerId.has_value()) {
+            return;
+        }
+
+        // Capture data before clearing
+        playerId = *session.playerId;
+        roomCode = session.roomCode;
+        endpoint = session.udpEndpoint;
+        callback = _playerLeaveGameCallback;
+
+        // Clear UDP binding
+        _endpointToEmail.erase(session.udpEndpoint);
+        session.udpBound = false;
+        session.udpEndpoint.clear();
+        session.playerId = std::nullopt;
+        session.roomCode.clear();
+    }
+
+    // Call callback outside lock to avoid deadlocks
+    if (callback && !roomCode.empty()) {
+        callback(playerId, roomCode, endpoint);
+    }
+}
+
 } // namespace infrastructure::session

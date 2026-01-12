@@ -66,6 +66,9 @@ namespace infrastructure::adapters::in::network {
             // Helper to convert endpoint to string for SessionManager
             std::string endpointToString(const udp::endpoint& ep) const;
 
+            // Called when a player leaves the game via TCP (leaveRoom)
+            void handlePlayerLeaveGame(uint8_t playerId, const std::string& roomCode, const std::string& endpoint);
+
         public:
             UDPServer(boost::asio::io_context& io_ctx, std::shared_ptr<SessionManager> sessionManager);
             void start();

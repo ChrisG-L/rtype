@@ -187,6 +187,7 @@ namespace infrastructure::game {
         void updatePlayers(float deltaTime);
 
         std::optional<uint8_t> getPlayerIdByEndpoint(const udp::endpoint& endpoint);
+        std::optional<udp::endpoint> getEndpointByPlayerId(uint8_t playerId) const;
 
         GameSnapshot getSnapshot() const;
         std::vector<udp::endpoint> getAllEndpoints() const;
