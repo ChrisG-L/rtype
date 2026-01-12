@@ -446,9 +446,9 @@ void LobbyScene::processUDPEvents()
 
             if constexpr (std::is_same_v<T, client::network::UDPJoinGameAckEvent>) {
                 // We successfully joined the game via UDP
-                // Transition to GameScene with room game speed
+                // Transition to GameScene with room game speed and chat history from lobby
                 if (_sceneManager && _transitioningToGame) {
-                    _sceneManager->changeScene(std::make_unique<GameScene>(_roomGameSpeedPercent));
+                    _sceneManager->changeScene(std::make_unique<GameScene>(_roomGameSpeedPercent, _chatMessages));
                 }
             }
             else if constexpr (std::is_same_v<T, client::network::UDPJoinGameNackEvent>) {

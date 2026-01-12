@@ -24,6 +24,25 @@ GameScene::GameScene(uint16_t roomGameSpeedPercent)
         roomGameSpeedPercent, _roomGameSpeedMultiplier);
 }
 
+GameScene::GameScene(uint16_t roomGameSpeedPercent,
+                     const std::vector<client::network::ChatMessageInfo>& initialChatMessages)
+    : _roomGameSpeedMultiplier(static_cast<float>(std::clamp(roomGameSpeedPercent, static_cast<uint16_t>(50), static_cast<uint16_t>(200))) / 100.0f)
+{
+    client::logging::Logger::getSceneLogger()->debug("GameScene created with room game speed {}% and {} lobby messages",
+        roomGameSpeedPercent, initialChatMessages.size());
+
+    // Initialize chat display messages from lobby history
+    // Mark all as expired so they appear in the collapsed/archived list
+    for (const auto& msg : initialChatMessages) {
+        ChatDisplayMessage displayMsg;
+        displayMsg.displayName = msg.displayName;
+        displayMsg.message = msg.message;
+        displayMsg.displayTime = 0.0f;
+        displayMsg.expired = true;  // Already in history
+        _chatDisplayMessages.push_back(std::move(displayMsg));
+    }
+}
+
 void GameScene::loadAssets()
 {
     if (_assetsLoaded || !_context.window) return;

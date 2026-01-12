@@ -6,27 +6,62 @@
 */
 
 #include "infrastructure/room/RoomManager.hpp"
+#include "infrastructure/logging/Logger.hpp"  // server::logging::Logger
 #include <algorithm>
 #include <cstring>
 
 namespace infrastructure::room {
 
+using application::ports::out::persistence::ChatMessageData;
+
 // Characters without ambiguity (no I/O/0/1)
 static const char ROOM_CODE_CHARSET[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 static constexpr size_t ROOM_CODE_LENGTH = 6;
+static constexpr int MAX_CODE_GENERATION_ATTEMPTS = 1000;
+
+RoomManager::RoomManager(std::shared_ptr<IChatMessageRepository> chatRepo)
+    : _chatMessageRepository(std::move(chatRepo))
+{
+}
 
 std::string RoomManager::generateRoomCode() {
     std::uniform_int_distribution<> dist(0, sizeof(ROOM_CODE_CHARSET) - 2);
     std::string code;
     code.reserve(ROOM_CODE_LENGTH);
 
-    do {
+    for (int attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; ++attempt) {
         code.clear();
         for (size_t i = 0; i < ROOM_CODE_LENGTH; ++i) {
             code.push_back(ROOM_CODE_CHARSET[dist(_rng)]);
         }
-    } while (_roomsByCode.contains(code));
 
+        // Check if code is not in use by an active room
+        if (_roomsByCode.contains(code)) {
+            continue;
+        }
+
+        // Check if code has chat history in MongoDB (if repository available)
+        if (_chatMessageRepository && _chatMessageRepository->hasHistoryForCode(code)) {
+            continue;
+        }
+
+        return code;
+    }
+
+    // All codes exhausted - delete oldest chat history and retry
+    auto logger = server::logging::Logger::getMainLogger();
+    logger->error("All room codes exhausted after {} attempts! Deleting oldest chat history.",
+                  MAX_CODE_GENERATION_ATTEMPTS);
+
+    if (_chatMessageRepository) {
+        _chatMessageRepository->deleteOldestRoomHistory();
+    }
+
+    // Generate a new code (should now be available)
+    code.clear();
+    for (size_t i = 0; i < ROOM_CODE_LENGTH; ++i) {
+        code.push_back(ROOM_CODE_CHARSET[dist(_rng)]);
+    }
     return code;
 }
 
@@ -708,6 +743,7 @@ std::optional<RoomManager::JoinResult> RoomManager::quickJoin(
 
 bool RoomManager::sendChatMessage(const std::string& email, const std::string& message) {
     std::string displayName;
+    std::string roomCode;
     domain::entities::Room* room = nullptr;
 
     {
@@ -718,7 +754,8 @@ bool RoomManager::sendChatMessage(const std::string& email, const std::string& m
             return false;  // Player not in any room
         }
 
-        auto roomIt = _roomsByCode.find(playerIt->second);
+        roomCode = playerIt->second;
+        auto roomIt = _roomsByCode.find(roomCode);
         if (roomIt == _roomsByCode.end()) {
             return false;  // Room doesn't exist
         }
@@ -734,8 +771,22 @@ bool RoomManager::sendChatMessage(const std::string& email, const std::string& m
         const auto& slots = room->getSlots();
         displayName = slots[*slotOpt].displayName;
 
-        // Store the message in the room's history
+        // Store the message in the room's history (in-memory)
         room->addChatMessage(displayName, message);
+    }
+
+    // Persist to MongoDB (outside lock)
+    if (_chatMessageRepository) {
+        auto logger = server::logging::Logger::getMainLogger();
+        logger->debug("sendChatMessage: Saving to MongoDB - room={}, from={}, msg={}", roomCode, displayName, message);
+        ChatMessageData data{
+            roomCode,
+            displayName,
+            message,
+            std::chrono::system_clock::now()
+        };
+        _chatMessageRepository->save(data);
+        logger->debug("sendChatMessage: Message saved to MongoDB");
     }
 
     // Broadcast the message (outside lock)
@@ -745,14 +796,42 @@ bool RoomManager::sendChatMessage(const std::string& email, const std::string& m
 }
 
 std::vector<domain::entities::ChatMessage> RoomManager::getChatHistory(const std::string& code) const {
+    auto logger = server::logging::Logger::getMainLogger();
+
+    // First, try to load from MongoDB if repository available
+    if (_chatMessageRepository) {
+        logger->debug("getChatHistory: Loading from MongoDB for room {}", code);
+        auto dbMessages = _chatMessageRepository->findByRoomCode(code, MAX_CHAT_HISTORY);
+        logger->debug("getChatHistory: Found {} messages in MongoDB for room {}", dbMessages.size(), code);
+        if (!dbMessages.empty()) {
+            std::vector<domain::entities::ChatMessage> result;
+            result.reserve(dbMessages.size());
+            for (const auto& msg : dbMessages) {
+                result.push_back(domain::entities::ChatMessage{
+                    msg.displayName,
+                    msg.message,
+                    msg.timestamp
+                });
+            }
+            return result;
+        }
+    } else {
+        logger->warn("getChatHistory: No MongoDB repository available, using in-memory only");
+    }
+
+    // Fallback to in-memory (existing behavior)
+    logger->debug("getChatHistory: Fallback to in-memory for room {}", code);
     std::lock_guard<std::mutex> lock(_mutex);
 
     auto it = _roomsByCode.find(code);
     if (it == _roomsByCode.end()) {
+        logger->debug("getChatHistory: Room {} not found in memory", code);
         return {};
     }
 
-    return it->second->getChatHistory();
+    auto history = it->second->getChatHistory();
+    logger->debug("getChatHistory: Found {} messages in memory for room {}", history.size(), code);
+    return history;
 }
 
 void RoomManager::broadcastChatMessage(domain::entities::Room* room, const std::string& displayName, const std::string& message) {

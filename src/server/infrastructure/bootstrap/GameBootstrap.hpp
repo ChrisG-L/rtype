@@ -13,6 +13,7 @@
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBChatMessageRepository.hpp"
 #include "infrastructure/adapters/out/MongoIdGenerator.hpp"
 #include "infrastructure/adapters/out/SpdLogAdapter.hpp"
 #include "infrastructure/configuration/DBConfig.hpp"
@@ -36,6 +37,7 @@ namespace infrastructure::bootstrap {
                 using adapters::out::persistence::MongoDBConfiguration;
                 using adapters::out::persistence::MongoDBUserRepository;
                 using adapters::out::persistence::MongoDBUserSettingsRepository;
+                using adapters::out::persistence::MongoDBChatMessageRepository;
                 using adapters::out::MongoIdGenerator;
                 using adapters::out::SpdLogAdapter;
                 using session::SessionManager;
@@ -67,6 +69,7 @@ namespace infrastructure::bootstrap {
                 auto mongoConfig = std::make_shared<MongoDBConfiguration>(dbConfig);
                 auto userRepo = std::make_shared<MongoDBUserRepository>(mongoConfig);
                 auto userSettingsRepo = std::make_shared<MongoDBUserSettingsRepository>(mongoConfig);
+                auto chatMessageRepo = std::make_shared<MongoDBChatMessageRepository>(mongoConfig);
 
                 // Create adapters for ports
                 auto idGenerator = std::make_shared<MongoIdGenerator>();
@@ -75,8 +78,8 @@ namespace infrastructure::bootstrap {
                 // Create shared SessionManager for TCP and UDP servers
                 auto sessionManager = std::make_shared<SessionManager>();
 
-                // Create shared RoomManager for room/lobby management
-                auto roomManager = std::make_shared<RoomManager>();
+                // Create shared RoomManager for room/lobby management (with chat persistence)
+                auto roomManager = std::make_shared<RoomManager>(chatMessageRepo);
 
                 // Start TCP Auth Server on port 4125
                 TCPAuthServer tcpAuthServer(io_ctx, userRepo, userSettingsRepo, idGenerator, logger, sessionManager, roomManager);

@@ -18,12 +18,16 @@
 #include <functional>
 #include "domain/entities/Room.hpp"
 #include "Protocol.hpp"
+#include "application/ports/out/persistence/IChatMessageRepository.hpp"
 
 namespace infrastructure::room {
 
 class RoomManager {
 public:
+    using IChatMessageRepository = application::ports::out::persistence::IChatMessageRepository;
+
     RoomManager() = default;
+    explicit RoomManager(std::shared_ptr<IChatMessageRepository> chatRepo);
     ~RoomManager() = default;
 
     // ═══════════════════════════════════════════════════════════════════
@@ -227,6 +231,9 @@ public:
 
 private:
     mutable std::mutex _mutex;
+
+    // Chat message persistence (optional)
+    std::shared_ptr<IChatMessageRepository> _chatMessageRepository;
 
     // Primary storage: code -> Room
     std::unordered_map<std::string, std::unique_ptr<domain::entities::Room>> _roomsByCode;

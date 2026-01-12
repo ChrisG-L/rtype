@@ -28,6 +28,11 @@ class GameScene : public IScene
 public:
     // Constructor accepts room game speed percent (50-200, default 100)
     explicit GameScene(uint16_t roomGameSpeedPercent = 100);
+
+    // Constructor with initial chat history from lobby
+    GameScene(uint16_t roomGameSpeedPercent,
+              const std::vector<client::network::ChatMessageInfo>& initialChatMessages);
+
     ~GameScene() override = default;
 
     void handleEvent(const events::Event& event) override;

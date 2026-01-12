@@ -1223,6 +1223,27 @@ namespace infrastructure::adapters::in::network {
                 }
             });
 
+        // Send chat history to the joining player
+        std::string roomCode = result->room->getCode();
+        auto chatHistory = _roomManager->getChatHistory(roomCode);
+        if (!chatHistory.empty()) {
+            ChatHistoryResponse histResp{};
+            histResp.messageCount = static_cast<uint8_t>(std::min(chatHistory.size(), static_cast<size_t>(MAX_CHAT_HISTORY)));
+            for (uint8_t i = 0; i < histResp.messageCount; ++i) {
+                const auto& msg = chatHistory[i];
+                std::strncpy(histResp.messages[i].displayName, msg.displayName.c_str(), MAX_USERNAME_LEN);
+                histResp.messages[i].displayName[MAX_USERNAME_LEN - 1] = '\0';
+                std::strncpy(histResp.messages[i].message, msg.message.c_str(), CHAT_MESSAGE_LEN);
+                histResp.messages[i].message[CHAT_MESSAGE_LEN - 1] = '\0';
+                histResp.messages[i].timestamp = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        msg.timestamp.time_since_epoch()
+                    ).count()
+                );
+            }
+            do_write_chat_history(histResp);
+        }
+
         // Broadcast room update to all members
         broadcastRoomUpdate(result->room);
     }
