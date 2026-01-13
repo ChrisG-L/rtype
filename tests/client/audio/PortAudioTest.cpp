@@ -7,7 +7,11 @@
 
 #include <gtest/gtest.h>
 #include <portaudio.h>
+#define _USE_MATH_DEFINES
 #include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <vector>
 #include <thread>
 #include <chrono>
