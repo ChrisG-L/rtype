@@ -27,8 +27,13 @@ VoiceChatManager& VoiceChatManager::getInstance() {
     return instance;
 }
 
-VoiceChatManager::~VoiceChatManager() {
-    shutdown();
+VoiceChatManager::~VoiceChatManager() noexcept {
+    try {
+        shutdown();
+    } catch (...) {
+        // Destructors must not throw exceptions (MISRA C++ rule)
+        // Silently ignore any exceptions during shutdown
+    }
 }
 
 bool VoiceChatManager::init() {

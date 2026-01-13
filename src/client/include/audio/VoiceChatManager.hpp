@@ -290,7 +290,7 @@ public:
 
 private:
     VoiceChatManager() = default;
-    ~VoiceChatManager();
+    ~VoiceChatManager() noexcept;
     VoiceChatManager(const VoiceChatManager&) = delete;
     VoiceChatManager& operator=(const VoiceChatManager&) = delete;
 
