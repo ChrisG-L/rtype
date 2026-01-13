@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <chrono>
 #include <spdlog/spdlog.h>
 #include "LogBuffer.hpp"
 #include "TerminalRenderer.hpp"
@@ -32,7 +33,7 @@ constexpr int KEY_ESCAPE = 27;
 
 class TerminalUI {
 public:
-    enum class Mode { SplitScreen, ZoomLogs, Interact };
+    enum class Mode { SplitScreen, ZoomLogs, Interact, NetworkMonitor };
     enum class FilterLevel { All = 0, Info = 1, Warn = 2, Error = 3 };
 
     explicit TerminalUI(std::shared_ptr<LogBuffer> logBuffer);
@@ -90,6 +91,17 @@ public:
     using EditConfirmCallback = std::function<void(const SelectableElement&, const std::string&)>;
     void setEditConfirmCallback(EditConfirmCallback callback);
 
+    // Network monitor mode
+    using NetworkMonitorCallback = std::function<std::string()>;
+    void setNetworkMonitorCallback(NetworkMonitorCallback callback);
+    void enterNetworkMonitorMode();
+    void exitNetworkMonitorMode();
+    bool isInNetworkMonitorMode() const { return _mode == Mode::NetworkMonitor; }
+    void setNetworkRefreshInterval(std::chrono::milliseconds interval);
+    std::chrono::milliseconds getNetworkRefreshInterval() const { return _networkRefreshInterval; }
+    void toggleRoomsCollapsed();
+    bool areRoomsCollapsed() const { return _roomsCollapsed; }
+
 private:
     void renderLoop();
     void renderSplitScreen();
@@ -115,6 +127,11 @@ private:
     // Edit mode processing and rendering
     void processEditKeyInput(int ch);
     void renderEditStatusBar(uint16_t row);
+
+    // Network monitor mode processing and rendering
+    void processNetworkMonitorKeyInput(int ch);
+    void renderNetworkMonitor();
+    void renderNetworkMonitorStatusBar(uint16_t row);
 
     std::shared_ptr<LogBuffer> _logBuffer;
     Mode _mode = Mode::SplitScreen;
@@ -149,6 +166,15 @@ private:
     size_t _editCursorPos = 0;         // Cursor position in _editBuffer
     SelectableElement _editElement;    // Element being edited
     EditConfirmCallback _editConfirmCallback;
+
+    // Network monitor mode state
+    NetworkMonitorCallback _networkMonitorCallback;
+    std::chrono::milliseconds _networkRefreshInterval{1000};
+    std::chrono::steady_clock::time_point _lastNetworkRefresh;
+    bool _roomsCollapsed{false};
+    std::string _networkMonitorContent;  // Cached content from callback
+    size_t _networkScrollOffset{0};      // Scroll position in network view
+    mutable std::mutex _networkMutex;
 
     // Render thread
     std::jthread _renderThread;

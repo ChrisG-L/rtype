@@ -52,6 +52,15 @@ void TerminalUI::start() {
                 processKeyInput(ch);
             }
 
+            // Check for auto-refresh in NetworkMonitor mode
+            if (_mode == Mode::NetworkMonitor) {
+                auto now = std::chrono::steady_clock::now();
+                if (now - _lastNetworkRefresh >= _networkRefreshInterval) {
+                    _lastNetworkRefresh = now;
+                    _needsRefresh = true;
+                }
+            }
+
             // Render if needed
             if (_needsRefresh.exchange(false)) {
                 switch (_mode) {
@@ -63,6 +72,9 @@ void TerminalUI::start() {
                         break;
                     case Mode::Interact:
                         renderInteractMode();
+                        break;
+                    case Mode::NetworkMonitor:
+                        renderNetworkMonitor();
                         break;
                 }
                 TerminalRenderer::flush();
@@ -187,6 +199,12 @@ void TerminalUI::processKeyInput(int ch) {
     // Delegate to interact mode handler if in interact mode
     if (_mode == Mode::Interact) {
         processInteractKeyInput(ch);
+        return;
+    }
+
+    // Delegate to network monitor mode handler if in network monitor mode
+    if (_mode == Mode::NetworkMonitor) {
+        processNetworkMonitorKeyInput(ch);
         return;
     }
 
@@ -1014,6 +1032,176 @@ void TerminalUI::renderEditStatusBar(uint16_t row) {
     // Position the cursor
     TerminalRenderer::showCursor();
     TerminalRenderer::moveCursor(row, static_cast<uint16_t>(prefixWidth + displayCursor + 1));
+}
+
+// ============================================================================
+// Network Monitor Mode Implementation
+// ============================================================================
+
+void TerminalUI::setNetworkMonitorCallback(NetworkMonitorCallback callback) {
+    std::lock_guard<std::mutex> lock(_networkMutex);
+    _networkMonitorCallback = std::move(callback);
+}
+
+void TerminalUI::enterNetworkMonitorMode() {
+    _previousMode = _mode;
+    _mode = Mode::NetworkMonitor;
+    _networkScrollOffset = 0;
+    _lastNetworkRefresh = std::chrono::steady_clock::now();
+    _needsRefresh = true;
+}
+
+void TerminalUI::exitNetworkMonitorMode() {
+    _mode = _previousMode;
+    _needsRefresh = true;
+}
+
+void TerminalUI::setNetworkRefreshInterval(std::chrono::milliseconds interval) {
+    // Clamp to reasonable range (500ms - 5000ms)
+    if (interval < std::chrono::milliseconds(500)) {
+        interval = std::chrono::milliseconds(500);
+    } else if (interval > std::chrono::milliseconds(5000)) {
+        interval = std::chrono::milliseconds(5000);
+    }
+    _networkRefreshInterval = interval;
+    _needsRefresh = true;
+}
+
+void TerminalUI::toggleRoomsCollapsed() {
+    _roomsCollapsed = !_roomsCollapsed;
+    _needsRefresh = true;
+}
+
+void TerminalUI::processNetworkMonitorKeyInput(int ch) {
+    switch (ch) {
+        case KEY_ESCAPE:
+        case 'q':
+        case 'Q':
+            exitNetworkMonitorMode();
+            break;
+
+        case KEY_UP:
+            if (_networkScrollOffset > 0) {
+                _networkScrollOffset--;
+                _needsRefresh = true;
+            }
+            break;
+
+        case KEY_DOWN:
+            _networkScrollOffset++;
+            _needsRefresh = true;
+            break;
+
+        case KEY_PAGE_UP: {
+            auto termSize = TerminalRenderer::getTerminalSize();
+            size_t pageSize = termSize.rows / 2;
+            if (_networkScrollOffset >= pageSize) {
+                _networkScrollOffset -= pageSize;
+            } else {
+                _networkScrollOffset = 0;
+            }
+            _needsRefresh = true;
+            break;
+        }
+
+        case KEY_PAGE_DOWN: {
+            auto termSize = TerminalRenderer::getTerminalSize();
+            _networkScrollOffset += termSize.rows / 2;
+            _needsRefresh = true;
+            break;
+        }
+
+        case '+':
+        case '=':  // Same key without shift
+            // Decrease interval (faster refresh)
+            setNetworkRefreshInterval(_networkRefreshInterval - std::chrono::milliseconds(500));
+            break;
+
+        case '-':
+        case '_':  // Same key with shift
+            // Increase interval (slower refresh)
+            setNetworkRefreshInterval(_networkRefreshInterval + std::chrono::milliseconds(500));
+            break;
+
+        case 'c':
+        case 'C':
+            toggleRoomsCollapsed();
+            break;
+    }
+}
+
+void TerminalUI::renderNetworkMonitor() {
+    auto termSize = TerminalRenderer::getTerminalSize();
+
+    TerminalRenderer::hideCursor();
+
+    // Get content from callback
+    std::string content;
+    {
+        std::lock_guard<std::mutex> lock(_networkMutex);
+        if (_networkMonitorCallback) {
+            content = _networkMonitorCallback();
+        } else {
+            content = "No network data available";
+        }
+        _networkMonitorContent = content;
+    }
+
+    // Split content into lines
+    std::vector<std::string> lines;
+    std::istringstream iss(content);
+    std::string line;
+    while (std::getline(iss, line)) {
+        lines.push_back(line);
+    }
+
+    // Calculate layout: full screen with status bar at bottom
+    uint16_t contentHeight = termSize.rows - 1;  // -1 for status bar
+
+    // Clamp scroll offset
+    if (lines.size() > contentHeight) {
+        size_t maxScroll = lines.size() - contentHeight;
+        _networkScrollOffset = std::min(_networkScrollOffset, maxScroll);
+    } else {
+        _networkScrollOffset = 0;
+    }
+
+    // Render content lines
+    for (uint16_t row = 0; row < contentHeight; ++row) {
+        TerminalRenderer::moveCursor(row + 1, 1);
+        TerminalRenderer::clearLine();
+
+        size_t lineIdx = _networkScrollOffset + row;
+        if (lineIdx < lines.size()) {
+            std::string truncated = utf8::truncateWithEllipsis(lines[lineIdx], termSize.cols);
+            TerminalRenderer::rawWrite(truncated);
+        }
+    }
+
+    // Render status bar
+    renderNetworkMonitorStatusBar(termSize.rows);
+}
+
+void TerminalUI::renderNetworkMonitorStatusBar(uint16_t row) {
+    auto termSize = TerminalRenderer::getTerminalSize();
+    TerminalRenderer::moveCursor(row, 1);
+
+    std::ostringstream status;
+    status << TerminalRenderer::reverseVideo()
+           << " NETWORK MONITOR"
+           << " │ Refresh: " << _networkRefreshInterval.count() << "ms"
+           << " │ [+/-]Speed [c]" << (_roomsCollapsed ? "Expand" : "Collapse")
+           << " [↑↓]Scroll [ESC/q]Exit";
+
+    // Pad to fill line
+    std::string statusStr = status.str();
+    size_t visibleLen = utf8::displayWidthIgnoringAnsi(statusStr);
+    if (visibleLen < termSize.cols) {
+        statusStr += std::string(termSize.cols - visibleLen, ' ');
+    }
+    statusStr += TerminalRenderer::resetColor();
+
+    TerminalRenderer::rawWrite(statusStr);
 }
 
 } // namespace infrastructure::tui

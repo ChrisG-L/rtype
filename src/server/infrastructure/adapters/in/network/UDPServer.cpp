@@ -26,7 +26,9 @@ namespace infrastructure::adapters::in::network {
           _socket(io_ctx, udp::endpoint(udp::v4(), 4124)),
           _instanceManager(io_ctx),
           _sessionManager(sessionManager),
-          _broadcastTimer(io_ctx) {
+          _broadcastTimer(io_ctx),
+          _networkStats(std::make_shared<infrastructure::network::NetworkStats>()),
+          _statsTimer(io_ctx) {
         // Windows: désactiver ICMP Port Unreachable qui cause des erreurs sur UDP
         #ifdef _WIN32
             BOOL bNewBehavior = FALSE;
@@ -58,6 +60,7 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::start() {
         do_read();
         scheduleBroadcast();
+        scheduleStatsUpdate();
     }
 
     void UDPServer::run() {
@@ -66,10 +69,16 @@ namespace infrastructure::adapters::in::network {
 
     void UDPServer::stop() {
         _broadcastTimer.cancel();
+        _statsTimer.cancel();
         _socket.close();
     }
 
     void UDPServer::sendTo(const udp::endpoint& endpoint, const void* data, size_t size) {
+        // Track network stats
+        std::string endpointStr = endpointToString(endpoint);
+        _networkStats->addBytesSent(size);
+        _networkStats->addBytesSentTo(endpointStr, size);
+
         auto buf = std::make_shared<std::vector<uint8_t>>(
             static_cast<const uint8_t*>(data),
             static_cast<const uint8_t*>(data) + size
@@ -493,12 +502,27 @@ namespace infrastructure::adapters::in::network {
 
         std::string endpointStr = endpointToString(_remote_endpoint);
 
+        // Track network stats (bytes received)
+        _networkStats->addBytesReceived(bytes);
+        _networkStats->addBytesReceivedFrom(endpointStr, bytes);
+
         // ═══════════════════════════════════════════════════════════════════
         // CASE 1: HeartBeat - No authentication required (connection check)
         // But if the endpoint has an active session, update activity timestamp
         // ═══════════════════════════════════════════════════════════════════
         if (head.type == static_cast<uint16_t>(MessageType::HeartBeat)) {
             sendHeartbeatAck(_remote_endpoint);
+
+            // Calculate one-way RTT (client → server) from HeartBeat timestamp
+            uint64_t serverNow = UDPHeader::getTimestamp();
+            uint64_t clientTimestamp = head.timestamp;
+            if (serverNow >= clientTimestamp) {
+                uint32_t rttMs = static_cast<uint32_t>(serverNow - clientTimestamp);
+                // Cap RTT at a reasonable max (10 seconds) to filter outliers
+                if (rttMs < 10000) {
+                    _networkStats->updatePlayerRTT(endpointStr, rttMs);
+                }
+            }
 
             // Update activity if this endpoint has an active session
             auto playerIdOpt = _sessionManager->getPlayerIdByEndpoint(endpointStr);
@@ -592,6 +616,9 @@ namespace infrastructure::adapters::in::network {
 
                     // Bind playerId to session (SessionManager is thread-safe)
                     _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);
+
+                    // Register player in network stats for monitoring
+                    _networkStats->registerPlayer(endpointStr);
 
                     // Send confirmation (sendTo uses async_send_to, thread-safe)
                     sendJoinGameAck(remoteEndpoint, *playerIdOpt);
@@ -706,6 +733,9 @@ namespace infrastructure::adapters::in::network {
                             // Clear the UDP binding from SessionManager (thread-safe)
                             _sessionManager->clearUDPBinding(endpointStr);
 
+                            // Unregister from network stats (thread-safe)
+                            _networkStats->unregisterPlayer(endpointStr);
+
                             // Remove from GameWorld (we're in the strand, safe)
                             gameWorld->removePlayer(playerId);
 
@@ -728,8 +758,21 @@ namespace infrastructure::adapters::in::network {
         return _instanceManager.getTotalPlayerCount();
     }
 
+    void UDPServer::scheduleStatsUpdate() {
+        _statsTimer.expires_after(std::chrono::seconds(1));
+        _statsTimer.async_wait([this](boost::system::error_code ec) {
+            if (ec) return;
+
+            _networkStats->calculateRates();
+            scheduleStatsUpdate();  // Reschedule
+        });
+    }
+
     void UDPServer::handlePlayerLeaveGame(uint8_t playerId, const std::string& roomCode, const std::string& endpoint) {
         auto logger = server::logging::Logger::getGameLogger();
+
+        // Unregister player from network stats (thread-safe)
+        _networkStats->unregisterPlayer(endpoint);
 
         // Get the game instance for this room
         auto gameWorld = _instanceManager.getInstance(roomCode);

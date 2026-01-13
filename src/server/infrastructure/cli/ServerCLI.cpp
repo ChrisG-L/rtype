@@ -9,6 +9,7 @@
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
 #include "infrastructure/logging/Logger.hpp"
 #include "infrastructure/tui/Utf8Utils.hpp"
+#include "infrastructure/network/NetworkStats.hpp"
 #include "domain/value_objects/user/Email.hpp"
 #include "domain/value_objects/user/Username.hpp"
 #include "domain/value_objects/user/Password.hpp"
@@ -17,6 +18,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cstdio>
+#include <set>
 
 #ifdef _WIN32
 // WIN32_LEAN_AND_MEAN prevents windows.h from including winsock.h
@@ -63,6 +65,7 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["debug"] = [this](const std::string& args) { toggleDebug(args); };
     _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
     _commands["interact"] = [this](const std::string& args) { enterInteractMode(args); };
+    _commands["net"] = [this](const std::string& args) { cmdNet(args); };
     _commands["quit"] = [this](const std::string&) { stop(); };
     _commands["exit"] = [this](const std::string&) { stop(); };
 
@@ -229,6 +232,7 @@ void ServerCLI::printHelp() {
     output("║ logs <on|off>        - Enable/disable all server logs        ║");
     output("║ debug <on|off>       - Enable/disable debug logs             ║");
     output("║ zoom                 - Full-screen log view (ESC to exit)    ║");
+    output("║ net                  - Real-time network monitor (tree view) ║");
     output("║ interact [cmd]       - Navigate output (sessions/bans/users/ ║");
     output("║                        rooms/room/user)                      ║");
     output("║ quit/exit            - Stop the server                       ║");
@@ -1969,6 +1973,239 @@ void ServerCLI::copyToClipboard(const std::string& text) {
         pclose(pipe);
     }
 #endif
+}
+
+// ============================================================================
+// Network Monitor Command
+// ============================================================================
+
+void ServerCLI::cmdNet(const std::string& args) {
+    (void)args;  // Unused
+    if (!_terminalUI) {
+        output("[CLI] Network monitor not available (TUI not initialized).");
+        return;
+    }
+
+    // Set up the network monitor callback
+    _terminalUI->setNetworkMonitorCallback([this]() {
+        return buildNetworkGraph();
+    });
+
+    // Enter network monitor mode
+    _terminalUI->enterNetworkMonitorMode();
+}
+
+namespace {
+    // ANSI color codes
+    constexpr const char* COLOR_GREEN = "\033[32m";
+    constexpr const char* COLOR_YELLOW = "\033[33m";
+    constexpr const char* COLOR_RED = "\033[31m";
+    constexpr const char* COLOR_GRAY = "\033[90m";
+    constexpr const char* COLOR_CYAN = "\033[36m";
+    constexpr const char* COLOR_BOLD = "\033[1m";
+    constexpr const char* COLOR_RESET = "\033[0m";
+
+    const char* getRttColor(uint32_t rttMs) {
+        if (rttMs < 50) return COLOR_GREEN;
+        if (rttMs < 100) return COLOR_YELLOW;
+        return COLOR_RED;
+    }
+
+    std::string formatBandwidth(double bytesPerSec) {
+        double kbps = bytesPerSec / 1024.0;
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(1) << kbps;
+        return oss.str();
+    }
+}
+
+std::string ServerCLI::buildNetworkGraph() {
+    std::ostringstream graph;
+
+    auto networkStats = _udpServer.getNetworkStats();
+    if (!networkStats) {
+        graph << "  Network statistics not available\n";
+        return graph.str();
+    }
+
+    // Header
+    graph << "\n";
+    graph << COLOR_BOLD << "  ══════════════════════════════════════════════════════════════\n" << COLOR_RESET;
+    graph << COLOR_BOLD << "                       NETWORK MONITOR\n" << COLOR_RESET;
+    graph << COLOR_BOLD << "  ══════════════════════════════════════════════════════════════\n" << COLOR_RESET;
+    graph << "\n";
+
+    // Global server stats
+    double outCurrent = networkStats->getCurrentSendRate();
+    double outAvg = networkStats->getAverageSendRate();
+    double inCurrent = networkStats->getCurrentReceiveRate();
+    double inAvg = networkStats->getAverageReceiveRate();
+    uint32_t globalRtt = networkStats->getGlobalAverageRTT();
+
+    graph << "  " << COLOR_CYAN << "●" << COLOR_RESET << " " << COLOR_BOLD << "SERVER" << COLOR_RESET << " (UDP:4124)\n";
+    graph << "  │ ↑ OUT: " << formatBandwidth(outCurrent) << "/" << formatBandwidth(outAvg) << " KB/s (cur/avg)\n";
+    graph << "  │ ↓ IN:  " << formatBandwidth(inCurrent) << "/" << formatBandwidth(inAvg) << " KB/s\n";
+    graph << "  │ RTT avg: " << getRttColor(globalRtt) << globalRtt << " ms" << COLOR_RESET << "\n";
+    graph << "  │\n";
+
+    // Collect all endpoints that are in rooms
+    std::set<std::string> endpointsInRooms;
+
+    // Get all rooms and their players
+    if (_roomManager) {
+        auto rooms = _roomManager->getAllRooms();
+        bool isLastRoom = false;
+
+        for (size_t roomIdx = 0; roomIdx < rooms.size(); ++roomIdx) {
+            const auto* room = rooms[roomIdx];
+            isLastRoom = (roomIdx == rooms.size() - 1);
+            std::string roomPrefix = isLastRoom ? "  └─" : "  ├─";
+            std::string childPrefix = isLastRoom ? "    " : "  │ ";
+
+            // Collect all players in this room (with or without UDP)
+            std::vector<std::string> roomEndpoints;  // Only UDP-connected players
+            struct RoomPlayerInfo {
+                std::string displayName;
+                std::string endpoint;  // Empty if not UDP-bound
+                bool hasUdp;
+            };
+            std::vector<RoomPlayerInfo> playersInfo;
+
+            for (const auto& slot : room->getSlots()) {
+                if (slot.occupied) {
+                    auto session = _sessionManager->getSessionByEmail(slot.email);
+                    if (session && session->udpBound && !session->udpEndpoint.empty()) {
+                        roomEndpoints.push_back(session->udpEndpoint);
+                        endpointsInRooms.insert(session->udpEndpoint);
+                        playersInfo.push_back({slot.displayName, session->udpEndpoint, true});
+                    } else {
+                        // Player in room but no UDP connection yet (in lobby)
+                        playersInfo.push_back({slot.displayName, "", false});
+                    }
+                }
+            }
+
+            // Get room aggregate stats
+            auto roomStats = networkStats->getRoomStats(roomEndpoints);
+
+            // Room header
+            if (playersInfo.empty()) {
+                // Empty room (no players at all)
+                graph << roomPrefix << COLOR_GRAY << "○" << COLOR_RESET << " "
+                      << COLOR_GRAY << "ROOM: " << room->getCode() << " \"" << room->getName()
+                      << "\" (empty)" << COLOR_RESET << "\n";
+            } else if (roomEndpoints.empty()) {
+                // Room with players but no UDP connections (all in lobby)
+                graph << roomPrefix << COLOR_YELLOW << "○" << COLOR_RESET << " "
+                      << COLOR_BOLD << "ROOM: " << room->getCode() << COLOR_RESET
+                      << " \"" << room->getName() << "\" (" << playersInfo.size() << " in lobby)\n";
+                graph << childPrefix << COLOR_GRAY << "   (waiting to start)" << COLOR_RESET << "\n";
+
+                // Show players in lobby
+                if (!_terminalUI->areRoomsCollapsed()) {
+                    for (size_t playerIdx = 0; playerIdx < playersInfo.size(); ++playerIdx) {
+                        const auto& player = playersInfo[playerIdx];
+                        bool isLastPlayer = (playerIdx == playersInfo.size() - 1);
+                        std::string playerPrefix = isLastPlayer ? "└──" : "├──";
+                        graph << childPrefix << playerPrefix << " " << COLOR_GRAY
+                              << player.displayName << " (in lobby)" << COLOR_RESET << "\n";
+                    }
+                }
+            } else {
+                // Room with UDP players (game running)
+                const char* roomRttColor = getRttColor(roomStats.rttAverage);
+                graph << roomPrefix << COLOR_CYAN << "●" << COLOR_RESET << " "
+                      << COLOR_BOLD << "ROOM: " << room->getCode() << COLOR_RESET
+                      << " \"" << room->getName() << "\" (" << playersInfo.size() << " players)\n";
+                graph << childPrefix << "│ ↑ OUT: " << formatBandwidth(roomStats.outCurrent) << "/"
+                      << formatBandwidth(roomStats.outAverage) << " KB/s (cur/avg)\n";
+                graph << childPrefix << "│ ↓ IN:  " << formatBandwidth(roomStats.inCurrent) << "/"
+                      << formatBandwidth(roomStats.inAverage) << " KB/s\n";
+                graph << childPrefix << "│ RTT avg: " << roomRttColor << roomStats.rttAverage << " ms" << COLOR_RESET << "\n";
+                graph << childPrefix << "│\n";
+
+                // Players in room (only if not collapsed)
+                if (!_terminalUI->areRoomsCollapsed()) {
+                    for (size_t playerIdx = 0; playerIdx < playersInfo.size(); ++playerIdx) {
+                        const auto& player = playersInfo[playerIdx];
+                        bool isLastPlayer = (playerIdx == playersInfo.size() - 1);
+                        std::string playerPrefix = isLastPlayer ? "└──" : "├──";
+                        std::string playerChildPrefix = isLastPlayer ? "   " : "│  ";
+
+                        if (player.hasUdp) {
+                            // Player with UDP connection - show full stats
+                            auto playerStats = networkStats->getPlayerStats(player.endpoint);
+                            if (playerStats) {
+                                const char* rttColor = getRttColor(playerStats->rttCurrent);
+                                graph << childPrefix << playerPrefix << " " << player.displayName
+                                      << " (" << player.endpoint << ")\n";
+                                graph << childPrefix << playerChildPrefix << "   RTT: "
+                                      << rttColor << playerStats->rttCurrent << "/" << playerStats->rttAverage
+                                      << "/" << playerStats->rttMax << " ms" << COLOR_RESET
+                                      << "  ↑ " << formatBandwidth(playerStats->outCurrent) << "/"
+                                      << formatBandwidth(playerStats->outAverage) << "/"
+                                      << formatBandwidth(playerStats->outPeak) << " KB/s"
+                                      << "  ↓ " << formatBandwidth(playerStats->inCurrent) << "/"
+                                      << formatBandwidth(playerStats->inAverage) << " KB/s\n";
+                            }
+                        } else {
+                            // Player in lobby (no UDP yet)
+                            graph << childPrefix << playerPrefix << " " << COLOR_GRAY
+                                  << player.displayName << " (in lobby)" << COLOR_RESET << "\n";
+                        }
+                    }
+                } else {
+                    graph << childPrefix << "   " << COLOR_GRAY << "(" << playersInfo.size()
+                          << " players - press 'c' to expand)" << COLOR_RESET << "\n";
+                }
+            }
+
+            if (!isLastRoom) {
+                graph << "  │\n";
+            }
+        }
+    }
+
+    // Connected users not in a room (TCP only, no UDP yet)
+    std::vector<session::Session> usersNotInRoom;
+    auto allSessions = _sessionManager->getAllSessions();
+
+    for (const auto& sess : allSessions) {
+        // Check if user is in any room
+        bool inRoom = false;
+        if (_roomManager) {
+            inRoom = _roomManager->isPlayerInRoom(sess.email);
+        }
+        if (!inRoom) {
+            usersNotInRoom.push_back(sess);
+        }
+    }
+
+    if (!usersNotInRoom.empty()) {
+        graph << "  │\n";
+        graph << "  ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n";
+        graph << "  " << COLOR_YELLOW << "○" << COLOR_RESET << " "
+              << COLOR_BOLD << "CONNECTED USERS" << COLOR_RESET
+              << " (not in a room - TCP only)\n";
+        graph << "  │\n";
+
+        for (size_t i = 0; i < usersNotInRoom.size(); ++i) {
+            const auto& sess = usersNotInRoom[i];
+            bool isLast = (i == usersNotInRoom.size() - 1);
+            std::string prefix = isLast ? "  └──" : "  ├──";
+
+            graph << prefix << " " << sess.displayName << " (" << sess.email << ")\n";
+        }
+    }
+
+    // Footer with legend
+    graph << "\n";
+    graph << "  ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n";
+    graph << "  RTT colors: " << COLOR_GREEN << "<50ms" << COLOR_RESET << " │ "
+          << COLOR_YELLOW << "50-100ms" << COLOR_RESET << " │ "
+          << COLOR_RED << ">100ms" << COLOR_RESET << "\n";
+
+    return graph.str();
 }
 
 } // namespace infrastructure::cli

@@ -142,7 +142,7 @@ namespace core {
             _sceneManager->render();
             _window->endFrame();
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+            std::this_thread::sleep_for(std::chrono::milliseconds(16)); // 62.5 FPS théorique (1000ms / 16ms)
         }
     }
 
