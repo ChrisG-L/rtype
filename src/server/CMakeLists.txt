@@ -62,6 +62,9 @@ add_executable(rtype_server
 
     # Infrastructure - Logging
     infrastructure/logging/Logger.cpp
+
+    # Infrastructure - Network
+    infrastructure/network/NetworkStats.cpp
 )
 
 # Détection du compilateur

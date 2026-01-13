@@ -254,39 +254,70 @@ void ServerCLI::printStatus() {
     bool logsEnabled = server::logging::Logger::isEnabled();
     bool debugEnabled = server::logging::Logger::isDebugEnabled();
 
+    // Get network stats
+    auto networkStats = _udpServer.getNetworkStats();
+
     std::ostringstream oss;
     output("");
-    output("╔═════════════════════════════════════╗");
-    output("║            SERVER STATUS            ║");
-    output("╠═════════════════════════════════════╣");
+    output("╔═══════════════════════════════════════════════════════════════════╗");
+    output("║                          SERVER STATUS                            ║");
+    output("╠═══════════════════════════════════════════════════════════════════╣");
 
-    oss << "║ Active Sessions: " << std::setw(4) << sessionCount << "               ║";
+    oss << "║ Active Sessions: " << std::setw(4) << sessionCount
+        << "          Active Rooms: " << std::setw(4) << roomCount << "                 ║";
     output(oss.str());
     oss.str("");
 
-    oss << "║ Players in Game: " << std::setw(4) << playerCount << "               ║";
+    oss << "║ Players in Game: " << std::setw(4) << playerCount
+        << "          Users in DB:  " << std::setw(4) << usersInDb << "                 ║";
     output(oss.str());
     oss.str("");
 
-    oss << "║ Active Rooms:    " << std::setw(4) << roomCount << "               ║";
+    oss << "║ Banned Users:    " << std::setw(4) << bannedCount
+        << "                                             ║";
     output(oss.str());
+
+    output("╠═══════════════════════════════════════════════════════════════════╣");
+
+    // Network stats line (all values in KB/s)
+    if (networkStats) {
+        double sendRate = networkStats->getCurrentSendRate() / 1024.0;
+        double sendAvg = networkStats->getAverageSendRate() / 1024.0;
+        double recvRate = networkStats->getCurrentReceiveRate() / 1024.0;
+        double recvAvg = networkStats->getAverageReceiveRate() / 1024.0;
+        uint32_t avgRtt = networkStats->getGlobalAverageRTT();
+
+        oss.str("");
+        oss << "║ Network (KB/s): ↑ " << std::fixed << std::setprecision(1)
+            << sendRate << "/" << sendAvg << " avg"
+            << "   ↓ " << recvRate << "/" << recvAvg << " avg";
+
+        // Add RTT if we have players
+        if (avgRtt > 0) {
+            oss << "   RTT: " << avgRtt << " ms";
+        }
+
+        // Pad to fit the box width (69 chars total: ║ + content + ║)
+        std::string netLine = oss.str();
+        size_t currentWidth = tui::utf8::displayWidth(netLine);
+        size_t targetWidth = 69;  // Total width including both ║ borders
+        if (currentWidth < targetWidth) {
+            size_t padding = targetWidth - currentWidth - 1;  // -1 for closing ║
+            netLine += std::string(padding, ' ');
+        }
+        netLine += "║";
+        output(netLine);
+    }
+
+    output("╠═══════════════════════════════════════════════════════════════════╣");
+
     oss.str("");
-
-    oss << "║ Banned Users:    " << std::setw(4) << bannedCount << "               ║";
-    output(oss.str());
-    oss.str("");
-
-    oss << "║ Users in DB:     " << std::setw(4) << usersInDb << "               ║";
+    oss << "║ Logs: " << std::left << std::setw(5) << (logsEnabled ? "ON" : "OFF")
+        << "   Debug: " << std::setw(5) << (debugEnabled ? "ON" : "OFF")
+        << "                                        ║";
     output(oss.str());
 
-    output("╠═════════════════════════════════════╣");
-
-    oss.str("");
-    oss << "║ Logs:   " << std::left << std::setw(10) << (logsEnabled ? "ON" : "OFF")
-        << "  Debug: " << std::setw(6) << (debugEnabled ? "ON" : "OFF") << "   ║";
-    output(oss.str());
-
-    output("╚═════════════════════════════════════╝");
+    output("╚═══════════════════════════════════════════════════════════════════╝");
     output("");
 }
 
@@ -300,20 +331,36 @@ void ServerCLI::listSessions() {
         return;
     }
 
+    // Get network stats
+    auto networkStats = _udpServer.getNetworkStats();
+
     output("");
-    output("╔═══════════════════════════════════════════════════════════════════════════════════════════════╗");
-    output("║                                        ACTIVE SESSIONS                                        ║");
-    output("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output("╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                                    ACTIVE SESSIONS                                                     ║");
+    output("╠════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
-    header << "║ " << std::left << std::setw(25) << "Email"
-           << std::setw(15) << "Display Name"
-           << std::setw(10) << "Status"
-           << std::setw(9) << "Room"
-           << std::setw(10) << "Player ID"
-           << std::setw(22) << "Endpoint" << "   ║";
+    header << "║ " << std::left << std::setw(22) << "Email"
+           << std::setw(12) << "Display"
+           << std::setw(8) << "Status"
+           << std::setw(8) << "Room"
+           << std::setw(4) << "PID"
+           << std::setw(18) << "Endpoint"
+           << std::setw(16) << "RTT (ms)"
+           << std::setw(28) << "Bandwidth (KB/s)" << "   ║";
     output(header.str());
-    output("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream subheader;
+    subheader << "║ " << std::left << std::setw(22) << ""
+              << std::setw(12) << ""
+              << std::setw(8) << ""
+              << std::setw(8) << ""
+              << std::setw(4) << ""
+              << std::setw(18) << ""
+              << std::setw(16) << "cur/avg/max"
+              << std::setw(28) << "↑curr/avg/max ↓curr/avg" << "       ║";
+    output(subheader.str());
+    output("╠════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     for (const auto& session : sessions) {
         std::string statusStr;
@@ -335,22 +382,51 @@ void ServerCLI::listSessions() {
             }
         }
 
+        // Get network stats for this player
+        std::string rttStr = "-";
+        std::string bwStr = "-";
+        if (networkStats && !session.udpEndpoint.empty()) {
+            auto playerStats = networkStats->getPlayerStats(session.udpEndpoint);
+            if (playerStats) {
+                // RTT: cur/avg/max
+                std::ostringstream rttOss;
+                rttOss << playerStats->rttCurrent << "/"
+                       << playerStats->rttAverage << "/"
+                       << playerStats->rttMax;
+                rttStr = rttOss.str();
+
+                // Bandwidth (KB/s): ↑cur/avg/max ↓cur/avg
+                std::ostringstream bwOss;
+                bwOss << std::fixed << std::setprecision(1)
+                      << "↑" << (playerStats->outCurrent / 1024.0)
+                      << "/" << (playerStats->outAverage / 1024.0)
+                      << "/" << (playerStats->outPeak / 1024.0)
+                      << " ↓" << (playerStats->inCurrent / 1024.0)
+                      << "/" << (playerStats->inAverage / 1024.0);
+                bwStr = bwOss.str();
+            }
+        }
+
         // Truncate long strings (UTF-8 aware)
-        std::string email = tui::utf8::truncateWithEllipsis(session.email, 24);
-        std::string displayName = tui::utf8::truncateWithEllipsis(session.displayName, 14);
-        endpointStr = tui::utf8::truncateWithEllipsis(endpointStr, 21);
+        std::string email = tui::utf8::truncateWithEllipsis(session.email, 21);
+        std::string displayName = tui::utf8::truncateWithEllipsis(session.displayName, 11);
+        endpointStr = tui::utf8::truncateWithEllipsis(endpointStr, 17);
+        rttStr = tui::utf8::truncateWithEllipsis(rttStr, 15);
+        bwStr = tui::utf8::truncateWithEllipsis(bwStr, 28);
 
         std::ostringstream row;
-        row << "║ " << std::left << std::setw(25) << email
-            << std::setw(15) << displayName
-            << std::setw(10) << statusStr
-            << std::setw(9) << roomCode
-            << std::setw(10) << playerIdStr
-            << std::setw(22) << endpointStr << "   ║";
+        row << "║ " << std::left << std::setw(22) << email
+            << std::setw(12) << displayName
+            << std::setw(8) << statusStr
+            << std::setw(8) << roomCode
+            << std::setw(4) << playerIdStr
+            << std::setw(18) << endpointStr
+            << std::setw(16) << rttStr
+            << std::setw(30) << bwStr << " ║";
         output(row.str());
     }
 
-    output("╚═══════════════════════════════════════════════════════════════════════════════════════════════╝");
+    output("╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝");
     output("");
 
     // Build and store interactive output for interact mode
@@ -801,6 +877,21 @@ void ServerCLI::showRoom(const std::string& args) {
         return;
     }
 
+    // Get network stats
+    auto networkStats = _udpServer.getNetworkStats();
+
+    // Collect endpoints for room-level stats
+    std::vector<std::string> roomEndpoints;
+    const auto& slots = room->getSlots();
+    for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
+        if (slots[i].occupied) {
+            auto sessionOpt = _sessionManager->getSessionByEmail(slots[i].email);
+            if (sessionOpt && !sessionOpt->udpEndpoint.empty()) {
+                roomEndpoints.push_back(sessionOpt->udpEndpoint);
+            }
+        }
+    }
+
     std::string stateStr;
     switch (room->getState()) {
         case domain::entities::Room::State::Waiting: stateStr = "Waiting"; break;
@@ -810,61 +901,140 @@ void ServerCLI::showRoom(const std::string& args) {
     }
 
     output("");
-    output("╔═════════════════════════════════════════════════════════════════╗");
-    output("║                         ROOM DETAILS                            ║");
-    output("╠═════════════════════════════════════════════════════════════════╣");
+    output("╔══════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output("║                                          ROOM DETAILS                                            ║");
+    output("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream oss;
-    oss << "║ Code:       " << std::left << std::setw(52) << room->getCode() << "║";
+    oss << "║ Code:       " << std::left << std::setw(85) << room->getCode() << "║";
     output(oss.str());
     oss.str("");
 
-    oss << "║ Name:       " << std::left << std::setw(52) << room->getName() << "║";
+    oss << "║ Name:       " << std::left << std::setw(85) << room->getName() << "║";
     output(oss.str());
     oss.str("");
 
-    oss << "║ Host:       " << std::left << std::setw(52) << room->getHostEmail() << "║";
+    oss << "║ Host:       " << std::left << std::setw(85) << room->getHostEmail() << "║";
     output(oss.str());
     oss.str("");
 
     std::string playersStr = std::to_string(room->getPlayerCount()) + "/" +
                              std::to_string(room->getMaxPlayers());
-    oss << "║ Players:    " << std::left << std::setw(52) << playersStr << "║";
+    oss << "║ Players:    " << std::left << std::setw(85) << playersStr << "║";
     output(oss.str());
     oss.str("");
 
-    oss << "║ State:      " << std::left << std::setw(52) << stateStr << "║";
+    oss << "║ State:      " << std::left << std::setw(85) << stateStr << "║";
     output(oss.str());
     oss.str("");
 
-    oss << "║ Private:    " << std::left << std::setw(52) << (room->isPrivate() ? "Yes" : "No") << "║";
+    oss << "║ Private:    " << std::left << std::setw(85) << (room->isPrivate() ? "Yes" : "No") << "║";
     output(oss.str());
 
-    output("╠═════════════════════════════════════════════════════════════════╣");
-    output("║                             PLAYERS                             ║");
-    output("╠═════════════════════════════════════════════════════════════════╣");
+    // Network stats section (room-level aggregated, all values in KB/s)
+    if (networkStats && !roomEndpoints.empty()) {
+        auto roomStats = networkStats->getRoomStats(roomEndpoints);
+
+        output("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+
+        oss.str("");
+        oss << "║ Network (KB/s): ↑ " << std::fixed << std::setprecision(1)
+            << (roomStats.outCurrent / 1024.0) << "/" << (roomStats.outAverage / 1024.0) << " avg"
+            << "   ↓ " << (roomStats.inCurrent / 1024.0) << "/" << (roomStats.inAverage / 1024.0) << " avg";
+        if (roomStats.rttAverage > 0) {
+            oss << "   RTT avg: " << roomStats.rttAverage << " ms";
+        }
+        std::string netLine = oss.str();
+        size_t currentWidth = tui::utf8::displayWidth(netLine);
+        size_t targetWidth = 98;  // Total width including both ║ borders
+        if (currentWidth < targetWidth) {
+            size_t padding = targetWidth - currentWidth - 1;  // -1 for closing ║
+            netLine += std::string(padding, ' ');
+        }
+        netLine += "║";
+        output(netLine);
+    }
+
+    output("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output("║                                             PLAYERS                                              ║");
+    output("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream playerHeader;
-    playerHeader << "║ " << std::left << std::setw(6) << "Slot"
-                 << std::setw(20) << "Display Name"
-                 << std::setw(10) << "Ready"
-                 << std::setw(10) << "Host"
-                 << std::setw(18) << "Email" << "║";
+    playerHeader << "║ " << std::left << std::setw(5) << "Slot"
+                 << std::setw(14) << "Display Name"
+                 << std::setw(14) << "RTT (ms)"
+                 << std::setw(18) << "OUT (KB/s)"
+                 << std::setw(14) << "IN (KB/s)"
+                 << std::setw(7) << "Ready"
+                 << std::setw(6) << "Host"
+                 << std::setw(18) << "Email" << " ║";
     output(playerHeader.str());
-    output("╠═════════════════════════════════════════════════════════════════╣");
 
-    const auto& slots = room->getSlots();
+    std::ostringstream playerSubHeader;
+    playerSubHeader << "║ " << std::left << std::setw(5) << ""
+                    << std::setw(14) << ""
+                    << std::setw(14) << "cur/avg/max"
+                    << std::setw(18) << "cur/avg/max"
+                    << std::setw(14) << "cur/avg"
+                    << std::setw(7) << ""
+                    << std::setw(6) << ""
+                    << std::setw(18) << "" << " ║";
+    output(playerSubHeader.str());
+    output("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+
     for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
         if (slots[i].occupied) {
-            std::string nameTrunc = tui::utf8::truncateWithEllipsis(slots[i].displayName, 19);
+            std::string nameTrunc = tui::utf8::truncateWithEllipsis(slots[i].displayName, 13);
             std::string emailTrunc = tui::utf8::truncateWithEllipsis(slots[i].email, 17);
 
+            // Get network stats for this player
+            std::string rttStr = "-/-/-";
+            std::string outStr = "-/-/-";
+            std::string inStr = "-/-";
+
+            if (networkStats) {
+                auto sessionOpt = _sessionManager->getSessionByEmail(slots[i].email);
+                if (sessionOpt && !sessionOpt->udpEndpoint.empty()) {
+                    auto playerStats = networkStats->getPlayerStats(sessionOpt->udpEndpoint);
+                    if (playerStats) {
+                        // RTT: cur/avg/max
+                        std::ostringstream rttOss;
+                        rttOss << playerStats->rttCurrent << "/"
+                               << playerStats->rttAverage << "/"
+                               << playerStats->rttMax;
+                        rttStr = rttOss.str();
+
+                        // OUT: cur/avg/max (in KB/s)
+                        std::ostringstream outOss;
+                        outOss << std::fixed << std::setprecision(1)
+                               << (playerStats->outCurrent / 1024.0) << "/"
+                               << (playerStats->outAverage / 1024.0) << "/"
+                               << (playerStats->outPeak / 1024.0);
+                        outStr = outOss.str();
+
+                        // IN: cur/avg (in KB/s)
+                        std::ostringstream inOss;
+                        inOss << std::fixed << std::setprecision(1)
+                              << (playerStats->inCurrent / 1024.0) << "/"
+                              << (playerStats->inAverage / 1024.0);
+                        inStr = inOss.str();
+                    }
+                }
+            }
+
+            rttStr = tui::utf8::truncateWithEllipsis(rttStr, 13);
+            outStr = tui::utf8::truncateWithEllipsis(outStr, 17);
+            inStr = tui::utf8::truncateWithEllipsis(inStr, 13);
+
             std::ostringstream playerRow;
-            playerRow << "║ " << std::left << std::setw(6) << i
-                      << std::setw(20) << nameTrunc
-                      << std::setw(10) << (slots[i].isReady ? "Yes" : "No")
-                      << std::setw(10) << (slots[i].isHost ? "Yes" : "No")
-                      << std::setw(18) << emailTrunc << "║";
+            playerRow << "║ " << std::left << std::setw(5) << i
+                      << std::setw(14) << nameTrunc
+                      << std::setw(14) << rttStr
+                      << std::setw(18) << outStr
+                      << std::setw(14) << inStr
+                      << std::setw(7) << (slots[i].isReady ? "Yes" : "No")
+                      << std::setw(6) << (slots[i].isHost ? "Yes" : "No")
+                      << std::setw(18) << emailTrunc << " ║";
             output(playerRow.str());
         }
     }
@@ -872,32 +1042,32 @@ void ServerCLI::showRoom(const std::string& args) {
     // Chat history section
     const auto& chatHistory = room->getChatHistory();
     if (!chatHistory.empty()) {
-        output("╠═════════════════════════════════════════════════════════════════╣");
-        output("║                        CHAT HISTORY                             ║");
-        output("╠═════════════════════════════════════════════════════════════════╣");
+        output("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+        output("║                                          CHAT HISTORY                                            ║");
+        output("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
         // Show last 10 messages
         size_t startIdx = chatHistory.size() > 10 ? chatHistory.size() - 10 : 0;
         for (size_t i = startIdx; i < chatHistory.size(); ++i) {
             const auto& msg = chatHistory[i];
             std::string senderTrunc = tui::utf8::truncateWithEllipsis(msg.displayName, 12);
-            std::string msgTrunc = tui::utf8::truncateWithEllipsis(msg.message, 48);
+            std::string msgTrunc = tui::utf8::truncateWithEllipsis(msg.message, 78);
 
             std::ostringstream chatRow;
             chatRow << "║ " << std::left << std::setw(14) << ("[" + senderTrunc + "]")
-                    << std::setw(50) << msgTrunc << " ║";
+                    << std::setw(82) << msgTrunc << " ║";
             output(chatRow.str());
         }
 
         if (startIdx > 0) {
             std::ostringstream moreRow;
-            moreRow << "║ " << std::left << std::setw(62)
+            moreRow << "║ " << std::left << std::setw(95)
                     << ("... " + std::to_string(startIdx) + " more message(s)") << " ║";
             output(moreRow.str());
         }
     }
 
-    output("╚═════════════════════════════════════════════════════════════════╝");
+    output("╚══════════════════════════════════════════════════════════════════════════════════════════════════╝");
     output("");
 
     // Store interactive output for interact mode
@@ -1050,21 +1220,37 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
         return output;
     }
 
-    // Build lines (same format as listSessions)
+    // Get network stats
+    auto networkStats = _udpServer.getNetworkStats();
+
+    // Build lines (same format as listSessions with network columns)
     output.lines.push_back("");
-    output.lines.push_back("╔═══════════════════════════════════════════════════════════════════════════════════════════════╗");
-    output.lines.push_back("║                                        ACTIVE SESSIONS                                        ║");
-    output.lines.push_back("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                                    ACTIVE SESSIONS                                                     ║");
+    output.lines.push_back("╠════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     std::ostringstream header;
-    header << "║ " << std::left << std::setw(25) << "Email"
-           << std::setw(15) << "Display Name"
-           << std::setw(10) << "Status"
-           << std::setw(9) << "Room"
-           << std::setw(10) << "Player ID"
-           << std::setw(22) << "Endpoint" << "   ║";
+    header << "║ " << std::left << std::setw(22) << "Email"
+           << std::setw(12) << "Display"
+           << std::setw(8) << "Status"
+           << std::setw(8) << "Room"
+           << std::setw(4) << "PID"
+           << std::setw(18) << "Endpoint"
+           << std::setw(16) << "RTT (ms)"
+           << std::setw(24) << "Bandwidth (KB/s)" << "  ║";
     output.lines.push_back(header.str());
-    output.lines.push_back("╠═══════════════════════════════════════════════════════════════════════════════════════════════╣");
+
+    std::ostringstream subheader;
+    subheader << "║ " << std::left << std::setw(22) << ""
+              << std::setw(12) << ""
+              << std::setw(8) << ""
+              << std::setw(8) << ""
+              << std::setw(4) << ""
+              << std::setw(18) << ""
+              << std::setw(16) << "cur/avg/max"
+              << std::setw(24) << "↑curr/avg/max ↓curr/avg" << "  ║";
+    output.lines.push_back(subheader.str());
+    output.lines.push_back("╠════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     size_t lineIdx = output.lines.size();  // First data line
 
@@ -1088,28 +1274,57 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
             }
         }
 
+        // Get network stats for this player
+        std::string rttStr = "-";
+        std::string bwStr = "-";
+        if (networkStats && !session.udpEndpoint.empty()) {
+            auto playerStats = networkStats->getPlayerStats(session.udpEndpoint);
+            if (playerStats) {
+                // RTT: cur/avg/max
+                std::ostringstream rttOss;
+                rttOss << playerStats->rttCurrent << "/"
+                       << playerStats->rttAverage << "/"
+                       << playerStats->rttMax;
+                rttStr = rttOss.str();
+
+                // Bandwidth (KB/s): ↑cur/avg/max ↓cur/avg
+                std::ostringstream bwOss;
+                bwOss << std::fixed << std::setprecision(1)
+                      << "↑" << (playerStats->outCurrent / 1024.0)
+                      << "/" << (playerStats->outAverage / 1024.0)
+                      << "/" << (playerStats->outPeak / 1024.0)
+                      << " ↓" << (playerStats->inCurrent / 1024.0)
+                      << "/" << (playerStats->inAverage / 1024.0);
+                bwStr = bwOss.str();
+            }
+        }
+
         // Truncate for display
-        std::string emailTrunc = tui::utf8::truncateWithEllipsis(session.email, 24);
-        std::string displayNameTrunc = tui::utf8::truncateWithEllipsis(session.displayName, 14);
-        std::string endpointTrunc = tui::utf8::truncateWithEllipsis(endpointStr, 21);
+        std::string emailTrunc = tui::utf8::truncateWithEllipsis(session.email, 21);
+        std::string displayNameTrunc = tui::utf8::truncateWithEllipsis(session.displayName, 11);
+        std::string endpointTrunc = tui::utf8::truncateWithEllipsis(endpointStr, 17);
+        rttStr = tui::utf8::truncateWithEllipsis(rttStr, 15);
+        bwStr = tui::utf8::truncateWithEllipsis(bwStr, 23);
 
         std::ostringstream row;
-        row << "║ " << std::left << std::setw(25) << emailTrunc
-            << std::setw(15) << displayNameTrunc
-            << std::setw(10) << statusStr
-            << std::setw(9) << roomCode
-            << std::setw(10) << playerIdStr
-            << std::setw(22) << endpointTrunc << "   ║";
+        row << "║ " << std::left << std::setw(22) << emailTrunc
+            << std::setw(12) << displayNameTrunc
+            << std::setw(8) << statusStr
+            << std::setw(8) << roomCode
+            << std::setw(4) << playerIdStr
+            << std::setw(18) << endpointTrunc
+            << std::setw(16) << rttStr
+            << std::setw(24) << bwStr << "  ║";
         output.lines.push_back(row.str());
 
         // Column positions (after "║ ")
         size_t col = 2;  // Start after "║ "
 
-        // Email element (25 columns)
+        // Email element (22 columns)
         tui::SelectableElement emailElem;
         emailElem.lineIndex = lineIdx;
         emailElem.startCol = col;
-        emailElem.endCol = col + 25;
+        emailElem.endCol = col + 22;
         emailElem.value = session.email;
         emailElem.truncatedValue = emailTrunc;
         emailElem.type = tui::ElementType::Email;
@@ -1117,13 +1332,13 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
             emailElem.associatedPlayerId = *session.playerId;
         }
         output.elements.push_back(emailElem);
-        col += 25;
+        col += 22;
 
-        // Display Name element (15 columns)
+        // Display Name element (12 columns)
         tui::SelectableElement nameElem;
         nameElem.lineIndex = lineIdx;
         nameElem.startCol = col;
-        nameElem.endCol = col + 15;
+        nameElem.endCol = col + 12;
         nameElem.value = session.displayName;
         nameElem.truncatedValue = displayNameTrunc;
         nameElem.type = tui::ElementType::DisplayName;
@@ -1132,10 +1347,10 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
             nameElem.associatedPlayerId = *session.playerId;
         }
         output.elements.push_back(nameElem);
-        col += 15;
+        col += 12;
 
         // Status is not selectable, skip it
-        col += 10;
+        col += 8;
 
         // Room code element (8 columns) - selectable if in a room
         if (roomCode != "-") {
@@ -1150,14 +1365,14 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
             roomElem.associatedEmail = session.email;
             output.elements.push_back(roomElem);
         }
-        col += 9;
+        col += 8;
 
-        // Player ID element (10 columns) - only if not "-"
+        // Player ID element (4 columns) - only if not "-"
         if (session.playerId) {
             tui::SelectableElement pidElem;
             pidElem.lineIndex = lineIdx;
             pidElem.startCol = col;
-            pidElem.endCol = col + 10;
+            pidElem.endCol = col + 4;
             pidElem.value = playerIdStr;
             pidElem.truncatedValue = playerIdStr;
             pidElem.type = tui::ElementType::PlayerId;
@@ -1165,14 +1380,14 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
             pidElem.associatedEmail = session.email;
             output.elements.push_back(pidElem);
         }
-        col += 10;
+        col += 4;
 
-        // Endpoint element (22 columns) - only if not "-"
+        // Endpoint element (18 columns) - only if not "-"
         if (!session.udpEndpoint.empty()) {
             tui::SelectableElement epElem;
             epElem.lineIndex = lineIdx;
             epElem.startCol = col;
-            epElem.endCol = col + 22;
+            epElem.endCol = col + 18;
             epElem.value = endpointStr;
             epElem.truncatedValue = endpointTrunc;
             epElem.type = tui::ElementType::Endpoint;
@@ -1182,11 +1397,12 @@ tui::InteractiveOutput ServerCLI::buildSessionsInteractiveOutput() {
             }
             output.elements.push_back(epElem);
         }
+        // RTT and Bandwidth columns are not selectable (display only)
 
         lineIdx++;
     }
 
-    output.lines.push_back("╚═══════════════════════════════════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝");
     output.lines.push_back("");
 
     return output;
@@ -1463,6 +1679,21 @@ tui::InteractiveOutput ServerCLI::buildRoomDetailsInteractiveOutput(const std::s
     auto* room = _roomManager->getRoomByCode(roomCode);
     if (!room) return output;
 
+    // Get network stats
+    auto networkStats = _udpServer.getNetworkStats();
+
+    // Collect endpoints for room-level stats
+    std::vector<std::string> roomEndpoints;
+    const auto& slots = room->getSlots();
+    for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
+        if (slots[i].occupied) {
+            auto sessionOpt = _sessionManager->getSessionByEmail(slots[i].email);
+            if (sessionOpt && !sessionOpt->udpEndpoint.empty()) {
+                roomEndpoints.push_back(sessionOpt->udpEndpoint);
+            }
+        }
+    }
+
     size_t lineIdx = 0;
 
     // State string
@@ -1474,22 +1705,22 @@ tui::InteractiveOutput ServerCLI::buildRoomDetailsInteractiveOutput(const std::s
         case domain::entities::Room::State::Closed: stateStr = "Closed"; break;
     }
 
-    // Lines 0-3: Header
+    // Lines 0-3: Header (98 chars wide)
     output.lines.push_back("");
-    output.lines.push_back("╔═════════════════════════════════════════════════════════════════╗");
-    output.lines.push_back("║                         ROOM DETAILS                            ║");
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╔══════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    output.lines.push_back("║                                          ROOM DETAILS                                            ║");
+    output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
     lineIdx = 4;
 
     // Line 4: Code (selectable - RoomCode)
     std::ostringstream oss;
-    oss << "║ Code:       " << std::left << std::setw(52) << room->getCode() << "║";
+    oss << "║ Code:       " << std::left << std::setw(85) << room->getCode() << "║";
     output.lines.push_back(oss.str());
 
     tui::SelectableElement codeElem;
     codeElem.lineIndex = lineIdx;
     codeElem.startCol = 14;  // After "║ Code:       "
-    codeElem.endCol = 14 + 52;
+    codeElem.endCol = 14 + 85;
     codeElem.value = room->getCode();
     codeElem.truncatedValue = room->getCode();
     codeElem.type = tui::ElementType::RoomCode;
@@ -1498,20 +1729,20 @@ tui::InteractiveOutput ServerCLI::buildRoomDetailsInteractiveOutput(const std::s
 
     // Line 5: Name (not selectable)
     oss.str("");
-    oss << "║ Name:       " << std::left << std::setw(52) << room->getName() << "║";
+    oss << "║ Name:       " << std::left << std::setw(85) << room->getName() << "║";
     output.lines.push_back(oss.str());
     lineIdx++;
 
     // Line 6: Host (selectable - Email)
-    std::string hostTrunc = tui::utf8::truncateWithEllipsis(room->getHostEmail(), 51);
+    std::string hostTrunc = tui::utf8::truncateWithEllipsis(room->getHostEmail(), 84);
     oss.str("");
-    oss << "║ Host:       " << std::left << std::setw(52) << hostTrunc << "║";
+    oss << "║ Host:       " << std::left << std::setw(85) << hostTrunc << "║";
     output.lines.push_back(oss.str());
 
     tui::SelectableElement hostElem;
     hostElem.lineIndex = lineIdx;
     hostElem.startCol = 14;
-    hostElem.endCol = 14 + 52;
+    hostElem.endCol = 14 + 85;
     hostElem.value = room->getHostEmail();
     hostElem.truncatedValue = hostTrunc;
     hostElem.type = tui::ElementType::Email;
@@ -1523,80 +1754,159 @@ tui::InteractiveOutput ServerCLI::buildRoomDetailsInteractiveOutput(const std::s
     std::string playersStr = std::to_string(room->getPlayerCount()) + "/" +
                              std::to_string(room->getMaxPlayers());
     oss.str("");
-    oss << "║ Players:    " << std::left << std::setw(52) << playersStr << "║";
+    oss << "║ Players:    " << std::left << std::setw(85) << playersStr << "║";
     output.lines.push_back(oss.str());
     lineIdx++;
 
     // Line 8: State (not selectable)
     oss.str("");
-    oss << "║ State:      " << std::left << std::setw(52) << stateStr << "║";
+    oss << "║ State:      " << std::left << std::setw(85) << stateStr << "║";
     output.lines.push_back(oss.str());
     lineIdx++;
 
     // Line 9: Private (not selectable)
     oss.str("");
-    oss << "║ Private:    " << std::left << std::setw(52) << (room->isPrivate() ? "Yes" : "No") << "║";
+    oss << "║ Private:    " << std::left << std::setw(85) << (room->isPrivate() ? "Yes" : "No") << "║";
     output.lines.push_back(oss.str());
     lineIdx++;
 
+    // Network stats section (room-level aggregated, all values in KB/s)
+    if (networkStats && !roomEndpoints.empty()) {
+        auto roomStats = networkStats->getRoomStats(roomEndpoints);
+
+        output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+        lineIdx++;
+
+        oss.str("");
+        oss << "║ Network (KB/s): ↑ " << std::fixed << std::setprecision(1)
+            << (roomStats.outCurrent / 1024.0) << "/" << (roomStats.outAverage / 1024.0) << " avg"
+            << "   ↓ " << (roomStats.inCurrent / 1024.0) << "/" << (roomStats.inAverage / 1024.0) << " avg";
+        if (roomStats.rttAverage > 0) {
+            oss << "   RTT avg: " << roomStats.rttAverage << " ms";
+        }
+        std::string netLine = oss.str();
+        size_t currentWidth = tui::utf8::displayWidth(netLine);
+        size_t targetWidth = 98;  // Total width including both ║ borders
+        if (currentWidth < targetWidth) {
+            size_t padding = targetWidth - currentWidth - 1;  // -1 for closing ║
+            netLine += std::string(padding, ' ');
+        }
+        netLine += "║";
+        output.lines.push_back(netLine);
+        lineIdx++;
+    }
+
     // Players section header
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
-    output.lines.push_back("║                             PLAYERS                             ║");
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    output.lines.push_back("║                                             PLAYERS                                              ║");
+    output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
     lineIdx += 3;
 
-    // Player table header
+    // Player table header with network columns
     std::ostringstream playerHeader;
-    playerHeader << "║ " << std::left << std::setw(6) << "Slot"
-                 << std::setw(20) << "Display Name"
-                 << std::setw(10) << "Ready"
-                 << std::setw(10) << "Host"
-                 << std::setw(18) << "Email" << "║";
+    playerHeader << "║ " << std::left << std::setw(5) << "Slot"
+                 << std::setw(14) << "Display Name"
+                 << std::setw(14) << "RTT (ms)"
+                 << std::setw(18) << "OUT (KB/s)"
+                 << std::setw(14) << "IN (KB/s)"
+                 << std::setw(7) << "Ready"
+                 << std::setw(6) << "Host"
+                 << std::setw(18) << "Email" << " ║";
     output.lines.push_back(playerHeader.str());
     lineIdx++;
 
-    output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+    std::ostringstream playerSubHeader;
+    playerSubHeader << "║ " << std::left << std::setw(5) << ""
+                    << std::setw(14) << ""
+                    << std::setw(14) << "cur/avg/max"
+                    << std::setw(18) << "cur/avg/max"
+                    << std::setw(14) << "cur/avg"
+                    << std::setw(7) << ""
+                    << std::setw(6) << ""
+                    << std::setw(18) << "" << " ║";
+    output.lines.push_back(playerSubHeader.str());
     lineIdx++;
 
-    // Player rows (selectable: DisplayName and Email)
-    const auto& slots = room->getSlots();
+    output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    lineIdx++;
+
+    // Player rows (selectable: DisplayName and Email; network columns are display-only)
     for (size_t i = 0; i < domain::entities::Room::MAX_SLOTS; ++i) {
         if (slots[i].occupied) {
-            std::string nameTrunc = tui::utf8::truncateWithEllipsis(slots[i].displayName, 19);
+            std::string nameTrunc = tui::utf8::truncateWithEllipsis(slots[i].displayName, 13);
             std::string emailTrunc = tui::utf8::truncateWithEllipsis(slots[i].email, 17);
 
+            // Get network stats for this player
+            std::string rttStr = "-/-/-";
+            std::string outStr = "-/-/-";
+            std::string inStr = "-/-";
+
+            if (networkStats) {
+                auto sessionOpt = _sessionManager->getSessionByEmail(slots[i].email);
+                if (sessionOpt && !sessionOpt->udpEndpoint.empty()) {
+                    auto playerStats = networkStats->getPlayerStats(sessionOpt->udpEndpoint);
+                    if (playerStats) {
+                        // RTT: cur/avg/max
+                        std::ostringstream rttOss;
+                        rttOss << playerStats->rttCurrent << "/"
+                               << playerStats->rttAverage << "/"
+                               << playerStats->rttMax;
+                        rttStr = rttOss.str();
+
+                        // OUT: cur/avg/max (in KB/s)
+                        std::ostringstream outOss;
+                        outOss << std::fixed << std::setprecision(1)
+                               << (playerStats->outCurrent / 1024.0) << "/"
+                               << (playerStats->outAverage / 1024.0) << "/"
+                               << (playerStats->outPeak / 1024.0);
+                        outStr = outOss.str();
+
+                        // IN: cur/avg (in KB/s)
+                        std::ostringstream inOss;
+                        inOss << std::fixed << std::setprecision(1)
+                              << (playerStats->inCurrent / 1024.0) << "/"
+                              << (playerStats->inAverage / 1024.0);
+                        inStr = inOss.str();
+                    }
+                }
+            }
+
+            rttStr = tui::utf8::truncateWithEllipsis(rttStr, 13);
+            outStr = tui::utf8::truncateWithEllipsis(outStr, 17);
+            inStr = tui::utf8::truncateWithEllipsis(inStr, 13);
+
             std::ostringstream playerRow;
-            playerRow << "║ " << std::left << std::setw(6) << i
-                      << std::setw(20) << nameTrunc
-                      << std::setw(10) << (slots[i].isReady ? "Yes" : "No")
-                      << std::setw(10) << (slots[i].isHost ? "Yes" : "No")
-                      << std::setw(18) << emailTrunc << "║";
+            playerRow << "║ " << std::left << std::setw(5) << i
+                      << std::setw(14) << nameTrunc
+                      << std::setw(14) << rttStr
+                      << std::setw(18) << outStr
+                      << std::setw(14) << inStr
+                      << std::setw(7) << (slots[i].isReady ? "Yes" : "No")
+                      << std::setw(6) << (slots[i].isHost ? "Yes" : "No")
+                      << std::setw(18) << emailTrunc << " ║";
             output.lines.push_back(playerRow.str());
 
-            // Column positions: "║ " = 2, Slot = 6, DisplayName = 20, Ready = 10, Host = 10, Email = 18
-            size_t col = 2;
+            // Column positions for selectable elements
+            size_t col = 2;  // After "║ "
 
             // Slot (not selectable)
-            col += 6;
+            col += 5;
 
             // DisplayName (selectable)
             tui::SelectableElement nameElem;
             nameElem.lineIndex = lineIdx;
             nameElem.startCol = col;
-            nameElem.endCol = col + 20;
+            nameElem.endCol = col + 14;
             nameElem.value = slots[i].displayName;
             nameElem.truncatedValue = nameTrunc;
             nameElem.type = tui::ElementType::DisplayName;
             nameElem.associatedEmail = slots[i].email;
             nameElem.associatedRoomCode = room->getCode();
             output.elements.push_back(nameElem);
-            col += 20;
+            col += 14;
 
-            // Ready (not selectable)
-            col += 10;
-
-            // Host (not selectable)
-            col += 10;
+            // RTT, OUT, IN, Ready, Host (not selectable)
+            col += 14 + 18 + 14 + 7 + 6;
 
             // Email (selectable)
             tui::SelectableElement emailElem;
@@ -1616,34 +1926,34 @@ tui::InteractiveOutput ServerCLI::buildRoomDetailsInteractiveOutput(const std::s
     // Chat history section (not selectable)
     const auto& chatHistory = room->getChatHistory();
     if (!chatHistory.empty()) {
-        output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
-        output.lines.push_back("║                        CHAT HISTORY                             ║");
-        output.lines.push_back("╠═════════════════════════════════════════════════════════════════╣");
+        output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
+        output.lines.push_back("║                                          CHAT HISTORY                                            ║");
+        output.lines.push_back("╠══════════════════════════════════════════════════════════════════════════════════════════════════╣");
         lineIdx += 3;
 
         size_t startIdx = chatHistory.size() > 10 ? chatHistory.size() - 10 : 0;
         for (size_t i = startIdx; i < chatHistory.size(); ++i) {
             const auto& msg = chatHistory[i];
             std::string senderTrunc = tui::utf8::truncateWithEllipsis(msg.displayName, 12);
-            std::string msgTrunc = tui::utf8::truncateWithEllipsis(msg.message, 48);
+            std::string msgTrunc = tui::utf8::truncateWithEllipsis(msg.message, 78);
 
             std::ostringstream chatRow;
             chatRow << "║ " << std::left << std::setw(14) << ("[" + senderTrunc + "]")
-                    << std::setw(50) << msgTrunc << " ║";
+                    << std::setw(82) << msgTrunc << " ║";
             output.lines.push_back(chatRow.str());
             lineIdx++;
         }
 
         if (startIdx > 0) {
             std::ostringstream moreRow;
-            moreRow << "║ " << std::left << std::setw(62)
+            moreRow << "║ " << std::left << std::setw(95)
                     << ("... " + std::to_string(startIdx) + " more message(s)") << " ║";
             output.lines.push_back(moreRow.str());
             lineIdx++;
         }
     }
 
-    output.lines.push_back("╚═════════════════════════════════════════════════════════════════╝");
+    output.lines.push_back("╚══════════════════════════════════════════════════════════════════════════════════════════════════╝");
     output.lines.push_back("");
 
     return output;

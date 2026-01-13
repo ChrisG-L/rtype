@@ -15,6 +15,7 @@
 #include "infrastructure/game/GameWorld.hpp"
 #include "infrastructure/game/GameInstanceManager.hpp"
 #include "infrastructure/session/SessionManager.hpp"
+#include "infrastructure/network/NetworkStats.hpp"
 #include <memory>
 
 
@@ -41,6 +42,8 @@ namespace infrastructure::adapters::in::network {
             game::GameInstanceManager _instanceManager;
             std::shared_ptr<SessionManager> _sessionManager;
             boost::asio::steady_timer _broadcastTimer;
+            std::shared_ptr<infrastructure::network::NetworkStats> _networkStats;
+            boost::asio::steady_timer _statsTimer;
 
             char _readBuffer[BUFFER_SIZE];
 
@@ -58,6 +61,7 @@ namespace infrastructure::adapters::in::network {
             void broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastPlayerDied(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void scheduleBroadcast();
+            void scheduleStatsUpdate();
             void updateAndBroadcastRoom(const std::string& roomCode, const std::shared_ptr<game::GameWorld>& gameWorld, float deltaTime);
 
             void do_read();
@@ -80,6 +84,9 @@ namespace infrastructure::adapters::in::network {
 
             // CLI support: get player count
             size_t getPlayerCount() const;
+
+            // Network stats for monitoring
+            std::shared_ptr<infrastructure::network::NetworkStats> getNetworkStats() const { return _networkStats; }
     };
 }
 #endif /* !UDPSERVER_HPP_ */
