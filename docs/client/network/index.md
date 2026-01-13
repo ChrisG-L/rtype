@@ -10,6 +10,10 @@ graph LR
     A -->|MovePlayer, ShootMissile| B
     B -->|GameSnapshot 20Hz| A
     B -->|MissileSpawned, PlayerDied| A
+
+    A -->|UDP :4126| C[VoiceServer]
+    A -->|VoiceFrame Opus| C
+    C -->|VoiceFrame relay| A
 ```
 
 ## Composants
@@ -63,7 +67,8 @@ auto enemies = udpClient->getEnemies();
 | Protocole | Port | Utilisation | État |
 |-----------|------|-------------|------|
 | **UDP** | 4124 | Gameplay temps réel | ✅ Implémenté |
-| **TCP** | 3000 | Authentification (optionnel) | ✅ Implémenté |
+| **UDP** | 4126 | Chat vocal (Opus) | ✅ Implémenté |
+| **TCP** | 4123 | Authentification | ✅ Implémenté |
 
 ### UDP pour Gameplay
 
@@ -227,11 +232,13 @@ sequenceDiagram
 | Composant | État | Complétude | Notes |
 |-----------|------|------------|-------|
 | UDPClient | ✅ Implémenté | 100% | Thread-safe, async |
-| Protocol binaire | ✅ Implémenté | 100% | 14 types de messages |
+| Protocol binaire | ✅ Implémenté | 100% | 19 types de messages |
 | Thread Safety | ✅ Implémenté | 100% | mutex + jthread |
 | Logging | ✅ Intégré | 100% | NetworkLogger |
 | GameSnapshot | ✅ Implémenté | 100% | Players, missiles, enemies |
 | Callbacks | ✅ Implémenté | 100% | onSnapshot, onPlayerDied, etc. |
+| VoiceChatManager | ✅ Implémenté | 100% | Opus + PortAudio, PTT/VAD |
+| Audio Device Selection | ✅ Implémenté | 100% | Cross-platform, persistance MongoDB |
 
 ## Gestion d'Erreurs
 
@@ -330,9 +337,10 @@ STATE player_positions enemy_positions
 3. **Tests unitaires** pour thread safety
 
 ### Moyen Terme
-4. **UDP Client** pour gameplay
-5. **Protocol Buffers** pour sérialisation
-6. **Heartbeat/Keepalive** automatique
+4. ~~**UDP Client** pour gameplay~~ ✅ Implémenté
+5. ~~**Voice Chat** - Opus/PortAudio~~ ✅ Implémenté
+6. ~~**Audio Device Selection** cross-platform~~ ✅ Implémenté
+7. **Heartbeat/Keepalive** automatique
 
 ### Long Terme
 7. **Reconnexion automatique** avec backoff
@@ -349,6 +357,7 @@ STATE player_positions enemy_positions
 
 ## Voir Aussi
 
+- [Voice Chat](voice-chat.md)
 - [Core Client](../core/index.md)
 - [Architecture Client](../architecture/overview.md)
 - [Guide Réseau Serveur](../../guides/network-architecture.md)

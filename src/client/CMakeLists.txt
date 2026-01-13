@@ -182,6 +182,30 @@ else()
     )
 endif()
 
+# Voice Chat dependencies: Opus and PortAudio
+find_package(Opus CONFIG QUIET)
+find_package(portaudio CONFIG QUIET)
+
+if(TARGET Opus::opus)
+    set(OPUS_FOUND_VIA_VCPKG TRUE)
+    message(STATUS "Opus found via vcpkg")
+else()
+    set(OPUS_FOUND_VIA_VCPKG FALSE)
+    message(STATUS "Opus not found via vcpkg, trying pkg-config...")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(OPUS REQUIRED IMPORTED_TARGET opus)
+endif()
+
+if(TARGET portaudio)
+    set(PORTAUDIO_FOUND_VIA_VCPKG TRUE)
+    message(STATUS "PortAudio found via vcpkg")
+else()
+    set(PORTAUDIO_FOUND_VIA_VCPKG FALSE)
+    message(STATUS "PortAudio not found via vcpkg, trying pkg-config...")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PORTAUDIO REQUIRED IMPORTED_TARGET portaudio-2.0)
+endif()
+
 add_executable(rtype_client
     main.cpp
 
@@ -211,6 +235,8 @@ add_executable(rtype_client
     src/accessibility/AccessibilityConfig.cpp
     src/accessibility/ColorblindShaderManager.cpp
     src/audio/AudioManager.cpp
+    src/audio/OpusCodec.cpp
+    src/audio/VoiceChatManager.cpp
 )
 
 # RPATH configuration: chercher les .so dans le même répertoire que l'exécutable
@@ -359,4 +385,17 @@ else()
         ${SDL2_MIXER_LIBRARY}
         PkgConfig::SDL2
     )
+endif()
+
+# Link Opus and PortAudio for voice chat
+if(OPUS_FOUND_VIA_VCPKG)
+    target_link_libraries(rtype_client PRIVATE Opus::opus)
+else()
+    target_link_libraries(rtype_client PRIVATE PkgConfig::OPUS)
+endif()
+
+if(PORTAUDIO_FOUND_VIA_VCPKG)
+    target_link_libraries(rtype_client PRIVATE portaudio)
+else()
+    target_link_libraries(rtype_client PRIVATE PkgConfig::PORTAUDIO)
 endif()

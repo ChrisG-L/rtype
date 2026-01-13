@@ -9,6 +9,7 @@
 #define GAMEBOOTSTRAP_HPP_
 
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
+#include "infrastructure/adapters/in/network/VoiceUDPServer.hpp"
 #include "infrastructure/adapters/in/network/TCPAuthServer.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
@@ -35,6 +36,7 @@ namespace infrastructure::bootstrap {
         private:
             void server() {
                 using adapters::in::network::UDPServer;
+                using adapters::in::network::VoiceUDPServer;
                 using adapters::in::network::TCPAuthServer;
                 using adapters::out::persistence::MongoDBConfiguration;
                 using adapters::out::persistence::MongoDBUserRepository;
@@ -95,6 +97,10 @@ namespace infrastructure::bootstrap {
                 UDPServer udpServer(io_ctx, sessionManager);
                 udpServer.start();
 
+                // Start Voice UDP Server on port 4126 (shares SessionManager with TCP)
+                VoiceUDPServer voiceServer(io_ctx, sessionManager);
+                voiceServer.start();
+
                 mainLogger->info("Serveur UDP prêt. En attente de connexions...");
                 mainLogger->info("Appuyez sur Ctrl+C pour arrêter le serveur proprement.");
 
@@ -104,6 +110,7 @@ namespace infrastructure::bootstrap {
                 // Set shutdown callback so CLI can stop the server via exit/quit commands
                 serverCLI.setShutdownCallback([&]() {
                     mainLogger->info("CLI requested shutdown");
+                    voiceServer.stop();
                     udpServer.stop();
                     tcpAuthServer.stop();
                     workGuard.reset();  // Allow io_context to finish when no more work
@@ -116,6 +123,7 @@ namespace infrastructure::bootstrap {
                 signals.async_wait([&](const boost::system::error_code&, int signum) {
                     mainLogger->info("Signal reçu ({}), arrêt du serveur...", signum);
                     serverCLI.stop();
+                    voiceServer.stop();
                     udpServer.stop();
                     tcpAuthServer.stop();
                     workGuard.reset();  // Allow io_context to finish when no more work

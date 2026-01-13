@@ -13,7 +13,9 @@
     "sdl2-ttf",
     "sdl2-mixer",
     "sfml",
-    "spdlog"
+    "spdlog",
+    "opus",
+    "portaudio"
   ],
   "overrides": [
     {

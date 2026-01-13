@@ -32,6 +32,7 @@ add_executable(rtype_server
 
     # Infrastructure - Adapters In
     infrastructure/adapters/in/network/UDPServer.cpp
+    infrastructure/adapters/in/network/VoiceUDPServer.cpp
     infrastructure/adapters/in/network/TCPAuthServer.cpp
 
     # Infrastructure - Adapters Out (Persistence)

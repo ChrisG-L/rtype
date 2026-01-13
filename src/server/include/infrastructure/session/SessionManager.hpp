@@ -85,7 +85,12 @@ public:
     struct ValidateResult {
         std::string email;
         std::string displayName;
+        uint8_t playerId;  // 0 if not yet assigned
     };
+
+    // Validates a token without binding (for voice server which uses separate endpoint)
+    // Returns email/displayName/playerId if valid, nullopt otherwise
+    std::optional<ValidateResult> validateToken(const SessionToken& token);
 
     // Validates a token and binds the UDP endpoint to the session
     // Returns email/displayName if valid, nullopt otherwise

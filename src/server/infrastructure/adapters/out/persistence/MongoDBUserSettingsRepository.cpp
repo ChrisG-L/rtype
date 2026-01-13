@@ -54,6 +54,24 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
         settings.shipSkin = 1;
     }
 
+    // Voice settings (with defaults)
+    settings.voiceMode = doc["voiceMode"]
+        ? static_cast<uint8_t>(doc["voiceMode"].get_int32().value) : 0;
+    settings.vadThreshold = doc["vadThreshold"]
+        ? static_cast<uint8_t>(doc["vadThreshold"].get_int32().value) : 2;
+    settings.micGain = doc["micGain"]
+        ? static_cast<uint8_t>(doc["micGain"].get_int32().value) : 100;
+    settings.voiceVolume = doc["voiceVolume"]
+        ? static_cast<uint8_t>(doc["voiceVolume"].get_int32().value) : 100;
+
+    // Audio device selection (empty string = auto)
+    if (doc["audioInputDevice"]) {
+        settings.audioInputDevice = std::string(doc["audioInputDevice"].get_string().value);
+    }
+    if (doc["audioOutputDevice"]) {
+        settings.audioOutputDevice = std::string(doc["audioOutputDevice"].get_string().value);
+    }
+
     return settings;
 }
 
@@ -83,6 +101,12 @@ void MongoDBUserSettingsRepository::save(
         kvp("gameSpeedPercent", static_cast<int32_t>(settings.gameSpeedPercent)),
         kvp("keyBindings", keyBindingsArray),
         kvp("shipSkin", static_cast<int32_t>(settings.shipSkin)),
+        kvp("voiceMode", static_cast<int32_t>(settings.voiceMode)),
+        kvp("vadThreshold", static_cast<int32_t>(settings.vadThreshold)),
+        kvp("micGain", static_cast<int32_t>(settings.micGain)),
+        kvp("voiceVolume", static_cast<int32_t>(settings.voiceVolume)),
+        kvp("audioInputDevice", settings.audioInputDevice),
+        kvp("audioOutputDevice", settings.audioOutputDevice),
         kvp("updatedAt", bsoncxx::types::b_date{std::chrono::system_clock::now()})
     );
 

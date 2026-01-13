@@ -149,6 +149,7 @@ nav:
       - Network:
           - client/network/index.md
           - TCPClient: client/network/tcp-client.md
+          - Voice Chat: client/network/voice-chat.md
       - API:
           - Interfaces: client/api/interfaces.md
       - Guides:

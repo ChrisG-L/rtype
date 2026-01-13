@@ -21,13 +21,25 @@ struct UserSettingsData {
     uint16_t gameSpeedPercent;      // 50-200 (represents 0.5x-2.0x)
     std::array<uint8_t, 12> keyBindings;  // 6 actions × 2 keys
     uint8_t shipSkin;               // Ship skin variant (1-6 for Ship1.png to Ship6.png)
+    uint8_t voiceMode;              // 0 = PushToTalk, 1 = VoiceActivity
+    uint8_t vadThreshold;           // 0-100 (scaled from 0.0-1.0)
+    uint8_t micGain;                // 0-200 (scaled from 0.0-2.0)
+    uint8_t voiceVolume;            // 0-100
+    std::string audioInputDevice;   // Preferred input device name ("" = auto)
+    std::string audioOutputDevice;  // Preferred output device name ("" = auto)
 
     // Default constructor with default values
     UserSettingsData()
         : colorBlindMode("none")
         , gameSpeedPercent(100)
         , keyBindings{}
-        , shipSkin(1) {}
+        , shipSkin(1)
+        , voiceMode(0)
+        , vadThreshold(2)
+        , micGain(100)
+        , voiceVolume(100)
+        , audioInputDevice("")
+        , audioOutputDevice("") {}
 
     // Set default key bindings (matches AccessibilityConfig defaults)
     void setDefaultKeyBindings() {

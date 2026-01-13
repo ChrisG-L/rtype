@@ -13,6 +13,7 @@
 #include "graphics/IWindow.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
 #include "audio/AudioManager.hpp"
+#include "audio/VoiceChatManager.hpp"
 #include "network/NetworkEvents.hpp"
 #include "network/UDPClient.hpp"
 #include "ui/TextInput.hpp"
@@ -51,9 +52,11 @@ private:
     void renderDeathScreen();
     void renderKickedScreen();
     void renderChatOverlay();
+    void renderVoiceIndicator();
     void loadAssets();
     void initStars();
     void initAudio();
+    void initVoiceChat();
     void initChatUI();
     void processUDPEvents();
     void processTCPEvents();
@@ -83,6 +86,7 @@ private:
     bool _assetsLoaded = false;
     bool _starsInitialized = false;
     bool _audioInitialized = false;
+    bool _voiceChatInitialized = false;
 
     // Kick state (set when player is kicked via TCP)
     bool _wasKicked = false;

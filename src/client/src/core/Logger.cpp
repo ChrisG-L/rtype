@@ -17,6 +17,7 @@ namespace client::logging {
     std::shared_ptr<spdlog::logger> Logger::s_sceneLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_uiLogger = nullptr;
     std::shared_ptr<spdlog::logger> Logger::s_bootLogger = nullptr;
+    std::shared_ptr<spdlog::logger> Logger::s_audioLogger = nullptr;
 
     void Logger::init() {
         try {
@@ -49,12 +50,16 @@ namespace client::logging {
             s_bootLogger = std::make_shared<spdlog::logger>("Boot", sinks.begin(), sinks.end());
             s_bootLogger->set_level(spdlog::level::info);
 
+            s_audioLogger = std::make_shared<spdlog::logger>("Audio", sinks.begin(), sinks.end());
+            s_audioLogger->set_level(spdlog::level::info);
+
             spdlog::register_logger(s_networkLogger);
             spdlog::register_logger(s_engineLogger);
             spdlog::register_logger(s_graphicsLogger);
             spdlog::register_logger(s_sceneLogger);
             spdlog::register_logger(s_uiLogger);
             spdlog::register_logger(s_bootLogger);
+            spdlog::register_logger(s_audioLogger);
 
             spdlog::set_level(spdlog::level::debug);
             spdlog::flush_on(spdlog::level::warn);
@@ -76,6 +81,7 @@ namespace client::logging {
         s_sceneLogger.reset();
         s_uiLogger.reset();
         s_bootLogger.reset();
+        s_audioLogger.reset();
         spdlog::shutdown();
     }
 
@@ -101,6 +107,10 @@ namespace client::logging {
 
     std::shared_ptr<spdlog::logger> Logger::getBootLogger() {
         return s_bootLogger;
+    }
+
+    std::shared_ptr<spdlog::logger> Logger::getAudioLogger() {
+        return s_audioLogger;
     }
 
 }

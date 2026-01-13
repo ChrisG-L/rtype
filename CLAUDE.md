@@ -8,7 +8,7 @@ R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **H
 
 | Component | Technology | Port |
 |-----------|------------|------|
-| Server | C++23, Boost.ASIO | UDP 4124 |
+| Server | C++23, Boost.ASIO | UDP 4124 (game), UDP 4126 (voice) |
 | Client | C++23, SFML/SDL2 (multi-backend) | - |
 | Build | CMake 3.30+, Ninja, vcpkg, Nix | - |
 
@@ -39,9 +39,10 @@ rtype/
 │   ├── client/                          # Client implementation
 │   │   ├── include/
 │   │   │   ├── scenes/                  # GameScene, SceneManager, IScene
-│   │   │   ├── network/                 # UDPClient
+│   │   │   ├── network/                 # UDPClient, TCPClient
 │   │   │   ├── graphics/                # IWindow, IDrawable, Graphics
 │   │   │   ├── gameplay/                # EntityManager, GameObject, Missile
+│   │   │   ├── audio/                   # AudioManager, VoiceChatManager, OpusCodec
 │   │   │   ├── events/                  # Event system (KeyPressed, etc.)
 │   │   │   ├── core/                    # Engine, GameLoop, Logger
 │   │   │   ├── boot/                    # Boot
@@ -110,6 +111,11 @@ Binary protocol over UDP with network byte order (big-endian). All messages star
 | `ShootMissile` | 0x0080 | C→S | - | Fire missile request |
 | `MissileSpawned` | 0x0081 | S→C | MissileState (7B) | Missile created |
 | `MissileDestroyed` | 0x0082 | S→C | missile_id (2B) | Missile removed |
+| `VoiceJoin` | 0x0300 | C→S | VoiceJoin (38B) | Join voice channel |
+| `VoiceJoinAck` | 0x0301 | S→C | player_id (1B) | Voice join confirmed |
+| `VoiceLeave` | 0x0302 | C→S | player_id (1B) | Leave voice channel |
+| `VoiceFrame` | 0x0303 | Both | VoiceFrame (5-485B) | Opus audio data |
+| `VoiceMute` | 0x0304 | Both | VoiceMute (2B) | Mute/unmute notification |
 
 ### Key Structures
 
@@ -142,6 +148,14 @@ struct GameSnapshot {
     PlayerState players[MAX_PLAYERS];  // MAX_PLAYERS = 4
     uint8_t missile_count;
     MissileState missiles[MAX_MISSILES]; // MAX_MISSILES = 32
+};
+
+// VoiceFrame (5-485 bytes) - Opus-encoded audio
+struct VoiceFrame {
+    uint8_t speaker_id;       // Who is speaking
+    uint16_t sequence;        // For packet loss detection
+    uint16_t opus_len;        // Actual Opus data length
+    uint8_t opus_data[480];   // Opus-encoded audio (max 480 bytes)
 };
 ```
 
@@ -234,6 +248,50 @@ using Event = std::variant<None, WindowClosed, KeyPressed, KeyReleased>;
 // - State sync (getPlayers, getMissiles, getLocalPlayerId)
 ```
 
+### Voice Chat System
+
+Real-time voice communication using Opus codec and PortAudio.
+
+```cpp
+// VoiceChatManager (singleton) handles:
+// - Microphone capture via PortAudio
+// - Opus encoding/decoding (48kHz mono, 32kbps)
+// - Network communication with VoiceUDPServer (port 4126)
+// - Playback mixing from multiple speakers
+
+// Usage in GameScene:
+auto& voice = VoiceChatManager::getInstance();
+voice.init();
+voice.connect(serverHost, 4126);
+voice.joinVoiceChannel(sessionToken, roomCode);
+
+// Push-to-Talk (V key)
+if (keyPressed(V)) voice.startTalking();
+if (keyReleased(V)) voice.stopTalking();
+
+// Voice Activity Detection (alternative mode)
+voice.setVoiceMode(VoiceMode::VoiceActivity);
+voice.setVADThreshold(0.02f);  // Sensitivity
+
+// Audio device selection (cross-platform)
+auto inputs = voice.getInputDevices();   // List available microphones
+auto outputs = voice.getOutputDevices(); // List available speakers
+voice.setPreferredInputDevice("Device Name");  // Or "" for auto
+voice.setPreferredOutputDevice("Device Name");
+voice.applyAudioDevices(inputName, outputName);  // Apply and reinit
+```
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Port | 4126 | Separate from game (4124) |
+| Codec | Opus | VoIP optimized |
+| Sample Rate | 48000 Hz | Opus standard |
+| Frame Size | 960 samples | 20ms @ 48kHz |
+| Bitrate | 32 kbps | Good quality/bandwidth |
+| Channels | 1 (mono) | Sufficient for voice |
+| Device Selection | Cross-platform | Auto-filters virtual devices |
+| Persistence | MongoDB | audioInputDevice, audioOutputDevice fields |
+
 ## Server Architecture (Hexagonal)
 
 ### GameWorld
@@ -264,6 +322,15 @@ Network adapter (`src/server/infrastructure/adapters/in/network/UDPServer.hpp`):
 - Broadcasts GameSnapshot at 20Hz
 - Broadcasts MissileSpawned/MissileDestroyed events
 
+### VoiceUDPServer
+
+Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServer.hpp`):
+
+- Listens on port 4126 (separate from game UDP)
+- Authenticates clients via SessionToken (reuses game auth)
+- Relays VoiceFrame packets to room members
+- No audio processing - pure relay (Opus encoding is client-side)
+
 ## Game Constants
 
 | Constant | Value | Location |
@@ -277,6 +344,11 @@ Network adapter (`src/server/infrastructure/adapters/in/network/UDPServer.hpp`):
 | `MAX_PLAYERS` | 4 | Protocol.hpp |
 | `MAX_MISSILES` | 32 | Protocol.hpp |
 | `BROADCAST_RATE` | 20Hz (50ms) | UDPServer.cpp |
+| `VOICE_UDP_PORT` | 4126 | Protocol.hpp |
+| `MAX_OPUS_FRAME_SIZE` | 480 bytes | Protocol.hpp |
+| `OPUS_SAMPLE_RATE` | 48000 Hz | OpusCodec.hpp |
+| `OPUS_FRAME_SIZE` | 960 samples | OpusCodec.hpp |
+| `AUDIO_DEVICE_NAME_LEN` | 64 bytes | Protocol.hpp |
 
 ## Assets
 
@@ -307,6 +379,9 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 | **IWindow** | `src/client/include/graphics/IWindow.hpp` |
 | **SFMLWindow** | `src/client/lib/sfml/src/SFMLWindow.cpp` |
 | **SDL2Window** | `src/client/lib/sdl2/src/SDL2Window.cpp` |
+| **VoiceUDPServer** | `src/server/infrastructure/adapters/in/network/VoiceUDPServer.cpp` |
+| **VoiceChatManager** | `src/client/src/audio/VoiceChatManager.cpp` |
+| **OpusCodec** | `src/client/src/audio/OpusCodec.cpp` |
 
 ## Coding Conventions
 
@@ -334,6 +409,8 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 - **gtest**: Testing framework
 - **sfml**: Client graphics (SFML backend)
 - **sdl2**, **sdl2-image**: Client graphics (SDL2 backend)
+- **opus**: Audio codec for voice chat
+- **portaudio**: Cross-platform audio I/O
 
 ## Git Conventions
 

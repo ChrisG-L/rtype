@@ -8,6 +8,8 @@
 #include "scenes/SettingsScene.hpp"
 #include "scenes/SceneManager.hpp"
 #include "scenes/MainMenuScene.hpp"
+#include "audio/VoiceChatManager.hpp"
+#include "core/Logger.hpp"
 #include <variant>
 #include <sstream>
 #include <iomanip>
@@ -26,6 +28,57 @@ SettingsScene::SettingsScene()
         _keyBindings[i][0] = config.getPrimaryKey(action);
         _keyBindings[i][1] = config.getSecondaryKey(action);
     }
+
+    // Voice settings from VoiceChatManager
+    auto& voice = audio::VoiceChatManager::getInstance();
+    _voiceMode = (voice.getVoiceMode() == audio::VoiceChatManager::VoiceMode::VoiceActivity) ? 1 : 0;
+    _vadThreshold = static_cast<uint8_t>(voice.getVADThreshold() * 100.0f);
+    _micGain = static_cast<uint8_t>(voice.getMicGain() * 100.0f);
+    _voiceVolume = static_cast<uint8_t>(voice.getPlaybackVolume());
+
+    // Audio device selection
+    _selectedInputDevice = voice.getSelectedInputDevice();
+    _selectedOutputDevice = voice.getSelectedOutputDevice();
+    loadAudioDevices();
+}
+
+void SettingsScene::loadAudioDevices()
+{
+    auto& voice = audio::VoiceChatManager::getInstance();
+
+    // Load input devices
+    _inputDeviceNames.clear();
+    auto inputs = voice.getInputDevices();
+    for (const auto& dev : inputs) {
+        _inputDeviceNames.push_back(dev.name);
+        if (dev.name == _selectedInputDevice ||
+            (_selectedInputDevice.empty() && dev.index == -1)) {
+            _inputDeviceIndex = static_cast<int>(_inputDeviceNames.size() - 1);
+        }
+    }
+    if (_inputDeviceNames.empty()) {
+        _inputDeviceNames.push_back("Auto (default)");
+    }
+
+    // Load output devices
+    _outputDeviceNames.clear();
+    auto outputs = voice.getOutputDevices();
+    for (const auto& dev : outputs) {
+        _outputDeviceNames.push_back(dev.name);
+        if (dev.name == _selectedOutputDevice ||
+            (_selectedOutputDevice.empty() && dev.index == -1)) {
+            _outputDeviceIndex = static_cast<int>(_outputDeviceNames.size() - 1);
+        }
+    }
+    if (_outputDeviceNames.empty()) {
+        _outputDeviceNames.push_back("Auto (default)");
+    }
+}
+
+std::string SettingsScene::truncateDeviceName(const std::string& name, size_t maxLen) const
+{
+    if (name.length() <= maxLen) return name;
+    return name.substr(0, maxLen - 3) + "...";
 }
 
 void SettingsScene::loadAssets()
@@ -65,11 +118,98 @@ void SettingsScene::initUI()
     _colorBlindModeBtn->setNormalColor({50, 80, 120, 255});
     _colorBlindModeBtn->setHoveredColor({70, 100, 150, 255});
 
-    // Game Speed removed - now per-room (configured in LobbyScene by host)
+    // === VOICE CHAT SECTION ===
+    float voiceY = 240.0f;
+    float voiceRowHeight = 50.0f;
+    float plusMinusBtnW = 40.0f;
+
+    // Voice Mode (PTT / VAD)
+    _voiceModeBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X, voiceY},
+        Vec2f{180.0f, KEY_BTN_HEIGHT},
+        _voiceMode == 0 ? "PUSH-TO-TALK" : "VOICE ACTIVITY",
+        FONT_KEY
+    );
+    _voiceModeBtn->setOnClick([this]() { onVoiceModeClick(); });
+    _voiceModeBtn->setNormalColor({50, 80, 120, 255});
+    _voiceModeBtn->setHoveredColor({70, 100, 150, 255});
+
+    // VAD Threshold (only relevant in VAD mode)
+    float vadY = voiceY + voiceRowHeight;
+    _vadThresholdMinusBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X, vadY}, Vec2f{plusMinusBtnW, KEY_BTN_HEIGHT}, "-", FONT_KEY);
+    _vadThresholdMinusBtn->setOnClick([this]() {
+        if (_vadThreshold > 0) { _vadThreshold -= 5; _hasUnsavedChanges = true; }
+    });
+    _vadThresholdMinusBtn->setNormalColor({60, 60, 80, 255});
+
+    _vadThresholdPlusBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X + 150, vadY}, Vec2f{plusMinusBtnW, KEY_BTN_HEIGHT}, "+", FONT_KEY);
+    _vadThresholdPlusBtn->setOnClick([this]() {
+        if (_vadThreshold < 100) { _vadThreshold += 5; _hasUnsavedChanges = true; }
+    });
+    _vadThresholdPlusBtn->setNormalColor({60, 60, 80, 255});
+
+    // Mic Gain
+    float micY = vadY + voiceRowHeight;
+    _micGainMinusBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X, micY}, Vec2f{plusMinusBtnW, KEY_BTN_HEIGHT}, "-", FONT_KEY);
+    _micGainMinusBtn->setOnClick([this]() {
+        if (_micGain > 0) { _micGain -= 10; _hasUnsavedChanges = true; }
+    });
+    _micGainMinusBtn->setNormalColor({60, 60, 80, 255});
+
+    _micGainPlusBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X + 150, micY}, Vec2f{plusMinusBtnW, KEY_BTN_HEIGHT}, "+", FONT_KEY);
+    _micGainPlusBtn->setOnClick([this]() {
+        if (_micGain < 200) { _micGain += 10; _hasUnsavedChanges = true; }
+    });
+    _micGainPlusBtn->setNormalColor({60, 60, 80, 255});
+
+    // Voice Volume
+    float volY = micY + voiceRowHeight;
+    _voiceVolumeMinusBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X, volY}, Vec2f{plusMinusBtnW, KEY_BTN_HEIGHT}, "-", FONT_KEY);
+    _voiceVolumeMinusBtn->setOnClick([this]() {
+        if (_voiceVolume > 0) { _voiceVolume -= 10; _hasUnsavedChanges = true; }
+    });
+    _voiceVolumeMinusBtn->setNormalColor({60, 60, 80, 255});
+
+    _voiceVolumePlusBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X + 150, volY}, Vec2f{plusMinusBtnW, KEY_BTN_HEIGHT}, "+", FONT_KEY);
+    _voiceVolumePlusBtn->setOnClick([this]() {
+        if (_voiceVolume < 100) { _voiceVolume += 10; _hasUnsavedChanges = true; }
+    });
+    _voiceVolumePlusBtn->setNormalColor({60, 60, 80, 255});
+
+    // === AUDIO DEVICE SELECTION ===
+    float inputDevY = volY + voiceRowHeight;
+    std::string inputLabel = truncateDeviceName(_inputDeviceNames[_inputDeviceIndex], 30);
+    _inputDeviceBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X, inputDevY},
+        Vec2f{350.0f, KEY_BTN_HEIGHT},
+        inputLabel,
+        FONT_KEY
+    );
+    _inputDeviceBtn->setOnClick([this]() { onInputDeviceClick(); });
+    _inputDeviceBtn->setNormalColor({50, 70, 90, 255});
+    _inputDeviceBtn->setHoveredColor({70, 90, 120, 255});
+
+    float outputDevY = inputDevY + voiceRowHeight;
+    std::string outputLabel = truncateDeviceName(_outputDeviceNames[_outputDeviceIndex], 30);
+    _outputDeviceBtn = std::make_unique<ui::Button>(
+        Vec2f{CONTROL_X, outputDevY},
+        Vec2f{350.0f, KEY_BTN_HEIGHT},
+        outputLabel,
+        FONT_KEY
+    );
+    _outputDeviceBtn->setOnClick([this]() { onOutputDeviceClick(); });
+    _outputDeviceBtn->setNormalColor({50, 70, 90, 255});
+    _outputDeviceBtn->setHoveredColor({70, 90, 120, 255});
 
     // === SHIP SELECTION SECTION ===
-    float shipY = 270.0f;
-    float shipBtnSize = 70.0f;
+    float shipY = 530.0f;  // Inside ship box
+    float shipBtnSize = 60.0f;  // Smaller buttons
     float shipSpacing = 20.0f;
     float shipStartX = CONTROL_X;
 
@@ -94,18 +234,20 @@ void SettingsScene::initUI()
     }
 
     // === CONTROLS SECTION ===
-    float controlsStartY = 450.0f;  // Adjusted for ship selection section
+    float controlsStartY = 620.0f;  // Adjusted for voice + ship sections
+    float controlsRowHeight = 32.0f;  // Compact row height
     float primaryX = CONTROL_X;
     float secondaryX = CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING;
 
+    float controlsBtnHeight = 28.0f;  // Compact button height for controls
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
-        float rowY = controlsStartY + i * ROW_HEIGHT;
+        float rowY = controlsStartY + i * controlsRowHeight;
 
         // Primary key button
         _keyBindButtons[i].primary = std::make_unique<ui::Button>(
             Vec2f{primaryX, rowY},
-            Vec2f{KEY_BTN_WIDTH, KEY_BTN_HEIGHT},
+            Vec2f{KEY_BTN_WIDTH, controlsBtnHeight},
             accessibility::AccessibilityConfig::keyToString(_keyBindings[i][0]),
             FONT_KEY
         );
@@ -118,7 +260,7 @@ void SettingsScene::initUI()
         // Secondary key button
         _keyBindButtons[i].secondary = std::make_unique<ui::Button>(
             Vec2f{secondaryX, rowY},
-            Vec2f{KEY_BTN_WIDTH, KEY_BTN_HEIGHT},
+            Vec2f{KEY_BTN_WIDTH, controlsBtnHeight},
             accessibility::AccessibilityConfig::keyToString(_keyBindings[i][1]),
             FONT_KEY
         );
@@ -130,10 +272,12 @@ void SettingsScene::initUI()
     }
 
     // Reset bindings button
-    float resetY = controlsStartY + ACTION_COUNT * ROW_HEIGHT + 20;
+    float resetY = controlsStartY + ACTION_COUNT * controlsRowHeight + 5;
+    auto initLogger = client::logging::Logger::getSceneLogger();
+    initLogger->info("Reset button position: ({}, {}) size: (200, 28)", centerX - 100, resetY);
     _resetBindingsBtn = std::make_unique<ui::Button>(
         Vec2f{centerX - 100, resetY},
-        Vec2f{200.0f, KEY_BTN_HEIGHT},
+        Vec2f{200.0f, 28.0f},
         "RESET TO DEFAULTS",
         FONT_KEY
     );
@@ -142,11 +286,11 @@ void SettingsScene::initUI()
     _resetBindingsBtn->setHoveredColor({110, 80, 80, 255});
 
     // === BOTTOM BUTTONS ===
-    float bottomY = SCREEN_HEIGHT - 120;
+    float bottomY = resetY + 50.0f;  // Just below reset button
 
     _applyBtn = std::make_unique<ui::Button>(
         Vec2f{centerX - 220, bottomY},
-        Vec2f{180.0f, 55.0f},
+        Vec2f{180.0f, 40.0f},
         "APPLY & SAVE",
         FONT_KEY
     );
@@ -156,7 +300,7 @@ void SettingsScene::initUI()
 
     _backBtn = std::make_unique<ui::Button>(
         Vec2f{centerX + 40, bottomY},
-        Vec2f{180.0f, 55.0f},
+        Vec2f{180.0f, 40.0f},
         "BACK",
         FONT_KEY
     );
@@ -300,7 +444,44 @@ void SettingsScene::onShipSkinClick(uint8_t skinId)
     }
 }
 
-// Game speed callbacks removed - now per-room (configured in LobbyScene by host)
+void SettingsScene::onVoiceModeClick()
+{
+    _voiceMode = (_voiceMode == 0) ? 1 : 0;
+    _voiceModeBtn->setText(_voiceMode == 0 ? "PUSH-TO-TALK" : "VOICE ACTIVITY");
+    _hasUnsavedChanges = true;
+}
+
+void SettingsScene::onInputDeviceClick()
+{
+    auto logger = client::logging::Logger::getSceneLogger();
+
+    // Cycle through available input devices
+    _inputDeviceIndex = (_inputDeviceIndex + 1) % static_cast<int>(_inputDeviceNames.size());
+    std::string label = truncateDeviceName(_inputDeviceNames[_inputDeviceIndex], 30);
+    _inputDeviceBtn->setText(label);
+
+    // Update selected device (empty string = auto for index 0)
+    _selectedInputDevice = (_inputDeviceIndex == 0) ? "" : _inputDeviceNames[_inputDeviceIndex];
+    logger->info("Input device changed to index {}: '{}' (stored as '{}')",
+                 _inputDeviceIndex, _inputDeviceNames[_inputDeviceIndex], _selectedInputDevice);
+    _hasUnsavedChanges = true;
+}
+
+void SettingsScene::onOutputDeviceClick()
+{
+    auto logger = client::logging::Logger::getSceneLogger();
+
+    // Cycle through available output devices
+    _outputDeviceIndex = (_outputDeviceIndex + 1) % static_cast<int>(_outputDeviceNames.size());
+    std::string label = truncateDeviceName(_outputDeviceNames[_outputDeviceIndex], 30);
+    _outputDeviceBtn->setText(label);
+
+    // Update selected device (empty string = auto for index 0)
+    _selectedOutputDevice = (_outputDeviceIndex == 0) ? "" : _outputDeviceNames[_outputDeviceIndex];
+    logger->info("Output device changed to index {}: '{}' (stored as '{}')",
+                 _outputDeviceIndex, _outputDeviceNames[_outputDeviceIndex], _selectedOutputDevice);
+    _hasUnsavedChanges = true;
+}
 
 void SettingsScene::onKeyBindClick(accessibility::GameAction action, bool isPrimary)
 {
@@ -318,32 +499,85 @@ void SettingsScene::onKeyBindClick(accessibility::GameAction action, bool isPrim
 
 void SettingsScene::onResetBindingsClick()
 {
-    // Reset to default bindings
+    auto logger = client::logging::Logger::getSceneLogger();
+    logger->info("Reset to defaults button clicked");
+
+    // Reset to default key bindings
     _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveUp)] = {events::Key::Up, events::Key::Z};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveDown)] = {events::Key::Down, events::Key::S};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveLeft)] = {events::Key::Left, events::Key::Q};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveRight)] = {events::Key::Right, events::Key::D};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::Shoot)] = {events::Key::Space, events::Key::Enter};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::Pause)] = {events::Key::Escape, events::Key::P};
-
     updateAllKeyBindButtonTexts();
+
+    // Reset voice settings to defaults
+    _voiceMode = 0;  // PTT
+    _vadThreshold = 2;  // 2%
+    _micGain = 100;  // 100%
+    _voiceVolume = 100;  // 100%
+    if (_voiceModeBtn) {
+        _voiceModeBtn->setText("PUSH-TO-TALK");
+    }
+
+    // Reset audio devices to Auto (index 0)
+    _inputDeviceIndex = 0;
+    _outputDeviceIndex = 0;
+    _selectedInputDevice = "";  // Empty = auto
+    _selectedOutputDevice = "";  // Empty = auto
+    if (_inputDeviceBtn && !_inputDeviceNames.empty()) {
+        _inputDeviceBtn->setText(truncateDeviceName(_inputDeviceNames[0], 30));
+    }
+    if (_outputDeviceBtn && !_outputDeviceNames.empty()) {
+        _outputDeviceBtn->setText(truncateDeviceName(_outputDeviceNames[0], 30));
+    }
+
+    // Reset color blind mode
+    _colorBlindMode = accessibility::ColorBlindMode::None;
+    if (_colorBlindModeBtn) {
+        _colorBlindModeBtn->setText(getColorBlindModeDisplayName(_colorBlindMode));
+    }
+
+    // Reset ship skin to default (1)
+    _shipSkin = 1;
+    for (size_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
+        if (_shipSkinBtns[i]) {
+            if (i == 0) {  // Ship 1
+                _shipSkinBtns[i]->setNormalColor({80, 150, 80, 255});
+                _shipSkinBtns[i]->setHoveredColor({100, 180, 100, 255});
+            } else {
+                _shipSkinBtns[i]->setNormalColor({50, 50, 70, 255});
+                _shipSkinBtns[i]->setHoveredColor({70, 70, 100, 255});
+            }
+        }
+    }
+
     _hasUnsavedChanges = true;
-    showInfo("Key bindings reset to defaults");
+    showInfo("All settings reset to defaults");
 }
 
 void SettingsScene::onApplyClick()
 {
+    auto logger = client::logging::Logger::getSceneLogger();
+    logger->info("Apply clicked - saving input='{}' output='{}'", _selectedInputDevice, _selectedOutputDevice);
+
     auto& config = accessibility::AccessibilityConfig::getInstance();
 
     // Apply settings to singleton
     config.setColorBlindMode(_colorBlindMode);
     config.setShipSkin(_shipSkin);
-    // Game speed removed - now per-room (configured in LobbyScene by host)
 
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
         config.setKeyBinding(action, _keyBindings[i][0], _keyBindings[i][1]);
     }
+
+    // Apply voice settings to VoiceChatManager
+    auto& voice = audio::VoiceChatManager::getInstance();
+    voice.applySettings(_voiceMode, _vadThreshold, _micGain, _voiceVolume);
+
+    // Apply audio device selection
+    voice.applyAudioDevices(_selectedInputDevice, _selectedOutputDevice);
 
     // Send to server if connected
     if (_context.tcpClient && _context.tcpClient->isConnected() && _context.tcpClient->isAuthenticated()) {
@@ -352,7 +586,7 @@ void SettingsScene::onApplyClick()
             accessibility::AccessibilityConfig::colorBlindModeToString(_colorBlindMode).c_str(),
             COLORBLIND_MODE_LEN - 1);
         payload.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
-        payload.gameSpeedPercent = 100;  // Game speed now per-room, not per-player
+        payload.gameSpeedPercent = 100;
 
         for (size_t i = 0; i < ACTION_COUNT; ++i) {
             payload.keyBindings[i * 2] = static_cast<uint8_t>(_keyBindings[i][0]);
@@ -360,6 +594,16 @@ void SettingsScene::onApplyClick()
         }
 
         payload.shipSkin = _shipSkin;
+        payload.voiceMode = _voiceMode;
+        payload.vadThreshold = _vadThreshold;
+        payload.micGain = _micGain;
+        payload.voiceVolume = _voiceVolume;
+
+        // Audio device names
+        std::strncpy(payload.audioInputDevice, _selectedInputDevice.c_str(), AUDIO_DEVICE_NAME_LEN - 1);
+        payload.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+        std::strncpy(payload.audioOutputDevice, _selectedOutputDevice.c_str(), AUDIO_DEVICE_NAME_LEN - 1);
+        payload.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
 
         _context.tcpClient->saveUserSettings(payload);
         showInfo("Saving to server...");
@@ -439,6 +683,16 @@ void SettingsScene::processTCPEvents()
                         _keyBindings[i][1] = static_cast<events::Key>(event.keyBindings[i * 2 + 1]);
                     }
 
+                    // Voice settings
+                    _voiceMode = event.voiceMode;
+                    _vadThreshold = event.vadThreshold;
+                    _micGain = event.micGain;
+                    _voiceVolume = event.voiceVolume;
+
+                    // Audio device selection
+                    _selectedInputDevice = event.audioInputDevice;
+                    _selectedOutputDevice = event.audioOutputDevice;
+
                     // Update UI
                     if (_colorBlindModeBtn) {
                         _colorBlindModeBtn->setText(getColorBlindModeDisplayName(_colorBlindMode));
@@ -456,6 +710,34 @@ void SettingsScene::processTCPEvents()
                         }
                     }
                     updateAllKeyBindButtonTexts();
+
+                    // Update voice mode button
+                    if (_voiceModeBtn) {
+                        _voiceModeBtn->setText(_voiceMode == 0 ? "PUSH-TO-TALK" : "VOICE ACTIVITY");
+                    }
+
+                    // Update audio device buttons - find matching index
+                    _inputDeviceIndex = 0;  // Default to auto
+                    for (size_t i = 0; i < _inputDeviceNames.size(); ++i) {
+                        if (_inputDeviceNames[i] == _selectedInputDevice) {
+                            _inputDeviceIndex = static_cast<int>(i);
+                            break;
+                        }
+                    }
+                    if (_inputDeviceBtn) {
+                        _inputDeviceBtn->setText(truncateDeviceName(_inputDeviceNames[_inputDeviceIndex], 30));
+                    }
+
+                    _outputDeviceIndex = 0;  // Default to auto
+                    for (size_t i = 0; i < _outputDeviceNames.size(); ++i) {
+                        if (_outputDeviceNames[i] == _selectedOutputDevice) {
+                            _outputDeviceIndex = static_cast<int>(i);
+                            break;
+                        }
+                    }
+                    if (_outputDeviceBtn) {
+                        _outputDeviceBtn->setText(truncateDeviceName(_outputDeviceNames[_outputDeviceIndex], 30));
+                    }
 
                     showInfo("Settings loaded from server");
                 }
@@ -526,17 +808,44 @@ void SettingsScene::handleEvent(const events::Event& event)
     // Normal event handling
     _colorBlindModeBtn->handleEvent(event);
 
+    // Voice chat buttons
+    _voiceModeBtn->handleEvent(event);
+    _vadThresholdMinusBtn->handleEvent(event);
+    _vadThresholdPlusBtn->handleEvent(event);
+    _micGainMinusBtn->handleEvent(event);
+    _micGainPlusBtn->handleEvent(event);
+    _voiceVolumeMinusBtn->handleEvent(event);
+    _voiceVolumePlusBtn->handleEvent(event);
+
+    // Audio device buttons
+    _inputDeviceBtn->handleEvent(event);
+    _outputDeviceBtn->handleEvent(event);
+
     // Ship skin buttons
     for (auto& btn : _shipSkinBtns) {
         if (btn) btn->handleEvent(event);
     }
 
-    // Speed buttons removed - game speed is now per-room (LobbyScene)
-
     for (auto& bindBtn : _keyBindButtons) {
         bindBtn.primary->handleEvent(event);
         bindBtn.secondary->handleEvent(event);
     }
+
+    // Debug: Log mouse clicks to check if Reset button receives them
+    if (auto* released = std::get_if<events::MouseButtonReleased>(&event)) {
+        auto evtLogger = client::logging::Logger::getSceneLogger();
+        auto resetPos = _resetBindingsBtn->getPos();
+        auto resetSize = _resetBindingsBtn->getSize();
+        float mx = static_cast<float>(released->x);
+        float my = static_cast<float>(released->y);
+        bool inX = (mx >= resetPos.x) && (mx <= resetPos.x + resetSize.x);
+        bool inY = (my >= resetPos.y) && (my <= resetPos.y + resetSize.y);
+        evtLogger->info("Mouse at ({},{}) - Reset btn [{},{}] to [{},{}] - inX={} inY={} contains={}",
+                        mx, my, resetPos.x, resetPos.y,
+                        resetPos.x + resetSize.x, resetPos.y + resetSize.y,
+                        inX, inY, _resetBindingsBtn->contains(mx, my));
+    }
+
     _resetBindingsBtn->handleEvent(event);
 
     _applyBtn->handleEvent(event);
@@ -570,12 +879,23 @@ void SettingsScene::update(float deltaTime)
     // Update all buttons
     _colorBlindModeBtn->update(deltaTime);
 
+    // Voice chat buttons
+    _voiceModeBtn->update(deltaTime);
+    _vadThresholdMinusBtn->update(deltaTime);
+    _vadThresholdPlusBtn->update(deltaTime);
+    _micGainMinusBtn->update(deltaTime);
+    _micGainPlusBtn->update(deltaTime);
+    _voiceVolumeMinusBtn->update(deltaTime);
+    _voiceVolumePlusBtn->update(deltaTime);
+
+    // Audio device buttons
+    _inputDeviceBtn->update(deltaTime);
+    _outputDeviceBtn->update(deltaTime);
+
     // Ship skin buttons
     for (auto& btn : _shipSkinBtns) {
         if (btn) btn->update(deltaTime);
     }
-
-    // Speed buttons removed - game speed is now per-room (LobbyScene)
 
     for (auto& bindBtn : _keyBindButtons) {
         bindBtn.primary->update(deltaTime);
@@ -610,46 +930,88 @@ void SettingsScene::render()
         SCREEN_WIDTH / 2 - 180, 40, 48, {100, 150, 255, 255});
 
     // === ACCESSIBILITY SECTION ===
-    float accessBoxY = 120.0f;
-    float accessBoxHeight = 200.0f;  // Increased for ship selection
+    float accessBoxY = 100.0f;
+    float accessBoxHeight = 400.0f;  // Increased for audio device selection
 
-    // Section box
     _context.window->drawRect(BOX_MARGIN_X, accessBoxY, BOX_WIDTH, accessBoxHeight, {20, 20, 40, 200});
     _context.window->drawRect(BOX_MARGIN_X, accessBoxY, BOX_WIDTH, 3, {60, 80, 120, 255});
 
-    // Section title
-    _context.window->drawText(FONT_KEY, "ACCESSIBILITY",
+    _context.window->drawText(FONT_KEY, "ACCESSIBILITY & VOICE",
         BOX_MARGIN_X + 20, accessBoxY + 15, 24, {150, 150, 180, 255});
 
-    // Color Blind Mode label
+    // Color Blind Mode
     _context.window->drawText(FONT_KEY, "Color Blind Mode:",
-        LABEL_X, 185, 20, {200, 200, 220, 255});
+        LABEL_X, 180, 18, {200, 200, 220, 255});
     _colorBlindModeBtn->render(*_context.window);
 
-    // Ship Selection label
-    _context.window->drawText(FONT_KEY, "Ship Skin:",
-        LABEL_X, 275, 20, {200, 200, 220, 255});
+    // Voice Mode
+    _context.window->drawText(FONT_KEY, "Voice Mode:",
+        LABEL_X, 240, 18, {200, 200, 220, 255});
+    _voiceModeBtn->render(*_context.window);
 
-    // Ship skin buttons with sprite preview
-    float shipBtnSize = 70.0f;
+    // VAD Threshold
+    _context.window->drawText(FONT_KEY, "VAD Sensitivity:",
+        LABEL_X, 290, 18, {200, 200, 220, 255});
+    _vadThresholdMinusBtn->render(*_context.window);
+    _context.window->drawText(FONT_KEY, std::to_string(_vadThreshold) + "%",
+        CONTROL_X + 55, 297, 16, {255, 255, 255, 255});
+    _vadThresholdPlusBtn->render(*_context.window);
+
+    // Mic Gain
+    _context.window->drawText(FONT_KEY, "Mic Gain:",
+        LABEL_X, 340, 18, {200, 200, 220, 255});
+    _micGainMinusBtn->render(*_context.window);
+    _context.window->drawText(FONT_KEY, std::to_string(_micGain) + "%",
+        CONTROL_X + 55, 347, 16, {255, 255, 255, 255});
+    _micGainPlusBtn->render(*_context.window);
+
+    // Voice Volume
+    _context.window->drawText(FONT_KEY, "Voice Volume:",
+        LABEL_X, 390, 18, {200, 200, 220, 255});
+    _voiceVolumeMinusBtn->render(*_context.window);
+    _context.window->drawText(FONT_KEY, std::to_string(_voiceVolume) + "%",
+        CONTROL_X + 55, 397, 16, {255, 255, 255, 255});
+    _voiceVolumePlusBtn->render(*_context.window);
+
+    // Input Device
+    _context.window->drawText(FONT_KEY, "Input Device:",
+        LABEL_X, 440, 18, {200, 200, 220, 255});
+    _inputDeviceBtn->render(*_context.window);
+
+    // Output Device
+    _context.window->drawText(FONT_KEY, "Output Device:",
+        LABEL_X, 490, 18, {200, 200, 220, 255});
+    _outputDeviceBtn->render(*_context.window);
+
+    // === SHIP SELECTION SECTION ===
+    float shipBoxY = 510.0f;
+    float shipBoxHeight = 90.0f;
+
+    _context.window->drawRect(BOX_MARGIN_X, shipBoxY, BOX_WIDTH, shipBoxHeight, {20, 20, 40, 200});
+    _context.window->drawRect(BOX_MARGIN_X, shipBoxY, BOX_WIDTH, 3, {60, 80, 120, 255});
+
+    _context.window->drawText(FONT_KEY, "SHIP",
+        BOX_MARGIN_X + 20, shipBoxY + 10, 20, {150, 150, 180, 255});
+
+    _context.window->drawText(FONT_KEY, "Ship Skin:",
+        LABEL_X, 535, 16, {200, 200, 220, 255});
+
+    float shipBtnSize = 60.0f;
     float shipSpacing = 20.0f;
     float shipStartX = CONTROL_X;
     for (size_t i = 0; i < SHIP_SKIN_COUNT; ++i) {
         if (_shipSkinBtns[i]) {
             _shipSkinBtns[i]->render(*_context.window);
-            // Draw ship sprite on top of button
             std::string textureKey = "settings_ship" + std::to_string(i + 1);
-            float spriteX = shipStartX + i * (shipBtnSize + shipSpacing) + 11;
-            float spriteY = 275.0f + 11;
+            float spriteX = shipStartX + i * (shipBtnSize + shipSpacing) + 6;
+            float spriteY = 530.0f + 6;
             _context.window->drawSprite(textureKey, spriteX, spriteY, 48.0f, 48.0f);
         }
     }
 
-    // Game Speed removed - now per-room (configured in LobbyScene by host)
-
     // === CONTROLS SECTION ===
-    float controlsBoxY = 360.0f;  // Adjusted for ship selection
-    float controlsBoxHeight = 420.0f;
+    float controlsBoxY = 600.0f;
+    float controlsBoxHeight = 240.0f;  // Must fit controls before bottom buttons
 
     // Section box
     _context.window->drawRect(BOX_MARGIN_X, controlsBoxY, BOX_WIDTH, controlsBoxHeight, {20, 20, 40, 200});
@@ -657,23 +1019,23 @@ void SettingsScene::render()
 
     // Section title
     _context.window->drawText(FONT_KEY, "CONTROLS",
-        BOX_MARGIN_X + 20, controlsBoxY + 15, 24, {150, 150, 180, 255});
+        BOX_MARGIN_X + 20, controlsBoxY + 8, 18, {150, 150, 180, 255});
 
     // Column headers
     _context.window->drawText(FONT_KEY, "Primary",
-        CONTROL_X + 25, controlsBoxY + 55, 16, {120, 120, 150, 255});
+        CONTROL_X + 25, controlsBoxY + 25, 12, {120, 120, 150, 255});
     _context.window->drawText(FONT_KEY, "Secondary",
-        CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING + 15, controlsBoxY + 55, 16, {120, 120, 150, 255});
+        CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING + 15, controlsBoxY + 25, 12, {120, 120, 150, 255});
 
     // Key bindings
-    float controlsStartY = 450.0f;  // Adjusted for ship selection section
+    float controlsStartY = 620.0f;
+    float controlsRowHeight = 32.0f;
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
-        float rowY = controlsStartY + i * ROW_HEIGHT;
+        float rowY = controlsStartY + i * controlsRowHeight;
 
-        // Action label
         _context.window->drawText(FONT_KEY, getActionDisplayName(action),
-            LABEL_X, rowY + 12, 20, {200, 200, 220, 255});
+            LABEL_X, rowY + 6, 13, {200, 200, 220, 255});
 
         _keyBindButtons[i].primary->render(*_context.window);
         _keyBindButtons[i].secondary->render(*_context.window);

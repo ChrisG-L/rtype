@@ -14,6 +14,12 @@ set(TEST_SOURCES
     # Tests Utils
     utils/VecsTest.cpp
     utils/SignalTest.cpp
+
+    # Tests Audio
+    audio/VoiceAudioTest.cpp
+    audio/PortAudioTest.cpp
+    audio/VoiceIntegrationTest.cpp
+    audio/AudioDevicePersistenceTest.cpp
 )
 
 # Créer l'exécutable de tests
@@ -37,10 +43,25 @@ target_include_directories(client_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client/include
 )
 
+# Trouver Opus et PortAudio pour les tests audio
+find_package(Opus CONFIG REQUIRED)
+
+# PortAudio - essayer d'abord vcpkg, puis pkg-config
+find_package(portaudio CONFIG QUIET)
+if(portaudio_FOUND)
+    set(PORTAUDIO_LIBRARIES portaudio_static)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
+    target_include_directories(client_tests PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
+endif()
+
 # Lier les bibliothèques nécessaires
 target_link_libraries(client_tests PRIVATE
     GTest::gtest
     GTest::gtest_main
+    Opus::opus
+    ${PORTAUDIO_LIBRARIES}
 )
 
 # Enregistrer les tests avec CTest (sauf en cross-compilation)

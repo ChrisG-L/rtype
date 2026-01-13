@@ -11,6 +11,7 @@ Le client R-Type est une application C++23 moderne avec architecture multi-backe
 - **Multi-Backend Graphics** : SDL2 (défaut) et SFML via plugins dynamiques (`DynamicLib`)
 - **UDPClient Temps Réel** : Synchronisation 20Hz, thread-safe (Boost.ASIO)
 - **AudioManager** : Musique et effets sonores (SDL2_mixer)
+- **VoiceChatManager** : Chat vocal temps réel (Opus + PortAudio, port 4126, sélection périphériques)
 - **AccessibilityConfig** : Remapping clavier, modes daltonien, vitesse de jeu
 - **GameScene Complet** : HUD, missiles, ennemis, parallax stars, death screen
 - **Event System** : std::variant (KeyPressed, KeyReleased, WindowClosed)
@@ -27,6 +28,8 @@ Le client R-Type est une application C++23 moderne avec architecture multi-backe
 | **SDL2_ttf** | Latest | Rendu de texte |
 | **SFML** | >= 3.0.1 | Backend graphique alternatif |
 | **Boost.Asio** | Latest | UDPClient asynchrone |
+| **Opus** | Latest | Codec audio pour voice chat |
+| **PortAudio** | Latest | Capture/playback microphone |
 | **spdlog** | Latest | Système de logging (6 loggers) |
 | **CMake** | >= 3.30 | Système de build |
 | **vcpkg** | Latest | Gestionnaire de dépendances |
@@ -147,6 +150,7 @@ graph TB
     subgraph "GameScene"
         F --> H[GameScene]
         H --> I[AudioManager]
+        H --> V[VoiceChatManager]
         H --> J[AccessibilityConfig]
         H --> K[EntityManager]
     end
@@ -197,7 +201,9 @@ src/client/                          # 62 fichiers total
 │   │   ├── GameObject.hpp          # Entité de base
 │   │   └── Missile.hpp             # Projectile
 │   ├── audio/
-│   │   └── AudioManager.hpp        # SDL2_mixer (musique + SFX)
+│   │   ├── AudioManager.hpp        # SDL2_mixer (musique + SFX)
+│   │   ├── VoiceChatManager.hpp    # Chat vocal (Opus + PortAudio)
+│   │   └── OpusCodec.hpp           # Encodeur/Decodeur Opus
 │   ├── accessibility/
 │   │   └── AccessibilityConfig.hpp # Remapping, daltonisme
 │   ├── events/
