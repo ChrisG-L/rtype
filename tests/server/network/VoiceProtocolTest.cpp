@@ -202,7 +202,8 @@ TEST_F(VoiceProtocolTest, VoiceLeaveSerialization) {
 
 TEST_F(VoiceProtocolTest, UserSettingsVoiceFieldsSerialization) {
     UserSettingsPayload settings;
-    std::strncpy(settings.colorBlindMode, "none", COLORBLIND_MODE_LEN);
+    std::strncpy(settings.colorBlindMode, "none", COLORBLIND_MODE_LEN - 1);
+    settings.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
     settings.gameSpeedPercent = 100;
     std::memset(settings.keyBindings, 0, KEY_BINDINGS_COUNT);
     settings.shipSkin = 1;
@@ -210,8 +211,10 @@ TEST_F(VoiceProtocolTest, UserSettingsVoiceFieldsSerialization) {
     settings.vadThreshold = 50;
     settings.micGain = 150;
     settings.voiceVolume = 80;
-    std::strncpy(settings.audioInputDevice, "Microphone", AUDIO_DEVICE_NAME_LEN);
-    std::strncpy(settings.audioOutputDevice, "Speakers", AUDIO_DEVICE_NAME_LEN);
+    std::strncpy(settings.audioInputDevice, "Microphone", AUDIO_DEVICE_NAME_LEN - 1);
+    settings.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+    std::strncpy(settings.audioOutputDevice, "Speakers", AUDIO_DEVICE_NAME_LEN - 1);
+    settings.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
 
     uint8_t buf[UserSettingsPayload::WIRE_SIZE];
     settings.to_bytes(buf);
@@ -228,7 +231,8 @@ TEST_F(VoiceProtocolTest, UserSettingsVoiceFieldsSerialization) {
 
 TEST_F(VoiceProtocolTest, UserSettingsVoiceDefaultValues) {
     UserSettingsPayload settings;
-    std::strncpy(settings.colorBlindMode, "none", COLORBLIND_MODE_LEN);
+    std::strncpy(settings.colorBlindMode, "none", COLORBLIND_MODE_LEN - 1);
+    settings.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
     settings.gameSpeedPercent = 100;
     std::memset(settings.keyBindings, 0, KEY_BINDINGS_COUNT);
     settings.shipSkin = 1;
@@ -255,7 +259,8 @@ TEST_F(VoiceProtocolTest, UserSettingsVoiceDefaultValues) {
 
 TEST_F(VoiceProtocolTest, UserSettingsAudioDeviceLongName) {
     UserSettingsPayload settings;
-    std::strncpy(settings.colorBlindMode, "none", COLORBLIND_MODE_LEN);
+    std::strncpy(settings.colorBlindMode, "none", COLORBLIND_MODE_LEN - 1);
+    settings.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
     settings.gameSpeedPercent = 100;
     std::memset(settings.keyBindings, 0, KEY_BINDINGS_COUNT);
     settings.shipSkin = 1;
@@ -266,11 +271,11 @@ TEST_F(VoiceProtocolTest, UserSettingsAudioDeviceLongName) {
     // Test long device name (should truncate at 63 chars + null)
     std::strncpy(settings.audioInputDevice,
         "Raptor Lake-P/U/H cAVS Digital Microphone with Very Long Name Extension",
-        AUDIO_DEVICE_NAME_LEN);
+        AUDIO_DEVICE_NAME_LEN - 1);
     settings.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
     std::strncpy(settings.audioOutputDevice,
         "Raptor Lake-P/U/H cAVS Speaker + Headphones with Extra Description",
-        AUDIO_DEVICE_NAME_LEN);
+        AUDIO_DEVICE_NAME_LEN - 1);
     settings.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
 
     uint8_t buf[UserSettingsPayload::WIRE_SIZE];
