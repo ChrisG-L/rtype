@@ -85,6 +85,18 @@ target_link_libraries(server_tests PRIVATE
     OpenSSL::Crypto
 )
 
+# Bibliothèques Windows pour Boost.Asio (tests UDP)
+if(MINGW OR WIN32)
+    target_link_libraries(server_tests PRIVATE
+        ws2_32    # Windows Sockets 2
+        mswsock   # Microsoft Sockets extensions
+    )
+    # MinGW + static linking = problèmes de définitions multiples
+    target_link_options(server_tests PRIVATE
+        -Wl,--allow-multiple-definition
+    )
+endif()
+
 # Enregistrer les tests avec CTest (sauf en cross-compilation)
 if(NOT CMAKE_CROSSCOMPILING)
     include(GoogleTest)

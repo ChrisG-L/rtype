@@ -284,24 +284,66 @@ clean_build() {
 configure_project() {
     print_header "Configuration CMake"
 
+    # Si le build existe déjà avec CMakeCache, réutiliser la configuration existante
+    if [[ -f "${BUILD_DIR}/CMakeCache.txt" ]]; then
+        print_success "Configuration existante trouvée dans ${BUILD_DIR}, réutilisation..."
+        return 0
+    fi
+
+    print_info "Aucune configuration existante, création..."
+    print_warning "Pour de meilleurs résultats, exécutez d'abord: ./scripts/build.sh --platform=${PLATFORM}"
+
     mkdir -p "$BUILD_DIR"
 
+    # Configuration alignée avec build.sh
     local cmake_args=(
         -S "$PROJECT_ROOT"
         -B "$BUILD_DIR"
         -DCMAKE_BUILD_TYPE=Debug
         -G "$CMAKE_GENERATOR"
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
     )
+
+    # Ajouter le triplet vcpkg selon la plateforme
+    case $PLATFORM in
+        linux)
+            cmake_args+=(-DVCPKG_TARGET_TRIPLET=x64-linux)
+            cmake_args+=(-DCMAKE_CXX_COMPILER=clang++)
+            cmake_args+=(-DCMAKE_C_COMPILER=clang)
+            ;;
+        windows)
+            cmake_args+=(-DVCPKG_TARGET_TRIPLET=x64-mingw-static)
+            cmake_args+=(-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++)
+            cmake_args+=(-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc)
+            ;;
+        macos)
+            cmake_args+=(-DVCPKG_TARGET_TRIPLET=x64-osx)
+            cmake_args+=(-DCMAKE_CXX_COMPILER=clang++)
+            cmake_args+=(-DCMAKE_C_COMPILER=clang)
+            ;;
+    esac
 
     if [[ -f "${PROJECT_ROOT}/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" ]]; then
         cmake_args+=(-DCMAKE_TOOLCHAIN_FILE="${PROJECT_ROOT}/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake")
     fi
 
+    # Exécuter CMake (ne pas masquer les erreurs)
     if [[ "$VERBOSE" == true ]]; then
-        cmake "${cmake_args[@]}"
+        if ! cmake "${cmake_args[@]}"; then
+            print_error "Échec de la configuration CMake"
+            exit 1
+        fi
     else
-        cmake "${cmake_args[@]}" > /dev/null 2>&1
+        # Capturer la sortie et le code de retour
+        local cmake_output
+        cmake_output=$(cmake "${cmake_args[@]}" 2>&1) || {
+            print_error "Échec de la configuration CMake"
+            echo "$cmake_output" | grep -E "(error|Error|ERROR|CMake Error|Could not find)" || echo "$cmake_output"
+            exit 1
+        }
+        # Afficher les lignes importantes même en mode non-verbose
+        echo "$cmake_output" | grep -E "(-- Found|-- Configuring done|-- Build files)" || true
     fi
 
     print_success "Configuration terminée"
