@@ -48,9 +48,15 @@ if [[ "$PLATFORM" == "linux" ]]; then
             exec pw-jack "$CLIENT_PATH" "$@"
         else
             echo "[Warning] PipeWire detected but pw-jack not found."
-            echo "Install with: sudo apt install pipewire-audio-client-libraries"
+            echo "Install with: sudo apt install pulseaudio pulseaudio-utils libpulse0 pipewire pipewire-pulse pipewire-jack pipewire-bin"
+            echo "Then activate with: systemctl --user enable --now pipewire pipewire-pulse wireplumber"
             echo "Attempting to run without JACK wrapper..."
         fi
+    else
+        echo "[Warning] PipeWire detected but pw-jack not found."
+        echo "Install with: sudo apt install pulseaudio pulseaudio-utils libpulse0 pipewire pipewire-pulse pipewire-jack pipewire-bin"
+        echo "Then activate with: systemctl --user enable --now pipewire pipewire-pulse wireplumber"
+        echo "Attempting to run without JACK wrapper..."
     fi
 fi
 
