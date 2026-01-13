@@ -265,9 +265,10 @@ voice.init();
 voice.connect(serverHost, 4126);
 voice.joinVoiceChannel(sessionToken, roomCode);
 
-// Push-to-Talk (V key)
-if (keyPressed(V)) voice.startTalking();
-if (keyReleased(V)) voice.stopTalking();
+// Push-to-Talk (configurable key, default: V)
+// Key can be changed in Settings > Controls > Push-to-Talk
+if (keyPressed(PushToTalkKey)) voice.startTalking();
+if (keyReleased(PushToTalkKey)) voice.stopTalking();
 
 // Voice Activity Detection (alternative mode)
 voice.setVoiceMode(VoiceMode::VoiceActivity);

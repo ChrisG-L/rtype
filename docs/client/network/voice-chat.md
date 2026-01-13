@@ -42,11 +42,12 @@ graph TB
 
 ### Push-to-Talk (PTT)
 
-Mode par défaut : maintenir la touche **V** pour parler.
+Mode par défaut : maintenir la touche configurée pour parler (par défaut **V**, configurable dans Settings > Controls).
 
 ```cpp
 // Dans GameScene::handleEvent()
-if (key == events::Key::V && !_chatInputOpen) {
+auto& accessConfig = AccessibilityConfig::getInstance();
+if (accessConfig.isActionKey(GameAction::PushToTalk, key) && !_chatInputOpen) {
     VoiceChatManager::getInstance().startTalking();
 }
 // Sur relâchement

@@ -26,12 +26,13 @@ AccessibilityConfig::AccessibilityConfig()
 
 void AccessibilityConfig::resetKeyBindings()
 {
-    _keyBindings[static_cast<size_t>(GameAction::MoveUp)]    = {events::Key::Up, events::Key::Z};
-    _keyBindings[static_cast<size_t>(GameAction::MoveDown)]  = {events::Key::Down, events::Key::S};
-    _keyBindings[static_cast<size_t>(GameAction::MoveLeft)]  = {events::Key::Left, events::Key::Q};
-    _keyBindings[static_cast<size_t>(GameAction::MoveRight)] = {events::Key::Right, events::Key::D};
-    _keyBindings[static_cast<size_t>(GameAction::Shoot)]     = {events::Key::Space, events::Key::Enter};
-    _keyBindings[static_cast<size_t>(GameAction::Pause)]     = {events::Key::Escape, events::Key::P};
+    _keyBindings[static_cast<size_t>(GameAction::MoveUp)]     = {events::Key::Up, events::Key::Z};
+    _keyBindings[static_cast<size_t>(GameAction::MoveDown)]   = {events::Key::Down, events::Key::S};
+    _keyBindings[static_cast<size_t>(GameAction::MoveLeft)]   = {events::Key::Left, events::Key::Q};
+    _keyBindings[static_cast<size_t>(GameAction::MoveRight)]  = {events::Key::Right, events::Key::D};
+    _keyBindings[static_cast<size_t>(GameAction::Shoot)]      = {events::Key::Space, events::Key::Enter};
+    _keyBindings[static_cast<size_t>(GameAction::Pause)]      = {events::Key::Escape, events::Key::P};
+    _keyBindings[static_cast<size_t>(GameAction::PushToTalk)] = {events::Key::V, events::Key::Unknown};
 }
 
 void AccessibilityConfig::setKeyBinding(GameAction action, events::Key primaryKey, events::Key secondaryKey)

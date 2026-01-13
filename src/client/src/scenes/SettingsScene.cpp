@@ -208,7 +208,7 @@ void SettingsScene::initUI()
     _outputDeviceBtn->setHoveredColor({70, 90, 120, 255});
 
     // === SHIP SELECTION SECTION ===
-    float shipY = 530.0f;  // Inside ship box
+    float shipY = 570.0f;  // Inside ship box
     float shipBtnSize = 60.0f;  // Smaller buttons
     float shipSpacing = 20.0f;
     float shipStartX = CONTROL_X;
@@ -234,7 +234,7 @@ void SettingsScene::initUI()
     }
 
     // === CONTROLS SECTION ===
-    float controlsStartY = 620.0f;  // Adjusted for voice + ship sections
+    float controlsStartY = 670.0f;  // Adjusted for voice + ship sections
     float controlsRowHeight = 32.0f;  // Compact row height
     float primaryX = CONTROL_X;
     float secondaryX = CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING;
@@ -271,26 +271,26 @@ void SettingsScene::initUI()
         _keyBindButtons[i].secondary->setHoveredColor({80, 80, 110, 255});
     }
 
-    // Reset bindings button
-    float resetY = controlsStartY + ACTION_COUNT * controlsRowHeight + 5;
-    auto initLogger = client::logging::Logger::getSceneLogger();
-    initLogger->info("Reset button position: ({}, {}) size: (200, 28)", centerX - 100, resetY);
+    // === BOTTOM BUTTONS (all 3 on same row) ===
+    float bottomY = controlsStartY + ACTION_COUNT * controlsRowHeight + 15;
+    float btnWidth = 160.0f;
+    float btnSpacing = 20.0f;
+    float totalWidth = btnWidth * 3 + btnSpacing * 2;
+    float startX = centerX - totalWidth / 2;
+
     _resetBindingsBtn = std::make_unique<ui::Button>(
-        Vec2f{centerX - 100, resetY},
-        Vec2f{200.0f, 28.0f},
-        "RESET TO DEFAULTS",
+        Vec2f{startX, bottomY},
+        Vec2f{btnWidth, 40.0f},
+        "RESET",
         FONT_KEY
     );
     _resetBindingsBtn->setOnClick([this]() { onResetBindingsClick(); });
     _resetBindingsBtn->setNormalColor({80, 60, 60, 255});
     _resetBindingsBtn->setHoveredColor({110, 80, 80, 255});
 
-    // === BOTTOM BUTTONS ===
-    float bottomY = resetY + 50.0f;  // Just below reset button
-
     _applyBtn = std::make_unique<ui::Button>(
-        Vec2f{centerX - 220, bottomY},
-        Vec2f{180.0f, 40.0f},
+        Vec2f{startX + btnWidth + btnSpacing, bottomY},
+        Vec2f{btnWidth, 40.0f},
         "APPLY & SAVE",
         FONT_KEY
     );
@@ -299,8 +299,8 @@ void SettingsScene::initUI()
     _applyBtn->setHoveredColor({70, 150, 100, 255});
 
     _backBtn = std::make_unique<ui::Button>(
-        Vec2f{centerX + 40, bottomY},
-        Vec2f{180.0f, 40.0f},
+        Vec2f{startX + (btnWidth + btnSpacing) * 2, bottomY},
+        Vec2f{btnWidth, 40.0f},
         "BACK",
         FONT_KEY
     );
@@ -354,6 +354,7 @@ std::string SettingsScene::getActionDisplayName(accessibility::GameAction action
         case accessibility::GameAction::MoveRight: return "Move Right";
         case accessibility::GameAction::Shoot: return "Shoot";
         case accessibility::GameAction::Pause: return "Pause";
+        case accessibility::GameAction::PushToTalk: return "Push-to-Talk";
         default: return "Unknown";
     }
 }
@@ -931,7 +932,7 @@ void SettingsScene::render()
 
     // === ACCESSIBILITY SECTION ===
     float accessBoxY = 100.0f;
-    float accessBoxHeight = 400.0f;  // Increased for audio device selection
+    float accessBoxHeight = 440.0f;  // Increased for audio device selection
 
     _context.window->drawRect(BOX_MARGIN_X, accessBoxY, BOX_WIDTH, accessBoxHeight, {20, 20, 40, 200});
     _context.window->drawRect(BOX_MARGIN_X, accessBoxY, BOX_WIDTH, 3, {60, 80, 120, 255});
@@ -984,7 +985,7 @@ void SettingsScene::render()
     _outputDeviceBtn->render(*_context.window);
 
     // === SHIP SELECTION SECTION ===
-    float shipBoxY = 510.0f;
+    float shipBoxY = 550.0f;
     float shipBoxHeight = 90.0f;
 
     _context.window->drawRect(BOX_MARGIN_X, shipBoxY, BOX_WIDTH, shipBoxHeight, {20, 20, 40, 200});
@@ -994,7 +995,7 @@ void SettingsScene::render()
         BOX_MARGIN_X + 20, shipBoxY + 10, 20, {150, 150, 180, 255});
 
     _context.window->drawText(FONT_KEY, "Ship Skin:",
-        LABEL_X, 535, 16, {200, 200, 220, 255});
+        LABEL_X, 575, 16, {200, 200, 220, 255});
 
     float shipBtnSize = 60.0f;
     float shipSpacing = 20.0f;
@@ -1004,14 +1005,14 @@ void SettingsScene::render()
             _shipSkinBtns[i]->render(*_context.window);
             std::string textureKey = "settings_ship" + std::to_string(i + 1);
             float spriteX = shipStartX + i * (shipBtnSize + shipSpacing) + 6;
-            float spriteY = 530.0f + 6;
+            float spriteY = 570.0f + 6;
             _context.window->drawSprite(textureKey, spriteX, spriteY, 48.0f, 48.0f);
         }
     }
 
     // === CONTROLS SECTION ===
-    float controlsBoxY = 600.0f;
-    float controlsBoxHeight = 240.0f;  // Must fit controls before bottom buttons
+    float controlsBoxY = 650.0f;
+    float controlsBoxHeight = 310.0f;  // 7 actions + header + bottom buttons
 
     // Section box
     _context.window->drawRect(BOX_MARGIN_X, controlsBoxY, BOX_WIDTH, controlsBoxHeight, {20, 20, 40, 200});
@@ -1028,7 +1029,7 @@ void SettingsScene::render()
         CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING + 15, controlsBoxY + 25, 12, {120, 120, 150, 255});
 
     // Key bindings
-    float controlsStartY = 620.0f;
+    float controlsStartY = 670.0f;
     float controlsRowHeight = 32.0f;
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);

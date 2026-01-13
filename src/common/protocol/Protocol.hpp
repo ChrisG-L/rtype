@@ -1019,7 +1019,7 @@ struct QuickJoinNack {
 // ============================================================================
 
 static constexpr size_t COLORBLIND_MODE_LEN = 16;
-static constexpr size_t KEY_BINDINGS_COUNT = 12;  // 6 actions × 2 keys
+static constexpr size_t KEY_BINDINGS_COUNT = 14;  // 7 actions × 2 keys
 static constexpr size_t AUDIO_DEVICE_NAME_LEN = 64;  // Audio device name storage
 
 // UserSettingsPayload: Core settings data

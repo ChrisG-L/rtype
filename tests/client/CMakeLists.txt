@@ -15,6 +15,9 @@ set(TEST_SOURCES
     utils/VecsTest.cpp
     utils/SignalTest.cpp
 
+    # Tests Accessibility
+    accessibility/AccessibilityConfigTest.cpp
+
     # Tests Audio
     audio/VoiceAudioTest.cpp
     audio/PortAudioTest.cpp
@@ -22,9 +25,15 @@ set(TEST_SOURCES
     audio/AudioDevicePersistenceTest.cpp
 )
 
+# Sources du client nécessaires pour les tests
+set(CLIENT_SOURCES_FOR_TESTS
+    ${CMAKE_SOURCE_DIR}/src/client/src/accessibility/AccessibilityConfig.cpp
+)
+
 # Créer l'exécutable de tests
 add_executable(client_tests
     ${TEST_SOURCES}
+    ${CLIENT_SOURCES_FOR_TESTS}
 )
 
 # Configuration de compilation pour les tests

@@ -209,8 +209,9 @@ void GameScene::handleEvent(const events::Event& event)
             return;
         }
 
-        // Push-to-Talk with V key
-        if (key.key == events::Key::V && !_chatInputOpen) {
+        // Push-to-Talk (configurable key)
+        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+        if (accessConfig.isActionKey(accessibility::GameAction::PushToTalk, key.key) && !_chatInputOpen) {
             auto& voiceMgr = audio::VoiceChatManager::getInstance();
             if (voiceMgr.isConnected() &&
                 voiceMgr.getVoiceMode() == audio::VoiceChatManager::VoiceMode::PushToTalk) {
@@ -221,8 +222,9 @@ void GameScene::handleEvent(const events::Event& event)
         auto& key = std::get<events::KeyReleased>(event);
         _keysPressed.erase(key.key);
 
-        // Release Push-to-Talk
-        if (key.key == events::Key::V) {
+        // Release Push-to-Talk (configurable key)
+        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+        if (accessConfig.isActionKey(accessibility::GameAction::PushToTalk, key.key)) {
             auto& voiceMgr = audio::VoiceChatManager::getInstance();
             if (voiceMgr.isConnected()) {
                 voiceMgr.stopTalking();
