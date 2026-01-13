@@ -74,6 +74,7 @@ private:
     void toggleDebug(const std::string& args);
     void enterZoomMode();
     void enterInteractMode(const std::string& args = "");
+    void cmdNet(const std::string& args);
     std::vector<std::string> parseArgs(const std::string& line);
 
     // Interactive output generators
@@ -83,6 +84,9 @@ private:
     tui::InteractiveOutput buildRoomsInteractiveOutput();
     tui::InteractiveOutput buildRoomDetailsInteractiveOutput(const std::string& roomCode);
     tui::InteractiveOutput buildUserDetailsInteractiveOutput(const std::string& email);
+
+    // Network monitor graph generator
+    std::string buildNetworkGraph();
 
     // Interact action handler
     void handleInteractAction(tui::InteractAction action, const tui::SelectableElement& element);
