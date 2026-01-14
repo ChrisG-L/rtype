@@ -37,6 +37,14 @@ Guide complet pour installer R-Type et ses dépendances sur votre système.
         libgl1-mesa-dev \
         libudev-dev \
         libfreetype6-dev
+
+    # Dépendances additionnelles (TLS, compilation de libs)
+    sudo apt install -y \
+        libssl-dev \
+        autoconf \
+        autoconf-archive \
+        automake \
+        libtool
     ```
 
 === "Windows"
@@ -154,6 +162,30 @@ vcpkg version
 ---
 
 ## Résolution des Problèmes
+
+??? question "CMake version insuffisante (< 3.30)"
+    Les dépôts Ubuntu/Debian ont souvent une version de CMake trop ancienne.
+    Installez CMake depuis le dépôt officiel Kitware :
+
+    ```bash
+    # Ajouter la clé GPG Kitware
+    wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
+        gpg --dearmor - | \
+        sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+
+    # Ajouter le dépôt (adapter 'noble' selon votre version Ubuntu)
+    # noble = 24.04, jammy = 22.04, focal = 20.04
+    echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
+        sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+
+    # Installer CMake
+    sudo apt update
+    sudo apt install kitware-archive-keyring  # Remplace la clé temporaire
+    sudo apt install cmake
+
+    # Vérifier
+    cmake --version  # Doit afficher >= 3.30
+    ```
 
 ??? question "vcpkg ne trouve pas les dépendances"
     Assurez-vous que `VCPKG_ROOT` est correctement défini :
