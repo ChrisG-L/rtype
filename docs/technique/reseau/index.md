@@ -318,3 +318,12 @@ sequenceDiagram
 | `BROADCAST_RATE` | 20Hz | Fréquence snapshots |
 | `VOICE_UDP_PORT` | 4126 | Port voice chat |
 | `MAX_OPUS_FRAME_SIZE` | 480 | Taille max frame Opus |
+
+---
+
+## Documentation Détaillée
+
+- [TCP Protocol](tcp.md) - Authentification et rooms
+- [UDP Protocol](udp.md) - Synchronisation jeu avec client-side prediction
+- [Voice Protocol](voice.md) - Audio temps réel avec Opus
+- [Structures Binaires](structures.md) - Référence complète des formats

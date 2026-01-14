@@ -159,14 +159,22 @@ nav:
     - Audio: configuration/audio.md
   - Technique:
     - technique/index.md
-    - Architecture: technique/architecture.md
+    - Architecture:
+      - technique/architecture/index.md
+      - Hexagonale: technique/architecture/hexagonale.md
+      - Client: technique/architecture/client.md
+      - Protocoles: technique/architecture/protocoles.md
+    - Réseau:
+      - technique/reseau/index.md
+      - TCP: technique/reseau/tcp.md
+      - UDP: technique/reseau/udp.md
+      - Voice: technique/reseau/voice.md
+      - Structures: technique/reseau/structures.md
     - Graphiques:
       - technique/graphiques/index.md
       - Abstraction: technique/graphiques/abstraction.md
       - SDL2: technique/graphiques/sdl2.md
       - SFML: technique/graphiques/sfml.md
-    - Réseau:
-      - technique/reseau/index.md
     - API Reference: technique/api/index.md
   - Référence:
     - reference/index.md
