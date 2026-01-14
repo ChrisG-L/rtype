@@ -1,53 +1,51 @@
 site_name: R-Type Documentation
+site_description: "Documentation officielle du projet R-Type - Jeu multijoueur client-serveur en C++23"
 site_url: https://rtype.example
-site_description: Documentation technique et utilisateur pour le projet R-Type
-site_author: AREA Team
-
-repo_name: rtype
 repo_url: https://github.com/Pluenet-Killian/rtype
-edit_uri: edit/main/docs/
+repo_name: rtype
 
 theme:
   name: material
   language: fr
-  font:
-    text: Merriweather Sans
-    code: Red Hat Mono
+  custom_dir: docs/overrides
 
   palette:
-    # Mode sombre
-    - scheme: slate
-      toggle:
-        icon: material/brightness-4
-        name: Passer en mode clair
-      primary: indigo
-      accent: deep purple
-
     # Mode clair
-    - scheme: default
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
       toggle:
-        icon: material/brightness-7
+        icon: material/weather-night
         name: Passer en mode sombre
-      primary: indigo
-      accent: deep orange
+    # Mode sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Passer en mode clair
+
+  font:
+    text: Inter
+    code: JetBrains Mono
 
   features:
     # Navigation
     - navigation.instant
-    - navigation.instant.prefetch
+    - navigation.instant.progress
     - navigation.tracking
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
     - navigation.path
-    - navigation.indexes
     - navigation.top
     - navigation.footer
 
     # Table des matières
     - toc.follow
-    - toc.integrate
 
     # Recherche
     - search.suggest
@@ -56,149 +54,117 @@ theme:
 
     # Contenu
     - content.code.copy
+    - content.code.select
     - content.code.annotate
     - content.tabs.link
     - content.tooltips
 
   icon:
     repo: fontawesome/brands/github
-    edit: material/pencil
-    view: material/eye
+    admonition:
+      note: fontawesome/solid/note-sticky
+      abstract: fontawesome/solid/book
+      info: fontawesome/solid/circle-info
+      tip: fontawesome/solid/bullhorn
+      success: fontawesome/solid/check
+      question: fontawesome/solid/circle-question
+      warning: fontawesome/solid/triangle-exclamation
+      failure: fontawesome/solid/bomb
+      danger: fontawesome/solid/skull
+      bug: fontawesome/solid/robot
+      example: fontawesome/solid/flask
+      quote: fontawesome/solid/quote-left
 
-# Extensions Markdown
+plugins:
+  - search:
+      lang: fr
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - tags:
+      tags_file: reference/tags.md
+
 markdown_extensions:
-  # Highlight de code
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Lien permanent
+      toc_depth: 3
+
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
-      use_pygments: true
   - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
   - pymdownx.snippets:
-      check_paths: true
-
-  # Superfences (code blocks et diagrammes)
+      auto_append:
+        - docs/includes/abbreviations.md
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
-
   - pymdownx.tabbed:
       alternate_style: true
-
-  # Admonitions (boîtes d'information)
-  - admonition
-  - pymdownx.details
-
-  # Formatage avancé
-  - pymdownx.critic
-  - pymdownx.caret
-  - pymdownx.mark
-  - pymdownx.tilde
-  - pymdownx.keys
-
-  # Emojis et icônes
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-
-  # Listes et tableaux
-  - def_list
+      combine_header_slug: true
   - pymdownx.tasklist:
       custom_checkbox: true
-  - tables
+  - pymdownx.tilde
 
-  # Attributs et HTML
-  - attr_list
-  - md_in_html
-
-  # Autres
-  - footnotes
-  - abbr
-  - pymdownx.smartsymbols
-
-# Navigation
-nav:
-  - Accueil: index.md
-  - État du Projet: project-status.md
-
-  - Pour Commencer:
-      - getting-started/index.md
-      - Installation: getting-started/installation.md
-      - Démarrage Rapide: getting-started/quickstart.md
-      - Compilation: getting-started/building.md
-
-  - Client:
-      - client/index.md
-      - Architecture:
-          - Vue d'ensemble: client/architecture/overview.md
-      - Core:
-          - client/core/index.md
-          - Main: client/core/main.md
-          - Boot: client/core/boot.md
-          - Engine: client/core/engine.md
-          - GameLoop: client/core/gameloop.md
-          - Scenes: client/core/scenes.md
-          - Renderer: client/core/renderer.md
-      - Graphics:
-          - client/graphics/index.md
-          - Vue d'ensemble: client/graphics/overview.md
-          - Backend SDL2: client/graphics/sdl2-implementation.md
-          - Backend SFML: client/graphics/sfml-implementation.md
-          - AssetManager: client/graphics/asset-manager.md
-      - Network:
-          - client/network/index.md
-          - TCPClient: client/network/tcp-client.md
-          - Voice Chat: client/network/voice-chat.md
-      - API:
-          - Interfaces: client/api/interfaces.md
-      - Guides:
-          - Démarrage: client/guides/getting-started.md
-
-  - Guides:
-      - Architecture Générale: guides/architecture.md
-      - Architecture Hexagonale: guides/hexagonal-architecture.md
-      - Architecture Réseau: guides/network-architecture.md
-      - Séparation Header/Implementation C++: guides/cpp-header-implementation.md
-      - Système d'Authentification: guides/authentication.md
-      - SonarQube - Qualité Code: guides/sonarqube.md
-      - Accessibilité: guides/accessibility.md
-
-  - Référence API:
-      - Vue d'ensemble: api/overview.md
-      - API Domaine: api/domain.md
-      - API Adapters: api/adapters.md
-      - Guide de Migration: api/migration.md
-
-  - Développement:
-      - development/index.md
-      - Claude Code Tooling: development/claude-code.md
-      - Roadmap Complète: development/roadmap.md
-      - Contribuer: development/contributing.md
-      - Système de Logging: development/logging.md
-      - Politiques de Commit: development/COMMIT_POLICES.md
-      - Tests: development/testing.md
-      - CI/CD Jenkins: development/ci-cd.md
-      - API Builder Jenkins: development/jenkins-builder-api.md
-      - Cross-Compilation Windows: development/cross-compilation.md
-      - Changelog: development/changelog.md
-
-  - Référence:
-      - FAQ: reference/faq.md
-
-# Configuration extra
 extra:
-  version:
-    provider: mike
+  generator: false
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/Pluenet-Killian/rtype
-
-  # Pied de page personnalisé
-  generator: false
+      name: GitHub
 
 extra_css:
-  - stylesheets/extra.css
+  - assets/css/custom.css
 
-strict: false
+nav:
+  - Accueil: index.md
+  - Guide:
+    - guide/index.md
+    - Installation: guide/installation.md
+    - Démarrage rapide: guide/quickstart.md
+    - Configuration: guide/configuration.md
+    - Compilation: guide/building.md
+  - Technique:
+    - technique/index.md
+    - Architecture: technique/architecture.md
+    - Librairies Graphiques:
+      - technique/graphiques/index.md
+      - Vue d'ensemble: technique/graphiques/overview.md
+      - Backend SDL2: technique/graphiques/sdl2.md
+      - Backend SFML: technique/graphiques/sfml.md
+      - AssetManager: technique/graphiques/asset-manager.md
+      - API Reference: technique/graphiques/api.md
+    - Réseau:
+      - technique/reseau/index.md
+      - Architecture: technique/reseau/architecture.md
+      - Protocole: technique/reseau/protocole.md
+    - API Reference: technique/api/index.md
+  - Référence:
+    - reference/index.md
+    - Glossaire: reference/glossaire.md
+    - FAQ: reference/faq.md
+    - Changelog: reference/changelog.md
+    - Tags: reference/tags.md
