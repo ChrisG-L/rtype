@@ -495,23 +495,6 @@ bash .claude/agentdb/query.sh file_context "src/server/main.cpp"
 
 ---
 
-## Migration depuis Army2077
-
-L'ancien système "Army2077" (docs/hive/) est remplacé par ce nouveau système d'agents.
-
-| Army2077 (ancien) | Claude Code (nouveau) |
-|-------------------|----------------------|
-| Général | Orchestration via /analyze |
-| Commandant Docs | - (docs séparées) |
-| Commandant Git | - (git séparé) |
-| Commandant Qualité | REVIEWER + ANALYZER |
-| Commandant Sécurité | SECURITY |
-| Soldat Architecte | ANALYZER |
-| Soldat Code Review | REVIEWER |
-| Soldat Mentor | - (apprentissage séparé) |
-
----
-
 ## Références
 
 - [AgentDB Schema](.claude/agentdb/schema.sql)
