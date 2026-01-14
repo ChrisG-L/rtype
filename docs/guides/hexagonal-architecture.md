@@ -35,30 +35,34 @@ Le serveur R-Type utilise une **Architecture Hexagonale** (aussi appelée **Port
 
 **Documentation:** [Domain API Reference](../api/domain.md)
 
-### Application Layer - 50% Implémenté 🚧
+### Application Layer - 100% Implémenté ✅
 
 **Use Cases:**
-- ✅ `MovePlayerUseCase` - Déplacement joueur (implémenté)
-- 🚧 `LoginUseCase` - Authentification utilisateur (en cours)
-- 📋 `RegisterUseCase` - Inscription utilisateur (planifié)
+- ✅ `LoginUseCase` - Authentification utilisateur
+- ✅ `RegisterUseCase` - Inscription utilisateur
 
-**Ports IN (interfaces entrantes):**
-- ✅ `IGameCommands` - Commandes de jeu
+> **Note:** Le déplacement joueur est géré directement par `GameWorld` via `PlayerInput` (bitfield de touches), pas par un use case séparé.
 
 **Ports OUT (interfaces sortantes):**
-- ✅ `IPlayerRepository` - Persistance Player (interface définie, implémentation en cours)
-- ✅ `IUserRepository` - Persistance User (interface définie)
+- ✅ `IUserRepository` - Persistance User
+- ✅ `IUserSettingsRepository` - Persistance paramètres utilisateur
+- ✅ `IChatMessageRepository` - Persistance messages chat
+- ✅ `IIdGenerator` - Génération d'identifiants
+- ✅ `ILogger` - Interface de logging
 
-### Infrastructure Layer - 60% Implémenté 🚧
+> **Note:** Il n'y a pas de Ports IN (interfaces entrantes) définis. Les commandes de jeu sont gérées directement par `GameWorld` via le protocole binaire.
+
+### Infrastructure Layer - 95% Implémenté ✅
 
 **Adapters IN (Driving):**
-- ✅ `UDPServer` - Serveur UDP asynchrone port 4123 (gameplay temps réel)
-- ✅ `TCPServer` + `Session` - Serveur TCP asynchrone port 4123 (authentification)
-- ✅ `CLIGameController` - Interface CLI pour tests
+- ✅ `UDPServer` - Serveur UDP asynchrone port 4124 (gameplay temps réel, 20Hz)
+- ✅ `VoiceUDPServer` - Serveur UDP port 4126 (relay vocal Opus)
+- ✅ `TCPAuthServer` + `Session` - Serveur TCP/TLS asynchrone port 4125 (authentification sécurisée)
 
 **Adapters OUT (Driven):**
 - ✅ `MongoDBConfiguration` - Connexion MongoDB avec bsoncxx/mongocxx
-- 🚧 `MongoDBPlayerRepository` - Repository Player (30% - en développement)
+- ✅ `MongoDBUserRepository` - Repository User (authentification)
+- ✅ `MongoDBUserSettingsRepository` - Repository paramètres utilisateur
 
 **Documentation:** [Adapters API Reference](../api/adapters.md), [Network Architecture](network-architecture.md)
 
@@ -76,37 +80,43 @@ Le serveur R-Type utilise une **Architecture Hexagonale** (aussi appelée **Port
 
 ```mermaid
 graph TB
-    subgraph "Infrastructure Layer 🚧"
-        REPO_IMPL[PlayerRepositoryMongoDB]
+    subgraph "Infrastructure Layer ✅"
+        REPO_IMPL[MongoDBUserRepository]
         NET[Network Adapters]
+        GW[GameWorld]
         DB[(MongoDB)]
     end
 
     subgraph "Application Layer ✅"
-        UC[MovePlayerUseCase]
-        PORTS_IN[IGameCommands]
-        PORTS_OUT[IPlayerRepository]
+        UC1[LoginUseCase]
+        UC2[RegisterUseCase]
+        PORTS_OUT[IUserRepository]
     end
 
     subgraph "Domain Layer ✅"
-        ENTITY[Player Entity]
+        ENTITY1[Player Entity]
+        ENTITY2[User Entity]
         VO1[Position]
         VO2[Health]
         VO3[PlayerId]
         EX[Exceptions]
     end
 
-    UC --> PORTS_OUT
-    UC --> ENTITY
+    UC1 --> PORTS_OUT
+    UC2 --> PORTS_OUT
     REPO_IMPL -.implements.-> PORTS_OUT
     REPO_IMPL --> DB
-    ENTITY --> VO1
-    ENTITY --> VO2
-    ENTITY --> VO3
+    GW --> ENTITY1
+    ENTITY1 --> VO1
+    ENTITY1 --> VO2
+    ENTITY1 --> VO3
 
-    style ENTITY fill:#4caf50
-    style UC fill:#2196f3
+    style ENTITY1 fill:#4caf50
+    style ENTITY2 fill:#4caf50
+    style UC1 fill:#2196f3
+    style UC2 fill:#2196f3
     style REPO_IMPL fill:#ff9800
+    style GW fill:#ff9800
 ```
 
 ### 1. Domain Layer (Cœur Métier) ✅
@@ -232,46 +242,40 @@ public:
 ```
 application/
 ├── use_cases/
-│   └── MovePlayerUseCase.hpp         # Cas d'usage: déplacer un joueur
-├── ports/
-│   ├── in/                           # Ports d'entrée (API, Commands)
-│   │   └── IGameCommands.hpp
-│   └── out/                          # Ports de sortie (Persistence, Events)
-│       └── persistence/
-│           └── IPlayerRepository.hpp # Interface de persistance
-└── dto/
-    └── PlayerDTO.hpp                 # 📋 Data Transfer Objects (à venir)
+│   └── player/
+│       ├── Login.hpp/.cpp            # Authentification utilisateur
+│       └── Register.hpp/.cpp         # Inscription utilisateur
+└── ports/
+    └── out/                          # Ports de sortie (Persistence, Events)
+        ├── persistence/
+        │   ├── IUserRepository.hpp           # Persistance User
+        │   ├── IUserSettingsRepository.hpp   # Persistance paramètres
+        │   └── IChatMessageRepository.hpp    # Persistance chat
+        ├── IIdGenerator.hpp                  # Génération d'IDs
+        └── ILogger.hpp                       # Interface logging
 ```
 
-#### Exemple: Use Case MovePlayer
+> **Note:** Il n'y a pas de Ports IN. Le déplacement joueur (`PlayerInput`) est traité directement par `GameWorld` via le protocole binaire UDP.
+
+#### Exemple: Use Case Login (Code réel)
 
 ```cpp
-namespace application::use_cases {
-    using domain::value_objects::player::PlayerId;
-    using application::ports::out::persistence::IPlayerRepository;
+namespace application::use_cases::auth {
+    using application::ports::out::persistence::IUserRepository;
+    using application::ports::out::ILogger;
+    using domain::entities::User;
 
-    class MovePlayerUseCase {
+    class Login {
     private:
-        IPlayerRepository* repository;  // ✅ Injection de dépendance
+        std::shared_ptr<IUserRepository> _userRepository;  // ✅ Injection via shared_ptr
+        std::shared_ptr<ILogger> _logger;
 
     public:
-        explicit MovePlayerUseCase(IPlayerRepository* repo)
-            : repository(repo) {}
+        explicit Login(
+            std::shared_ptr<IUserRepository> userRepository,
+            std::shared_ptr<ILogger> logger);
 
-        void execute(const PlayerId& id, float dx, float dy, float dz) {
-            // 1. Récupérer le joueur
-            auto playerOpt = repository->findById(id.value());
-            if (!playerOpt.has_value()) {
-                return;  // Joueur non trouvé
-            }
-
-            // 2. Appliquer la logique métier
-            auto player = playerOpt.value();
-            player.move(dx, dy, dz);  // ✅ Délègue au domaine
-
-            // 3. Persister les changements
-            repository->update(player);
-        }
+        std::optional<User> execute(const std::string& username, const std::string& password);
     };
 }
 ```
@@ -280,44 +284,37 @@ namespace application::use_cases {
 
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant UseCase as MovePlayerUseCase
-    participant Repo as IPlayerRepository
-    participant Player as Player Entity
-    participant Position as Position Value Object
+    participant TCPAuth as TCPAuthServer
+    participant UseCase as LoginUseCase
+    participant Repo as IUserRepository
+    participant User as User Entity
 
-    Client->>UseCase: execute(id, dx, dy, dz)
-    UseCase->>Repo: findById(id)
-    Repo-->>UseCase: Optional<Player>
-    UseCase->>Player: move(dx, dy, dz)
-    Player->>Position: move(dx, dy, dz)
-    Position-->>Player: new Position
-    Player-->>UseCase: updated Player
-    UseCase->>Repo: update(player)
-    Repo-->>UseCase: success
-    UseCase-->>Client: done
+    TCPAuth->>UseCase: execute(username, password)
+    UseCase->>Repo: findByUsername(username)
+    Repo-->>UseCase: Optional<User>
+    UseCase->>User: verifyPassword(password)
+    User-->>UseCase: bool (match)
+    UseCase-->>TCPAuth: Optional<User> (or nullopt)
 ```
 
 **Points clés:**
-- ✅ **Orchestration simple**: récupère → applique logique → sauvegarde
-- ✅ **Pas de logique métier**: tout est délégué à `Player.move()`
-- ✅ **Injection de dépendances**: reçoit le repository en paramètre
-- ✅ **Dépend d'une interface**: `IPlayerRepository`, pas d'une implémentation concrète
+- ✅ **Orchestration simple**: récupère user → vérifie password → retourne résultat
+- ✅ **Injection via shared_ptr**: gestion mémoire moderne C++
+- ✅ **Dépend d'interfaces**: `IUserRepository` et `ILogger`
 
-#### Exemple: Port IPlayerRepository
+#### Exemple: Port IUserRepository (Code réel)
 
 ```cpp
 namespace application::ports::out::persistence {
-    using domain::entities::Player;
+    using domain::entities::User;
 
-    class IPlayerRepository {  // ✅ Interface pure (abstract)
+    class IUserRepository {  // ✅ Interface pure (abstract)
     public:
-        virtual ~IPlayerRepository() = default;
+        virtual ~IUserRepository() = default;
 
-        virtual void save(const Player& player) const = 0;
-        virtual void update(const Player& player) = 0;
-        virtual std::optional<Player> findById(const std::string& id) const = 0;
-        virtual std::vector<Player> findAll() = 0;
+        virtual void save(const User& user) const = 0;
+        virtual std::optional<User> findByUsername(const std::string& username) const = 0;
+        virtual std::optional<User> findByEmail(const std::string& email) const = 0;
     };
 }
 ```

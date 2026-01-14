@@ -195,7 +195,7 @@ pie showData
 | Hachage passwords | :material-close-circle:{ .status-critical } SHA256 sans salt |
 | Logging | :material-close-circle:{ .status-critical } Passwords exposés |
 | Validation inputs | :material-alert-circle:{ .status-warning } Insuffisante |
-| Chiffrement réseau | :material-alert-circle:{ .status-warning } TLS non implémenté |
+| Chiffrement réseau | :material-check-circle:{ .status-ok } TLS 1.2+ sur TCP 4125 |
 | CI/CD | :material-check-circle:{ .status-ok } Jenkins fonctionnel |
 
 ### :material-file-document: 4. Documentation

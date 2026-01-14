@@ -176,7 +176,7 @@ Boot::Boot()
 
 **État après construction** :
 - `io_ctx` : Prêt pour async I/O
-- `tcpClient` : Connecté (ou en cours de connexion) à 127.0.0.1:4123
+- `tcpClient` : Connecté (ou en cours de connexion) à 127.0.0.1:4125
 - `engine` : Créé mais pas encore initialisé
 
 ```mermaid
@@ -192,7 +192,7 @@ sequenceDiagram
     IoCtx-->>Boot: io_context prêt
 
     Boot->>TCP: make_unique<TCPClient>(io_ctx)
-    TCP->>TCP: async_connect à 127.0.0.1:4123
+    TCP->>TCP: async_connect à 127.0.0.1:4125
     TCP-->>Boot: TCPClient créé
 
     Boot->>Eng: make_unique<Engine>()
@@ -350,7 +350,7 @@ sequenceDiagram
     M->>+B: Boot boot;
     B->>IoCtx: Construction automatique
     B->>TCP: make_unique<TCPClient>(io_ctx)
-    TCP->>TCP: async_connect(127.0.0.1:4123)
+    TCP->>TCP: async_connect(127.0.0.1:4125)
     TCP-->>B: TCPClient prêt
 
     B->>E: make_unique<Engine>()
@@ -765,7 +765,7 @@ int main() {
 ```cpp
 struct BootConfig {
     std::string serverIp = "127.0.0.1";
-    int serverPort = 4123;
+    int serverPort = 4125;
     bool enableNetwork = true;
     bool enableGraphics = true;
 };

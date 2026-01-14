@@ -47,7 +47,7 @@ cd rtype
 **Vous aurez accès à:**
 - 🌐 Documentation: http://localhost:8000
 - 🔧 Jenkins CI/CD: http://localhost:8081
-- 🎮 Serveur de jeu: localhost:4123 (TCP)
+- 🎮 Serveur de jeu: localhost:4125 (TCP/TLS auth) + localhost:4124 (UDP gameplay)
 
 [→ Lancer rapidement](quickstart.md)
 

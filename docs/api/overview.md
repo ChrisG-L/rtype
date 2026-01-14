@@ -16,7 +16,7 @@ Cette section contient la documentation de référence complète de l'API R-Type
 Documentation complète de la couche domaine (logique métier pure).
 
 **Contenu:**
-- **Entités** - Player, User
+- **Entités** - Player, User, Room
 - **Value Objects** - Health, Position, PlayerId, UserId, Username, Email, Password
 - **Exceptions** - Hiérarchie d'exceptions métier
 - **Utilitaires** - PasswordUtils
@@ -34,7 +34,7 @@ Documentation des adaptateurs (infrastructure et points d'entrée).
 **Contenu:**
 - **Adapters IN** - UDPServer (port 4124), GameWorld, Protocol binaire
 - **Adapters OUT** - MongoDBConfiguration, Repositories
-- **Network Protocol** - 14 types de messages, broadcast 20Hz
+- **Network Protocol** - 62 types de messages, broadcast 20Hz
 - **Collision System** - AABB hitboxes
 
 **État:** ✅ Implémenté et Documenté
@@ -121,7 +121,8 @@ graph TB
 |----------|-------------|--------|
 | **Login** | Authentification utilisateur | ✅ Implémenté |
 | **Register** | Inscription nouvel utilisateur | ✅ Implémenté |
-| **MovePlayerUseCase** | Déplacement joueur | ✅ Implémenté |
+
+> **Note:** Le déplacement joueur est géré directement par `GameWorld` via `PlayerInput`, pas par un use case séparé.
 
 ---
 
@@ -131,9 +132,9 @@ graph TB
 |------------|------|-------------|--------|
 | **UDPServer** | IN | Serveur UDP gameplay (port 4124, 20Hz) | ✅ Implémenté |
 | **GameWorld** | IN | État de jeu (joueurs, missiles, ennemis) | ✅ Implémenté |
-| **Protocol** | IN | 14 types de messages binaires | ✅ Implémenté |
+| **Protocol** | IN | 62 types de messages binaires | ✅ Implémenté |
 | **AABB Collision** | IN | Système de collision | ✅ Implémenté |
-| **TCPServer** | IN | Serveur TCP auth (port 3000) | ✅ Implémenté |
+| **TCPAuthServer** | IN | Serveur TCP/TLS auth (port 4125) | ✅ Implémenté |
 | **MongoDBConfig** | OUT | Configuration MongoDB | ✅ Implémenté |
 
 [→ Documentation complète Adapters Layer](adapters.md)

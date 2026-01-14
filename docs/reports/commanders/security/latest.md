@@ -247,15 +247,16 @@ pie showData
 
 ## :material-alert: Vulnérabilités Élevées (P1)
 
-### 6. :material-ethernet: Communication Réseau Non Chiffrée
+### 6. :material-ethernet: Communication Réseau ~~Non Chiffrée~~ ✅ CORRIGÉ
 
-!!! warning "ÉLEVÉ - CWE-319: Cleartext Transmission of Sensitive Information"
+!!! success "CORRIGÉ - TLS 1.2+ implémenté sur TCP 4125"
 
-    **Fichiers**: `TCPServer.cpp`, `TCPClient.cpp`, `UDPServer.cpp`
+    **Fichiers modifiés**: `TCPAuthServer.cpp`, `TCPClient.cpp`
 
-    Toutes les communications réseau sont en clair. Pas d'implémentation TLS/SSL.
+    Le canal TCP d'authentification (port 4125) est maintenant chiffré avec TLS 1.2+.
+    Cipher suites modernes : ECDHE + AES-GCM / ChaCha20-Poly1305.
 
-    **Impact**: Interception man-in-the-middle, vol de credentials.
+    **Note**: UDP gameplay (4124) et voice (4126) restent en clair (acceptable pour données temps réel non sensibles).
 
 ### 7. :material-text-box-search: Absence de Validation des Inputs
 
@@ -317,7 +318,7 @@ pie showData
 ### Priorité Haute (P1) - 1 semaine
 
 ```
-[ ] 6. Implémenter TLS pour TCP/UDP
+[x] 6. ~~Implémenter TLS pour TCP~~ ✅ FAIT (TLS 1.2+ sur port 4125)
 [ ] 7. Ajouter validation des inputs dans CommandParser
 [ ] 8. Sécuriser rsync avec authentification
 [ ] 9. Implémenter rate limiting

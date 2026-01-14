@@ -128,7 +128,7 @@ Boot boot;
 1. **Constructeur Boot** appelé
 2. **io_context** créé automatiquement
 3. **TCPClient** créé avec `make_unique`
-   - Connection async à 127.0.0.1:4123 lancée
+   - Connection async à 127.0.0.1:4125 lancée
 4. **Engine** créé avec `make_unique`
 5. **Boot prêt** mais pas encore initialisé
 
@@ -343,7 +343,7 @@ int main(int argc, char* argv[])
 {
     // Analyser les arguments
     std::string serverIp = "127.0.0.1";
-    int serverPort = 4123;
+    int serverPort = 4125;
 
     if (argc > 1) serverIp = argv[1];
     if (argc > 2) serverPort = std::stoi(argv[2]);
@@ -428,7 +428,7 @@ int main(int argc, char* argv[]) {
     desc.add_options()
         ("help", "Afficher l'aide")
         ("server", po::value<std::string>()->default_value("127.0.0.1"), "IP serveur")
-        ("port", po::value<int>()->default_value(4123), "Port serveur");
+        ("port", po::value<int>()->default_value(4125), "Port serveur");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);

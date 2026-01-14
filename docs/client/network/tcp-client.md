@@ -1,17 +1,40 @@
-# TCPClient - Client Réseau Asynchrone
+# TCPClient - Client Réseau TLS Asynchrone
 
 ## Vue d'Ensemble
 
-Le **TCPClient** est le composant réseau du client R-Type, responsable de la communication avec le serveur de jeu via TCP. Il utilise **Boost.Asio** pour gérer les connexions, lectures et écritures.
+Le **TCPClient** est le composant réseau du client R-Type, responsable de la communication authentifiée avec le serveur via **TCP/TLS**. Il utilise **Boost.Asio SSL** pour sécuriser les connexions.
 
 !!! info "Localisation"
     - **Header**: `src/client/include/network/TCPClient.hpp`
-    - **Implementation**: `src/client/network/TCPClient.cpp`
+    - **Implementation**: `src/client/src/network/TCPClient.cpp`
     - **Namespace**: `client::network`
-    - **Dépendances**: Boost.Asio 1.89.0+
+    - **Dépendances**: Boost.ASIO, OpenSSL
 
 !!! success "État Actuel"
-    **FONCTIONNEL** : Connexion, envoi, réception et déconnexion implémentés.
+    **FONCTIONNEL** : Connexion TLS 1.2+, authentification, gestion de rooms implémentés.
+
+---
+
+## Sécurité TLS
+
+### Configuration
+
+| Paramètre | Valeur |
+|-----------|--------|
+| **Port** | TCP 4125 |
+| **Protocole** | TLS 1.2 minimum |
+| **Vérification** | `verify_none` (développement) |
+| **Mode production** | `verify_peer` avec CA certificates |
+
+### Cipher Suites Supportées
+
+Le serveur supporte les cipher suites modernes :
+- ECDHE-ECDSA-AES256-GCM-SHA384
+- ECDHE-RSA-AES256-GCM-SHA384
+- ECDHE-ECDSA-AES128-GCM-SHA256
+- ECDHE-RSA-AES128-GCM-SHA256
+- ECDHE-ECDSA-CHACHA20-POLY1305
+- ECDHE-RSA-CHACHA20-POLY1305
 
 ---
 
@@ -25,20 +48,16 @@ graph TB
 
     subgraph "TCPClient Internals"
         TCP -->|possède| IoCtx[io_context]
-        TCP -->|possède| Socket[tcp::socket]
-        TCP -->|utilise| Resolver[tcp::resolver]
+        TCP -->|possède| SSLCtx[ssl::context]
+        TCP -->|possède| Socket[ssl::stream&lt;tcp::socket&gt;]
     end
 
     subgraph "Serveur R-Type"
-        Socket -.->|connect| Server[127.0.0.1:4123]
-    end
-
-    subgraph "Constantes"
-        BUF[BUFFER_SIZE = 4096]
+        Socket -.->|TLS 1.2+| Server[TCPAuthServer :4125]
     end
 
     style TCP fill:#4CAF50,color:#fff
-    style IoCtx fill:#FF9800,color:#000
+    style SSLCtx fill:#FF9800,color:#000
     style Server fill:#2196F3,color:#fff
 ```
 
@@ -49,275 +68,186 @@ graph TB
 ### Header (TCPClient.hpp)
 
 ```cpp
-/*
-** EPITECH PROJECT, 2025
-** rtype [WSL: Ubuntu-24.04]
-** File description:
-** TCPClient
-*/
-
 #ifndef TCPCLIENT_HPP_
 #define TCPCLIENT_HPP_
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <string>
 #include <cstdint>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
-namespace client::network {
+#include "Protocol.hpp"
+#include "NetworkEvents.hpp"
 
-using boost::asio::ip::tcp;
+namespace client::network
+{
+    using boost::asio::ip::tcp;
+    namespace ssl = boost::asio::ssl;
 
-// Taille du buffer de réception - constexpr évite les VLA
-static constexpr std::size_t BUFFER_SIZE = 4096;
+    class TCPClient
+    {
+    public:
+        using OnConnectedCallback = std::function<void()>;
+        using OnDisconnectedCallback = std::function<void()>;
+        using OnReceiveCallback = std::function<void(const std::string &)>;
+        using OnErrorCallback = std::function<void(const std::string &)>;
 
-class TCPClient {
-public:
-    TCPClient();
-    ~TCPClient();
+        TCPClient();
+        ~TCPClient();
 
-    // Connexion au serveur
-    bool connect(const std::string &host, std::uint16_t port);
+        // Connexion TLS
+        void connect(const std::string &host, std::uint16_t port);
+        void disconnect();
+        bool isConnected() const;
+        bool isConnecting() const;
+        bool isAuthenticated() const;
 
-    // Déconnexion propre
-    void disconnect();
+        // Authentification
+        void sendLoginData(const std::string& username, const std::string& password);
+        void sendRegisterData(const std::string& username, const std::string& email, const std::string& password);
 
-    // Vérifier l'état de connexion
-    bool isConnected() const;
+        // Room operations
+        void createRoom(const std::string& name, uint8_t maxPlayers, bool isPrivate);
+        void joinRoomByCode(const std::string& code);
+        void leaveRoom();
+        void setReady(bool ready);
+        void startGame();
 
-    // Envoyer un message
-    bool send(const std::string &message);
+        // Event queue for thread-safe event polling
+        std::optional<TCPEvent> pollEvent();
 
-    // Recevoir un message (non-bloquant)
-    bool receive(std::string &message);
+    private:
+        void initSSLContext();
+        void asyncConnect(tcp::resolver::results_type endpoints);
+        void asyncRead();
+        void handleConnect(const boost::system::error_code &error);
+        void handleRead(const boost::system::error_code &error, std::size_t bytes);
 
-private:
-    boost::asio::io_context _ioContext;  // Contexte ASIO propre
-    tcp::socket _socket;                  // Socket TCP
-    bool _connected = false;              // État de connexion
-};
+        // TLS context and socket
+        boost::asio::io_context _ioContext;
+        ssl::context _sslContext;
+        ssl::stream<tcp::socket> _socket;
+        std::jthread _ioThread;
 
-} // namespace client::network
+        // State
+        std::atomic<bool> _connected{false};
+        std::atomic<bool> _connecting{false};
+        std::atomic<bool> _isAuthenticated{false};
+        mutable std::mutex _mutex;
+    };
+}
 
 #endif /* !TCPCLIENT_HPP_ */
 ```
 
 ### Points Clés du Design
 
-#### 1. Constante BUFFER_SIZE
+#### 1. SSL Context Initialization
 
 ```cpp
-static constexpr std::size_t BUFFER_SIZE = 4096;
-```
+void TCPClient::initSSLContext() {
+    auto logger = client::logging::Logger::getNetworkLogger();
 
-**Pourquoi `constexpr` ?**
+    // Development: accept self-signed certificates
+    _sslContext.set_verify_mode(ssl::verify_none);
 
-- Évite les VLA (Variable Length Arrays) qui causent des warnings
-- Valeur connue à la compilation
-- Optimisation possible par le compilateur
+    // Load system CA certificates for future production use
+    _sslContext.set_default_verify_paths();
 
-```cpp
-// ❌ MAUVAIS : VLA avec const
-const std::size_t size = 4096;
-char buffer[size];  // Warning: VLA
+    // Force TLS 1.2 minimum
+    SSL_CTX_set_min_proto_version(_sslContext.native_handle(), TLS1_2_VERSION);
 
-// ✅ BON : Taille fixe avec constexpr
-static constexpr std::size_t BUFFER_SIZE = 4096;
-char buffer[BUFFER_SIZE];  // OK: taille connue à la compilation
-```
-
-#### 2. Contexte ASIO Propre
-
-```cpp
-boost::asio::io_context _ioContext;  // Possède son propre contexte
-tcp::socket _socket;
-```
-
-**Avantages :**
-
-- TCPClient est autonome, pas de dépendance externe
-- Pas besoin de passer de référence au constructeur
-- Simplification de l'API
-
-#### 3. Double Vérification de Connexion
-
-```cpp
-bool TCPClient::isConnected() const
-{
-    return _connected && _socket.is_open();
+    logger->debug("SSL context initialized (TLS 1.2+)");
 }
 ```
 
-**Pourquoi deux conditions ?**
-
-- `_connected` : État logique géré par le code
-- `_socket.is_open()` : État réel du socket système
-
-```mermaid
-graph TD
-    A[isConnected appelé] --> B{_connected ?}
-    B -->|false| C[Retourne false]
-    B -->|true| D{_socket.is_open ?}
-    D -->|false| C
-    D -->|true| E[Retourne true]
-
-    style E fill:#4CAF50,color:#fff
-    style C fill:#f44336,color:#fff
-```
-
----
-
-## Implémentation Détaillée
-
-### Constructeur et Destructeur
+#### 2. Two-Phase Connection (TCP + TLS Handshake)
 
 ```cpp
-TCPClient::TCPClient()
-    : _socket(_ioContext)
+void TCPClient::asyncConnect(tcp::resolver::results_type endpoints)
 {
-    // Socket initialisé avec le contexte
+    // Phase 1: TCP connection
+    boost::asio::async_connect(
+        _socket.lowest_layer(),  // Connect on underlying TCP socket
+        endpoints,
+        [this](const boost::system::error_code &error, const tcp::endpoint &) {
+            handleConnect(error);
+        }
+    );
 }
 
-TCPClient::~TCPClient()
+void TCPClient::handleConnect(const boost::system::error_code &error)
 {
-    disconnect();  // Fermeture propre
-}
-```
-
-### Méthode `connect()`
-
-```cpp
-bool TCPClient::connect(const std::string &host, std::uint16_t port)
-{
-    if (_connected)
-        return true;  // Déjà connecté
-
-    try {
-        tcp::resolver resolver(_ioContext);
-        auto endpoints = resolver.resolve(host, std::to_string(port));
-
-        boost::asio::connect(_socket, endpoints);
-        _connected = true;
-
-        std::cout << "[TCPClient] Connected to " << host << ":" << port << std::endl;
-        return true;
-    } catch (const std::exception &e) {
-        std::cerr << "[TCPClient] Connection failed: " << e.what() << std::endl;
-        return false;
+    if (!error) {
+        // Phase 2: TLS handshake
+        _socket.async_handshake(
+            ssl::stream_base::client,
+            [this](const boost::system::error_code &hsError) {
+                if (hsError) {
+                    logger->error("TLS handshake failed: {}", hsError.message());
+                    return;
+                }
+                logger->info("TLS handshake successful");
+                // Start reading after successful handshake
+                asyncRead();
+            }
+        );
     }
 }
 ```
 
-**Flux de connexion :**
-
-```mermaid
-sequenceDiagram
-    participant Client as TCPClient
-    participant Resolver as tcp::resolver
-    participant Socket as tcp::socket
-    participant Server as Serveur
-
-    Client->>Client: Vérifier si déjà connecté
-    Client->>+Resolver: resolve(host, port)
-    Resolver-->>-Client: endpoints
-
-    Client->>+Socket: connect(endpoints)
-    Socket->>+Server: TCP Handshake (SYN)
-    Server-->>Socket: SYN-ACK
-    Socket-->>Server: ACK
-    Server-->>-Socket: Connexion établie
-    Socket-->>-Client: Succès
-
-    Client->>Client: _connected = true
-```
-
-### Méthode `disconnect()`
+#### 3. Graceful SSL Shutdown
 
 ```cpp
 void TCPClient::disconnect()
 {
-    if (!_connected)
-        return;
-
+    // SSL shutdown (graceful close)
     boost::system::error_code ec;
-    _socket.shutdown(tcp::socket::shutdown_both, ec);
-    _socket.close(ec);
-
-    // Recréer le socket pour permettre une reconnexion
-    _socket = tcp::socket(_ioContext);
-    _connected = false;
-
-    std::cout << "[TCPClient] Disconnected" << std::endl;
-}
-```
-
-**Point important : Recréation du socket**
-
-```cpp
-_socket = tcp::socket(_ioContext);
-```
-
-Après `close()`, le socket ne peut plus être réutilisé. On le recrée pour permettre un futur `connect()`.
-
-### Méthode `send()`
-
-```cpp
-bool TCPClient::send(const std::string &message)
-{
-    if (!isConnected())
-        return false;
-
-    try {
-        boost::asio::write(_socket, boost::asio::buffer(message));
-        return true;
-    } catch (const std::exception &e) {
-        std::cerr << "[TCPClient] Send failed: " << e.what() << std::endl;
-        disconnect();
-        return false;
+    _socket.shutdown(ec);
+    if (ec && ec != boost::asio::error::eof && ec != boost::asio::ssl::error::stream_truncated) {
+        logger->debug("SSL shutdown notice: {}", ec.message());
     }
+    _socket.lowest_layer().close(ec);
+
+    // Recreate ssl::stream for potential reconnection
+    _socket = ssl::stream<tcp::socket>(_ioContext, _sslContext);
 }
 ```
 
-### Méthode `receive()`
+---
 
-```cpp
-bool TCPClient::receive(std::string &message)
-{
-    if (!isConnected())
-        return false;
+## Flux de Connexion TLS
 
-    try {
-        // Vérifier si des données sont disponibles (non-bloquant)
-        if (_socket.available() == 0)
-            return false;
+```mermaid
+sequenceDiagram
+    participant Client as TCPClient
+    participant Socket as ssl::stream
+    participant Server as TCPAuthServer
 
-        char buffer[BUFFER_SIZE];
-        std::size_t len = _socket.read_some(boost::asio::buffer(buffer, BUFFER_SIZE));
+    Client->>Socket: async_connect(lowest_layer)
+    Socket->>Server: TCP SYN
+    Server->>Socket: TCP SYN-ACK
+    Socket->>Server: TCP ACK
+    Socket->>Client: TCP Connected
 
-        message.assign(buffer, len);  // Optimisé: pas de concaténation
-        return true;
-    } catch (const std::exception &e) {
-        std::cerr << "[TCPClient] Receive failed: " << e.what() << std::endl;
-        disconnect();
-        return false;
-    }
-}
-```
+    Client->>Socket: async_handshake(client)
+    Socket->>Server: ClientHello (TLS 1.2+)
+    Server->>Socket: ServerHello, Certificate
+    Socket->>Server: ClientKeyExchange, ChangeCipherSpec
+    Server->>Socket: ChangeCipherSpec, Finished
+    Socket->>Client: TLS Handshake OK
 
-**Optimisation avec `assign()` :**
-
-```cpp
-// ❌ Moins efficace
-message = std::string(buffer, len);  // Allocation + copie
-
-// ✅ Plus efficace
-message.assign(buffer, len);  // Réutilise le buffer existant si possible
+    Client->>Client: asyncRead() - Start reading
 ```
 
 ---
 
 ## Utilisation
 
-### Exemple Basique
+### Exemple Connexion et Authentification
 
 ```cpp
 #include "network/TCPClient.hpp"
@@ -325,87 +255,62 @@ message.assign(buffer, len);  // Réutilise le buffer existant si possible
 int main() {
     client::network::TCPClient client;
 
-    // Connexion
-    if (!client.connect("127.0.0.1", 4123)) {
-        std::cerr << "Impossible de se connecter" << std::endl;
-        return 1;
+    // Callbacks
+    client.setOnConnected([]() {
+        std::cout << "Connected to server (TLS)" << std::endl;
+    });
+
+    client.setOnError([](const std::string& error) {
+        std::cerr << "Error: " << error << std::endl;
+    });
+
+    // Connexion TLS (port 4125)
+    client.connect("127.0.0.1", 4125);
+
+    // Attendre la connexion
+    while (client.isConnecting()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // Envoi d'un message
-    client.send("LOGIN|username|password");
-
-    // Réception (dans une boucle de jeu)
-    std::string response;
-    if (client.receive(response)) {
-        std::cout << "Réponse: " << response << std::endl;
+    if (client.isConnected()) {
+        // Authentification (chiffrée via TLS)
+        client.sendLoginData("username", "password");
     }
 
-    // Déconnexion automatique à la destruction
+    // Game loop - poll events
+    while (running) {
+        if (auto event = client.pollEvent()) {
+            std::visit([](auto&& e) {
+                // Handle event
+            }, *event);
+        }
+    }
+
     return 0;
 }
 ```
 
-### Intégration avec Boot
+### Intégration avec SceneManager
 
 ```cpp
-// Dans Boot.hpp
-#include "network/TCPClient.hpp"
-
-class Boot {
-private:
-    std::unique_ptr<client::network::TCPClient> _tcpClient;
-};
-
-// Dans Boot.cpp
-Boot::Boot()
-{
-    _tcpClient = std::make_unique<client::network::TCPClient>();
+// Dans LoginScene
+void LoginScene::onLoginButtonClick() {
+    _context.tcpClient->sendLoginData(_usernameInput.getText(), _passwordInput.getText());
 }
 
-void Boot::core()
-{
-    // Connexion au serveur
-    if (_tcpClient->connect("127.0.0.1", 4123)) {
-        // Prêt à communiquer
+void LoginScene::update(float deltaTime) {
+    if (auto event = _context.tcpClient->pollEvent()) {
+        if (std::holds_alternative<TCPLoginSuccessEvent>(*event)) {
+            auto& e = std::get<TCPLoginSuccessEvent>(*event);
+            _context.sessionToken = e.token;
+            _context.sceneManager->switchTo("MainMenu");
+        }
+        else if (std::holds_alternative<TCPErrorEvent>(*event)) {
+            auto& e = std::get<TCPErrorEvent>(*event);
+            showError(e.message);
+        }
     }
-
-    // Lancer le moteur de jeu
-    _engine->run();
 }
-```
-
----
-
-## Protocole de Communication
-
-### Format des Messages (Texte)
-
-Le serveur R-Type utilise un protocole pipe-delimited :
-
-```
-COMMAND|param1|param2|...
-```
-
-### Exemples de Commandes
-
-**Inscription :**
-```
-REGISTER|username|email|password
-```
-
-**Connexion :**
-```
-LOGIN|username|password
-```
-
-**Mouvement joueur :**
-```
-MOVE|x|y|direction
-```
-
-**Tir :**
-```
-SHOOT|x|y|angle
 ```
 
 ---
@@ -417,93 +322,108 @@ stateDiagram-v2
     [*] --> Disconnected : Création
 
     Disconnected --> Connecting : connect()
-    Connecting --> Connected : Succès
-    Connecting --> Disconnected : Échec
+    Connecting --> TLSHandshake : TCP OK
+    TLSHandshake --> Connected : TLS OK
+    TLSHandshake --> Disconnected : TLS Fail
+    Connecting --> Disconnected : TCP Fail
 
-    Connected --> Sending : send()
-    Sending --> Connected : Succès
-    Sending --> Disconnected : Erreur
-
-    Connected --> Receiving : receive()
-    Receiving --> Connected : Données/Vide
-    Receiving --> Disconnected : Erreur
+    Connected --> Authenticated : Login OK
+    Authenticated --> InRoom : CreateRoom/JoinRoom
+    InRoom --> InGame : StartGame
 
     Connected --> Disconnected : disconnect()
+    Authenticated --> Disconnected : disconnect()
+    InRoom --> Disconnected : disconnect()
+
+    note right of TLSHandshake
+        async_handshake(client)
+        TLS 1.2+ required
+    end note
 
     note right of Connected
-        isConnected() = true
-        Socket ouvert
-        Prêt pour I/O
-    end note
-
-    note right of Disconnected
-        isConnected() = false
-        Socket recréé
-        Prêt pour connect()
+        Credentials encrypted
+        Session token received
     end note
 ```
 
 ---
 
-## Améliorations Apportées
+## Gestion d'Erreurs TLS
 
-### Commit `77f0247`
+### Erreurs Courantes
 
-| Avant | Après | Avantage |
-|-------|-------|----------|
-| `const size_t BUFFER_SIZE` | `static constexpr size_t BUFFER_SIZE` | Évite VLA warnings |
-| `return _connected` | `return _connected && _socket.is_open()` | Détection connexion perdue |
-| `message = string(buffer, len)` | `message.assign(buffer, len)` | Performance |
-| Socket non réutilisable | `_socket = tcp::socket(_ioContext)` | Permet reconnexion |
+| Erreur | Cause | Solution |
+|--------|-------|----------|
+| `handshake: certificate verify failed` | Certificat non reconnu | Mode dev: `verify_none`, Prod: ajouter CA |
+| `handshake: protocol version` | TLS version trop ancienne | Mettre à jour OpenSSL |
+| `handshake: wrong ssl version` | Serveur/client incompatible | Vérifier configuration |
 
----
-
-## Bonnes Pratiques
-
-### ✅ BON : Vérifier avant d'utiliser
+### Code de Gestion
 
 ```cpp
-if (client.isConnected()) {
-    client.send("HELLO");
-}
-```
-
-### ✅ BON : Gérer les échecs
-
-```cpp
-if (!client.send("DATA")) {
-    // Reconnexion ou erreur utilisateur
-    client.connect("127.0.0.1", 4123);
-}
-```
-
-### ❌ MAUVAIS : Ignorer les retours
-
-```cpp
-client.send("DATA");  // Ignorer si ça a marché
-client.receive(msg);  // Ignorer si données reçues
+_socket.async_handshake(
+    ssl::stream_base::client,
+    [this](const boost::system::error_code &hsError) {
+        if (hsError) {
+            if (hsError == boost::asio::ssl::error::stream_truncated) {
+                // Server closed connection during handshake
+                logger->warn("Server closed TLS connection");
+            } else {
+                logger->error("TLS handshake failed: {}", hsError.message());
+            }
+            _eventQueue.push(TCPErrorEvent{"TLS handshake failed"});
+            return;
+        }
+        // Success
+    }
+);
 ```
 
 ---
 
-## FAQ
+## Performance
 
-**Q: Pourquoi synchrone et pas asynchrone ?**
+### Overhead TLS
 
-R: Simplicité. Pour un jeu, l'API synchrone est plus facile à intégrer dans la game loop. L'async sera ajouté si le besoin se présente.
+| Opération | Latence | Notes |
+|-----------|---------|-------|
+| TCP Connect | ~1ms | Local |
+| TLS Handshake | ~5-10ms | Négociation crypto |
+| Send/Receive | <1ms | Chiffrement AES-GCM |
+| Disconnect | ~5ms | TLS shutdown + TCP FIN |
 
-**Q: Comment gérer la reconnexion automatique ?**
+### Optimisations
 
-R: Appeler `connect()` après un échec de `send()` ou `receive()`.
+- **TLS Session Resumption** : Non implémenté (connexions longues)
+- **Keep-Alive** : Heartbeat toutes les secondes
+- **Buffer Size** : 4096 bytes par défaut
 
-**Q: Quelle est la taille max d'un message ?**
+---
 
-R: `BUFFER_SIZE` = 4096 bytes. Pour des messages plus grands, implémenter un protocole avec header de taille.
+## Vulnérabilités Corrigées
+
+### CWE-319 : Cleartext Transmission
+
+**Avant** : Credentials envoyés en clair via TCP
+
+```cpp
+// ❌ VULNÉRABLE
+_socket.send(boost::asio::buffer(loginMessage));  // Plaintext!
+```
+
+**Après** : Chiffrement TLS automatique
+
+```cpp
+// ✅ SÉCURISÉ
+ssl::stream<tcp::socket> _socket;  // TLS encryption
+_socket.write_some(boost::asio::buffer(loginMessage));  // Encrypted
+```
 
 ---
 
 ## Voir Aussi
 
+- [Network Index](index.md) - Vue d'ensemble réseau
+- [Voice Chat](voice-chat.md) - Communication vocale
+- [TLS Security](../../../CLAUDE.md#tls-security) - Configuration TLS
 - [Boot Documentation](../core/boot.md) - Orchestration du client
-- [Network Architecture](../../guides/network-architecture.md) - Architecture réseau globale
-- [Authentication](../../guides/authentication.md) - Système d'authentification

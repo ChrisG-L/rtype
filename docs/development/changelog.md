@@ -216,8 +216,8 @@ f52d4b5 FEAT: ajout du use case Register pour l'inscription utilisateur
 - Exceptions métier personnalisées
 
 #### Infrastructure Réseau
-- **UDPServer** : Serveur UDP asynchrone (port 4123)
-- **TCPServer** : Serveur TCP asynchrone (port 4123)
+- **UDPServer** : Serveur UDP asynchrone (port 4124)
+- **TCPAuthServer** : Serveur TCP/TLS asynchrone (port 4125)
 - **Session** : Gestion des connexions TCP
 - Boost.Asio avec event loop io_context
 
