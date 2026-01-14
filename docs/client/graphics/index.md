@@ -1,265 +1,252 @@
-# Graphics - Rendu et Gestion des Assets
+# Graphics - Système de Rendu Multi-Backend
 
-Le module **Graphics** gère tout ce qui concerne le rendu visuel du client R-Type, incluant la fenêtre, les textures, les sprites, et l'abstraction du backend graphique.
+!!! abstract "Résumé"
+    Le module **Graphics** gère le rendu visuel du client R-Type avec une architecture multi-backend (SDL2/SFML) permettant de changer de bibliothèque graphique sans modifier le code métier.
 
 ## Vue d'Ensemble
 
+Le système graphique utilise une architecture basée sur des **interfaces abstraites** et un **système de plugins** pour supporter plusieurs backends graphiques.
+
 ```mermaid
-graph TD
-    A[IRenderer] --> B[SFMLRenderer]
-    A --> C[IWindow]
-    C --> D[SFMLWindow]
-    B --> E[AssetManager]
-    E --> F[Textures]
-    E --> G[Sprites]
+graph TB
+    subgraph "Interfaces (Abstraction)"
+        IWindow[IWindow]
+        IRenderer[IRenderer]
+        IDrawable[IDrawable]
+        IGraphicPlugin[IGraphicPlugin]
+    end
+
+    subgraph "Backend SDL2"
+        SDL2Window[SDL2Window]
+        SDL2Renderer[SDL2Renderer]
+        SDL2AssetManager[SDL2AssetManager]
+        SDL2Plugin[SDL2Plugin]
+    end
+
+    subgraph "Backend SFML"
+        SFMLWindow[SFMLWindow]
+        SFMLRenderer[SFMLRenderer]
+        AssetManager[AssetManager]
+        SFMLPlugin[SFMLPlugin]
+    end
+
+    IGraphicPlugin --> IWindow
+    IGraphicPlugin --> IRenderer
+
+    SDL2Plugin -.implements.-> IGraphicPlugin
+    SFMLPlugin -.implements.-> IGraphicPlugin
+
+    SDL2Window -.implements.-> IWindow
+    SFMLWindow -.implements.-> IWindow
+
+    SDL2Renderer -.implements.-> IRenderer
+    SFMLRenderer -.implements.-> IRenderer
+
+    SDL2Renderer --> SDL2AssetManager
+    SFMLRenderer --> AssetManager
+
+    style IWindow fill:#e1f5ff
+    style IRenderer fill:#e1f5ff
+    style IDrawable fill:#e1f5ff
+    style IGraphicPlugin fill:#e1f5ff
+    style SDL2Window fill:#fff4e1
+    style SDL2Renderer fill:#fff4e1
+    style SFMLWindow fill:#f0fff0
+    style SFMLRenderer fill:#f0fff0
 ```
 
-## Composants
+## Backends Disponibles
+
+### SDL2 (Backend par défaut)
+
+| Caractéristique | Valeur |
+|-----------------|--------|
+| **Bibliothèque** | SDL2 + SDL2_image + SDL2_ttf |
+| **Shaders** | Non supportés |
+| **Post-processing** | Non disponible |
+| **Performance** | Excellente |
+| **Compatibilité** | Maximale |
+
+### SFML
+
+| Caractéristique | Valeur |
+|-----------------|--------|
+| **Bibliothèque** | SFML 3.0+ |
+| **Shaders** | Supportés (GLSL) |
+| **Post-processing** | Pipeline complet |
+| **Performance** | Très bonne |
+| **Compatibilité** | Bonne |
+
+## Composants Principaux
 
 ### [Interfaces Graphiques](overview.md)
-**Abstraction du backend de rendu**
 
-- **IRenderer**: Interface de rendu générique
-- **IWindow**: Interface de fenêtre générique
-- Permet de changer de backend (SFML → SDL → Vulkan)
+Définitions des contrats que tout backend doit respecter :
 
-**Avantages:**
-- Code client indépendant du backend
-- Tests facilitée avec mocks
-- Flexibilité technologique
+- **IWindow** - Gestion fenêtre, événements, rendu, shaders
+- **IRenderer** - Pipeline de rendu avec assets
+- **IDrawable** - Interface pour objets dessinables
+- **IGraphicPlugin** - Factory pour création dynamique
 
----
+### [Backend SDL2](sdl2-implementation.md)
 
-### [Implémentation SFML](sfml-implementation.md)
-**Backend graphique actuel**
+Implémentation complète avec SDL2 :
 
-- **SFMLRenderer**: Implémentation concrète du rendu
-- **SFMLWindow**: Gestion fenêtre SFML 3.x
-- **SFMLTexture**: Wrapper autour de sf::Texture
+- **SDL2Window** - Fenêtre SDL2 avec gestion textures/fonts
+- **SDL2Renderer** - Renderer avec AssetManager
+- **SDL2AssetManager** - Cache textures et sprite pools
 
-**Caractéristiques:**
-- SFML 3.0+ (dernière version)
-- OpenGL moderne
-- Cross-platform (Linux, Windows, macOS)
+### [Backend SFML](sfml-implementation.md)
 
----
+Implémentation complète avec SFML :
+
+- **SFMLWindow** - Fenêtre avec support shaders natif
+- **SFMLRenderer** - Renderer avec AssetManager
+- **AssetManager** - Cache textures et sprites avec logging
 
 ### [AssetManager](asset-manager.md)
-**Gestionnaire centralisé des ressources**
+
+Gestionnaire centralisé des ressources graphiques :
 
 - Chargement et cache de textures
-- Système de sprite pools
+- Sprite pools par catégorie
 - Gestion mémoire automatique
-- **Logging intégré** (GraphicsLogger)
-
-**Fonctionnalités:**
-```cpp
-// Chargement texture avec logging
-bool registerTexture(const std::string& file);
-
-// Récupération (exception si absente)
-sf::Texture& getTexture(const std::string& key);
-
-// Suppression avec logs
-void removeTexture(const std::string& file);
-
-// Sprite pools
-void addSprite(const std::string& key, const sf::Sprite& sprite);
-void drawAll(std::shared_ptr<graphics::IWindow> window);
-```
+- Logging intégré (spdlog)
 
 ---
 
-## Architecture
+## Architecture Détaillée
 
 ### Hiérarchie des Classes
 
 ```
-IRenderer (interface)
-  └─> SFMLRenderer (implémentation)
-       ├─> IWindow* (référence)
-       │    └─> SFMLWindow (implémentation)
-       └─> AssetManager* (composition)
-            ├─> std::map<string, sf::Texture>
-            └─> std::map<string, vector<sf::Sprite>>
+graphics::IWindow (interface)
+├── SDL2Window (SDL2)
+│   ├── SDL_Window*
+│   ├── SDL_Renderer*
+│   └── std::unordered_map<textures/fonts>
+│
+└── SFMLWindow (SFML)
+    ├── sf::RenderWindow
+    ├── sf::RenderTexture (post-processing)
+    └── std::unordered_map<textures/fonts/shaders>
+
+core::IRenderer (interface)
+├── SDL2Renderer
+│   └── SDL2AssetManager
+│
+└── SFMLRenderer
+    └── AssetManager
+
+graphics::IGraphicPlugin (interface)
+├── SDL2Plugin
+└── SFMLPlugin
 ```
 
-### Ownership
-
-- **GameLoop** possède **IRenderer** (via Engine)
-- **SFMLRenderer** possède **AssetManager**
-- **AssetManager** possède les **textures** et **sprites**
-
-## Système de Logging
-
-Le module Graphics utilise **GraphicsLogger** pour tous ses logs:
-
-```cpp
-#include "core/Logger.hpp"
-
-auto logger = client::logging::Logger::getGraphicsLogger();
-logger->debug("Texture '{}' registered successfully", file);
-logger->error("Failed to load texture from file: {}", file);
-logger->info("Window created: {}x{}", width, height);
-```
-
-[Documentation complète du logging](../../development/logging.md)
-
-## Gestion des Ressources
-
-### Cycle de Vie des Textures
+### Cycle de Vie du Rendu
 
 ```mermaid
-stateDiagram-v2
-    [*] --> NonChargée
-    NonChargée --> Chargée: registerTexture()
-    Chargée --> Chargée: registerTexture() (skip)
-    Chargée --> Utilisée: getTexture()
-    Utilisée --> Supprimée: removeTexture()
-    Supprimée --> [*]
+sequenceDiagram
+    participant E as Engine
+    participant P as IGraphicPlugin
+    participant W as IWindow
+    participant R as IRenderer
+    participant AM as AssetManager
+
+    Note over E: Initialisation
+    E->>P: createWindow(size, name)
+    P-->>E: shared_ptr<IWindow>
+    E->>P: createRenderer(window)
+    P-->>E: shared_ptr<IRenderer>
+    E->>R: initialize(assets, elements)
+    R->>AM: registerTexture(...)
+
+    Note over E: Boucle de jeu
+    loop Chaque frame
+        E->>W: beginFrame()
+        W->>W: clear()
+        E->>R: update(deltaTime, assets, elements)
+        R->>AM: drawAll()
+        E->>R: render()
+        E->>W: endFrame()
+        W->>W: display()
+    end
 ```
 
-### Exemple d'Utilisation
+---
+
+## Système de Layers
+
+Les éléments graphiques sont organisés en couches pour gérer l'ordre de rendu :
 
 ```cpp
-AssetManager assets;
-
-// 1. Chargement
-if (!assets.registerTexture("assets/player.png")) {
-    // Déjà chargée ou erreur (voir logs)
-}
-
-// 2. Utilisation
-sf::Sprite playerSprite(assets.getTexture("assets/player.png"));
-playerSprite.setPosition(100, 100);
-assets.addSprite("player", playerSprite);
-
-// 3. Rendu
-assets.drawAll(window);
-
-// 4. Cleanup (automatique à la destruction)
-assets.removeTexture("assets/player.png");
+enum class Layer : int {
+    Background = 0,    // Arrière-plan (étoiles, parallax)
+    Entities = 10,     // Entités de base (ennemis)
+    Player = 20,       // Joueur
+    Projectiles = 30,  // Missiles et projectiles
+    Effects = 40,      // Effets visuels (explosions)
+    UI = 100           // Interface utilisateur
+};
 ```
+
+---
+
+## Système de Plugins
+
+Le système de plugins permet de charger dynamiquement le backend graphique au démarrage :
+
+```cpp
+// Définition du plugin
+typedef graphics::IGraphicPlugin* (*create_t)();
+typedef void (*destroy_t)(graphics::IGraphicPlugin*);
+
+// Utilisation
+auto plugin = loadPlugin("libsdl2_plugin.so");
+auto window = plugin->createWindow({1920, 1080}, "R-Type");
+auto renderer = plugin->createRenderer(window);
+```
+
+---
+
+## Fonctionnalités par Backend
+
+| Fonctionnalité | SDL2 | SFML |
+|----------------|------|------|
+| Fenêtre | ✅ | ✅ |
+| Rendu 2D | ✅ | ✅ |
+| Textures | ✅ | ✅ |
+| Fonts (TTF) | ✅ | ✅ |
+| Événements | ✅ | ✅ |
+| Shaders GLSL | ❌ | ✅ |
+| Post-processing | ❌ | ✅ |
+| Sprite Batching | ✅ | ✅ |
+
+---
 
 ## Performance
 
-### Optimisations
+### Optimisations Implémentées
 
-- **Cache textures**: Pas de rechargement inutile
-- **Sprite pools**: Regroupement par type
-- **Move semantics**: Pas de copies inutiles
-- **Logging conditionnel**: Debug seulement si activé
+- **Cache de textures** - Pas de rechargement inutile
+- **Sprite pools** - Regroupement par catégorie
+- **Move semantics** - Pas de copies inutiles
+- **Logging conditionnel** - Debug seulement si activé
 
 ### Métriques
 
-| Opération | Complexité | Notes |
-|-----------|------------|-------|
-| registerTexture() | O(log n) | map lookup + I/O |
-| getTexture() | O(log n) | map lookup |
-| removeTexture() | O(log n) | map erase |
-| drawAll() | O(n*m) | n pools, m sprites/pool |
+| Opération | Complexité |
+|-----------|------------|
+| loadTexture() | O(log n) + I/O |
+| drawSprite() | O(1) |
+| drawAll() | O(n) |
 
-## État d'Implémentation
-
-| Composant | État | Complétude | Priorité |
-|-----------|------|------------|----------|
-| IRenderer | ✅ Implémenté | 80% | - |
-| IWindow | ✅ Implémenté | 90% | - |
-| SFMLRenderer | ✅ Implémenté | 70% | Moyenne |
-| SFMLWindow | ✅ Implémenté | 85% | Moyenne |
-| AssetManager | ✅ Implémenté | 90% | Haute |
-| Textures | ✅ Fonctionnel | 95% | - |
-| Sprites | ✅ Fonctionnel | 80% | - |
-| Fonts | 📋 Planifié | 0% | Basse |
-| Shaders | 📋 Planifié | 0% | Basse |
-| Animations | 📋 Planifié | 0% | Haute |
-
-## Formats Supportés
-
-### Textures (via SFML)
-- ✅ PNG (recommandé)
-- ✅ JPG/JPEG
-- ✅ BMP
-- ✅ TGA
-- ✅ PSD (limité)
-
-### Fonts (planifié)
-- 📋 TTF
-- 📋 OTF
-
-## Gestion d'Erreurs
-
-### registerTexture()
-
-```cpp
-// Retourne false si:
-// 1. Texture déjà enregistrée (pas une erreur)
-// 2. Fichier introuvable
-// 3. Format invalide
-// 4. Mémoire insuffisante
-
-if (!assets.registerTexture("invalid.png")) {
-    // Voir logs pour cause exacte
-    auto logger = client::logging::Logger::getGraphicsLogger();
-    // logger->error("Failed to load texture from file: invalid.png")
-}
-```
-
-### getTexture()
-
-```cpp
-// Lance std::out_of_range si texture non chargée
-try {
-    auto& texture = assets.getTexture("missing.png");
-} catch (const std::out_of_range& e) {
-    // Texture n'existe pas
-    logger->error("Texture not found: {}", e.what());
-}
-```
-
-## Debugging
-
-### Logs de Débogage
-
-```cpp
-// Activer debug pour voir tous les chargements
-client::logging::Logger::getGraphicsLogger()->set_level(spdlog::level::debug);
-
-// Exemple de sortie:
-// [2025-11-20 22:45:12.345] [debug] [Graphics] Texture 'player.png' registered successfully
-// [2025-11-20 22:45:12.456] [debug] [Graphics] Texture 'enemy.png' already registered
-// [2025-11-20 22:45:12.567] [error] [Graphics] Failed to load texture from file: invalid.png
-```
-
-### Inspection Mémoire
-
-```bash
-# Avec LeakSanitizer (après compilation avec -fsanitize=address)
-LSAN_OPTIONS=suppressions=lsan.supp ./rtype_client
-
-# Vérifier pas de fuites de textures
-```
-
-## Prochaines Étapes
-
-### Court Terme
-1. **Sprite Batching** - Regrouper draw calls
-2. **Texture Atlas** - Réduire nombre de textures
-3. **Animation System** - Sprites animés
-
-### Moyen Terme
-4. **Font System** - Texte avec TTF
-5. **Particle System** - Effets visuels
-6. **Shader Support** - Post-processing
-
-### Long Terme
-7. **Backend Vulkan** - Performance maximale
-8. **Hot Reload** - Rechargement assets à chaud
-9. **Asset Pipeline** - Optimisation automatique
+---
 
 ## Voir Aussi
 
-- [Core Client - Composants Principaux](../core/index.md)
-- [Architecture Client](../architecture/overview.md)
-- [Système de Logging](../../development/logging.md)
-- [SFML 3.0 Documentation](https://www.sfml-dev.org/documentation/3.0.0/)
+- [Vue d'ensemble technique](overview.md) - Architecture détaillée
+- [Backend SDL2](sdl2-implementation.md) - Documentation SDL2
+- [Backend SFML](sfml-implementation.md) - Documentation SFML
+- [AssetManager](asset-manager.md) - Gestion des ressources
+- [Documentation du logging](../../development/logging.md) - Système de logs
