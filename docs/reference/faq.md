@@ -39,16 +39,22 @@ Questions fréquemment posées sur R-Type.
 
     ```bash
     # Ubuntu
-    sudo apt install gcc-13 g++-13
-    cmake -B build -DCMAKE_CXX_COMPILER=g++-13
+    sudo apt install gcc-13 g++-13 clang
+    ```
+
+    Puis relancez la configuration :
+
+    ```bash
+    rm -rf buildLinux
+    ./scripts/build.sh
     ```
 
 ??? question "vcpkg ne trouve pas les dépendances"
-    Vérifiez que `VCPKG_ROOT` est défini et que le toolchain file est passé à CMake :
+    Le script `build.sh` gère automatiquement vcpkg. Si vous rencontrez des problèmes, nettoyez et recommencez :
 
     ```bash
-    echo $VCPKG_ROOT
-    cmake -B build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+    rm -rf third_party/vcpkg buildLinux
+    ./scripts/build.sh
     ```
 
 ---
@@ -182,7 +188,4 @@ Questions fréquemment posées sur R-Type.
     2. Modification du registry pendant l'itération
     3. Composant non initialisé
 
-    Utilisez AddressSanitizer pour débugger :
-    ```bash
-    cmake -B build -DENABLE_SANITIZERS=ON -DSANITIZER_TYPE=address
-    ```
+    Utilisez AddressSanitizer pour débugger. Le script `build.sh` configure automatiquement les sanitizers en mode Debug.

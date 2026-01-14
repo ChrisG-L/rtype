@@ -6,244 +6,280 @@ tags:
 
 # Compilation
 
-Options avancées de build et configurations CMake.
+Guide de compilation du projet R-Type avec les scripts fournis.
 
 ## Build Rapide
 
 ```bash
-# Configuration + Compilation
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
+# Configuration (première fois ou après changement CMakeLists)
+./scripts/build.sh
+
+# Compilation
+./scripts/compile.sh
 ```
 
 ---
 
-## Options CMake
+## Prérequis
 
-### Options Principales
+Avant de compiler, assurez-vous d'avoir les outils suivants installés :
+
+| Outil | Version Minimum | Vérification |
+|-------|-----------------|--------------|
+| CMake | 3.30+ | `cmake --version` |
+| Ninja | - | `ninja --version` |
+| Clang/GCC | Clang 15+ / GCC 13+ | `clang++ --version` |
+| Git | - | `git --version` |
+
+---
+
+## Script de Configuration : `build.sh`
+
+Le script `build.sh` configure l'environnement de build complet.
+
+### Usage
+
+```bash
+./scripts/build.sh [OPTIONS]
+```
+
+### Options
 
 | Option | Description | Défaut |
 |--------|-------------|--------|
-| `CMAKE_BUILD_TYPE` | Type de build | `Release` |
-| `BUILD_TESTS` | Compiler les tests | `ON` |
-| `BUILD_DOCS` | Générer la documentation | `OFF` |
-| `ENABLE_SANITIZERS` | Activer les sanitizers | `OFF` |
+| `--platform=linux` | Cible Linux | ✓ |
+| `--platform=windows` | Cross-compilation Windows (MinGW) | |
+| `--platform=macos` | Cible macOS | |
 
-### Options Backend Graphique
+### Ce que fait le script
+
+1. Clone ou met à jour **vcpkg** dans `third_party/vcpkg/`
+2. Bootstrap vcpkg
+3. Configure CMake avec les bons paramètres selon la plateforme
+4. Crée le dossier de build (`buildLinux/`, `buildWin/`, `buildMac/`)
+
+### Exemples
+
+```bash
+# Build Linux (par défaut)
+./scripts/build.sh
+
+# Cross-compilation Windows
+./scripts/build.sh --platform=windows
+
+# macOS
+./scripts/build.sh --platform=macos
+```
+
+---
+
+## Script de Compilation : `compile.sh`
+
+Le script `compile.sh` compile le projet et peut lancer les exécutables.
+
+### Usage
+
+```bash
+./scripts/compile.sh [OPTIONS]
+```
+
+### Options
 
 | Option | Description | Défaut |
 |--------|-------------|--------|
-| `USE_SDL2` | Activer le backend SDL2 | `ON` |
-| `USE_SFML` | Activer le backend SFML | `ON` |
-| `DEFAULT_BACKEND` | Backend par défaut | `SDL2` |
+| `--platform=PLATFORM` | linux, windows, macos | `linux` |
+| `--server` | Lancer le serveur après compilation | ✓ |
+| `--client` | Lancer le client après compilation | |
+| `--both` | Lancer serveur + client | |
+| `--no-launch` | Compiler sans lancer | |
+| `--verbose`, `-v` | Afficher la sortie complète | |
+| `--help`, `-h` | Afficher l'aide | |
 
-### Exemple Complet
+### Exemples
 
 ```bash
-cmake -B build \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-    -DBUILD_TESTS=ON \
-    -DUSE_SDL2=ON \
-    -DUSE_SFML=ON \
-    -DDEFAULT_BACKEND=SDL2
+# Compiler et lancer le serveur (par défaut)
+./scripts/compile.sh
+
+# Compiler et lancer le client
+./scripts/compile.sh --client
+
+# Compiler et lancer les deux
+./scripts/compile.sh --both
+
+# Compiler uniquement (pas de lancement)
+./scripts/compile.sh --no-launch
+
+# Voir toute la sortie de compilation
+./scripts/compile.sh --verbose
 ```
 
 ---
 
-## Types de Build
+## Workflow Complet
 
-=== "Release"
-
-    ```bash
-    cmake -B build -DCMAKE_BUILD_TYPE=Release
-    ```
-
-    - Optimisations maximales (`-O3`)
-    - Pas de symboles de debug
-    - **Recommandé pour jouer**
-
-=== "Debug"
-
-    ```bash
-    cmake -B build -DCMAKE_BUILD_TYPE=Debug
-    ```
-
-    - Symboles de debug complets
-    - Pas d'optimisation (`-O0`)
-    - **Recommandé pour développer**
-
-=== "RelWithDebInfo"
-
-    ```bash
-    cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-    ```
-
-    - Optimisations + symboles de debug
-    - **Recommandé pour profiler**
-
----
-
-## Build avec Ninja
-
-Ninja est plus rapide que Make pour les gros projets :
+### Première Installation
 
 ```bash
-# Installation
-sudo apt install ninja-build
+# 1. Cloner le projet
+git clone --recursive https://github.com/votre-repo/r-type.git
+cd r-type
 
-# Utilisation
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+# 2. Configurer (installe vcpkg, configure CMake)
+./scripts/build.sh
+
+# 3. Compiler et lancer
+./scripts/compile.sh
+```
+
+### Développement Quotidien
+
+```bash
+# Recompiler après modifications
+./scripts/compile.sh
+
+# Ou compiler sans lancer
+./scripts/compile.sh --no-launch
+```
+
+### Après Modification de CMakeLists.txt
+
+```bash
+# Reconfigurer
+./scripts/build.sh
+
+# Puis recompiler
+./scripts/compile.sh
 ```
 
 ---
 
-## Cibles de Build
+## Plateformes Supportées
 
-```bash
-# Tout compiler
-cmake --build build
-
-# Seulement le serveur
-cmake --build build --target r-type_server
-
-# Seulement le client
-cmake --build build --target r-type_client
-
-# Les tests
-cmake --build build --target tests
-
-# Nettoyer
-cmake --build build --target clean
-```
-
----
-
-## Tests
-
-```bash
-# Compiler les tests
-cmake -B build -DBUILD_TESTS=ON
-cmake --build build --target tests
-
-# Exécuter les tests
-cd build && ctest --output-on-failure
-
-# Tests avec couverture
-cmake -B build -DENABLE_COVERAGE=ON
-cmake --build build --target coverage
-```
-
----
-
-## Sanitizers
-
-Les sanitizers détectent les bugs mémoire et les data races :
-
-=== "AddressSanitizer"
+=== "Linux"
 
     ```bash
-    cmake -B build \
-        -DCMAKE_BUILD_TYPE=Debug \
-        -DENABLE_SANITIZERS=ON \
-        -DSANITIZER_TYPE=address
+    # Configuration
+    ./scripts/build.sh --platform=linux
+
+    # Compilation
+    ./scripts/compile.sh --platform=linux
     ```
 
-    Détecte :
-    - Buffer overflow
-    - Use-after-free
-    - Memory leaks
+    - Compilateur : Clang++
+    - Dossier de build : `buildLinux/`
+    - Artefacts : `./artifacts/server/linux/`, `./artifacts/client/linux/`
 
-=== "ThreadSanitizer"
+=== "Windows (Cross-compilation)"
 
     ```bash
-    cmake -B build \
-        -DCMAKE_BUILD_TYPE=Debug \
-        -DENABLE_SANITIZERS=ON \
-        -DSANITIZER_TYPE=thread
+    # Configuration
+    ./scripts/build.sh --platform=windows
+
+    # Compilation
+    ./scripts/compile.sh --platform=windows --no-launch
     ```
 
-    Détecte :
-    - Data races
-    - Deadlocks
+    - Compilateur : MinGW (x86_64-w64-mingw32-g++)
+    - Dossier de build : `buildWin/`
+    - Artefacts : `./artifacts/server/windows/`, `./artifacts/client/windows/`
 
-=== "UndefinedBehaviorSanitizer"
+    !!! warning "Lancement automatique"
+        Le lancement automatique n'est pas disponible pour Windows lors de la cross-compilation.
+
+=== "macOS"
 
     ```bash
-    cmake -B build \
-        -DCMAKE_BUILD_TYPE=Debug \
-        -DENABLE_SANITIZERS=ON \
-        -DSANITIZER_TYPE=undefined
+    # Configuration
+    ./scripts/build.sh --platform=macos
+
+    # Compilation
+    ./scripts/compile.sh --platform=macos
     ```
 
-    Détecte :
-    - Integer overflow
-    - Null pointer dereference
-    - Type violations
-
----
-
-## Cross-Compilation
-
-### Linux vers Windows (MinGW)
-
-```bash
-cmake -B build-win \
-    -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/mingw-w64.cmake \
-    -DCMAKE_BUILD_TYPE=Release
-
-cmake --build build-win
-```
+    - Compilateur : Clang++
+    - Dossier de build : `buildMac/`
+    - Artefacts : `./artifacts/server/macos/`, `./artifacts/client/macos/`
 
 ---
 
 ## Structure des Artefacts
 
 ```
-build/
-├── r-type_server          # Exécutable serveur
-├── r-type_client          # Exécutable client
-├── lib/
-│   ├── libgraphics_sdl2.so
-│   └── libgraphics_sfml.so
-├── tests/
-│   └── r-type_tests
-└── _deps/                  # Dépendances vcpkg
+artifacts/
+├── server/
+│   ├── linux/
+│   │   └── rtype_server
+│   ├── windows/
+│   │   └── rtype_server.exe
+│   └── macos/
+│       └── rtype_server
+└── client/
+    ├── linux/
+    │   └── rtype_client
+    ├── windows/
+    │   └── rtype_client.exe
+    └── macos/
+        └── rtype_client
+```
+
+---
+
+## Build Clean
+
+Pour nettoyer complètement et reconfigurer :
+
+```bash
+# Supprimer les dossiers de build
+rm -rf buildLinux/ buildWin/ buildMac/ artifacts/
+
+# Reconfigurer
+./scripts/build.sh
+
+# Recompiler
+./scripts/compile.sh
 ```
 
 ---
 
 ## Résolution des Problèmes
 
-??? question "Erreur : vcpkg toolchain not found"
-    Vérifiez que `VCPKG_ROOT` est défini :
+??? question "Erreur : Le dossier buildLinux n'existe pas"
+    Vous devez d'abord exécuter le script de configuration :
     ```bash
-    export VCPKG_ROOT="$HOME/vcpkg"
+    ./scripts/build.sh
+    ```
+
+??? question "Erreur : vcpkg n'a pas été compilé correctement"
+    Le bootstrap de vcpkg a échoué. Vérifiez votre connexion internet et réessayez :
+    ```bash
+    rm -rf third_party/vcpkg
+    ./scripts/build.sh
     ```
 
 ??? question "Erreur : C++23 features not available"
     Mettez à jour votre compilateur :
     ```bash
     # Ubuntu
-    sudo apt install gcc-13 g++-13
-
-    # Puis reconfigurez
-    cmake -B build -DCMAKE_CXX_COMPILER=g++-13
+    sudo apt install gcc-13 g++-13 clang
+    ```
+    Puis relancez la configuration :
+    ```bash
+    rm -rf buildLinux
+    ./scripts/build.sh
     ```
 
 ??? question "Build très lent"
-    Utilisez Ninja et la compilation parallèle :
-    ```bash
-    cmake -B build -G Ninja
-    cmake --build build -j$(nproc)
-    ```
+    La première compilation peut prendre du temps car vcpkg compile les dépendances.
+    Les compilations suivantes seront beaucoup plus rapides.
 
 ??? question "Erreurs de linkage SDL2/SFML"
-    Réinstallez les dépendances vcpkg :
+    Nettoyez et reconfigurez :
     ```bash
-    rm -rf build
-    vcpkg remove sdl2 sfml --recurse
-    vcpkg install sdl2 sfml
-    cmake -B build ...
+    rm -rf buildLinux third_party/vcpkg
+    ./scripts/build.sh
+    ./scripts/compile.sh
     ```
+
+??? question "Les sanitizers ne fonctionnent pas"
+    Les sanitizers sont configurés dans le script de build. Vérifiez que vous êtes en mode Debug (par défaut).

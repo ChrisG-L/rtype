@@ -76,11 +76,8 @@ echo 'export PATH="$VCPKG_ROOT:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-!!! tip "Intégration CMake"
-    vcpkg s'intègre automatiquement avec CMake via le toolchain file :
-    ```bash
-    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
-    ```
+!!! tip "Intégration automatique"
+    Le script `./scripts/build.sh` gère automatiquement l'intégration de vcpkg avec CMake.
 
 ---
 
@@ -130,7 +127,12 @@ vcpkg version
 ```
 
 !!! success "Prêt pour la compilation"
-    Passez à la section [Compilation](building.md) pour builder le projet.
+    Vous pouvez maintenant compiler le projet :
+    ```bash
+    ./scripts/build.sh    # Configuration
+    ./scripts/compile.sh  # Compilation
+    ```
+    Pour plus de détails, consultez la section [Compilation](building.md).
 
 ---
 

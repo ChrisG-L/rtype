@@ -152,15 +152,11 @@ nav:
     - Architecture: technique/architecture.md
     - Librairies Graphiques:
       - technique/graphiques/index.md
-      - Vue d'ensemble: technique/graphiques/overview.md
+      - Couche d'Abstraction: technique/graphiques/abstraction.md
       - Backend SDL2: technique/graphiques/sdl2.md
       - Backend SFML: technique/graphiques/sfml.md
-      - AssetManager: technique/graphiques/asset-manager.md
-      - API Reference: technique/graphiques/api.md
     - Réseau:
       - technique/reseau/index.md
-      - Architecture: technique/reseau/architecture.md
-      - Protocole: technique/reseau/protocole.md
     - API Reference: technique/api/index.md
   - Référence:
     - reference/index.md

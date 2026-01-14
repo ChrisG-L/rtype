@@ -11,15 +11,14 @@ Lancez votre première partie R-Type en 5 minutes !
 ## TL;DR
 
 ```bash
-# Build
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
+# Configuration (première fois)
+./scripts/build.sh
 
-# Terminal 1 : Serveur
-./build/r-type_server
+# Compilation + Lancement serveur
+./scripts/compile.sh
 
-# Terminal 2 : Client
-./build/r-type_client
+# Dans un autre terminal : Lancement client
+./scripts/compile.sh --client --no-launch && ./artifacts/client/linux/rtype_client
 ```
 
 ---
@@ -29,13 +28,11 @@ cmake --build build -j$(nproc)
 ```bash
 cd r-type
 
-# Configuration CMake
-cmake -B build \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+# Configuration initiale (installe vcpkg et configure CMake)
+./scripts/build.sh
 
-# Compilation (utilise tous les cœurs disponibles)
-cmake --build build -j$(nproc)
+# Compilation
+./scripts/compile.sh --no-launch
 ```
 
 !!! info "Temps de compilation"
@@ -48,7 +45,13 @@ cmake --build build -j$(nproc)
 Dans un premier terminal :
 
 ```bash
-./build/r-type_server
+./artifacts/server/linux/rtype_server
+```
+
+Ou directement avec le script :
+
+```bash
+./scripts/compile.sh --server
 ```
 
 Sortie attendue :
@@ -74,7 +77,13 @@ Sortie attendue :
 Dans un second terminal :
 
 ```bash
-./build/r-type_client
+./artifacts/client/linux/rtype_client
+```
+
+Ou avec le script :
+
+```bash
+./scripts/compile.sh --client
 ```
 
 ### Options du Client
@@ -107,7 +116,7 @@ Dans un second terminal :
 
 ```bash
 # Sur la machine hôte
-./build/r-type_server -p 4242
+./artifacts/server/linux/rtype_server -p 4242
 ```
 
 Communiquez votre IP publique aux autres joueurs.
@@ -116,7 +125,7 @@ Communiquez votre IP publique aux autres joueurs.
 
 ```bash
 # Sur les machines clientes
-./build/r-type_client -h <IP_HOTE> -p 4242
+./artifacts/client/linux/rtype_client -h <IP_HOTE> -p 4242
 ```
 
 ---
