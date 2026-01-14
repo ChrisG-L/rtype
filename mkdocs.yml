@@ -208,6 +208,13 @@ nav:
       - Protocol: api/reseau/protocol.md
       - Packet: api/reseau/packet.md
       - Serialization: api/reseau/serialization.md
+  - Développement:
+    - developpement/index.md
+    - Architecture: developpement/architecture.md
+    - Conventions: developpement/conventions.md
+    - Tests: developpement/tests.md
+    - CI/CD: developpement/ci-cd.md
+    - Contribution: developpement/contribution.md
   - Référence:
     - reference/index.md
     - Glossaire: reference/glossaire.md
