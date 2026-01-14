@@ -137,7 +137,7 @@ namespace infrastructure::adapters::in::network {
                     std::shared_ptr<ILogger> logger,
                     std::shared_ptr<SessionManager> sessionManager,
                     std::shared_ptr<RoomManager> roomManager);
-                ~Session();
+                ~Session() noexcept;
 
                 void start();
         };
