@@ -1,33 +1,47 @@
 # État du Projet R-Type
 
-**Dernière mise à jour:** 15 décembre 2025
-**Version:** 0.5.1 (Phase: Gameplay Foundation)
+**Dernière mise à jour:** 14 janvier 2026
+**Version:** 0.6.0 (Phase: R-Type Authentic)
 
 ---
 
 ## 📊 Vue d'Ensemble
 
-Le projet R-Type est en phase de **gameplay actif** avec un client multi-backend (SDL2/SFML) complet, un serveur avec GameWorld fonctionnel (missiles, ennemis, collisions), et une librairie ECS prête à intégrer.
+Le projet R-Type est en phase de **gameplay avancé** avec toutes les mécaniques authentiques R-Type implémentées : Wave Cannon, Force Pod, Power-ups, système de score avec combo, boss respawn cycle, et chat vocal temps-réel.
 
 ### Phase Actuelle
 
-✅ **Phase 4: Gameplay Foundation** (95% complété)
+✅ **Phase 5: R-Type Authentic** (100% complété)
 
-**Réalisations:**
+**Réalisations Phase 5 (Gameplay Avancé):**
+- ✅ **Score System** - Points par ennemi, combo multiplier (max 3.0x)
+- ✅ **Boss System** - Boss spawn wave 10, 3 phases, respawn cycle (+500 HP)
+- ✅ **Weapon System** - 4 armes (Standard, Spread, Laser, Missile) avec niveaux
+- ✅ **Wave Cannon** - Charge shot 3 niveaux (0.6s/1.3s/2.2s)
+- ✅ **Power-up System** - 5 types (Health, SpeedUp, WeaponCrystal, Shield, ForcePod)
+- ✅ **Force Pod** - Pod attachable avec dégâts de contact (45 dmg)
+- ✅ **Speed Levels** - Multiplicateurs de vitesse (1.0/1.3/1.6/1.9)
+- ✅ **Weapon Levels** - Upgrades d'armes (+15/30/50% dégâts)
+- ✅ **6 Types d'Ennemis** - Basic, Tracker, Zigzag, Fast, Bomber, POWArmor
+- ✅ **Voice Chat** - Opus + PortAudio, PTT/VAD, device selection
+- ✅ **TLS Authentication** - TCP 4125 avec TLS 1.2+, CSPRNG tokens
+- ✅ **400+ Tests** - Couverture complète Phase 2/3
+
+**Réalisations Phase 4 (Gameplay Foundation):**
 - ✅ Architecture hexagonale serveur complète (Domain/Application/Infrastructure)
 - ✅ Client multi-backend (SDL2 par défaut, SFML via plugin dynamique)
 - ✅ UDPClient temps réel (Boost.ASIO, thread-safe)
 - ✅ GameScene complet avec HUD, missiles, ennemis, parallax stars
 - ✅ AudioManager (SDL2_mixer) - musique + effets sonores
 - ✅ AccessibilityConfig - remapping clavier, modes daltonien, vitesse de jeu
-- ✅ GameWorld serveur - joueurs, missiles, 5 types d'ennemis avec IA
+- ✅ GameWorld serveur - joueurs, missiles, ennemis avec IA
 - ✅ Système de collision AABB avec damage events
 - ✅ Wave spawning - vagues d'ennemis automatiques
-- ✅ Protocol binaire - 62 types de messages (network byte order)
+- ✅ Protocol binaire - 70+ types de messages (network byte order)
 - ✅ Broadcast à 20Hz avec état de jeu complet
-- ✅ **Blob-ECS** - Librairie ECS complète (51.3M ops/s, non intégrée)
+- ✅ **Blob-ECS** - Librairie ECS complète (51.3M ops/s)
 
-**Prochaine phase:** Intégration ECS et Polish
+**Prochaine phase:** Polish et Matchmaking
 
 ---
 
@@ -63,12 +77,22 @@ Le projet R-Type est en phase de **gameplay actif** avec un client multi-backend
 | ├─ AudioManager | ✅ Terminé | 100% | SDL2_mixer, musique + SFX |
 | ├─ VoiceChatManager | ✅ Terminé | 100% | Opus + PortAudio, PTT/VAD |
 | └─ AccessibilityConfig | ✅ Terminé | 100% | Remapping, daltonisme |
-| **Module Gameplay** | ✅ Terminé | 95% | Complet côté serveur et client |
-| ├─ GameScene | ✅ Terminé | 100% | HUD, missiles, ennemis, stars |
-| ├─ 5 Types d'Ennemis | ✅ Terminé | 100% | Basic, Tracker, Zigzag, Fast, Bomber |
-| ├─ Wave Spawning | ✅ Terminé | 100% | 6-12s, 2-6 ennemis |
-| └─ EntityManager | ✅ Terminé | 100% | Template spawn<T>() |
-| **Blob-ECS Library** | ✅ Terminé | 100% | 51.3M ops/s, non intégré |
+| **Module Gameplay** | ✅ Terminé | 100% | Complet Phase 2/3 |
+| ├─ GameScene | ✅ Terminé | 100% | HUD, missiles, ennemis, boss, power-ups |
+| ├─ 6 Types d'Ennemis | ✅ Terminé | 100% | Basic, Tracker, Zigzag, Fast, Bomber, POWArmor |
+| ├─ Boss System | ✅ Terminé | 100% | 3 phases, respawn cycle (+500 HP) |
+| ├─ Score System | ✅ Terminé | 100% | Points, combo (max 3.0x) |
+| ├─ Weapon System | ✅ Terminé | 100% | 4 armes, niveaux 0-3 |
+| ├─ Power-ups | ✅ Terminé | 100% | Health, SpeedUp, WeaponCrystal, Shield, ForcePod |
+| ├─ Wave Cannon | ✅ Terminé | 100% | Charge shot 3 niveaux |
+| ├─ Force Pod | ✅ Terminé | 100% | Attachable, 45 dmg contact |
+| └─ Wave Spawning | ✅ Terminé | 100% | 6-12s, 2-6 ennemis |
+| **Tests** | ✅ Terminé | 100% | 400+ tests |
+| ├─ Domain/Entities | ✅ Terminé | 100% | Health, Position, Player |
+| ├─ Network/Protocol | ✅ Terminé | 100% | UDP, Voice, Protocol |
+| ├─ Gameplay Phase 2/3 | ✅ Terminé | 100% | Score, Boss, Weapons, Power-ups |
+| └─ Collision System | ✅ Terminé | 100% | AABB intersection |
+| **Blob-ECS Library** | ✅ Terminé | 100% | 51.3M ops/s |
 
 ### Légende des États
 
@@ -262,8 +286,9 @@ src/
 | **Build Status** | ✅ Passing | Excellent |
 | **Temps de Build** | ~15s (incrémental) | Excellent |
 | **Temps de Build** | ~3 min (complet) | Bon |
-| **Tests Status** | ✅ Passing | Bon |
-| **Couverture Tests** | ~5% | À améliorer |
+| **Tests Status** | ✅ Passing | Excellent |
+| **Nombre de Tests** | 400+ | Excellent |
+| **Couverture Tests** | ~80% | Excellent |
 | **Pipeline CI/CD** | ✅ Automatisé | Excellent |
 | **Sanitizers** | ✅ Activés (Debug) | Excellent |
 
@@ -428,5 +453,5 @@ src/
 
 ---
 
-**Dernière révision:** 15/12/2025
-**Prochaine mise à jour:** Après intégration ECS
+**Dernière révision:** 14/01/2026
+**Prochaine mise à jour:** Après Phase Polish

@@ -74,7 +74,7 @@ private:
 
     // Voice settings
     uint8_t _voiceMode = 0;       // 0 = PTT, 1 = VAD
-    uint8_t _vadThreshold = 2;    // 0-100
+    uint8_t _vadThreshold = 5;    // 0-100 (5% default to avoid keyboard noise)
     uint8_t _micGain = 100;       // 0-200
     uint8_t _voiceVolume = 100;   // 0-100
 

@@ -272,6 +272,16 @@ namespace infrastructure::adapters::in::network {
         // Update combo timers (Gameplay Phase 2)
         gameWorld->updateComboTimers(deltaTime);
 
+        // R-Type Authentic (Phase 3) updates
+        gameWorld->updateAllCharging(deltaTime);  // Update charge timers for all players
+        gameWorld->updateWaveCannons(deltaTime);
+        gameWorld->updatePowerUps(deltaTime);
+        gameWorld->updateForcePods(deltaTime);
+        gameWorld->updateBitDevices(deltaTime);   // Bit Devices orbit and cooldowns
+        gameWorld->checkPowerUpCollisions();
+        gameWorld->checkForceCollisions();
+        gameWorld->checkBitCollisions();          // Bit contact damage
+
         // Check collisions
         gameWorld->checkCollisions();
 
@@ -298,6 +308,29 @@ namespace infrastructure::adapters::in::network {
         for (uint8_t playerId : deadPlayers) {
             broadcastPlayerDied(playerId, gameWorld);
         }
+
+        // R-Type Authentic (Phase 3) broadcasts
+        // Process newly spawned power-ups
+        auto newPowerUps = gameWorld->getNewlySpawnedPowerUps();
+        for (uint16_t id : newPowerUps) {
+            broadcastPowerUpSpawned(id, gameWorld);
+        }
+
+        // Process collected power-ups
+        auto collectedPowerUps = gameWorld->getCollectedPowerUps();
+        for (const auto& collected : collectedPowerUps) {
+            broadcastPowerUpCollected(collected.powerup_id, collected.player_id, collected.powerup_type, gameWorld);
+        }
+
+        // Process expired power-ups
+        auto expiredPowerUps = gameWorld->getExpiredPowerUps();
+        for (uint16_t id : expiredPowerUps) {
+            broadcastPowerUpExpired(id, gameWorld);
+        }
+
+        // Process destroyed Wave Cannons (they're removed after hitting something)
+        auto destroyedWaveCannons = gameWorld->getDestroyedWaveCannons();
+        // Note: We don't broadcast WaveCannon destruction - it's handled client-side when off-screen
 
         // Broadcast snapshot for this room
         broadcastSnapshotForRoom(roomCode, gameWorld);
@@ -474,6 +507,172 @@ namespace infrastructure::adapters::in::network {
         }
 
         server::logging::Logger::getGameLogger()->info("Player {} died", static_cast<int>(playerId));
+    }
+
+    // ============================================================================
+    // R-Type Authentic (Phase 3) Broadcast Methods
+    // ============================================================================
+
+    void UDPServer::broadcastWaveCannonFired(uint16_t waveCannonId, const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        auto wcOpt = gameWorld->getWaveCannon(waveCannonId);
+        if (!wcOpt) return;
+
+        const auto& wc = *wcOpt;
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + WaveCannonState::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::WaveCannonFired),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        WaveCannonState wcState{
+            .id = wc.id,
+            .owner_id = wc.owner_id,
+            .x = static_cast<uint16_t>(wc.x),
+            .y = static_cast<uint16_t>(wc.y),
+            .charge_level = wc.chargeLevel,
+            .width = static_cast<uint8_t>(wc.width)
+        };
+        wcState.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
+
+        server::logging::Logger::getGameLogger()->debug("Wave Cannon {} fired by player {}",
+            waveCannonId, static_cast<int>(wc.owner_id));
+    }
+
+    void UDPServer::broadcastPowerUpSpawned(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        auto puOpt = gameWorld->getPowerUp(powerUpId);
+        if (!puOpt) return;
+
+        const auto& pu = *puOpt;
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpState::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::PowerUpSpawned),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        PowerUpState puState{
+            .id = pu.id,
+            .x = static_cast<uint16_t>(pu.x),
+            .y = static_cast<uint16_t>(pu.y),
+            .type = static_cast<uint8_t>(pu.type),
+            .remaining_time = static_cast<uint8_t>(pu.lifetime)
+        };
+        puState.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
+
+        server::logging::Logger::getGameLogger()->debug("Power-up {} spawned (type {})",
+            powerUpId, static_cast<int>(pu.type));
+    }
+
+    void UDPServer::broadcastPowerUpCollected(uint16_t powerUpId, uint8_t playerId, uint8_t powerUpType, const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpCollected::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::PowerUpCollected),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        PowerUpCollected pc{
+            .powerup_id = powerUpId,
+            .player_id = playerId,
+            .powerup_type = powerUpType
+        };
+        pc.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
+
+        server::logging::Logger::getGameLogger()->debug("Power-up {} collected by player {}",
+            powerUpId, static_cast<int>(playerId));
+    }
+
+    void UDPServer::broadcastPowerUpExpired(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpExpired::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::PowerUpExpired),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        PowerUpExpired pe{.powerup_id = powerUpId};
+        pe.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
+
+        server::logging::Logger::getGameLogger()->debug("Power-up {} expired", powerUpId);
+    }
+
+    void UDPServer::broadcastForceStateUpdate(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        auto forceOpt = gameWorld->getPlayerForce(playerId);
+        if (!forceOpt) return;
+
+        const auto& force = *forceOpt;
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + ForceState::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(MessageType::ForceStateUpdate),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+
+        ForceState fs{
+            .owner_id = force.ownerId,
+            .x = static_cast<uint16_t>(force.x),
+            .y = static_cast<uint16_t>(force.y),
+            .is_attached = force.isAttached ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0),
+            .level = force.level
+        };
+        fs.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
+
+        server::logging::Logger::getGameLogger()->debug("Force state updated for player {}",
+            static_cast<int>(playerId));
     }
 
     void UDPServer::do_read() {
@@ -714,6 +913,53 @@ namespace infrastructure::adapters::in::network {
                                     broadcastMissileSpawned(missileId, playerId, gameWorld);
                                 }
                             }
+                        }
+                    });
+            }
+            // ═══════════════════════════════════════════════════════════════
+            // R-Type Authentic (Phase 3): ChargeStart
+            // ═══════════════════════════════════════════════════════════════
+            else if (head.type == static_cast<uint16_t>(MessageType::ChargeStart)) {
+                boost::asio::post(gameWorld->getStrand(),
+                    [gameWorld, playerId]() {
+                        gameWorld->updatePlayerActivity(playerId);
+                        if (gameWorld->isPlayerAlive(playerId)) {
+                            gameWorld->startCharging(playerId);
+                        }
+                    });
+            }
+            // ═══════════════════════════════════════════════════════════════
+            // R-Type Authentic (Phase 3): ChargeRelease
+            // ═══════════════════════════════════════════════════════════════
+            else if (head.type == static_cast<uint16_t>(MessageType::ChargeRelease)) {
+                if (payload_size >= ChargeRelease::WIRE_SIZE) {
+                    auto releaseOpt = ChargeRelease::from_bytes(payload, payload_size);
+                    if (releaseOpt) {
+                        boost::asio::post(gameWorld->getStrand(),
+                            [this, gameWorld, playerId]() {
+                                gameWorld->updatePlayerActivity(playerId);
+                                if (gameWorld->isPlayerAlive(playerId)) {
+                                    uint16_t waveCannonId = gameWorld->releaseCharge(playerId);
+                                    if (waveCannonId > 0) {
+                                        // Broadcast the Wave Cannon to all players
+                                        broadcastWaveCannonFired(waveCannonId, gameWorld);
+                                    }
+                                }
+                            });
+                    }
+                }
+            }
+            // ═══════════════════════════════════════════════════════════════
+            // R-Type Authentic (Phase 3): ForceToggle
+            // ═══════════════════════════════════════════════════════════════
+            else if (head.type == static_cast<uint16_t>(MessageType::ForceToggle)) {
+                boost::asio::post(gameWorld->getStrand(),
+                    [this, gameWorld, playerId]() {
+                        gameWorld->updatePlayerActivity(playerId);
+                        if (gameWorld->isPlayerAlive(playerId)) {
+                            gameWorld->toggleForceAttach(playerId);
+                            // Broadcast force state update
+                            broadcastForceStateUpdate(playerId, gameWorld);
                         }
                     });
             }

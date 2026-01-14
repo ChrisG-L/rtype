@@ -328,7 +328,7 @@ private:
     std::atomic<bool> _muted{false};
 
     VoiceMode _voiceMode{VoiceMode::PushToTalk};
-    float _vadThreshold{0.02f};
+    float _vadThreshold{0.05f};  // 5% default (higher to avoid keyboard noise)
     float _micGain{1.0f};
     int _playbackVolume{80};
 

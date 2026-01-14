@@ -233,21 +233,37 @@ void SettingsScene::initUI()
         }
     }
 
-    // === CONTROLS SECTION ===
+    // === CONTROLS SECTION (2 columns for 12 actions) ===
     float controlsStartY = 670.0f;  // Adjusted for voice + ship sections
-    float controlsRowHeight = 32.0f;  // Compact row height
-    float primaryX = CONTROL_X;
-    float secondaryX = CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING;
+    float controlsRowHeight = 28.0f;  // Compact row height
+    float controlsBtnHeight = 24.0f;  // Compact button height
+    float keyBtnWidth = 80.0f;  // Smaller buttons for 2-column layout
 
-    float controlsBtnHeight = 28.0f;  // Compact button height for controls
+    // Column 1: First 6 actions (left side)
+    float col1LabelX = 80.0f;
+    float col1PrimaryX = 200.0f;
+    float col1SecondaryX = col1PrimaryX + keyBtnWidth + 10.0f;
+
+    // Column 2: Last 6 actions (right side)
+    float col2LabelX = SCREEN_WIDTH / 2 + 40.0f;
+    float col2PrimaryX = SCREEN_WIDTH / 2 + 160.0f;
+    float col2SecondaryX = col2PrimaryX + keyBtnWidth + 10.0f;
+
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
-        float rowY = controlsStartY + i * controlsRowHeight;
+
+        // Determine column and row (7 left, 6 right for 13 actions)
+        bool isLeftColumn = (i < 7);
+        size_t rowIndex = isLeftColumn ? i : (i - 7);
+        float rowY = controlsStartY + rowIndex * controlsRowHeight;
+
+        float primaryX = isLeftColumn ? col1PrimaryX : col2PrimaryX;
+        float secondaryX = isLeftColumn ? col1SecondaryX : col2SecondaryX;
 
         // Primary key button
         _keyBindButtons[i].primary = std::make_unique<ui::Button>(
             Vec2f{primaryX, rowY},
-            Vec2f{KEY_BTN_WIDTH, controlsBtnHeight},
+            Vec2f{keyBtnWidth, controlsBtnHeight},
             accessibility::AccessibilityConfig::keyToString(_keyBindings[i][0]),
             FONT_KEY
         );
@@ -260,7 +276,7 @@ void SettingsScene::initUI()
         // Secondary key button
         _keyBindButtons[i].secondary = std::make_unique<ui::Button>(
             Vec2f{secondaryX, rowY},
-            Vec2f{KEY_BTN_WIDTH, controlsBtnHeight},
+            Vec2f{keyBtnWidth, controlsBtnHeight},
             accessibility::AccessibilityConfig::keyToString(_keyBindings[i][1]),
             FONT_KEY
         );
@@ -272,7 +288,8 @@ void SettingsScene::initUI()
     }
 
     // === BOTTOM BUTTONS (all 3 on same row) ===
-    float bottomY = controlsStartY + ACTION_COUNT * controlsRowHeight + 15;
+    // 7 rows * 28px = 196px + some padding
+    float bottomY = controlsStartY + 7 * controlsRowHeight + 15;
     float btnWidth = 160.0f;
     float btnSpacing = 20.0f;
     float totalWidth = btnWidth * 3 + btnSpacing * 2;
@@ -355,6 +372,12 @@ std::string SettingsScene::getActionDisplayName(accessibility::GameAction action
         case accessibility::GameAction::Shoot: return "Shoot";
         case accessibility::GameAction::Pause: return "Pause";
         case accessibility::GameAction::PushToTalk: return "Push-to-Talk";
+        case accessibility::GameAction::WeaponPrev: return "Prev Weapon";
+        case accessibility::GameAction::WeaponNext: return "Next Weapon";
+        case accessibility::GameAction::OpenChat: return "Open Chat";
+        case accessibility::GameAction::ExpandChat: return "Expand Chat";
+        case accessibility::GameAction::ForceToggle: return "Force Toggle";
+        case accessibility::GameAction::ToggleControls: return "Toggle Help";
         default: return "Unknown";
     }
 }
@@ -506,15 +529,22 @@ void SettingsScene::onResetBindingsClick()
     // Reset to default key bindings
     _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveUp)] = {events::Key::Up, events::Key::Z};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveDown)] = {events::Key::Down, events::Key::S};
-    _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveLeft)] = {events::Key::Left, events::Key::Q};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveLeft)] = {events::Key::Left, events::Key::A};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::MoveRight)] = {events::Key::Right, events::Key::D};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::Shoot)] = {events::Key::Space, events::Key::Enter};
     _keyBindings[static_cast<size_t>(accessibility::GameAction::Pause)] = {events::Key::Escape, events::Key::P};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::PushToTalk)] = {events::Key::V, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::WeaponPrev)] = {events::Key::Q, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::WeaponNext)] = {events::Key::E, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::OpenChat)] = {events::Key::T, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::ExpandChat)] = {events::Key::O, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::ForceToggle)] = {events::Key::F, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(accessibility::GameAction::ToggleControls)] = {events::Key::H, events::Key::Unknown};
     updateAllKeyBindButtonTexts();
 
     // Reset voice settings to defaults
     _voiceMode = 0;  // PTT
-    _vadThreshold = 2;  // 2%
+    _vadThreshold = 5;  // 5% (higher to avoid keyboard noise)
     _micGain = 100;  // 100%
     _voiceVolume = 100;  // 100%
     if (_voiceModeBtn) {
@@ -605,6 +635,9 @@ void SettingsScene::onApplyClick()
         payload.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
         std::strncpy(payload.audioOutputDevice, _selectedOutputDevice.c_str(), AUDIO_DEVICE_NAME_LEN - 1);
         payload.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+
+        // Chat settings
+        payload.keepChatOpenAfterSend = config.getKeepChatOpenAfterSend() ? 1 : 0;
 
         _context.tcpClient->saveUserSettings(payload);
         showInfo("Saving to server...");
@@ -739,6 +772,10 @@ void SettingsScene::processTCPEvents()
                     if (_outputDeviceBtn) {
                         _outputDeviceBtn->setText(truncateDeviceName(_outputDeviceNames[_outputDeviceIndex], 30));
                     }
+
+                    // Chat settings - apply directly to AccessibilityConfig
+                    auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+                    accessConfig.setKeepChatOpenAfterSend(event.keepChatOpenAfterSend);
 
                     showInfo("Settings loaded from server");
                 }
@@ -1010,9 +1047,9 @@ void SettingsScene::render()
         }
     }
 
-    // === CONTROLS SECTION ===
+    // === CONTROLS SECTION (2 columns layout) ===
     float controlsBoxY = 650.0f;
-    float controlsBoxHeight = 310.0f;  // 7 actions + header + bottom buttons
+    float controlsBoxHeight = 260.0f;  // 7 rows + header + bottom buttons (2 columns)
 
     // Section box
     _context.window->drawRect(BOX_MARGIN_X, controlsBoxY, BOX_WIDTH, controlsBoxHeight, {20, 20, 40, 200});
@@ -1022,21 +1059,29 @@ void SettingsScene::render()
     _context.window->drawText(FONT_KEY, "CONTROLS",
         BOX_MARGIN_X + 20, controlsBoxY + 8, 18, {150, 150, 180, 255});
 
-    // Column headers
-    _context.window->drawText(FONT_KEY, "Primary",
-        CONTROL_X + 25, controlsBoxY + 25, 12, {120, 120, 150, 255});
-    _context.window->drawText(FONT_KEY, "Secondary",
-        CONTROL_X + KEY_BTN_WIDTH + KEY_BTN_SPACING + 15, controlsBoxY + 25, 12, {120, 120, 150, 255});
+    // Column 1 positions
+    float col1LabelX = 80.0f;
+    float col1PrimaryX = 200.0f;
+    float keyBtnWidth = 80.0f;
 
-    // Key bindings
+    // Column 2 positions
+    float col2LabelX = SCREEN_WIDTH / 2 + 40.0f;
+    float col2PrimaryX = SCREEN_WIDTH / 2 + 160.0f;
+
+    // Key bindings (2 columns: 7 left, 6 right for 13 actions)
     float controlsStartY = 670.0f;
-    float controlsRowHeight = 32.0f;
+    float controlsRowHeight = 28.0f;
     for (size_t i = 0; i < ACTION_COUNT; ++i) {
         auto action = static_cast<accessibility::GameAction>(i);
-        float rowY = controlsStartY + i * controlsRowHeight;
+
+        // Determine column and row (7 left, 6 right)
+        bool isLeftColumn = (i < 7);
+        size_t rowIndex = isLeftColumn ? i : (i - 7);
+        float rowY = controlsStartY + rowIndex * controlsRowHeight;
+        float labelX = isLeftColumn ? col1LabelX : col2LabelX;
 
         _context.window->drawText(FONT_KEY, getActionDisplayName(action),
-            LABEL_X, rowY + 6, 13, {200, 200, 220, 255});
+            labelX, rowY + 4, 12, {200, 200, 220, 255});
 
         _keyBindButtons[i].primary->render(*_context.window);
         _keyBindButtons[i].secondary->render(*_context.window);

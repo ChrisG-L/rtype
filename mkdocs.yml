@@ -163,6 +163,7 @@ nav:
       - Système d'Authentification: guides/authentication.md
       - SonarQube - Qualité Code: guides/sonarqube.md
       - Accessibilité: guides/accessibility.md
+      - Système de Combat: guides/combat-system.md
 
   - Référence API:
       - Vue d'ensemble: api/overview.md
@@ -182,6 +183,8 @@ nav:
       - API Builder Jenkins: development/jenkins-builder-api.md
       - Cross-Compilation Windows: development/cross-compilation.md
       - Changelog: development/changelog.md
+      - Priorités:
+          - Phase 3 - R-Type Authentique: PRIORITE_3_RTYPE_AUTHENTIQUE.md
 
   - Rapports:
       - reports/index.md

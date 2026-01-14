@@ -98,7 +98,7 @@ namespace client::network
         bool found;                         // true if settings found in DB
         std::string colorBlindMode;         // "none", "protanopia", etc.
         float gameSpeed;                    // 0.5 to 2.0
-        std::array<uint8_t, 12> keyBindings; // 6 actions × 2 keys
+        std::array<uint8_t, 26> keyBindings; // 13 actions × 2 keys (matches KEY_BINDINGS_COUNT)
         uint8_t shipSkin;                   // Ship skin variant (1-6)
         // Voice settings
         uint8_t voiceMode;                  // 0 = PTT, 1 = VAD
@@ -107,6 +107,8 @@ namespace client::network
         uint8_t voiceVolume;                // 0-100
         std::string audioInputDevice;       // Input device name (empty = auto)
         std::string audioOutputDevice;      // Output device name (empty = auto)
+        // Chat settings
+        bool keepChatOpenAfterSend;         // If true, chat stays open after sending message
     };
 
     struct TCPSaveSettingsResultEvent {
@@ -139,6 +141,11 @@ namespace client::network
     struct UDPPlayerLeftEvent { uint8_t playerId; };
     struct UDPJoinGameAckEvent { uint8_t playerId; };
     struct UDPJoinGameNackEvent { std::string reason; };
+    struct UDPPlayerDamagedEvent {
+        uint8_t playerId;
+        uint8_t damage;
+        uint8_t newHealth;
+    };
 
     // Type aliases for event variants
     using TCPEvent = std::variant<
@@ -177,7 +184,8 @@ namespace client::network
         UDPPlayerJoinedEvent,
         UDPPlayerLeftEvent,
         UDPJoinGameAckEvent,
-        UDPJoinGameNackEvent
+        UDPJoinGameNackEvent,
+        UDPPlayerDamagedEvent
     >;
 
     // Thread-safe event queue

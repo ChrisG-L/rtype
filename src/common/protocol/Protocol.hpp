@@ -14,7 +14,7 @@
 #include <optional>
 #include <string>
 
-inline uint32_t swap64(uint32_t v) { return __builtin_bswap64(v); }
+inline uint64_t swap64(uint64_t v) { return __builtin_bswap64(v); }
 inline uint32_t swap32(uint32_t v) { return __builtin_bswap32(v); }
 inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
 
@@ -98,6 +98,18 @@ enum class MessageType: uint16_t {
     VoiceLeave = 0x0302,
     VoiceFrame = 0x0303,
     VoiceMute = 0x0304,
+    // R-Type Authentic Mechanics - Phase 3 (0x040x)
+    // Wave Cannon (Charge Shot)
+    ChargeStart = 0x0400,       // C→S: Player started charging
+    ChargeRelease = 0x0401,     // C→S: Player released charge (fire beam)
+    WaveCannonFired = 0x0402,   // S→C: Wave cannon projectile spawned
+    // Power-up System
+    PowerUpSpawned = 0x0410,    // S→C: Power-up item appeared
+    PowerUpCollected = 0x0411,  // S→C: Power-up collected by player
+    PowerUpExpired = 0x0412,    // S→C: Power-up disappeared (timeout)
+    // Force Pod System
+    ForceToggle = 0x0420,       // C→S: Toggle Force attach/detach
+    ForceStateUpdate = 0x0421,  // S→C: Force pod state changed
 };
 
 static constexpr uint8_t MAX_PLAYERS = 4;
@@ -137,6 +149,38 @@ enum class WeaponType : uint8_t {
 };
 
 static constexpr uint8_t MAX_WEAPON_TYPES = static_cast<uint8_t>(WeaponType::COUNT);
+
+// Power-up types (R-Type Authentic - Phase 3)
+// Note: R-Type original has no Shield - defense comes from Force Pod only
+enum class PowerUpType : uint8_t {
+    Health = 0,         // Restore 25 HP
+    SpeedUp = 1,        // Increase movement speed (blue crystal)
+    WeaponCrystal = 2,  // Upgrade current weapon level (red crystal)
+    ForcePod = 3,       // Grant or upgrade Force Pod (orange orb)
+    BitDevice = 4,      // Grant 2 orbiting Bit satellites (R-Type authentic)
+    COUNT
+};
+
+static constexpr uint8_t MAX_POWERUP_TYPES = static_cast<uint8_t>(PowerUpType::COUNT);
+static constexpr uint8_t MAX_POWERUPS = 8;      // Max power-ups on screen
+static constexpr uint8_t MAX_SPEED_LEVEL = 3;   // Max speed upgrades
+static constexpr uint8_t MAX_BITS = 8;          // Max Bit Devices on screen (2 per player × 4 players)
+
+// Wave Cannon constants (R-Type Authentic - Phase 3)
+// Balanced: Lv3 = ~2.5s to charge, deals 200 dmg = ~80 dps if spammed
+// Best used vs groups (piercing) or boss burst damage
+namespace WaveCannon {
+    constexpr float CHARGE_TIME_LV1 = 0.6f;     // Quick shot
+    constexpr float CHARGE_TIME_LV2 = 1.3f;     // Medium charge
+    constexpr float CHARGE_TIME_LV3 = 2.2f;     // Full charge for max damage
+    constexpr uint8_t DAMAGE_LV1 = 50;          // Kills Fast enemy (20 HP)
+    constexpr uint8_t DAMAGE_LV2 = 100;         // Kills most enemies
+    constexpr uint8_t DAMAGE_LV3 = 200;         // Kills Bomber or big boss damage
+    constexpr float SPEED = 850.0f;             // Beam speed
+    constexpr float WIDTH_LV1 = 20.0f;
+    constexpr float WIDTH_LV2 = 35.0f;
+    constexpr float WIDTH_LV3 = 55.0f;          // Wider for more hits
+}
 
 // Session token for UDP authentication
 struct SessionToken {
@@ -1044,7 +1088,7 @@ struct QuickJoinNack {
 // ============================================================================
 
 static constexpr size_t COLORBLIND_MODE_LEN = 16;
-static constexpr size_t KEY_BINDINGS_COUNT = 14;  // 7 actions × 2 keys
+static constexpr size_t KEY_BINDINGS_COUNT = 26;  // 13 actions × 2 keys (includes WeaponPrev/Next, OpenChat, ExpandChat, ForceToggle, ToggleControls)
 static constexpr size_t AUDIO_DEVICE_NAME_LEN = 64;  // Audio device name storage
 
 // UserSettingsPayload: Core settings data
@@ -1060,8 +1104,10 @@ struct UserSettingsPayload {
     // Audio device selection (0 = auto, stored name for matching on different machines)
     char audioInputDevice[AUDIO_DEVICE_NAME_LEN];   // Preferred input device name ("" = auto)
     char audioOutputDevice[AUDIO_DEVICE_NAME_LEN];  // Preferred output device name ("" = auto)
+    // Chat settings
+    uint8_t keepChatOpenAfterSend;              // 1 = keep chat open, 0 = close after send
 
-    static constexpr size_t WIRE_SIZE = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT + 1 + 4 + (AUDIO_DEVICE_NAME_LEN * 2);
+    static constexpr size_t WIRE_SIZE = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT + 1 + 4 + (AUDIO_DEVICE_NAME_LEN * 2) + 1;
 
     void to_bytes(void* buf) const {
         auto* ptr = static_cast<uint8_t*>(buf);
@@ -1078,6 +1124,8 @@ struct UserSettingsPayload {
         // Audio device names
         std::memcpy(ptr + offset + 5, audioInputDevice, AUDIO_DEVICE_NAME_LEN);
         std::memcpy(ptr + offset + 5 + AUDIO_DEVICE_NAME_LEN, audioOutputDevice, AUDIO_DEVICE_NAME_LEN);
+        // Chat settings
+        ptr[offset + 5 + (AUDIO_DEVICE_NAME_LEN * 2)] = keepChatOpenAfterSend;
     }
 
     static std::optional<UserSettingsPayload> from_bytes(const void* buf, size_t buf_len) {
@@ -1101,6 +1149,8 @@ struct UserSettingsPayload {
         payload.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
         std::memcpy(payload.audioOutputDevice, ptr + offset + 5 + AUDIO_DEVICE_NAME_LEN, AUDIO_DEVICE_NAME_LEN);
         payload.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+        // Chat settings
+        payload.keepChatOpenAfterSend = ptr[offset + 5 + (AUDIO_DEVICE_NAME_LEN * 2)];
         return payload;
     }
 };
@@ -1506,7 +1556,13 @@ struct PlayerState {
     uint8_t combo;     // Combo multiplier (x10, e.g., 15 = 1.5x, max 30 = 3.0x)
     // Weapon system (Gameplay Phase 2)
     uint8_t currentWeapon;  // WeaponType enum
-    static constexpr size_t WIRE_SIZE = 18;  // was 17, added 1 byte for currentWeapon
+    // R-Type Authentic Mechanics (Phase 3)
+    uint8_t chargeLevel;   // Wave Cannon charge level (0-3)
+    uint8_t speedLevel;    // Speed upgrade level (0-3)
+    uint8_t weaponLevel;   // Weapon upgrade level (0-3) for damage/cooldown bonus
+    uint8_t hasForce;      // 1 if player has Force Pod, 0 otherwise
+    uint8_t shieldTimer;   // Shield remaining time (0-255, in tenths of seconds)
+    static constexpr size_t WIRE_SIZE = 23;  // was 22, added 1 byte for weaponLevel
 
     void to_bytes(uint8_t* buf) const {
         buf[0] = id;
@@ -1527,6 +1583,12 @@ struct PlayerState {
         buf[16] = combo;
         // Weapon field
         buf[17] = currentWeapon;
+        // Phase 3 fields
+        buf[18] = chargeLevel;
+        buf[19] = speedLevel;
+        buf[20] = weaponLevel;
+        buf[21] = hasForce;
+        buf[22] = shieldTimer;
     }
 
     static std::optional<PlayerState> from_bytes(const void* buf, size_t buf_len) {
@@ -1556,6 +1618,12 @@ struct PlayerState {
         ps.combo = ptr[16];
         // Weapon field
         ps.currentWeapon = ptr[17];
+        // Phase 3 fields
+        ps.chargeLevel = ptr[18];
+        ps.speedLevel = ptr[19];
+        ps.weaponLevel = ptr[20];
+        ps.hasForce = ptr[21];
+        ps.shieldTimer = ptr[22];
         return ps;
     }
 };
@@ -1703,6 +1771,76 @@ struct PlayerDied {
     }
 };
 
+// ForceStateSnapshot: Compact Force Pod state for GameSnapshot
+struct ForceStateSnapshot {
+    uint8_t owner_id;       // Player who owns this Force
+    uint16_t x;
+    uint16_t y;
+    uint8_t is_attached;    // 0 = detached, 1 = attached
+    uint8_t level;          // 1-2
+
+    static constexpr size_t WIRE_SIZE = 7;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = owner_id;
+        uint16_t net_x = swap16(x);
+        uint16_t net_y = swap16(y);
+        std::memcpy(buf + 1, &net_x, 2);
+        std::memcpy(buf + 3, &net_y, 2);
+        buf[5] = is_attached;
+        buf[6] = level;
+    }
+
+    static std::optional<ForceStateSnapshot> from_bytes(const uint8_t* ptr, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        ForceStateSnapshot fs;
+        fs.owner_id = ptr[0];
+        uint16_t net_x, net_y;
+        std::memcpy(&net_x, ptr + 1, 2);
+        std::memcpy(&net_y, ptr + 3, 2);
+        fs.x = swap16(net_x);
+        fs.y = swap16(net_y);
+        fs.is_attached = ptr[5];
+        fs.level = ptr[6];
+        return fs;
+    }
+};
+
+// BitDeviceStateSnapshot: Compact Bit Device state for GameSnapshot
+struct BitDeviceStateSnapshot {
+    uint8_t owner_id;       // Player who owns this Bit
+    uint8_t bit_index;      // 0 = top, 1 = bottom (position in orbit)
+    uint16_t x;
+    uint16_t y;
+    uint8_t is_attached;    // 0 = detached, 1 = attached (orbiting)
+
+    static constexpr size_t WIRE_SIZE = 6;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = owner_id;
+        buf[1] = bit_index;
+        uint16_t net_x = swap16(x);
+        uint16_t net_y = swap16(y);
+        std::memcpy(buf + 2, &net_x, 2);
+        std::memcpy(buf + 4, &net_y, 2);
+        // Note: is_attached not serialized separately to save space (always attached for now)
+    }
+
+    static std::optional<BitDeviceStateSnapshot> from_bytes(const uint8_t* ptr, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        BitDeviceStateSnapshot bs;
+        bs.owner_id = ptr[0];
+        bs.bit_index = ptr[1];
+        uint16_t net_x, net_y;
+        std::memcpy(&net_x, ptr + 2, 2);
+        std::memcpy(&net_y, ptr + 4, 2);
+        bs.x = swap16(net_x);
+        bs.y = swap16(net_y);
+        bs.is_attached = 1;  // Always attached when sent
+        return bs;
+    }
+};
+
 struct GameSnapshot {
     uint8_t player_count;
     PlayerState players[MAX_PLAYERS];
@@ -1717,6 +1855,12 @@ struct GameSnapshot {
     // Gameplay Phase 2: boss state
     uint8_t has_boss;      // 0 or 1
     BossState boss_state;  // Only valid if has_boss == 1
+    // Gameplay Phase 3: Force Pods
+    uint8_t force_count;
+    ForceStateSnapshot forces[MAX_PLAYERS];  // Max 4 forces (1 per player)
+    // Gameplay Phase 3: Bit Devices (R-Type authentic)
+    uint8_t bit_count;
+    BitDeviceStateSnapshot bits[MAX_BITS];   // Max 8 bits (2 per player × 4 players)
 
     size_t wire_size() const {
         size_t size = 1 + player_count * PlayerState::WIRE_SIZE
@@ -1728,6 +1872,8 @@ struct GameSnapshot {
         if (has_boss) {
             size += BossState::WIRE_SIZE;
         }
+        size += 1 + force_count * ForceStateSnapshot::WIRE_SIZE;  // Force Pods
+        size += 1 + bit_count * BitDeviceStateSnapshot::WIRE_SIZE;  // Bit Devices
         return size;
     }
 
@@ -1766,6 +1912,23 @@ struct GameSnapshot {
         offset += 1;
         if (has_boss) {
             boss_state.to_bytes(buf + offset);
+            offset += BossState::WIRE_SIZE;
+        }
+
+        // Force Pods
+        buf[offset] = force_count;
+        offset += 1;
+        for (uint8_t i = 0; i < force_count; ++i) {
+            forces[i].to_bytes(buf + offset);
+            offset += ForceStateSnapshot::WIRE_SIZE;
+        }
+
+        // Bit Devices
+        buf[offset] = bit_count;
+        offset += 1;
+        for (uint8_t i = 0; i < bit_count; ++i) {
+            bits[i].to_bytes(buf + offset);
+            offset += BitDeviceStateSnapshot::WIRE_SIZE;
         }
     }
 
@@ -1882,12 +2045,65 @@ struct GameSnapshot {
                 auto bsOpt = BossState::from_bytes(ptr + offset, BossState::WIRE_SIZE);
                 if (bsOpt) {
                     gs.boss_state = *bsOpt;
+                    offset += BossState::WIRE_SIZE;
                 } else {
                     gs.has_boss = 0;
                 }
             }
         } else {
             gs.has_boss = 0;
+            gs.force_count = 0;
+            return gs;
+        }
+
+        // Force Pods (optional for backward compat)
+        if (buf_len >= offset + 1) {
+            gs.force_count = ptr[offset];
+            offset += 1;
+            if (gs.force_count > MAX_PLAYERS) {
+                gs.force_count = 0;
+                return gs;
+            }
+            size_t force_required = offset + gs.force_count * ForceStateSnapshot::WIRE_SIZE;
+            if (buf_len >= force_required) {
+                for (uint8_t i = 0; i < gs.force_count; ++i) {
+                    auto fsOpt = ForceStateSnapshot::from_bytes(ptr + offset, ForceStateSnapshot::WIRE_SIZE);
+                    if (fsOpt) {
+                        gs.forces[i] = *fsOpt;
+                    }
+                    offset += ForceStateSnapshot::WIRE_SIZE;
+                }
+            } else {
+                gs.force_count = 0;
+            }
+        } else {
+            gs.force_count = 0;
+            gs.bit_count = 0;
+            return gs;
+        }
+
+        // Bit Devices (optional for backward compat)
+        if (buf_len >= offset + 1) {
+            gs.bit_count = ptr[offset];
+            offset += 1;
+            if (gs.bit_count > MAX_BITS) {
+                gs.bit_count = 0;
+                return gs;
+            }
+            size_t bit_required = offset + gs.bit_count * BitDeviceStateSnapshot::WIRE_SIZE;
+            if (buf_len >= bit_required) {
+                for (uint8_t i = 0; i < gs.bit_count; ++i) {
+                    auto bsOpt = BitDeviceStateSnapshot::from_bytes(ptr + offset, BitDeviceStateSnapshot::WIRE_SIZE);
+                    if (bsOpt) {
+                        gs.bits[i] = *bsOpt;
+                    }
+                    offset += BitDeviceStateSnapshot::WIRE_SIZE;
+                }
+            } else {
+                gs.bit_count = 0;
+            }
+        } else {
+            gs.bit_count = 0;
         }
 
         return gs;
@@ -2022,6 +2238,203 @@ struct VoiceMute {
         if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
         auto* ptr = static_cast<const uint8_t*>(buf);
         return VoiceMute{.player_id = ptr[0], .muted = ptr[1]};
+    }
+};
+
+// =============================================================================
+// R-Type Authentic Mechanics - Phase 3
+// =============================================================================
+
+// ChargeRelease: Client releases charge to fire Wave Cannon
+struct ChargeRelease {
+    uint8_t charge_level;  // 1-3 (0 means no charge, fire normal shot)
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = charge_level;
+    }
+
+    static std::optional<ChargeRelease> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        return ChargeRelease{.charge_level = ptr[0]};
+    }
+};
+
+// WaveCannonState: Wave Cannon projectile state (in snapshot or spawned message)
+struct WaveCannonState {
+    uint16_t id;
+    uint8_t owner_id;
+    uint16_t x;
+    uint16_t y;
+    uint8_t charge_level;  // 1-3
+    uint8_t width;         // Beam width (for rendering)
+
+    static constexpr size_t WIRE_SIZE = 9;
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_id = swap16(id);
+        uint16_t net_x = swap16(x);
+        uint16_t net_y = swap16(y);
+        std::memcpy(buf, &net_id, 2);
+        buf[2] = owner_id;
+        std::memcpy(buf + 3, &net_x, 2);
+        std::memcpy(buf + 5, &net_y, 2);
+        buf[7] = charge_level;
+        buf[8] = width;
+    }
+
+    static std::optional<WaveCannonState> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        WaveCannonState wc;
+        uint16_t net_id, net_x, net_y;
+        std::memcpy(&net_id, ptr, 2);
+        std::memcpy(&net_x, ptr + 3, 2);
+        std::memcpy(&net_y, ptr + 5, 2);
+        wc.id = swap16(net_id);
+        wc.owner_id = ptr[2];
+        wc.x = swap16(net_x);
+        wc.y = swap16(net_y);
+        wc.charge_level = ptr[7];
+        wc.width = ptr[8];
+        return wc;
+    }
+};
+
+// PowerUpState: Power-up item on the field
+struct PowerUpState {
+    uint16_t id;
+    uint16_t x;
+    uint16_t y;
+    uint8_t type;           // PowerUpType enum
+    uint8_t remaining_time; // Seconds before expiration (max 10s)
+
+    static constexpr size_t WIRE_SIZE = 8;
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_id = swap16(id);
+        uint16_t net_x = swap16(x);
+        uint16_t net_y = swap16(y);
+        std::memcpy(buf, &net_id, 2);
+        std::memcpy(buf + 2, &net_x, 2);
+        std::memcpy(buf + 4, &net_y, 2);
+        buf[6] = type;
+        buf[7] = remaining_time;
+    }
+
+    static std::optional<PowerUpState> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        PowerUpState pu;
+        uint16_t net_id, net_x, net_y;
+        std::memcpy(&net_id, ptr, 2);
+        std::memcpy(&net_x, ptr + 2, 2);
+        std::memcpy(&net_y, ptr + 4, 2);
+        pu.id = swap16(net_id);
+        pu.x = swap16(net_x);
+        pu.y = swap16(net_y);
+        pu.type = ptr[6];
+        pu.remaining_time = ptr[7];
+        return pu;
+    }
+};
+
+// PowerUpCollected: Notification when a player collects a power-up
+struct PowerUpCollected {
+    uint16_t powerup_id;
+    uint8_t player_id;
+    uint8_t powerup_type;  // PowerUpType enum
+
+    static constexpr size_t WIRE_SIZE = 4;
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_id = swap16(powerup_id);
+        std::memcpy(buf, &net_id, 2);
+        buf[2] = player_id;
+        buf[3] = powerup_type;
+    }
+
+    static std::optional<PowerUpCollected> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        PowerUpCollected pc;
+        uint16_t net_id;
+        std::memcpy(&net_id, ptr, 2);
+        pc.powerup_id = swap16(net_id);
+        pc.player_id = ptr[2];
+        pc.powerup_type = ptr[3];
+        return pc;
+    }
+};
+
+// PowerUpExpired: Notification when a power-up times out
+struct PowerUpExpired {
+    uint16_t powerup_id;
+
+    static constexpr size_t WIRE_SIZE = 2;
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_id = swap16(powerup_id);
+        std::memcpy(buf, &net_id, 2);
+    }
+
+    static std::optional<PowerUpExpired> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        PowerUpExpired pe;
+        uint16_t net_id;
+        std::memcpy(&net_id, ptr, 2);
+        pe.powerup_id = swap16(net_id);
+        return pe;
+    }
+};
+
+// ForceState: Force Pod state for a player
+struct ForceState {
+    uint8_t owner_id;       // Player who owns this Force
+    uint16_t x;
+    uint16_t y;
+    uint8_t is_attached;    // 0 = detached (free-floating), 1 = attached to ship
+    uint8_t level;          // 0 = no Force, 1-2 = Force level
+
+    static constexpr size_t WIRE_SIZE = 7;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = owner_id;
+        uint16_t net_x = swap16(x);
+        uint16_t net_y = swap16(y);
+        std::memcpy(buf + 1, &net_x, 2);
+        std::memcpy(buf + 3, &net_y, 2);
+        buf[5] = is_attached;
+        buf[6] = level;
+    }
+
+    static std::optional<ForceState> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        ForceState fs;
+        fs.owner_id = ptr[0];
+        uint16_t net_x, net_y;
+        std::memcpy(&net_x, ptr + 1, 2);
+        std::memcpy(&net_y, ptr + 3, 2);
+        fs.x = swap16(net_x);
+        fs.y = swap16(net_y);
+        fs.is_attached = ptr[5];
+        fs.level = ptr[6];
+        return fs;
+    }
+};
+
+// ForceToggle: Client requests to attach/detach Force Pod
+struct ForceToggle {
+    static constexpr size_t WIRE_SIZE = 0;
+
+    void to_bytes(uint8_t*) const {}
+
+    static std::optional<ForceToggle> from_bytes(const void*, size_t) {
+        return ForceToggle{};
     }
 };
 

@@ -110,6 +110,9 @@ Binary protocol over UDP with network byte order (big-endian). All messages star
 | `ShootMissile` | 0x0080 | C→S | - | Fire missile request |
 | `MissileSpawned` | 0x0081 | S→C | MissileState (8B) | Missile created |
 | `MissileDestroyed` | 0x0082 | S→C | missile_id (2B) | Missile removed |
+| `EnemyDestroyed` | 0x0091 | S→C | enemy_id (2B) | Enemy killed (immediate) |
+| `PlayerDamaged` | 0x00A0 | S→C | PlayerDamaged (3B) | Player took damage |
+| `PlayerDied` | 0x00A1 | S→C | player_id (1B) | Player died |
 | `ScoreUpdate` | 0x00B0 | S→C | - | Score system (in snapshot) |
 | `BossSpawn` | 0x00C0 | S→C | BossState | Boss appeared |
 | `BossPhaseChange` | 0x00C1 | S→C | phase (1B) | Boss phase changed |
@@ -121,6 +124,14 @@ Binary protocol over UDP with network byte order (big-endian). All messages star
 | `VoiceLeave` | 0x0302 | C→S | player_id (1B) | Leave voice channel |
 | `VoiceFrame` | 0x0303 | Both | VoiceFrame (5-485B) | Opus audio data |
 | `VoiceMute` | 0x0304 | Both | VoiceMute (2B) | Mute/unmute notification |
+| `ChargeStart` | 0x0400 | C→S | - | Start Wave Cannon charge |
+| `ChargeRelease` | 0x0401 | C→S | charge_level (1B) | Release charged shot |
+| `WaveCannonFired` | 0x0402 | S→C | WaveCannonState | Wave Cannon beam spawned |
+| `PowerUpSpawned` | 0x0410 | S→C | PowerUpState | Power-up item appeared |
+| `PowerUpCollected` | 0x0411 | S→C | PowerUpCollected | Power-up collected |
+| `PowerUpExpired` | 0x0412 | S→C | powerup_id (2B) | Power-up disappeared |
+| `ForceToggle` | 0x0420 | C→S | - | Toggle Force attach/detach |
+| `ForceStateUpdate` | 0x0421 | S→C | ForceState | Force pod state changed |
 
 ### Key Structures
 
@@ -132,7 +143,7 @@ struct UDPHeader {
     uint64_t timestamp;     // Milliseconds since epoch
 };
 
-// PlayerState (18 bytes) - Includes score and weapon
+// PlayerState (23 bytes) - Includes score, weapon, and power-up levels
 struct PlayerState {
     uint8_t id;
     uint16_t x, y;
@@ -144,6 +155,11 @@ struct PlayerState {
     uint16_t kills;         // Kill count
     uint8_t combo;          // Combo x10 (15 = 1.5x)
     uint8_t currentWeapon;  // WeaponType enum
+    uint8_t chargeLevel;    // Wave Cannon charge (0-3)
+    uint8_t speedLevel;     // Speed upgrade level (0-3)
+    uint8_t weaponLevel;    // Weapon upgrade level (0-3)
+    uint8_t hasForce;       // Has Force Pod (0 or 1)
+    uint8_t shieldTimer;    // Reserved (always 0, R-Type authentic has no shield)
 };
 
 // MissileState (8 bytes) - Includes weapon type
@@ -175,6 +191,28 @@ struct GameSnapshot {
     uint16_t wave_number;
     uint8_t has_boss;
     BossState boss_state;                  // If has_boss
+    uint8_t force_count;
+    ForceStateSnapshot forces[MAX_PLAYERS]; // Force Pods (Phase 3)
+};
+
+// PlayerDamaged (3 bytes) - Damage notification
+struct PlayerDamaged {
+    uint8_t player_id;
+    uint8_t damage;
+    uint8_t new_health;
+};
+
+// EnemyDestroyed (2 bytes) - Enemy killed notification
+struct EnemyDestroyed {
+    uint16_t enemy_id;
+};
+
+// ForceStateSnapshot (7 bytes) - Force Pod in snapshot
+struct ForceStateSnapshot {
+    uint8_t owner_id;
+    uint16_t x, y;
+    uint8_t is_attached;
+    uint8_t level;            // 0 = no force, 1-2 = force level
 };
 
 // VoiceFrame (5-485 bytes) - Opus-encoded audio
@@ -183,6 +221,58 @@ struct VoiceFrame {
     uint16_t sequence;        // For packet loss detection
     uint16_t opus_len;        // Actual Opus data length
     uint8_t opus_data[480];   // Opus-encoded audio (max 480 bytes)
+};
+
+// R-Type Authentic (Phase 3) Structures
+
+// WaveCannonState (9 bytes) - Charged beam projectile
+struct WaveCannonState {
+    uint16_t id;
+    uint8_t owner_id;
+    uint16_t x, y;
+    uint8_t charge_level;     // 1-3
+    uint8_t width;            // Beam width
+};
+
+// PowerUpState (8 bytes) - Collectible power-up
+struct PowerUpState {
+    uint16_t id;
+    uint16_t x, y;
+    uint8_t type;             // PowerUpType enum
+    uint8_t remaining_time;   // Seconds before expiration
+};
+
+// PowerUpCollected (4 bytes) - Collection notification
+struct PowerUpCollected {
+    uint16_t powerup_id;
+    uint8_t player_id;
+    uint8_t powerup_type;
+};
+
+// ForceState (7 bytes) - Force Pod state
+struct ForceState {
+    uint8_t owner_id;
+    uint16_t x, y;
+    uint8_t is_attached;
+    uint8_t level;            // 0 = no force, 1-2 = force level
+};
+
+// PowerUpType enum (R-Type Authentic - no Shield, defense via Force Pod)
+enum class PowerUpType : uint8_t {
+    Health = 0,               // +25 HP (red)
+    SpeedUp = 1,              // +1 speed level (blue crystal)
+    WeaponCrystal = 2,        // +1 weapon level (red crystal)
+    ForcePod = 3,             // Gives/upgrades Force Pod (orange orb)
+    BitDevice = 4,            // Gives 2 orbiting Bit Devices (purple)
+    COUNT = 5
+};
+
+// BitDeviceStateSnapshot (6 bytes) - Bit Device in snapshot
+struct BitDeviceStateSnapshot {
+    uint8_t owner_id;
+    uint8_t bit_index;        // 0 = first bit, 1 = second bit
+    uint16_t x, y;
+    uint8_t is_attached;
 };
 ```
 
@@ -383,12 +473,47 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | Constant | Value | Location |
 |----------|-------|----------|
 | `BOSS_SPAWN_WAVE` | 10 | GameWorld.hpp |
-| `BOSS_MAX_HEALTH` | 1000 | GameWorld.hpp |
+| `BOSS_MAX_HEALTH` | 1500 (base) | GameWorld.hpp |
+| `BOSS_HP_PER_CYCLE` | +500 HP | GameWorld.cpp |
+| `BOSS_CYCLE_BONUS` | +1000 pts | GameWorld.cpp |
 | `BOSS_WIDTH/HEIGHT` | 150.0f / 120.0f | GameScene.hpp |
 | `BOSS_PHASE1_THRESHOLD` | 65% HP | GameWorld.hpp |
 | `BOSS_PHASE2_THRESHOLD` | 30% HP | GameWorld.hpp |
 | `BOSS_ENRAGE_THRESHOLD` | 20% HP | GameWorld.hpp |
 | `BOSS_ATTACK_COOLDOWN` | 2.0s (base) | GameWorld.hpp |
+
+**Boss Respawn System:** Boss spawns every 10 waves (10, 20, 30...) with HP = 1500 + (cycle-1) × 500.
+
+### R-Type Authentic (Phase 3) Constants
+
+| Constant | Value | Location |
+|----------|-------|----------|
+| `CHARGE_TIME_LV1` | 0.6s | Protocol.hpp (WaveCannon) |
+| `CHARGE_TIME_LV2` | 1.3s | Protocol.hpp (WaveCannon) |
+| `CHARGE_TIME_LV3` | 2.2s | Protocol.hpp (WaveCannon) |
+| `WIDTH_LV1` | 20.0f | Protocol.hpp (beam width) |
+| `WIDTH_LV2` | 35.0f | Protocol.hpp (beam width) |
+| `WIDTH_LV3` | 55.0f | Protocol.hpp (beam width) |
+| `DAMAGE_LV1` | 50 | Protocol.hpp (WaveCannon) |
+| `DAMAGE_LV2` | 100 | Protocol.hpp (WaveCannon) |
+| `DAMAGE_LV3` | 200 | Protocol.hpp (WaveCannon) |
+| `WAVE_CANNON_SPEED` | 850.0f | Protocol.hpp (beam speed) |
+| `POWERUP_DROP_CHANCE` | 15% | GameWorld.hpp |
+| `POWERUP_POW_ARMOR_CHANCE` | 100% | GameWorld.hpp (POWArmor enemy) |
+| `POWERUP_LIFETIME` | 10.0s | GameWorld.hpp |
+| `POWERUP_SIZE` | 32.0f | GameScene.hpp |
+| `FORCE_POD_WIDTH/HEIGHT` | 32.0f / 32.0f | GameScene.hpp |
+| `FORCE_POD_CONTACT_DAMAGE` | 45 | GameWorld.hpp |
+| `BIT_DEVICE_SIZE` | 24.0f | GameScene.hpp |
+| `BIT_DEVICE_ORBIT_RADIUS` | 50.0f | GameWorld.hpp |
+| `BIT_DEVICE_ORBIT_SPEED` | 3.0 rad/s | GameWorld.hpp |
+| `BIT_DEVICE_CONTACT_DAMAGE` | 20 | GameWorld.hpp |
+| `BIT_DEVICE_SHOOT_COOLDOWN` | 0.4s | GameWorld.hpp |
+| `MAX_BITS` | 8 (2×4 players) | Protocol.hpp |
+| `SHIELD_DURATION` | 3.0s | GameWorld.cpp |
+| `SPEED_UP_MAX_LEVEL` | 3 | Protocol.hpp |
+| `SPEED_MULTIPLIERS` | 1.0/1.3/1.6/1.9 | GameWorld.cpp |
+| `SPEEDUP_MAX_BONUS` | +500 pts | GameWorld.cpp (when already at max)
 
 ### Weapon System Constants
 
@@ -407,11 +532,27 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 
 | Constant | Value | Location |
 |----------|-------|----------|
-| `ENEMY_KILL_SCORE` | 100 | GameWorld.hpp |
-| `BOSS_DEFEAT_SCORE` | 5000 | GameWorld.hpp |
-| `COMBO_DECAY_TIME` | 3.0s | GameWorld.hpp |
-| `COMBO_MAX_MULT` | 3.0x (30) | GameWorld.hpp |
+| `POINTS_BASIC` | 100 | GameWorld.hpp |
+| `POINTS_TRACKER` | 150 | GameWorld.hpp |
+| `POINTS_ZIGZAG` | 120 | GameWorld.hpp |
+| `POINTS_FAST` | 180 | GameWorld.hpp |
+| `POINTS_BOMBER` | 250 | GameWorld.hpp |
+| `POINTS_POW_ARMOR` | 200 | GameWorld.hpp |
+| `POINTS_BOSS` | 5000 | GameWorld.hpp |
+| `COMBO_DECAY_TIME` | 2.0s | GameWorld.hpp |
+| `COMBO_MAX_MULT` | 3.0x | GameWorld.hpp |
 | `COMBO_INCREMENT` | 0.1x per kill | GameWorld.hpp |
+
+### Enemy Type Constants (GameWorld.hpp)
+
+| Type | Value | Speed | HP | Shoot Interval | Points | Special |
+|------|-------|-------|----|----|--------|---------|
+| Basic | 0 | -120 | 40 | 2.5s | 100 | - |
+| Tracker | 1 | -100 | 35 | 2.0s | 150 | Follows player Y |
+| Zigzag | 2 | -140 | 25 | 3.0s | 120 | Zig-zag movement |
+| Fast | 3 | -220 | 20 | 1.5s | 180 | Very fast |
+| Bomber | 4 | -80 | 80 | 1.0s | 250 | Tanky, rapid fire |
+| POWArmor | 5 | -90 | 50 | 4.0s | 200 | 100% power-up drop |
 
 ## Assets
 

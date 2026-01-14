@@ -19,7 +19,7 @@ namespace application::ports::out::persistence {
 struct UserSettingsData {
     std::string colorBlindMode;     // "none", "protanopia", "deuteranopia", "tritanopia", "high_contrast"
     uint16_t gameSpeedPercent;      // 50-200 (represents 0.5x-2.0x)
-    std::array<uint8_t, 12> keyBindings;  // 6 actions × 2 keys
+    std::array<uint8_t, 26> keyBindings;  // 13 actions × 2 keys (matches KEY_BINDINGS_COUNT in Protocol.hpp)
     uint8_t shipSkin;               // Ship skin variant (1-6 for Ship1.png to Ship6.png)
     uint8_t voiceMode;              // 0 = PushToTalk, 1 = VoiceActivity
     uint8_t vadThreshold;           // 0-100 (scaled from 0.0-1.0)
@@ -27,6 +27,7 @@ struct UserSettingsData {
     uint8_t voiceVolume;            // 0-100
     std::string audioInputDevice;   // Preferred input device name ("" = auto)
     std::string audioOutputDevice;  // Preferred output device name ("" = auto)
+    bool keepChatOpenAfterSend;     // If true, chat input stays open after sending
 
     // Default constructor with default values
     UserSettingsData()
@@ -39,23 +40,26 @@ struct UserSettingsData {
         , micGain(100)
         , voiceVolume(100)
         , audioInputDevice("")
-        , audioOutputDevice("") {}
+        , audioOutputDevice("")
+        , keepChatOpenAfterSend(false) {}
 
     // Set default key bindings (matches AccessibilityConfig defaults)
+    // Key values based on events::Key enum:
+    // A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9, K=10, L=11, M=12
+    // N=13, O=14, P=15, Q=16, R=17, S=18, T=19, U=20, V=21, W=22, X=23, Y=24, Z=25
+    // Space=36, Enter=37, Escape=38, Up=41, Down=42, Left=43, Right=44, Unknown=51
     void setDefaultKeyBindings() {
-        // Default bindings: Up/Z, Down/S, Left/Q, Right/D, Space/Enter, Escape/P
-        // Key values are based on events::Key enum
-        // MoveUp: Up=24, Z=25
-        keyBindings[0] = 24;  // Up
+        // MoveUp: Up=41, Z=25
+        keyBindings[0] = 41;  // Up
         keyBindings[1] = 25;  // Z
-        // MoveDown: Down=22, S=18
-        keyBindings[2] = 22;  // Down
+        // MoveDown: Down=42, S=18
+        keyBindings[2] = 42;  // Down
         keyBindings[3] = 18;  // S
-        // MoveLeft: Left=23, Q=16
-        keyBindings[4] = 23;  // Left
-        keyBindings[5] = 16;  // Q
-        // MoveRight: Right=21, D=3
-        keyBindings[6] = 21;  // Right
+        // MoveLeft: Left=43, A=0 (changed from Q since Q is now WeaponPrev)
+        keyBindings[4] = 43;  // Left
+        keyBindings[5] = 0;   // A
+        // MoveRight: Right=44, D=3
+        keyBindings[6] = 44;  // Right
         keyBindings[7] = 3;   // D
         // Shoot: Space=36, Enter=37
         keyBindings[8] = 36;  // Space
@@ -63,6 +67,27 @@ struct UserSettingsData {
         // Pause: Escape=38, P=15
         keyBindings[10] = 38; // Escape
         keyBindings[11] = 15; // P
+        // PushToTalk: V=21, Unknown=51
+        keyBindings[12] = 21; // V
+        keyBindings[13] = 51; // Unknown
+        // WeaponPrev: Q=16, Unknown=51
+        keyBindings[14] = 16; // Q
+        keyBindings[15] = 51; // Unknown
+        // WeaponNext: E=4, Unknown=51
+        keyBindings[16] = 4;  // E
+        keyBindings[17] = 51; // Unknown
+        // OpenChat: T=19, Unknown=51
+        keyBindings[18] = 19; // T
+        keyBindings[19] = 51; // Unknown
+        // ExpandChat: O=14, Unknown=51
+        keyBindings[20] = 14; // O
+        keyBindings[21] = 51; // Unknown
+        // ForceToggle: F=5, Unknown=51
+        keyBindings[22] = 5;  // F
+        keyBindings[23] = 51; // Unknown
+        // ToggleControls: H=7, Unknown=51
+        keyBindings[24] = 7;  // H
+        keyBindings[25] = 51; // Unknown
     }
 };
 

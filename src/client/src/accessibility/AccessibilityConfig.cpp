@@ -28,11 +28,18 @@ void AccessibilityConfig::resetKeyBindings()
 {
     _keyBindings[static_cast<size_t>(GameAction::MoveUp)]     = {events::Key::Up, events::Key::Z};
     _keyBindings[static_cast<size_t>(GameAction::MoveDown)]   = {events::Key::Down, events::Key::S};
-    _keyBindings[static_cast<size_t>(GameAction::MoveLeft)]   = {events::Key::Left, events::Key::Q};
+    _keyBindings[static_cast<size_t>(GameAction::MoveLeft)]   = {events::Key::Left, events::Key::A};
     _keyBindings[static_cast<size_t>(GameAction::MoveRight)]  = {events::Key::Right, events::Key::D};
     _keyBindings[static_cast<size_t>(GameAction::Shoot)]      = {events::Key::Space, events::Key::Enter};
     _keyBindings[static_cast<size_t>(GameAction::Pause)]      = {events::Key::Escape, events::Key::P};
     _keyBindings[static_cast<size_t>(GameAction::PushToTalk)] = {events::Key::V, events::Key::Unknown};
+    // Gameplay Phase 2/3 - New configurable keys
+    _keyBindings[static_cast<size_t>(GameAction::WeaponPrev)]     = {events::Key::Q, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(GameAction::WeaponNext)]     = {events::Key::E, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(GameAction::OpenChat)]       = {events::Key::T, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(GameAction::ExpandChat)]     = {events::Key::O, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(GameAction::ForceToggle)]    = {events::Key::F, events::Key::Unknown};
+    _keyBindings[static_cast<size_t>(GameAction::ToggleControls)] = {events::Key::H, events::Key::Unknown};
 }
 
 void AccessibilityConfig::setKeyBinding(GameAction action, events::Key primaryKey, events::Key secondaryKey)
@@ -294,6 +301,12 @@ bool AccessibilityConfig::loadFromFile(const std::string& filepath)
             setKeyBinding(GameAction::Shoot, stringToKey(value), getSecondaryKey(GameAction::Shoot));
         } else if (key == "shoot_alt") {
             setKeyBinding(GameAction::Shoot, getPrimaryKey(GameAction::Shoot), stringToKey(value));
+        } else if (key == "open_chat") {
+            setKeyBinding(GameAction::OpenChat, stringToKey(value), getSecondaryKey(GameAction::OpenChat));
+        } else if (key == "expand_chat") {
+            setKeyBinding(GameAction::ExpandChat, stringToKey(value), getSecondaryKey(GameAction::ExpandChat));
+        } else if (key == "keep_chat_open") {
+            setKeepChatOpenAfterSend(value == "true" || value == "1");
         }
     }
 
@@ -326,7 +339,13 @@ bool AccessibilityConfig::saveToFile(const std::string& filepath) const
     file << "move_right = " << keyToString(getPrimaryKey(GameAction::MoveRight)) << "\n";
     file << "move_right_alt = " << keyToString(getSecondaryKey(GameAction::MoveRight)) << "\n";
     file << "shoot = " << keyToString(getPrimaryKey(GameAction::Shoot)) << "\n";
-    file << "shoot_alt = " << keyToString(getSecondaryKey(GameAction::Shoot)) << "\n";
+    file << "shoot_alt = " << keyToString(getSecondaryKey(GameAction::Shoot)) << "\n\n";
+
+    file << "# Chat settings\n";
+    file << "open_chat = " << keyToString(getPrimaryKey(GameAction::OpenChat)) << "\n";
+    file << "expand_chat = " << keyToString(getPrimaryKey(GameAction::ExpandChat)) << "\n";
+    file << "# Keep chat input open after sending a message (true/false)\n";
+    file << "keep_chat_open = " << (_keepChatOpenAfterSend ? "true" : "false") << "\n";
 
     return true;
 }

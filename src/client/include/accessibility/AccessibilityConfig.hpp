@@ -38,6 +38,13 @@ enum class GameAction {
     Shoot,
     Pause,
     PushToTalk,
+    // Gameplay Phase 2/3 - New configurable keys
+    WeaponPrev,     // Previous weapon (default: Q)
+    WeaponNext,     // Next weapon (default: E)
+    OpenChat,       // Open chat input (default: T)
+    ExpandChat,     // Expand/collapse chat history (default: O)
+    ForceToggle,    // Toggle Force Pod attach/detach (default: F)
+    ToggleControls, // Show/hide controls HUD (default: H)
     ActionCount
 };
 
@@ -85,6 +92,10 @@ public:
     void setShipSkin(uint8_t skinId);
     uint8_t getShipSkin() const;
 
+    // Chat behavior options
+    void setKeepChatOpenAfterSend(bool keep) { _keepChatOpenAfterSend = keep; }
+    bool getKeepChatOpenAfterSend() const { return _keepChatOpenAfterSend; }
+
     bool loadFromFile(const std::string& filepath);
     bool saveToFile(const std::string& filepath) const;
 
@@ -107,6 +118,7 @@ private:
     ColorBlindMode _colorBlindMode = ColorBlindMode::None;
     float _gameSpeedMultiplier = 1.0f;
     uint8_t _shipSkin = 1;  // Ship skin variant (1-6 for Ship1.png to Ship6.png)
+    bool _keepChatOpenAfterSend = false;  // If true, chat stays open after sending message
 
     Color _playerColor;
     Color _otherPlayerColor;

@@ -74,6 +74,8 @@ namespace infrastructure::game {
         _playerInputs.erase(playerId);        // Clean up inputs
         _playerLastInputSeq.erase(playerId);  // Clean up sequence tracking
         _playerScores.erase(playerId);        // Clean up scores
+        _forcePods.erase(playerId);           // Clean up Force Pod
+        _bitDevices.erase(playerId);          // Clean up Bit Devices
     }
 
     void GameWorld::removePlayerByEndpoint(const udp::endpoint& endpoint) {
@@ -82,6 +84,8 @@ namespace infrastructure::game {
                 _playerInputs.erase(it->first);        // Clean up inputs
                 _playerLastInputSeq.erase(it->first);  // Clean up sequence tracking
                 _playerScores.erase(it->first);        // Clean up scores
+                _forcePods.erase(it->first);           // Clean up Force Pod
+                _bitDevices.erase(it->first);          // Clean up Bit Devices
                 _players.erase(it);
                 return;
             }
@@ -124,11 +128,11 @@ namespace infrastructure::game {
     }
 
     void GameWorld::updatePlayers(float deltaTime) {
-        // Apply game speed multiplier to player movement
-        float speed = PLAYER_MOVE_SPEED * _gameSpeedMultiplier * deltaTime;
-
         for (auto& [id, player] : _players) {
             if (!player.alive) continue;
+
+            // Get speed with player's speedLevel bonus (0-3)
+            float speed = getPlayerMoveSpeed(id) * deltaTime;
 
             // Get input keys for this player (default to 0 if none)
             uint16_t keys = 0;
@@ -201,7 +205,12 @@ namespace infrastructure::game {
                 .score = score,
                 .kills = kills,
                 .combo = combo,
-                .currentWeapon = static_cast<uint8_t>(player.currentWeapon)
+                .currentWeapon = static_cast<uint8_t>(player.currentWeapon),
+                .chargeLevel = player.chargeLevel,
+                .speedLevel = player.speedLevel,
+                .weaponLevel = player.weaponLevel,
+                .hasForce = static_cast<uint8_t>(player.hasForce ? 1 : 0),
+                .shieldTimer = 0  // Reserved field (R-Type has no shield)
             };
             snapshot.player_count++;
         }
@@ -267,6 +276,36 @@ namespace infrastructure::game {
             snapshot.has_boss = 0;
         }
 
+        // Force Pods
+        snapshot.force_count = 0;
+        for (const auto& [playerId, force] : _forcePods) {
+            if (snapshot.force_count >= MAX_PLAYERS) break;
+            snapshot.forces[snapshot.force_count] = ForceStateSnapshot{
+                .owner_id = force.ownerId,
+                .x = static_cast<uint16_t>(std::clamp(force.x, 0.0f, static_cast<float>(UINT16_MAX))),
+                .y = static_cast<uint16_t>(std::clamp(force.y, 0.0f, static_cast<float>(UINT16_MAX))),
+                .is_attached = static_cast<uint8_t>(force.isAttached ? 1 : 0),
+                .level = force.level
+            };
+            snapshot.force_count++;
+        }
+
+        // Bit Devices
+        snapshot.bit_count = 0;
+        for (const auto& [playerId, bits] : _bitDevices) {
+            for (const auto& bit : bits) {
+                if (snapshot.bit_count >= MAX_BITS) break;
+                snapshot.bits[snapshot.bit_count] = BitDeviceStateSnapshot{
+                    .owner_id = bit.ownerId,
+                    .bit_index = bit.index,
+                    .x = static_cast<uint16_t>(std::clamp(bit.x, 0.0f, static_cast<float>(UINT16_MAX))),
+                    .y = static_cast<uint16_t>(std::clamp(bit.y, 0.0f, static_cast<float>(UINT16_MAX))),
+                    .is_attached = static_cast<uint8_t>(bit.isAttached ? 1 : 0)
+                };
+                snapshot.bit_count++;
+            }
+        }
+
         return snapshot;
     }
 
@@ -325,8 +364,8 @@ namespace infrastructure::game {
                     float dist = std::sqrt(dx * dx + dy * dy);
 
                     if (dist > 1.0f) {
-                        // Normalize and apply speed
-                        float speed = Missile::getSpeed(WeaponType::Missile);
+                        // Normalize and apply speed (with weapon level bonus)
+                        float speed = Missile::getSpeed(WeaponType::Missile, missile.weaponLevel);
                         missile.velocityX = (dx / dist) * speed;
                         missile.velocityY = (dy / dist) * speed;
                     }
@@ -422,8 +461,14 @@ namespace infrastructure::game {
 
         _waveTimer += adjustedDelta;
 
-        // Stop spawning new waves once we've reached the boss wave (wait for boss fight)
-        if (_waveNumber >= BOSS_SPAWN_WAVE && !_boss.has_value()) {
+        // Check if we're at a boss wave (10, 20, 30, ...)
+        // Boss spawns when: wave is multiple of 10 AND boss not defeated yet for this cycle
+        uint16_t currentCycle = _waveNumber / BOSS_SPAWN_WAVE;
+        bool isBossWave = (_waveNumber % BOSS_SPAWN_WAVE == 0) && (_waveNumber > 0);
+        bool bossNotDefeatedThisCycle = _bossDefeatedCount < currentCycle;
+
+        // Stop spawning new waves if we're waiting for boss to spawn or during boss fight
+        if (isBossWave && bossNotDefeatedThisCycle && !_boss.has_value()) {
             // Don't spawn new waves - waiting for boss to spawn (when enemies are cleared)
             return;
         }
@@ -440,35 +485,58 @@ namespace infrastructure::game {
             _currentWaveInterval = WAVE_INTERVAL_MIN +
                 static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * (WAVE_INTERVAL_MAX - WAVE_INTERVAL_MIN);
 
+            // Enemy count scales with wave number (infinite scaling)
+            // Base: 2-6 enemies
+            // Bonus: +1 enemy every 3 waves, capped at +4 (reached at wave 12)
+            // Cycle bonus: +1 enemy per boss cycle completed
             uint8_t baseCount = ENEMIES_PER_WAVE_MIN +
                 static_cast<uint8_t>(std::rand() % (ENEMIES_PER_WAVE_MAX - ENEMIES_PER_WAVE_MIN + 1));
-            uint8_t bonusEnemies = std::min(static_cast<uint8_t>(_waveNumber / 3), static_cast<uint8_t>(2));
-            uint8_t enemyCount = std::min(static_cast<uint8_t>(baseCount + bonusEnemies), static_cast<uint8_t>(MAX_ENEMIES - _enemies.size()));
+            uint8_t waveBonus = std::min(static_cast<uint8_t>(_waveNumber / 3), static_cast<uint8_t>(4));
+            uint8_t cycleBonus = std::min(_bossDefeatedCount, static_cast<uint8_t>(3));  // +1 per cycle, max +3
+            uint8_t enemyCount = std::min(static_cast<uint8_t>(baseCount + waveBonus + cycleBonus),
+                                          static_cast<uint8_t>(MAX_ENEMIES - _enemies.size()));
 
             if (enemyCount == 0) return;
 
             float cumulativeDelay = 0.0f;
             float ySpacing = (SPAWN_Y_MAX - SPAWN_Y_MIN) / static_cast<float>(enemyCount + 1);
 
+            // Calculate difficulty tier based on wave and cycle
+            // Tier affects enemy type probabilities
+            uint16_t difficultyTier = (_waveNumber / 5) + (_bossDefeatedCount * 2);
+
             for (uint8_t i = 0; i < enemyCount; ++i) {
-                float spawnDelay = SPAWN_DELAY_MIN +
-                    static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * (SPAWN_DELAY_MAX - SPAWN_DELAY_MIN);
+                // Spawn delay decreases with difficulty (faster waves)
+                float delayMultiplier = std::max(0.5f, 1.0f - (difficultyTier * 0.05f));
+                float spawnDelay = (SPAWN_DELAY_MIN +
+                    static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * (SPAWN_DELAY_MAX - SPAWN_DELAY_MIN)) * delayMultiplier;
                 cumulativeDelay += spawnDelay;
 
                 float baseY = SPAWN_Y_MIN + ySpacing * static_cast<float>(i + 1);
                 float jitter = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) - 0.5f) * 100.0f;
                 float spawnY = std::clamp(baseY + jitter, SPAWN_Y_MIN, SPAWN_Y_MAX);
 
+                // Enemy type selection with scaling probabilities
+                // Higher waves and cycles increase chances of dangerous enemies
                 EnemyType type = EnemyType::Basic;
                 int roll = std::rand() % 100;
 
-                if (_waveNumber >= 5 && roll < 10) {
+                // Probability thresholds scale with difficulty
+                // Base thresholds: Bomber 10%, Fast 15%, Zigzag 15%, Tracker 15%, Basic 45%
+                // Each difficulty tier adds ~3% to dangerous enemy chances
+                int bomberThreshold = std::min(10 + static_cast<int>(difficultyTier * 3), 30);
+                int fastThreshold = bomberThreshold + std::min(15 + static_cast<int>(difficultyTier * 2), 25);
+                int zigzagThreshold = fastThreshold + std::min(15 + static_cast<int>(difficultyTier * 2), 25);
+                int trackerThreshold = zigzagThreshold + std::min(15 + static_cast<int>(difficultyTier * 2), 20);
+
+                // Unlock enemies progressively (still need minimum wave for first appearance)
+                if (_waveNumber >= 5 && roll < bomberThreshold) {
                     type = EnemyType::Bomber;
-                } else if (_waveNumber >= 4 && roll < 25) {
+                } else if (_waveNumber >= 4 && roll < fastThreshold) {
                     type = EnemyType::Fast;
-                } else if (_waveNumber >= 3 && roll < 40) {
+                } else if (_waveNumber >= 3 && roll < zigzagThreshold) {
                     type = EnemyType::Zigzag;
-                } else if (_waveNumber >= 2 && roll < 55) {
+                } else if (_waveNumber >= 2 && roll < trackerThreshold) {
                     type = EnemyType::Tracker;
                 }
 
@@ -637,8 +705,8 @@ namespace infrastructure::game {
 
                 if (missileBox.intersects(enemyBox)) {
                     bool wasAlive = enemy.health > 0;
-                    // Use weapon-specific damage
-                    uint8_t damage = Missile::getDamage(missile.weaponType);
+                    // Use weapon-specific damage with level bonus
+                    uint8_t damage = Missile::getDamage(missile.weaponType, missile.weaponLevel);
                     if (enemy.health > damage) {
                         enemy.health -= damage;
                     } else {
@@ -648,6 +716,13 @@ namespace infrastructure::game {
                     // Award score if enemy was killed
                     if (wasAlive && enemy.health == 0) {
                         awardKillScore(missile.owner_id, static_cast<EnemyType>(enemy.enemy_type));
+
+                        // POWArmor always drops power-up, other enemies have a chance
+                        EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
+                        if (enemyType == EnemyType::POWArmor ||
+                            std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                            spawnPowerUp(enemy.x, enemy.y);
+                        }
                     }
 
                     _destroyedMissiles.push_back(missileIt->first);
@@ -661,8 +736,8 @@ namespace infrastructure::game {
             if (!missileDestroyed && _boss.has_value() && _boss->isActive) {
                 collision::AABB bossBox(_boss->x, _boss->y, Boss::WIDTH, Boss::HEIGHT);
                 if (missileBox.intersects(bossBox)) {
-                    // Use weapon-specific damage for boss
-                    uint8_t damage = Missile::getDamage(missile.weaponType);
+                    // Use weapon-specific damage with level bonus for boss
+                    uint8_t damage = Missile::getDamage(missile.weaponType, missile.weaponLevel);
                     damageBoss(damage, missile.owner_id);
 
                     _destroyedMissiles.push_back(missileIt->first);
@@ -693,6 +768,9 @@ namespace infrastructure::game {
                 );
 
                 if (missileBox.intersects(playerBox)) {
+                    // R-Type authentic: no shield, player takes damage directly
+                    // Defense comes from Force Pod blocking projectiles
+
                     bool wasDead = !player.alive;
                     if (player.health > PLAYER_DAMAGE) {
                         player.health -= PLAYER_DAMAGE;
@@ -773,11 +851,12 @@ namespace infrastructure::game {
 
     uint16_t GameWorld::getEnemyPointValue(EnemyType type) const {
         switch (type) {
-            case EnemyType::Basic:   return POINTS_BASIC;
-            case EnemyType::Tracker: return POINTS_TRACKER;
-            case EnemyType::Zigzag:  return POINTS_ZIGZAG;
-            case EnemyType::Fast:    return POINTS_FAST;
-            case EnemyType::Bomber:  return POINTS_BOMBER;
+            case EnemyType::Basic:    return POINTS_BASIC;
+            case EnemyType::Tracker:  return POINTS_TRACKER;
+            case EnemyType::Zigzag:   return POINTS_ZIGZAG;
+            case EnemyType::Fast:     return POINTS_FAST;
+            case EnemyType::Bomber:   return POINTS_BOMBER;
+            case EnemyType::POWArmor: return POINTS_POW_ARMOR;
             default: return POINTS_BASIC;
         }
     }
@@ -832,11 +911,19 @@ namespace infrastructure::game {
     // ═══════════════════════════════════════════════════════════════════════════
 
     void GameWorld::checkBossSpawn() {
-        // Don't spawn if boss already exists or not enough waves
-        if (_boss.has_value() || _waveNumber < BOSS_SPAWN_WAVE) return;
+        // Don't spawn if boss already exists
+        if (_boss.has_value()) return;
+
+        // Boss spawns every 10 waves (10, 20, 30, ...)
+        // Check if current wave is a boss wave and we haven't spawned boss yet this cycle
+        uint16_t expectedBossCount = _waveNumber / BOSS_SPAWN_WAVE;
+        if (_waveNumber < BOSS_SPAWN_WAVE || _bossDefeatedCount >= expectedBossCount) return;
 
         // Only spawn when all enemies are cleared
         if (!_enemies.empty()) return;
+
+        // Calculate boss HP: base + 500 per previous defeat
+        uint16_t bossHealth = BOSS_MAX_HEALTH + (_bossDefeatedCount * 500);
 
         // EPIC BOSS ENTRANCE!
         Boss boss;
@@ -847,8 +934,8 @@ namespace infrastructure::game {
         boss.baseY = SCREEN_HEIGHT / 2.0f;
         boss.velocityX = -300.0f;  // Entrance speed
         boss.velocityY = 0.0f;
-        boss.maxHealth = BOSS_MAX_HEALTH;
-        boss.health = BOSS_MAX_HEALTH;
+        boss.maxHealth = bossHealth;
+        boss.health = bossHealth;
         boss.phase = BossPhase::Phase1;
         boss.currentAttack = BossAttack::Idle;
         boss.movement = BossMovement::Sinusoidal;
@@ -1270,11 +1357,10 @@ namespace infrastructure::game {
             boss.stateTimer += deltaTime;
 
             // Spawn rapid projectiles along laser path
-            static float laserFireTimer = 0.0f;
-            laserFireTimer += deltaTime;
+            boss.laserFireTimer += deltaTime;
 
-            if (laserFireTimer >= 0.05f && boss.stateTimer < Boss::LASER_DURATION) {
-                laserFireTimer = 0.0f;
+            if (boss.laserFireTimer >= 0.05f && boss.stateTimer < Boss::LASER_DURATION) {
+                boss.laserFireTimer = 0.0f;
 
                 if (_enemyMissiles.size() < MAX_ENEMY_MISSILES) {
                     float speed = 800.0f;
@@ -1444,13 +1530,19 @@ namespace infrastructure::game {
             auto it = _playerScores.find(playerId);
             if (it != _playerScores.end()) {
                 // Bonus multiplier based on phase (more points for higher phases)
+                // Also bonus for defeating stronger bosses (cycle number)
                 uint32_t phaseMultiplier = static_cast<uint32_t>(boss.phase) + 1;
-                it->second.score += POINTS_BOSS * phaseMultiplier;
+                uint32_t cycleBonus = (_bossDefeatedCount + 1) * 1000;  // +1000 per cycle
+                it->second.score += (POINTS_BOSS * phaseMultiplier) + cycleBonus;
                 it->second.kills++;
                 // Big combo boost
                 it->second.comboMultiplier = COMBO_MAX;
                 it->second.comboTimer = 0.0f;
             }
+
+            // Track boss defeat and reset for next cycle
+            _bossDefeatedCount++;
+            _boss.reset();  // Allow next boss to spawn at wave 20, 30, etc.
         }
     }
 
@@ -1517,11 +1609,13 @@ namespace infrastructure::game {
 
         ConnectedPlayer& player = it->second;
         WeaponType weapon = player.currentWeapon;
+        uint8_t level = player.weaponLevel;
 
-        // Set cooldown for this weapon
-        player.shootCooldown = Missile::getCooldown(weapon);
+        // Set cooldown for this weapon (affected by weapon level)
+        player.shootCooldown = Missile::getCooldown(weapon, level);
 
-        float baseSpeed = Missile::getSpeed(weapon);
+        // Speed is affected by weapon level (only at level 3)
+        float baseSpeed = Missile::getSpeed(weapon, level);
         float spawnX = static_cast<float>(player.x) + MISSILE_SPAWN_OFFSET_X;
         float spawnY = static_cast<float>(player.y) + MISSILE_SPAWN_OFFSET_Y;
 
@@ -1536,6 +1630,7 @@ namespace infrastructure::game {
                     .velocityX = baseSpeed,
                     .velocityY = 0.0f,
                     .weaponType = weapon,
+                    .weaponLevel = level,
                     .targetEnemyId = 0
                 };
                 _missiles[missile.id] = missile;
@@ -1556,6 +1651,7 @@ namespace infrastructure::game {
                         .velocityX = baseSpeed * std::cos(radians),
                         .velocityY = baseSpeed * std::sin(radians),
                         .weaponType = weapon,
+                        .weaponLevel = level,
                         .targetEnemyId = 0
                     };
                     _missiles[missile.id] = missile;
@@ -1574,6 +1670,7 @@ namespace infrastructure::game {
                     .velocityX = baseSpeed,
                     .velocityY = 0.0f,
                     .weaponType = weapon,
+                    .weaponLevel = level,
                     .targetEnemyId = 0
                 };
                 _missiles[missile.id] = missile;
@@ -1616,6 +1713,7 @@ namespace infrastructure::game {
                     .velocityX = baseSpeed,
                     .velocityY = 0.0f,
                     .weaponType = weapon,
+                    .weaponLevel = level,
                     .targetEnemyId = nearestEnemy
                 };
                 _missiles[missile.id] = missile;
@@ -1627,6 +1725,952 @@ namespace infrastructure::game {
                 break;
         }
 
+        // R-Type Authentic: Force Pod also shoots when player shoots
+        auto forceIt = _forcePods.find(playerId);
+        if (forceIt != _forcePods.end() && forceIt->second.isAttached) {
+            auto forceIds = spawnForceMissiles(playerId);
+            spawnedIds.insert(spawnedIds.end(), forceIds.begin(), forceIds.end());
+        }
+
+        // R-Type Authentic: Bit Devices also shoot when player shoots
+        auto bitsIt = _bitDevices.find(playerId);
+        if (bitsIt != _bitDevices.end()) {
+            auto bitIds = spawnBitMissiles(playerId);
+            spawnedIds.insert(spawnedIds.end(), bitIds.begin(), bitIds.end());
+        }
+
         return spawnedIds;
+    }
+
+    // =========================================================================
+    // R-Type Authentic Mechanics - Phase 3 Implementation
+    // =========================================================================
+
+    // --- Wave Cannon (Charge Shot) ---
+
+    void GameWorld::startCharging(uint8_t playerId) {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) return;
+
+        it->second.isCharging = true;
+        it->second.chargeTimer = 0.0f;
+        it->second.chargeLevel = 0;
+    }
+
+    void GameWorld::updateCharging(uint8_t playerId, float deltaTime, bool fireHeld) {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) return;
+
+        auto& player = it->second;
+
+        if (fireHeld && player.isCharging) {
+            player.chargeTimer += deltaTime;
+
+            // Calculate charge level based on time
+            if (player.chargeTimer >= WaveCannon::CHARGE_TIME_LV3) {
+                player.chargeLevel = 3;
+            } else if (player.chargeTimer >= WaveCannon::CHARGE_TIME_LV2) {
+                player.chargeLevel = 2;
+            } else if (player.chargeTimer >= WaveCannon::CHARGE_TIME_LV1) {
+                player.chargeLevel = 1;
+            } else {
+                player.chargeLevel = 0;
+            }
+        }
+    }
+
+    void GameWorld::updateAllCharging(float deltaTime) {
+        for (auto& [playerId, player] : _players) {
+            if (player.isCharging) {
+                // fireHeld is true while isCharging is set
+                updateCharging(playerId, deltaTime, true);
+            }
+        }
+    }
+
+    uint16_t GameWorld::releaseCharge(uint8_t playerId) {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) return 0;
+
+        auto& player = it->second;
+        uint16_t waveCannonId = 0;
+
+        if (player.chargeLevel > 0) {
+            // Fire Wave Cannon
+            waveCannonId = spawnWaveCannon(playerId, player.chargeLevel);
+        } else if (canPlayerShoot(playerId)) {
+            // Fire normal shot if not enough charge
+            spawnMissileWithWeapon(playerId);
+        }
+
+        // Reset charge state
+        player.isCharging = false;
+        player.chargeTimer = 0.0f;
+        player.chargeLevel = 0;
+
+        return waveCannonId;
+    }
+
+    uint16_t GameWorld::spawnWaveCannon(uint8_t playerId, uint8_t chargeLevel) {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) return 0;
+
+        const auto& player = it->second;
+
+        // Calculate damage and width based on charge level
+        uint8_t damage;
+        float width;
+        bool piercing;
+
+        switch (chargeLevel) {
+            case 1:
+                damage = WaveCannon::DAMAGE_LV1;
+                width = WaveCannon::WIDTH_LV1;
+                piercing = false;
+                break;
+            case 2:
+                damage = WaveCannon::DAMAGE_LV2;
+                width = WaveCannon::WIDTH_LV2;
+                piercing = true;
+                break;
+            case 3:
+            default:
+                damage = WaveCannon::DAMAGE_LV3;
+                width = WaveCannon::WIDTH_LV3;
+                piercing = true;
+                break;
+        }
+
+        WaveCannonProjectile wc{
+            .id = _nextWaveCannonId++,
+            .owner_id = playerId,
+            .x = static_cast<float>(player.x) + MISSILE_SPAWN_OFFSET_X,
+            .y = static_cast<float>(player.y) + MISSILE_SPAWN_OFFSET_Y,
+            .velocityX = WaveCannon::SPEED * _gameSpeedMultiplier,
+            .chargeLevel = chargeLevel,
+            .damage = damage,
+            .width = width,
+            .piercing = piercing
+        };
+
+        _waveCannons[wc.id] = wc;
+        return wc.id;
+    }
+
+    void GameWorld::updateWaveCannons(float deltaTime) {
+        std::vector<uint16_t> toRemove;
+
+        for (auto& [id, wc] : _waveCannons) {
+            // Move wave cannon
+            wc.x += wc.velocityX * deltaTime;
+
+            // Remove if off screen
+            if (wc.x > SCREEN_WIDTH + 100.0f) {
+                toRemove.push_back(id);
+                continue;
+            }
+
+            // Check collision with enemies
+            collision::AABB wcBox{wc.x, wc.y - wc.width / 2.0f,
+                                  WaveCannonProjectile::LENGTH, wc.width};
+
+            for (auto& [enemyId, enemy] : _enemies) {
+                // Skip if already hit this enemy (piercing beams only damage once)
+                if (wc.hitEnemies.contains(enemyId)) {
+                    continue;
+                }
+
+                collision::AABB enemyBox{enemy.x, enemy.y, Enemy::WIDTH, Enemy::HEIGHT};
+
+                if (wcBox.intersects(enemyBox)) {
+                    // Mark as hit BEFORE applying damage
+                    wc.hitEnemies.insert(enemyId);
+
+                    enemy.health = (enemy.health > wc.damage) ?
+                                   enemy.health - wc.damage : 0;
+
+                    if (enemy.health == 0) {
+                        _destroyedEnemies.push_back(enemyId);
+                        EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
+                        awardKillScore(wc.owner_id, enemyType);
+
+                        // POWArmor always drops power-up, other enemies have a chance
+                        if (enemyType == EnemyType::POWArmor ||
+                            std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                            spawnPowerUp(enemy.x, enemy.y);
+                        }
+                    }
+
+                    // If not piercing, destroy wave cannon on first hit
+                    if (!wc.piercing) {
+                        toRemove.push_back(id);
+                        break;
+                    }
+                }
+            }
+
+            // Check collision with boss (only once per beam)
+            if (_boss.has_value() && _boss->isActive && !wc.hitBoss) {
+                collision::AABB bossBox{_boss->x, _boss->y, Boss::WIDTH, Boss::HEIGHT};
+
+                if (wcBox.intersects(bossBox)) {
+                    // Mark boss as hit BEFORE applying damage
+                    wc.hitBoss = true;
+                    damageBoss(wc.damage, wc.owner_id);
+
+                    if (!wc.piercing) {
+                        toRemove.push_back(id);
+                    }
+                }
+            }
+        }
+
+        // Remove destroyed wave cannons
+        for (uint16_t id : toRemove) {
+            _destroyedWaveCannons.push_back(id);
+            _waveCannons.erase(id);
+        }
+
+        // Clean up destroyed enemies
+        for (uint16_t id : _destroyedEnemies) {
+            _enemies.erase(id);
+        }
+    }
+
+    std::vector<uint16_t> GameWorld::getDestroyedWaveCannons() {
+        auto result = std::move(_destroyedWaveCannons);
+        _destroyedWaveCannons.clear();
+        return result;
+    }
+
+    uint8_t GameWorld::getPlayerChargeLevel(uint8_t playerId) const {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) return 0;
+        return it->second.chargeLevel;
+    }
+
+    // --- Power-up System ---
+
+    void GameWorld::spawnPowerUp(float x, float y) {
+        // Random power-up type selection (R-Type authentic - no Shield)
+        int roll = std::rand() % 100;
+        PowerUpType type;
+
+        if (roll < 25) {
+            type = PowerUpType::Health;        // 25%
+        } else if (roll < 45) {
+            type = PowerUpType::SpeedUp;       // 20% (blue crystal)
+        } else if (roll < 70) {
+            type = PowerUpType::WeaponCrystal; // 25% (red crystal)
+        } else if (roll < 85) {
+            type = PowerUpType::ForcePod;      // 15% (orange orb)
+        } else {
+            type = PowerUpType::BitDevice;     // 15% (purple - orbiting satellites)
+        }
+
+        spawnPowerUp(x, y, type);
+    }
+
+    void GameWorld::spawnPowerUp(float x, float y, PowerUpType type) {
+        PowerUp pu{
+            .id = _nextPowerUpId++,
+            .x = x,
+            .y = y,
+            .type = type,
+            .lifetime = PowerUp::MAX_LIFETIME
+        };
+
+        _powerUps[pu.id] = pu;
+        _newlySpawnedPowerUps.push_back(pu.id);  // Track for broadcast
+    }
+
+    void GameWorld::updatePowerUps(float deltaTime) {
+        std::vector<uint16_t> toRemove;
+
+        for (auto& [id, pu] : _powerUps) {
+            // Update lifetime
+            pu.lifetime -= deltaTime;
+
+            // Drift left slowly
+            pu.x += PowerUp::DRIFT_SPEED * deltaTime * _gameSpeedMultiplier;
+
+            // Remove if expired or off screen
+            if (pu.lifetime <= 0.0f || pu.x < -50.0f) {
+                toRemove.push_back(id);
+            }
+        }
+
+        // Remove expired power-ups
+        for (uint16_t id : toRemove) {
+            _expiredPowerUps.push_back(id);
+            _powerUps.erase(id);
+        }
+
+        // Update POW Armor spawn timer
+        _powArmorSpawnTimer += deltaTime;
+        if (_powArmorSpawnTimer >= POW_ARMOR_SPAWN_INTERVAL) {
+            spawnPOWArmor();
+            _powArmorSpawnTimer = 0.0f;
+        }
+    }
+
+    void GameWorld::checkPowerUpCollisions() {
+        std::vector<uint16_t> collected;
+
+        for (auto& [puId, pu] : _powerUps) {
+            collision::AABB puBox{pu.x, pu.y, PowerUp::WIDTH, PowerUp::HEIGHT};
+
+            for (auto& [playerId, player] : _players) {
+                if (!player.alive) continue;
+
+                collision::AABB playerBox{
+                    static_cast<float>(player.x),
+                    static_cast<float>(player.y),
+                    PLAYER_SHIP_WIDTH, PLAYER_SHIP_HEIGHT
+                };
+
+                if (puBox.intersects(playerBox)) {
+                    applyPowerUp(playerId, pu.type);
+
+                    PowerUpCollected pc{
+                        .powerup_id = puId,
+                        .player_id = playerId,
+                        .powerup_type = static_cast<uint8_t>(pu.type)
+                    };
+                    _collectedPowerUps.push_back(pc);
+                    collected.push_back(puId);
+                    break;
+                }
+            }
+        }
+
+        // Remove collected power-ups
+        for (uint16_t id : collected) {
+            _powerUps.erase(id);
+        }
+    }
+
+    void GameWorld::applyPowerUp(uint8_t playerId, PowerUpType type) {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) return;
+
+        auto& player = it->second;
+
+        switch (type) {
+            case PowerUpType::Health:
+                player.health = std::min(100, static_cast<int>(player.health) + 25);
+                break;
+
+            case PowerUpType::SpeedUp:
+                if (player.speedLevel >= MAX_SPEED_LEVEL) {
+                    // Already at max speed - give bonus points instead
+                    auto scoreIt = _playerScores.find(playerId);
+                    if (scoreIt != _playerScores.end()) {
+                        scoreIt->second.score += POINTS_WAVE_BONUS;  // +500 bonus
+                    }
+                } else {
+                    player.speedLevel = static_cast<uint8_t>(player.speedLevel + 1);
+                }
+                break;
+
+            case PowerUpType::WeaponCrystal:
+                player.weaponLevel = std::min(static_cast<uint8_t>(3),
+                                              static_cast<uint8_t>(player.weaponLevel + 1));
+                break;
+
+            case PowerUpType::ForcePod:
+                giveForceToPlayer(playerId);
+                break;
+
+            case PowerUpType::BitDevice:
+                giveBitDevicesToPlayer(playerId);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    void GameWorld::spawnPOWArmor() {
+        // Spawn a special enemy that guarantees a power-up drop
+        float y = static_cast<float>(100 + std::rand() % 800);
+
+        Enemy powArmor{
+            .id = _nextEnemyId++,
+            .x = SPAWN_X,
+            .y = y,
+            .health = Enemy::HEALTH_POW_ARMOR,  // Use defined constant
+            .enemy_type = static_cast<uint8_t>(EnemyType::POWArmor),
+            .baseY = y,
+            .phaseOffset = 0.0f,
+            .aliveTime = 0.0f,
+            .shootCooldown = Enemy::SHOOT_INTERVAL_POW_ARMOR,
+            .targetY = y,
+            .zigzagTimer = 0.0f,
+            .zigzagUp = false
+        };
+
+        _enemies[powArmor.id] = powArmor;
+    }
+
+    std::vector<PowerUpCollected> GameWorld::getCollectedPowerUps() {
+        auto result = std::move(_collectedPowerUps);
+        _collectedPowerUps.clear();
+        return result;
+    }
+
+    std::vector<uint16_t> GameWorld::getExpiredPowerUps() {
+        auto result = std::move(_expiredPowerUps);
+        _expiredPowerUps.clear();
+        return result;
+    }
+
+    std::vector<uint16_t> GameWorld::getNewlySpawnedPowerUps() {
+        auto result = std::move(_newlySpawnedPowerUps);
+        _newlySpawnedPowerUps.clear();
+        return result;
+    }
+
+    // --- Force Pod System ---
+
+    void GameWorld::giveForceToPlayer(uint8_t playerId) {
+        auto playerIt = _players.find(playerId);
+        if (playerIt == _players.end()) return;
+
+        auto& player = playerIt->second;
+
+        auto forceIt = _forcePods.find(playerId);
+        if (forceIt != _forcePods.end()) {
+            // Already has Force, upgrade level
+            forceIt->second.level = std::min(static_cast<uint8_t>(2),
+                                             static_cast<uint8_t>(forceIt->second.level + 1));
+            player.forceLevel = forceIt->second.level;
+        } else {
+            // Create new Force Pod
+            ForcePod force{
+                .ownerId = playerId,
+                .x = static_cast<float>(player.x) + ForcePod::ATTACH_OFFSET_X,
+                .y = static_cast<float>(player.y),
+                .targetX = static_cast<float>(player.x) + ForcePod::ATTACH_OFFSET_X,
+                .targetY = static_cast<float>(player.y),
+                .isAttached = true,
+                .level = 1
+            };
+
+            _forcePods[playerId] = force;
+            player.hasForce = true;
+            player.forceLevel = 1;
+        }
+    }
+
+    void GameWorld::toggleForceAttach(uint8_t playerId) {
+        auto it = _forcePods.find(playerId);
+        if (it == _forcePods.end()) return;
+
+        auto& force = it->second;
+        force.isAttached = !force.isAttached;
+
+        if (!force.isAttached) {
+            // When detached, Force keeps its Y position
+            force.targetY = force.y;
+            // Move forward
+            force.targetX = force.x + 100.0f;
+        }
+    }
+
+    void GameWorld::updateForcePods(float deltaTime) {
+        for (auto& [playerId, force] : _forcePods) {
+            auto playerIt = _players.find(playerId);
+            if (playerIt == _players.end()) continue;
+
+            const auto& player = playerIt->second;
+
+            // Decrement hit cooldowns
+            for (auto it = force.hitCooldowns.begin(); it != force.hitCooldowns.end();) {
+                it->second -= deltaTime;
+                if (it->second <= 0.0f) {
+                    it = force.hitCooldowns.erase(it);  // Remove expired cooldown
+                } else {
+                    ++it;
+                }
+            }
+            if (force.bossHitCooldown > 0.0f) {
+                force.bossHitCooldown -= deltaTime;
+            }
+
+            // Decrement shoot cooldown (R-Type authentic Force shooting)
+            if (force.shootCooldown > 0.0f) {
+                force.shootCooldown -= deltaTime;
+            }
+
+            if (force.isAttached) {
+                // Follow player directly
+                force.targetX = static_cast<float>(player.x) + ForcePod::ATTACH_OFFSET_X;
+                force.targetY = static_cast<float>(player.y);
+
+                // Smooth movement towards target
+                float dx = force.targetX - force.x;
+                float dy = force.targetY - force.y;
+                float dist = std::sqrt(dx * dx + dy * dy);
+
+                if (dist > 1.0f) {
+                    float speed = 800.0f * _gameSpeedMultiplier;
+                    float move = speed * deltaTime;
+
+                    if (move > dist) {
+                        force.x = force.targetX;
+                        force.y = force.targetY;
+                    } else {
+                        force.x += (dx / dist) * move;
+                        force.y += (dy / dist) * move;
+                    }
+                }
+            } else {
+                // When detached, move continuously forward
+                float speed = ForcePod::SPEED * _gameSpeedMultiplier;
+                force.x += speed * deltaTime;
+
+                // Wrap around screen - if goes off right, come back from left
+                if (force.x > SCREEN_WIDTH + ForcePod::WIDTH) {
+                    force.x = -ForcePod::WIDTH;
+                }
+            }
+        }
+    }
+
+    void GameWorld::checkForceCollisions() {
+        for (auto& [playerId, force] : _forcePods) {
+            collision::AABB forceBox{force.x, force.y, ForcePod::WIDTH, ForcePod::HEIGHT};
+
+            // Collision with enemies (contact damage with cooldown)
+            for (auto& [enemyId, enemy] : _enemies) {
+                collision::AABB enemyBox{enemy.x, enemy.y, Enemy::WIDTH, Enemy::HEIGHT};
+
+                if (forceBox.intersects(enemyBox)) {
+                    // Check if this enemy is on cooldown
+                    auto cooldownIt = force.hitCooldowns.find(enemyId);
+                    if (cooldownIt != force.hitCooldowns.end() && cooldownIt->second > 0.0f) {
+                        continue;  // Skip, enemy was recently hit
+                    }
+
+                    // Apply damage and set cooldown
+                    enemy.health = (enemy.health > ForcePod::CONTACT_DAMAGE) ?
+                                   enemy.health - ForcePod::CONTACT_DAMAGE : 0;
+                    force.hitCooldowns[enemyId] = ForcePod::HIT_COOLDOWN;
+
+                    if (enemy.health == 0) {
+                        _destroyedEnemies.push_back(enemyId);
+                        EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
+                        awardKillScore(playerId, enemyType);
+
+                        // POWArmor always drops power-up, other enemies have a chance
+                        if (enemyType == EnemyType::POWArmor ||
+                            std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                            spawnPowerUp(enemy.x, enemy.y);
+                        }
+                    }
+                }
+            }
+
+            // Collision with boss (contact damage with cooldown)
+            if (_boss.has_value() && _boss->isActive) {
+                collision::AABB bossBox{_boss->x, _boss->y, Boss::WIDTH, Boss::HEIGHT};
+
+                if (forceBox.intersects(bossBox) && force.bossHitCooldown <= 0.0f) {
+                    damageBoss(ForcePod::CONTACT_DAMAGE, playerId);
+                    force.bossHitCooldown = ForcePod::HIT_COOLDOWN;
+                }
+            }
+
+            // Block enemy missiles
+            std::vector<uint16_t> blockedMissiles;
+            for (auto& [missileId, missile] : _enemyMissiles) {
+                collision::AABB missileBox{missile.x, missile.y,
+                                           Missile::WIDTH, Missile::HEIGHT};
+
+                if (forceBox.intersects(missileBox)) {
+                    blockedMissiles.push_back(missileId);
+                }
+            }
+
+            for (uint16_t id : blockedMissiles) {
+                _enemyMissiles.erase(id);
+            }
+        }
+
+        // Clean up destroyed enemies
+        for (uint16_t id : _destroyedEnemies) {
+            _enemies.erase(id);
+        }
+    }
+
+    std::optional<ForcePod> GameWorld::getPlayerForce(uint8_t playerId) const {
+        auto it = _forcePods.find(playerId);
+        if (it == _forcePods.end()) return std::nullopt;
+        return it->second;
+    }
+
+    // --- Force Pod Shooting (R-Type Authentic) ---
+
+    uint16_t GameWorld::findNearestEnemy(float x, float y) const {
+        uint16_t nearestId = 0;
+        float nearestDist = 99999.0f;
+
+        for (const auto& [enemyId, enemy] : _enemies) {
+            float dx = enemy.x - x;
+            float dy = enemy.y - y;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearestId = enemyId;
+            }
+        }
+
+        // Also check boss
+        if (_boss.has_value() && _boss->isActive) {
+            float dx = _boss->x - x;
+            float dy = _boss->y - y;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist < nearestDist) {
+                nearestId = _boss->id;
+            }
+        }
+
+        return nearestId;
+    }
+
+    uint16_t GameWorld::createForceMissile(uint8_t playerId, float x, float y,
+                                           float speed, float angleY,
+                                           WeaponType weapon, uint8_t level) {
+        uint16_t id = _nextMissileId++;
+
+        Missile missile{
+            .id = id,
+            .owner_id = playerId,
+            .x = x,
+            .y = y,
+            .velocityX = speed,
+            .velocityY = speed * angleY,
+            .weaponType = weapon,
+            .weaponLevel = level,
+            .targetEnemyId = 0,
+            .isFromForce = true
+        };
+
+        _missiles[id] = missile;
+        return id;
+    }
+
+    std::vector<uint16_t> GameWorld::spawnForceMissiles(uint8_t playerId) {
+        std::vector<uint16_t> spawnedIds;
+
+        // Check if player has Force Pod attached
+        auto forceIt = _forcePods.find(playerId);
+        if (forceIt == _forcePods.end()) {
+            return spawnedIds;
+        }
+
+        ForcePod& force = forceIt->second;
+
+        // Only shoot when attached (authentic R-Type behavior)
+        if (!force.isAttached) {
+            return spawnedIds;
+        }
+
+        // Check cooldown
+        if (force.shootCooldown > 0.0f) {
+            return spawnedIds;
+        }
+
+        // Get player's weapon type and level
+        auto playerIt = _players.find(playerId);
+        if (playerIt == _players.end() || !playerIt->second.alive) {
+            return spawnedIds;
+        }
+
+        WeaponType weapon = playerIt->second.currentWeapon;
+        uint8_t level = playerIt->second.weaponLevel;
+
+        // Spawn position (from Force Pod, front side)
+        float spawnX = force.x + ForcePod::WIDTH;
+        float spawnY = force.y + ForcePod::HEIGHT / 2.0f;
+
+        // Speed adjusted by game speed multiplier
+        float speedMult = _gameSpeedMultiplier;
+
+        // Spawn missiles based on weapon type
+        switch (weapon) {
+            case WeaponType::Standard: {
+                // Single straight shot
+                float speed = Missile::SPEED_STANDARD * speedMult;
+                spawnedIds.push_back(createForceMissile(playerId, spawnX, spawnY,
+                                                        speed, 0.0f, weapon, level));
+                break;
+            }
+
+            case WeaponType::Spread: {
+                // 2 diagonal shots (up/down) - complements player's 3-way spread
+                float speed = Missile::SPEED_SPREAD * 0.9f * speedMult;
+                spawnedIds.push_back(createForceMissile(playerId, spawnX, spawnY,
+                                                        speed, -0.3f, weapon, level));
+                spawnedIds.push_back(createForceMissile(playerId, spawnX, spawnY,
+                                                        speed, 0.3f, weapon, level));
+                break;
+            }
+
+            case WeaponType::Laser: {
+                // Fast laser shot
+                float speed = Missile::SPEED_LASER * speedMult;
+                spawnedIds.push_back(createForceMissile(playerId, spawnX, spawnY,
+                                                        speed, 0.0f, weapon, level));
+                break;
+            }
+
+            case WeaponType::Missile: {
+                // Homing missile
+                float speed = Missile::SPEED_MISSILE * speedMult;
+                uint16_t id = createForceMissile(playerId, spawnX, spawnY,
+                                                  speed, 0.0f, weapon, level);
+
+                // Find and set target
+                uint16_t targetId = findNearestEnemy(spawnX, spawnY);
+                if (targetId > 0) {
+                    _missiles[id].targetEnemyId = targetId;
+                }
+                spawnedIds.push_back(id);
+                break;
+            }
+
+            default:
+                break;
+        }
+
+        // Set cooldown
+        force.shootCooldown = ForcePod::SHOOT_COOLDOWN;
+
+        return spawnedIds;
+    }
+
+    std::optional<WaveCannonProjectile> GameWorld::getWaveCannon(uint16_t id) const {
+        auto it = _waveCannons.find(id);
+        if (it == _waveCannons.end()) return std::nullopt;
+        return it->second;
+    }
+
+    std::optional<PowerUp> GameWorld::getPowerUp(uint16_t id) const {
+        auto it = _powerUps.find(id);
+        if (it == _powerUps.end()) return std::nullopt;
+        return it->second;
+    }
+
+    // --- Speed helper ---
+
+    float GameWorld::getPlayerMoveSpeed(uint8_t playerId) const {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) return PLAYER_MOVE_SPEED;
+
+        // Speed multiplier based on speed level (0-3)
+        // Balanced for R-Type style gameplay - subtle increases to maintain control
+        static const float SPEED_MULTIPLIERS[4] = {1.0f, 1.3f, 1.6f, 1.9f};
+        uint8_t level = std::min(static_cast<uint8_t>(3), it->second.speedLevel);
+
+        return PLAYER_MOVE_SPEED * SPEED_MULTIPLIERS[level] * _gameSpeedMultiplier;
+    }
+
+    // =========================================================================
+    // Bit Device System (R-Type Authentic - 2 Orbiting Satellites)
+    // =========================================================================
+
+    void GameWorld::giveBitDevicesToPlayer(uint8_t playerId) {
+        auto playerIt = _players.find(playerId);
+        if (playerIt == _players.end()) return;
+
+        // If already has Bits, do nothing
+        if (_bitDevices.find(playerId) != _bitDevices.end()) return;
+
+        const auto& player = playerIt->second;
+        float px = static_cast<float>(player.x) + PLAYER_SHIP_WIDTH / 2.0f;
+        float py = static_cast<float>(player.y) + PLAYER_SHIP_HEIGHT / 2.0f;
+
+        // Create 2 Bits (opposite sides of orbit)
+        std::array<BitDevice, 2> bits;
+
+        bits[0] = BitDevice{
+            .ownerId = playerId,
+            .index = 0,
+            .x = px + BitDevice::ORBIT_RADIUS,
+            .y = py,
+            .isAttached = true,
+            .orbitAngle = 0.0f,  // Starts at right (0 radians)
+            .shootCooldown = 0.0f
+        };
+
+        bits[1] = BitDevice{
+            .ownerId = playerId,
+            .index = 1,
+            .x = px - BitDevice::ORBIT_RADIUS,
+            .y = py,
+            .isAttached = true,
+            .orbitAngle = static_cast<float>(M_PI),  // Starts at left (π radians)
+            .shootCooldown = 0.0f
+        };
+
+        _bitDevices[playerId] = bits;
+        playerIt->second.hasBits = true;
+    }
+
+    void GameWorld::updateBitDevices(float deltaTime) {
+        for (auto& [playerId, bits] : _bitDevices) {
+            auto playerIt = _players.find(playerId);
+            if (playerIt == _players.end()) continue;
+
+            float px = static_cast<float>(playerIt->second.x) + PLAYER_SHIP_WIDTH / 2.0f;
+            float py = static_cast<float>(playerIt->second.y) + PLAYER_SHIP_HEIGHT / 2.0f;
+
+            for (auto& bit : bits) {
+                // Decrement shoot cooldown
+                if (bit.shootCooldown > 0.0f) {
+                    bit.shootCooldown -= deltaTime;
+                }
+
+                // Decrement hit cooldowns
+                for (auto it = bit.hitCooldowns.begin(); it != bit.hitCooldowns.end();) {
+                    it->second -= deltaTime;
+                    if (it->second <= 0.0f) {
+                        it = bit.hitCooldowns.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+                if (bit.bossHitCooldown > 0.0f) {
+                    bit.bossHitCooldown -= deltaTime;
+                }
+
+                if (bit.isAttached) {
+                    // Orbit around player
+                    bit.orbitAngle += BitDevice::ORBIT_SPEED * deltaTime * _gameSpeedMultiplier;
+                    if (bit.orbitAngle > 2.0f * static_cast<float>(M_PI)) {
+                        bit.orbitAngle -= 2.0f * static_cast<float>(M_PI);
+                    }
+
+                    bit.x = px + std::cos(bit.orbitAngle) * BitDevice::ORBIT_RADIUS;
+                    bit.y = py + std::sin(bit.orbitAngle) * BitDevice::ORBIT_RADIUS;
+                }
+            }
+        }
+    }
+
+    void GameWorld::checkBitCollisions() {
+        std::vector<uint16_t> killedEnemies;
+
+        for (auto& [playerId, bits] : _bitDevices) {
+            for (auto& bit : bits) {
+                collision::AABB bitBox{bit.x, bit.y, BitDevice::WIDTH, BitDevice::HEIGHT};
+
+                // Collision with enemies (contact damage)
+                for (auto& [enemyId, enemy] : _enemies) {
+                    collision::AABB enemyBox{enemy.x, enemy.y, Enemy::WIDTH, Enemy::HEIGHT};
+
+                    if (bitBox.intersects(enemyBox)) {
+                        // Check cooldown
+                        auto cooldownIt = bit.hitCooldowns.find(enemyId);
+                        if (cooldownIt != bit.hitCooldowns.end() && cooldownIt->second > 0.0f) {
+                            continue;
+                        }
+
+                        // Apply damage
+                        enemy.health = (enemy.health > BitDevice::CONTACT_DAMAGE) ?
+                                       enemy.health - BitDevice::CONTACT_DAMAGE : 0;
+                        bit.hitCooldowns[enemyId] = BitDevice::HIT_COOLDOWN;
+
+                        if (enemy.health == 0) {
+                            killedEnemies.push_back(enemyId);
+                            EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
+                            awardKillScore(playerId, enemyType);
+
+                            // POWArmor always drops power-up, others have a chance
+                            if (enemyType == EnemyType::POWArmor ||
+                                std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                                spawnPowerUp(enemy.x, enemy.y);
+                            }
+                        }
+                    }
+                }
+
+                // Collision with boss
+                if (_boss.has_value() && _boss->isActive) {
+                    collision::AABB bossBox{_boss->x, _boss->y, Boss::WIDTH, Boss::HEIGHT};
+
+                    if (bitBox.intersects(bossBox) && bit.bossHitCooldown <= 0.0f) {
+                        damageBoss(BitDevice::CONTACT_DAMAGE, playerId);
+                        bit.bossHitCooldown = BitDevice::HIT_COOLDOWN;
+                    }
+                }
+            }
+        }
+
+        // Add killed enemies to destroyed list and remove them
+        for (uint16_t id : killedEnemies) {
+            if (std::find(_destroyedEnemies.begin(), _destroyedEnemies.end(), id) == _destroyedEnemies.end()) {
+                _destroyedEnemies.push_back(id);
+            }
+            _enemies.erase(id);
+        }
+    }
+
+    bool GameWorld::playerHasBits(uint8_t playerId) const {
+        return _bitDevices.find(playerId) != _bitDevices.end();
+    }
+
+    std::vector<uint16_t> GameWorld::spawnBitMissiles(uint8_t playerId) {
+        std::vector<uint16_t> spawnedIds;
+
+        auto bitsIt = _bitDevices.find(playerId);
+        if (bitsIt == _bitDevices.end()) return spawnedIds;
+
+        auto playerIt = _players.find(playerId);
+        if (playerIt == _players.end() || !playerIt->second.alive) return spawnedIds;
+
+        WeaponType weapon = playerIt->second.currentWeapon;
+        uint8_t level = playerIt->second.weaponLevel;
+
+        for (auto& bit : bitsIt->second) {
+            if (!bit.isAttached || bit.shootCooldown > 0.0f) continue;
+
+            // Spawn from center of Bit
+            float spawnX = bit.x + BitDevice::WIDTH / 2.0f;
+            float spawnY = bit.y + BitDevice::HEIGHT / 2.0f;
+
+            // Bits always shoot straight (simpler than Force Pod)
+            uint16_t id = createBitMissile(playerId, spawnX, spawnY, weapon, level);
+            spawnedIds.push_back(id);
+
+            bit.shootCooldown = BitDevice::SHOOT_COOLDOWN;
+        }
+
+        return spawnedIds;
+    }
+
+    uint16_t GameWorld::createBitMissile(uint8_t playerId, float x, float y,
+                                          WeaponType weapon, uint8_t level) {
+        uint16_t id = _nextMissileId++;
+
+        float speed = Missile::SPEED_STANDARD * _gameSpeedMultiplier;
+
+        Missile missile{
+            .id = id,
+            .owner_id = playerId,
+            .x = x,
+            .y = y,
+            .velocityX = speed,
+            .velocityY = 0.0f,
+            .weaponType = weapon,
+            .weaponLevel = level,
+            .targetEnemyId = 0,
+            .isFromForce = false
+        };
+
+        _missiles[id] = missile;
+        return id;
     }
 }

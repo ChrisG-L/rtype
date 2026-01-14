@@ -35,8 +35,9 @@ protected:
  * @test Vérifier que toutes les GameActions sont définies
  */
 TEST_F(AccessibilityConfigTest, GameActionEnumCount) {
-    // 7 actions: MoveUp, MoveDown, MoveLeft, MoveRight, Shoot, Pause, PushToTalk
-    EXPECT_EQ(static_cast<size_t>(accessibility::GameAction::ActionCount), 7);
+    // 13 actions: MoveUp, MoveDown, MoveLeft, MoveRight, Shoot, Pause, PushToTalk,
+    //             WeaponPrev, WeaponNext, OpenChat, ExpandChat, ForceToggle, ToggleControls
+    EXPECT_EQ(static_cast<size_t>(accessibility::GameAction::ActionCount), 13);
 }
 
 // ============================================================================
@@ -57,9 +58,9 @@ TEST_F(AccessibilityConfigTest, DefaultMovementBindings) {
     EXPECT_EQ(config.getPrimaryKey(accessibility::GameAction::MoveDown), events::Key::Down);
     EXPECT_EQ(config.getSecondaryKey(accessibility::GameAction::MoveDown), events::Key::S);
 
-    // MoveLeft: Left / Q
+    // MoveLeft: Left / A (WASD layout)
     EXPECT_EQ(config.getPrimaryKey(accessibility::GameAction::MoveLeft), events::Key::Left);
-    EXPECT_EQ(config.getSecondaryKey(accessibility::GameAction::MoveLeft), events::Key::Q);
+    EXPECT_EQ(config.getSecondaryKey(accessibility::GameAction::MoveLeft), events::Key::A);
 
     // MoveRight: Right / D
     EXPECT_EQ(config.getPrimaryKey(accessibility::GameAction::MoveRight), events::Key::Right);

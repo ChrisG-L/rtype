@@ -7,6 +7,170 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [0.6.1] - 2026-01-15 {#061---2026-01-15}
+
+### ✨ Ajouté
+
+#### Bit Devices System (R-Type Authentic)
+- **BitDevice struct** - 2 satellites orbitant autour du vaisseau
+  - Taille: 24×24 px (plus petit que Force Pod 32×32)
+  - Orbite: 50 px de rayon, 3 rad/s de vitesse
+  - Dégâts contact: 20 dmg (vs 45 pour Force Pod)
+  - Tir automatique quand le joueur tire (cooldown 0.4s)
+
+- **Protocol.hpp**
+  - `PowerUpType::BitDevice` (valeur 4)
+  - `BitDeviceStateSnapshot` struct (6 bytes) pour GameSnapshot
+  - `MAX_BITS = 8` (2 par joueur × 4 joueurs)
+
+- **GameWorld** (serveur)
+  - `giveBitDevicesToPlayer()` - Attribution des Bits
+  - `updateBitDevices()` - Mise à jour orbite et cooldowns
+  - `checkBitCollisions()` - Dégâts de contact ennemis/boss
+  - `spawnBitMissiles()` - Tir synchronisé avec le joueur
+  - Spawn rate: 15% (comme ForcePod)
+
+- **UDPClient** (client)
+  - `NetworkBit` struct pour parsing
+  - `getBitDevices()` getter thread-safe
+  - Parsing dans `handleGameSnapshot()`
+
+- **GameScene** (client)
+  - `renderBitDevices()` - Rendu violet avec glow
+  - Power-up label "BIT" (violet)
+
+### 🐛 Corrigé
+
+- **BitDevice spawn rate** - Ajouté au random roll (était manquant)
+- **ZeroSizeBox test** - Correction attente intersection point inside
+
+---
+
+## [0.6.0] - 2026-01-14 {#060---2026-01-14}
+
+### ✨ Ajouté
+
+#### Tests Phase 3 (R-Type Authentic)
+- **WeaponLevelSystemTest.cpp** - ~60 tests pour le système de niveau d'arme
+  - Tests des multiplicateurs de dégâts par niveau (100/115/130/150%)
+  - Tests des multiplicateurs de cooldown par niveau (100/95/90/85%)
+  - Tests des multiplicateurs de vitesse par niveau
+  - Tests des fonctions getDamage(), getCooldown(), getSpeed() avec niveau
+  - Tests de calcul DPS (~60-70 DPS au niveau 0)
+  - Tests des cas limites (niveau invalide, niveau max)
+
+- **PowerUpMechanicsTest.cpp** - ~50 tests pour le système de power-ups
+  - Tests des constantes PowerUp (lifetime, dimensions, drift)
+  - Tests des constantes ForcePod (dimensions, dégâts contact, cooldown)
+  - Tests des constantes POW Armor (spawn interval, HP, points)
+  - Tests des multiplicateurs de vitesse joueur (1.0/1.3/1.6/1.9)
+  - Tests de sérialisation PowerUpState et PowerUpCollected
+  - Tests des valeurs HP ennemis et comparaisons Force Pod
+
+- **PlayerStateExtendedTest.cpp** - ~35 tests pour les champs Phase 3
+  - Tests de WIRE_SIZE PlayerState (23 bytes)
+  - Tests de sérialisation des champs Phase 3 (chargeLevel, speedLevel, weaponLevel, hasForce, shieldTimer)
+  - Tests de scénarios gameplay (nouveau joueur, joueur max, joueur avec bouclier)
+
+- **CollisionSystemTest.cpp** - ~45 tests pour le système de collision AABB
+  - Tests de construction AABB et calcul de centre
+  - Tests de contains() pour détection de points
+  - Tests de intersects() pour détection de collisions
+  - Tests des constantes Hitboxes (SHIP, MISSILE, ENEMY)
+  - Tests de scénarios gameplay et cas limites
+
+### 🔧 Build & Tests
+
+- **CMakeLists.txt serveur** - Ajout des nouveaux fichiers de tests
+  - game/WeaponLevelSystemTest.cpp
+  - game/PowerUpMechanicsTest.cpp
+  - game/PlayerStateExtendedTest.cpp
+  - common/CollisionSystemTest.cpp
+  - Include directory `src/common` pour collision/AABB.hpp
+
+### 📚 Documentation
+
+- **CLAUDE.md** - Mise à jour constantes Phase 3 et structure tests
+- **testing.md** - Ajout documentation tests Phase 3
+
+---
+
+## [0.5.2] - 2026-01-10 {#052---2026-01-10}
+
+### ✨ Ajouté
+
+#### TLS & Sécurité (CSPRNG)
+- **Session tokens CSPRNG** - Génération cryptographique via OpenSSL RAND_bytes()
+- **TCPAuthServer TLS 1.2** - Chiffrement des communications d'authentification
+- **Certificats auto-générés** - Script generate_dev_certs.sh
+- **SessionManagerCryptoTest.cpp** - Tests de qualité cryptographique
+
+### 🐛 Corrigé
+
+- **Session destructor noexcept** - Fix SonarQube cpp:S1048
+
+---
+
+## [0.5.1] - 2026-01-05 {#051---2026-01-05}
+
+### ✨ Ajouté
+
+#### Voice Chat System
+- **VoiceChatManager** - Singleton pour gestion chat vocal client
+- **OpusCodec** - Encodage/décodage audio Opus (48kHz mono, 32kbps)
+- **VoiceUDPServer** - Serveur relay vocal (port 4126)
+- **Audio device selection** - Sélection micro/speakers cross-platform
+- **VoiceProtocolTest.cpp** - Tests protocole vocal
+
+#### Protocol Voice Messages
+- VoiceJoin (0x0300), VoiceJoinAck (0x0301)
+- VoiceLeave (0x0302), VoiceFrame (0x0303)
+- VoiceMute (0x0304)
+
+### 🔧 Build
+
+- **vcpkg.json** - Ajout dépendances opus, portaudio
+- **CMakeLists.txt** - Intégration bibliothèques audio
+
+---
+
+## [0.5.0] - 2025-12-20 {#050---2025-12-20}
+
+### ✨ Ajouté
+
+#### Gameplay Phase 2 - Score & Boss System
+- **Score System** - Points par type d'ennemi, combo multiplier (max 3.0x)
+- **Boss System** - Boss spawn wave 10, 3 phases, respawn cycle (+500 HP)
+- **Weapon System** - 4 armes (Standard, Spread, Laser, Missile)
+- **Enemy Types** - 6 types (Basic, Tracker, Zigzag, Fast, Bomber, POWArmor)
+
+#### Gameplay Phase 3 - R-Type Authentic
+- **Wave Cannon** - Charge shot 3 niveaux (0.6s/1.3s/2.2s)
+- **Power-up System** - 5 types (Health, SpeedUp, WeaponCrystal, Shield, ForcePod)
+- **Force Pod** - Pod attachable avec dégâts de contact
+- **Speed Levels** - Multiplicateurs de vitesse (1.0/1.3/1.6/1.9)
+- **Weapon Levels** - Upgrades d'armes (+15/30/50% dégâts)
+
+#### Protocol Phase 3 Messages
+- ChargeStart (0x0400), ChargeRelease (0x0401), WaveCannonFired (0x0402)
+- PowerUpSpawned (0x0410), PowerUpCollected (0x0411), PowerUpExpired (0x0412)
+- ForceToggle (0x0420), ForceStateUpdate (0x0421)
+
+#### PlayerState Extended (23 bytes)
+- Nouveaux champs: chargeLevel, speedLevel, weaponLevel, hasForce, shieldTimer
+
+### 🔄 Modifié
+
+- **GameWorld.hpp** - Structures Missile, Enemy, PowerUp, ForcePod, Boss
+- **Protocol.hpp** - Nouveaux MessageTypes et structures Phase 3
+- **GameScene.cpp** - Rendu power-ups, Force Pod, Wave Cannon, Boss
+
+### 📚 Documentation
+
+- **CLAUDE.md** - Constantes Phase 2/3, structures protocole
+
+---
+
 ## [0.4.0] - 2025-11-30 {#040---2025-11-30}
 
 ### ✨ Ajouté

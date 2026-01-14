@@ -30,6 +30,10 @@ namespace infrastructure::adapters::in::network {
             static inline const std::unordered_set<uint16_t> _authRequiredMessages = {
                 static_cast<uint16_t>(MessageType::PlayerInput),
                 static_cast<uint16_t>(MessageType::ShootMissile),
+                // R-Type Authentic (Phase 3)
+                static_cast<uint16_t>(MessageType::ChargeStart),
+                static_cast<uint16_t>(MessageType::ChargeRelease),
+                static_cast<uint16_t>(MessageType::ForceToggle),
             };
 
             // Check if a message type requires authentication
@@ -60,6 +64,12 @@ namespace infrastructure::adapters::in::network {
             void broadcastEnemyDestroyed(uint16_t enemyId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastPlayerDied(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld);
+            // R-Type Authentic (Phase 3) broadcasts
+            void broadcastWaveCannonFired(uint16_t waveCannonId, const std::shared_ptr<game::GameWorld>& gameWorld);
+            void broadcastPowerUpSpawned(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld);
+            void broadcastPowerUpCollected(uint16_t powerUpId, uint8_t playerId, uint8_t powerUpType, const std::shared_ptr<game::GameWorld>& gameWorld);
+            void broadcastPowerUpExpired(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld);
+            void broadcastForceStateUpdate(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void scheduleBroadcast();
             void scheduleStatsUpdate();
             void updateAndBroadcastRoom(const std::string& roomCode, const std::shared_ptr<game::GameWorld>& gameWorld, float deltaTime);

@@ -1,7 +1,7 @@
 # Tests et Qualité de Code
 
-**Dernière mise à jour:** 25 novembre 2025
-**Version:** 1.1.0
+**Dernière mise à jour:** 14 janvier 2026
+**Version:** 2.0.0
 
 Ce guide décrit le système de tests unitaires et les outils de qualité de code utilisés dans le projet R-Type.
 
@@ -15,12 +15,17 @@ Le projet R-Type dispose d'une suite de tests complète utilisant Google Test (G
 |-----------|-------|------------|
 | **Serveur - Value Objects** | 70+ tests | Health, Position, Email, Username |
 | **Serveur - Entities** | 20+ tests | Player |
-| **Serveur - Network Protobuf** | 35+ tests | User, Auth, Game messages |
 | **Serveur - Network Protocol** | 30+ tests | CommandParser |
-| **Serveur - TCP Integration** | 19 tests | Client/Server communication |
 | **Serveur - UDP Integration** | 16 tests | Datagrammes, latence |
+| **Serveur - Voice Protocol** | 15+ tests | VoiceFrame, VoiceJoin |
+| **Serveur - Session/Crypto** | 20+ tests | CSPRNG, SessionManager |
+| **Serveur - Gameplay Phase 2** | 30+ tests | Score, Boss, Weapons |
+| **Serveur - Weapon Level System** | 60+ tests | Damage/Cooldown/Speed multipliers |
+| **Serveur - Power-up Mechanics** | 50+ tests | PowerUp, ForcePod, POWArmor |
+| **Serveur - PlayerState Extended** | 35+ tests | Phase 3 fields serialization |
+| **Common - Collision System** | 45+ tests | AABB intersection, hitboxes |
 | **Client - Utils** | 40+ tests | Vecs, Signal |
-| **Total** | 210+ tests | ~75% |
+| **Total** | 400+ tests | ~80% |
 
 ### Outils Utilisés
 
@@ -82,6 +87,7 @@ tests/
 ├── server/                              # Tests du serveur
 │   ├── main.cpp                         # Point d'entrée GTest
 │   ├── CMakeLists.txt                   # Configuration CMake
+│   │
 │   ├── domain/
 │   │   ├── value_objects/
 │   │   │   ├── HealthTest.cpp           # 25 tests Health
@@ -91,12 +97,22 @@ tests/
 │   │   └── entities/
 │   │       └── PlayerTest.cpp           # 25 tests Player
 │   │
-│   └── network/                         # Tests réseau
-│       ├── ProtobufTest.cpp             # 35+ tests sérialisation
-│       ├── protocol/
-│       │   └── CommandParserTest.cpp    # 30+ tests parsing
-│       ├── TCPIntegrationTest.cpp       # 19 tests TCP
-│       └── UDPIntegrationTest.cpp       # 16 tests UDP
+│   ├── network/                         # Tests réseau
+│   │   ├── UDPIntegrationTest.cpp       # 16 tests UDP
+│   │   └── VoiceProtocolTest.cpp        # 15+ tests Voice (Opus/PortAudio)
+│   │
+│   ├── infrastructure/
+│   │   └── session/
+│   │       └── SessionManagerCryptoTest.cpp  # 20+ tests CSPRNG
+│   │
+│   └── game/                            # Tests gameplay Phase 2/3
+│       ├── GameplayTest.cpp             # 30+ tests Score, Boss, Weapons
+│       ├── WeaponLevelSystemTest.cpp    # 60+ tests niveau d'arme
+│       ├── PowerUpMechanicsTest.cpp     # 50+ tests power-ups
+│       └── PlayerStateExtendedTest.cpp  # 35+ tests champs Phase 3
+│
+├── common/                              # Tests partagés
+│   └── CollisionSystemTest.cpp          # 45+ tests AABB collision
 │
 ├── client/                              # Tests du client
 │   ├── main.cpp                         # Point d'entrée GTest
@@ -108,11 +124,6 @@ tests/
 └── artifacts/tests/                     # Binaires générés
     ├── server_tests
     └── client_tests
-
-proto/                                   # Définitions Protobuf
-├── user.proto                           # Messages User
-├── auth.proto                           # Messages authentification
-└── game.proto                           # Messages gameplay
 ```
 
 ---
@@ -499,4 +510,4 @@ cmake -B build -DCMAKE_BUILD_TYPE=Debug
 
 ---
 
-**Dernière révision:** 25/11/2025 par Agent Documentation
+**Dernière révision:** 14/01/2026 par Agent Documentation

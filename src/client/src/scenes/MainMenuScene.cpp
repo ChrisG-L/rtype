@@ -385,7 +385,9 @@ void MainMenuScene::processTCPEvents()
                     config.setGameSpeedMultiplier(event.gameSpeed);
                     config.setShipSkin(event.shipSkin);
 
-                    for (size_t i = 0; i < 6; ++i) {
+                    // Apply all 13 key bindings (ActionCount)
+                    constexpr size_t actionCount = static_cast<size_t>(accessibility::GameAction::ActionCount);
+                    for (size_t i = 0; i < actionCount; ++i) {
                         auto action = static_cast<accessibility::GameAction>(i);
                         events::Key primary = static_cast<events::Key>(event.keyBindings[i * 2]);
                         events::Key secondary = static_cast<events::Key>(event.keyBindings[i * 2 + 1]);
@@ -401,6 +403,9 @@ void MainMenuScene::processTCPEvents()
                     voice.setMicGain(event.micGain / 100.0f);
                     voice.setPlaybackVolume(event.voiceVolume);
                     voice.setSelectedDevices(event.audioInputDevice, event.audioOutputDevice);
+
+                    // Apply chat settings
+                    config.setKeepChatOpenAfterSend(event.keepChatOpenAfterSend);
 
                     showInfo("Settings loaded from server");
                 }

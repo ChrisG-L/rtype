@@ -36,7 +36,10 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
         settings.gameSpeedPercent = static_cast<uint16_t>(doc["gameSpeedPercent"].get_int32().value);
     }
 
-    // Key bindings array
+    // Key bindings array (with backward compatibility for old 12-element format)
+    // First set defaults for all 26 bindings (in case DB has old format)
+    settings.setDefaultKeyBindings();
+
     if (doc["keyBindings"] && doc["keyBindings"].type() == bsoncxx::type::k_array) {
         auto arr = doc["keyBindings"].get_array().value;
         size_t i = 0;
@@ -45,6 +48,7 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
             settings.keyBindings[i] = static_cast<uint8_t>(elem.get_int32().value);
             ++i;
         }
+        // If old format (12 elements), indices 12-25 keep their defaults set above
     }
 
     // Ship skin (default to 1 if not present)
@@ -71,6 +75,10 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
     if (doc["audioOutputDevice"]) {
         settings.audioOutputDevice = std::string(doc["audioOutputDevice"].get_string().value);
     }
+
+    // Chat settings
+    settings.keepChatOpenAfterSend = doc["keepChatOpenAfterSend"]
+        ? doc["keepChatOpenAfterSend"].get_bool().value : false;
 
     return settings;
 }
@@ -107,6 +115,7 @@ void MongoDBUserSettingsRepository::save(
         kvp("voiceVolume", static_cast<int32_t>(settings.voiceVolume)),
         kvp("audioInputDevice", settings.audioInputDevice),
         kvp("audioOutputDevice", settings.audioOutputDevice),
+        kvp("keepChatOpenAfterSend", settings.keepChatOpenAfterSend),
         kvp("updatedAt", bsoncxx::types::b_date{std::chrono::system_clock::now()})
     );
 

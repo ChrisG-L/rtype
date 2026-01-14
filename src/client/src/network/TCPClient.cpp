@@ -631,8 +631,10 @@ namespace client::network
                         // Audio device names
                         event.audioInputDevice = std::string(respOpt->settings.audioInputDevice);
                         event.audioOutputDevice = std::string(respOpt->settings.audioOutputDevice);
-                        logger->debug("Received user settings (found={}, input='{}', output='{}')",
-                            event.found, event.audioInputDevice, event.audioOutputDevice);
+                        // Chat settings
+                        event.keepChatOpenAfterSend = (respOpt->settings.keepChatOpenAfterSend != 0);
+                        logger->debug("Received user settings (found={}, input='{}', output='{}', keepChatOpen={})",
+                            event.found, event.audioInputDevice, event.audioOutputDevice, event.keepChatOpenAfterSend);
                         _eventQueue.push(std::move(event));
                     }
                 }
