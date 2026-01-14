@@ -215,6 +215,11 @@ nav:
     - Tests: developpement/tests.md
     - CI/CD: developpement/ci-cd.md
     - Contribution: developpement/contribution.md
+  - Assets:
+    - assets/index.md
+    - Sprites: assets/sprites.md
+    - Sons: assets/sounds.md
+    - Polices: assets/fonts.md
   - Référence:
     - reference/index.md
     - Glossaire: reference/glossaire.md

@@ -82,9 +82,9 @@ Questions fréquemment posées sur R-Type.
 
     L'hôte doit partager son IP publique et ouvrir les ports :
 
-    - **4124/UDP** : Game
-    - **4125/TCP** : Auth
-    - **4126/UDP** : Voice chat
+    - **4242/TCP** : Auth, rooms, chat
+    - **4243/UDP** : Gameplay (inputs, snapshots)
+    - **4244/UDP** : Voice chat
 
 ??? question "Le jeu lag beaucoup"
     Vérifiez :
@@ -109,9 +109,9 @@ Questions fréquemment posées sur R-Type.
 ??? question "Quels ports utilise R-Type ?"
     | Port | Protocol | Usage |
     |------|----------|-------|
-    | 4124 | UDP | Synchronisation de jeu (snapshots, inputs) |
-    | 4125 | TCP | Authentification, rooms, chat |
-    | 4126 | UDP | Voice chat (codec Opus) |
+    | 4242 | TCP | Authentification, rooms, chat |
+    | 4243 | UDP | Synchronisation de jeu (snapshots, inputs) |
+    | 4244 | UDP | Voice chat (codec Opus) |
 
     Les ports sont configurés via le fichier `.env` du serveur.
 
@@ -119,9 +119,9 @@ Questions fréquemment posées sur R-Type.
     1. Accédez à l'interface admin de votre routeur (souvent `192.168.1.1`)
     2. Trouvez "Port Forwarding" ou "NAT"
     3. Ajoutez trois règles :
-        - Port **4124**, Protocol **UDP** → votre IP locale
-        - Port **4125**, Protocol **TCP** → votre IP locale
-        - Port **4126**, Protocol **UDP** → votre IP locale
+        - Port **4242**, Protocol **TCP** → votre IP locale
+        - Port **4243**, Protocol **UDP** → votre IP locale
+        - Port **4244**, Protocol **UDP** → votre IP locale
 
     Consultez la documentation de votre routeur pour les détails.
 

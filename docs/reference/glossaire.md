@@ -118,8 +118,18 @@ Temps de trajet d'un paquet entre client et serveur. Mesurée en millisecondes.
 ### Manifest (vcpkg)
 Fichier `vcpkg.json` déclarant les dépendances du projet. vcpkg les installe automatiquement.
 
+### MongoDB
+Base de données NoSQL orientée documents. Utilisée pour stocker les profils joueurs et les scores.
+
 ### Multi-backend
 Architecture supportant plusieurs implémentations d'une même fonctionnalité (ex: SDL2 et SFML pour le rendu).
+
+---
+
+## O
+
+### Opus
+Codec audio open source optimisé pour la voix et la musique. Utilisé pour le voice chat avec une excellente qualité à faible bitrate.
 
 ---
 
@@ -132,7 +142,13 @@ Unité de données envoyée sur le réseau. Contient un header et un payload.
 Module chargé dynamiquement à l'exécution. Les backends graphiques sont des plugins.
 
 ### Port
-Numéro identifiant un service réseau. R-Type utilise le port 4242 par défaut.
+Numéro identifiant un service réseau. R-Type utilise les ports 4242 (TCP), 4243 (UDP), 4244 (Voice).
+
+### PortAudio
+Bibliothèque audio cross-platform pour la capture et la lecture audio en temps réel. Utilisée pour le voice chat.
+
+### PTT
+**Push-to-Talk** - Mode de communication vocale où l'utilisateur doit maintenir une touche pour parler.
 
 ---
 
@@ -181,11 +197,17 @@ Fréquence des mises à jour du serveur en Hertz.
 
 ## V
 
+### VAD
+**Voice Activity Detection** - Détection automatique de la parole pour activer le microphone sans touche.
+
 ### vcpkg
 Gestionnaire de paquets C++ de Microsoft. Gère les dépendances du projet.
 
 ### View (ECS)
 Itérateur sur les entités possédant un ensemble spécifique de composants.
+
+### Voice Chat
+Système de communication vocale en temps réel entre joueurs. Utilise PortAudio pour la capture et Opus pour l'encodage.
 
 ### VSync
 **Vertical Synchronization** - Synchronise le rendu avec le rafraîchissement de l'écran pour éviter le tearing.
