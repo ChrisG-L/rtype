@@ -38,44 +38,48 @@ namespace infrastructure::adapters::in::network {
         _lastActivity = std::chrono::steady_clock::now();
     }
 
-    Session::~Session()
+    Session::~Session() noexcept
     {
-        auto logger = server::logging::Logger::getNetworkLogger();
-        if (_isAuthenticated && _user.has_value()) {
-            std::string username = _user->getUsername().value();
-            std::string email = _user->getEmail().value();
-            logger->info("Session closed - removing user '{}' from active sessions", username);
+        try {
+            auto logger = server::logging::Logger::getNetworkLogger();
+            if (_isAuthenticated && _user.has_value()) {
+                std::string username = _user->getUsername().value();
+                std::string email = _user->getEmail().value();
+                logger->info("Session closed - removing user '{}' from active sessions", username);
 
-            // Unregister session callbacks
-            if (_roomManager) {
-                _roomManager->unregisterSessionCallbacks(email);
+                // Unregister session callbacks
+                if (_roomManager) {
+                    _roomManager->unregisterSessionCallbacks(email);
+                }
+
+                // Remove from room if in one
+                if (_roomManager && _roomManager->isPlayerInRoom(email)) {
+                    _roomManager->leaveRoom(email);
+                    logger->debug("Player removed from room for email: {}", email);
+                }
+
+                // Unregister kicked callback from SessionManager
+                if (_sessionManager) {
+                    _sessionManager->unregisterKickedCallback(email);
+                }
+
+                // Remove from SessionManager (cleans up token and allows re-login)
+                if (_sessionManager) {
+                    _sessionManager->removeSession(email);
+                    logger->debug("Session removed from SessionManager for email: {}", email);
+                }
+            } else {
+                logger->debug("Session closed (unauthenticated)");
             }
 
-            // Remove from room if in one
-            if (_roomManager && _roomManager->isPlayerInRoom(email)) {
-                _roomManager->leaveRoom(email);
-                logger->debug("Player removed from room for email: {}", email);
+            // SSL shutdown (graceful close)
+            boost::system::error_code ec;
+            _socket.shutdown(ec);
+            if (ec && ec != boost::asio::error::eof && ec != boost::asio::ssl::error::stream_truncated) {
+                logger->debug("SSL shutdown notice: {}", ec.message());
             }
-
-            // Unregister kicked callback from SessionManager
-            if (_sessionManager) {
-                _sessionManager->unregisterKickedCallback(email);
-            }
-
-            // Remove from SessionManager (cleans up token and allows re-login)
-            if (_sessionManager) {
-                _sessionManager->removeSession(email);
-                logger->debug("Session removed from SessionManager for email: {}", email);
-            }
-        } else {
-            logger->debug("Session closed (unauthenticated)");
-        }
-
-        // SSL shutdown (graceful close)
-        boost::system::error_code ec;
-        _socket.shutdown(ec);
-        if (ec && ec != boost::asio::error::eof && ec != boost::asio::ssl::error::stream_truncated) {
-            logger->debug("SSL shutdown notice: {}", ec.message());
+        } catch (...) {
+            // Destructors must never throw - silently ignore any exception
         }
     }
 
