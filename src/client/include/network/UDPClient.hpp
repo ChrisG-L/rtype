@@ -35,6 +35,12 @@ namespace client::network
         bool alive;
         uint16_t lastAckedInputSeq;  // For client-side prediction reconciliation
         uint8_t shipSkin;  // Ship skin variant (1-6)
+        // Score system (Gameplay Phase 2)
+        uint32_t score;   // Total score
+        uint16_t kills;   // Total kills
+        uint8_t combo;    // Combo multiplier (x10, e.g., 15 = 1.5x)
+        // Weapon system (Gameplay Phase 2)
+        uint8_t currentWeapon;  // WeaponType enum
     };
 
     struct NetworkMissile {
@@ -42,6 +48,7 @@ namespace client::network
         uint8_t owner_id;
         uint16_t x;
         uint16_t y;
+        uint8_t weapon_type;  // WeaponType enum (Gameplay Phase 2)
     };
 
     struct NetworkEnemy {
@@ -50,6 +57,17 @@ namespace client::network
         uint16_t y;
         uint8_t health;
         uint8_t enemy_type;
+    };
+
+    // Boss state (Gameplay Phase 2)
+    struct NetworkBoss {
+        uint16_t id;
+        uint16_t x;
+        uint16_t y;
+        uint16_t max_health;
+        uint16_t health;
+        uint8_t phase;
+        bool is_active;
     };
 
     class UDPClient
@@ -99,6 +117,8 @@ namespace client::network
         std::vector<NetworkEnemy> getEnemies() const;
         std::vector<NetworkMissile> getEnemyMissiles() const;
         bool isLocalPlayerDead() const;
+        uint16_t getWaveNumber() const;
+        std::optional<NetworkBoss> getBossState() const;
 
         // Event queue for thread-safe event polling
         std::optional<UDPEvent> pollEvent();
@@ -154,6 +174,12 @@ namespace client::network
 
         std::vector<NetworkMissile> _enemyMissiles;
         mutable std::mutex _enemyMissilesMutex;
+
+        uint16_t _waveNumber = 0;
+        mutable std::mutex _waveNumberMutex;
+
+        std::optional<NetworkBoss> _bossState;
+        mutable std::mutex _bossMutex;
 
         OnConnectedCallback _onConnected;
         OnDisconnectedCallback _onDisconnected;

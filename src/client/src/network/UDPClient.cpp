@@ -278,6 +278,18 @@ namespace client::network
         return _isLocalPlayerDead;
     }
 
+    uint16_t UDPClient::getWaveNumber() const
+    {
+        std::lock_guard<std::mutex> lock(_waveNumberMutex);
+        return _waveNumber;
+    }
+
+    std::optional<NetworkBoss> UDPClient::getBossState() const
+    {
+        std::lock_guard<std::mutex> lock(_bossMutex);
+        return _bossState;
+    }
+
     void UDPClient::asyncReceiveFrom()
     {
         // Check socket is open (works for both connected and connecting states)
@@ -373,7 +385,11 @@ namespace client::network
                 .health = ps.health,
                 .alive = ps.alive != 0,
                 .lastAckedInputSeq = ps.lastAckedInputSeq,
-                .shipSkin = ps.shipSkin
+                .shipSkin = ps.shipSkin,
+                .score = ps.score,
+                .kills = ps.kills,
+                .combo = ps.combo,
+                .currentWeapon = ps.currentWeapon
             });
         }
 
@@ -386,7 +402,8 @@ namespace client::network
                 .id = ms.id,
                 .owner_id = ms.owner_id,
                 .x = ms.x,
-                .y = ms.y
+                .y = ms.y,
+                .weapon_type = ms.weapon_type
             });
         }
 
@@ -413,7 +430,8 @@ namespace client::network
                 .id = ms.id,
                 .owner_id = ms.owner_id,
                 .x = ms.x,
-                .y = ms.y
+                .y = ms.y,
+                .weapon_type = ms.weapon_type
             });
         }
 
@@ -432,6 +450,28 @@ namespace client::network
         {
             std::lock_guard<std::mutex> lock(_enemyMissilesMutex);
             _enemyMissiles = std::move(newEnemyMissiles);
+        }
+        {
+            std::lock_guard<std::mutex> lock(_waveNumberMutex);
+            _waveNumber = gsOpt->wave_number;
+        }
+
+        // Boss state
+        {
+            std::lock_guard<std::mutex> lock(_bossMutex);
+            if (gsOpt->has_boss) {
+                _bossState = NetworkBoss{
+                    .id = gsOpt->boss_state.id,
+                    .x = gsOpt->boss_state.x,
+                    .y = gsOpt->boss_state.y,
+                    .max_health = gsOpt->boss_state.max_health,
+                    .health = gsOpt->boss_state.health,
+                    .phase = gsOpt->boss_state.phase,
+                    .is_active = (gsOpt->boss_state.is_active != 0)
+                };
+            } else {
+                _bossState = std::nullopt;
+            }
         }
 
         if (_onSnapshot) {

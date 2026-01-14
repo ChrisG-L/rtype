@@ -255,12 +255,22 @@ namespace infrastructure::adapters::in::network {
         // Update player positions based on inputs (server-authoritative)
         gameWorld->updatePlayers(deltaTime);
 
+        // Update weapon cooldowns (Gameplay Phase 2)
+        gameWorld->updateShootCooldowns(deltaTime);
+
         // Update missiles
         gameWorld->updateMissiles(deltaTime);
 
         // Update waves and enemies
         gameWorld->updateWaveSpawning(deltaTime);
         gameWorld->updateEnemies(deltaTime);
+
+        // Check and update boss (Gameplay Phase 2)
+        gameWorld->checkBossSpawn();
+        gameWorld->updateBoss(deltaTime);
+
+        // Update combo timers (Gameplay Phase 2)
+        gameWorld->updateComboTimers(deltaTime);
 
         // Check collisions
         gameWorld->checkCollisions();
@@ -696,10 +706,13 @@ namespace infrastructure::adapters::in::network {
                         // Update activity and check alive status in the strand
                         gameWorld->updatePlayerActivity(playerId);
                         if (gameWorld->isPlayerAlive(playerId)) {
-                            uint16_t missileId = gameWorld->spawnMissile(playerId);
-                            if (missileId > 0) {
-                                // broadcastMissileSpawned uses async_send_to, thread-safe
-                                broadcastMissileSpawned(missileId, playerId, gameWorld);
+                            // Use weapon-based spawning (may spawn multiple for spread)
+                            std::vector<uint16_t> missileIds = gameWorld->spawnMissileWithWeapon(playerId);
+                            for (uint16_t missileId : missileIds) {
+                                if (missileId > 0) {
+                                    // broadcastMissileSpawned uses async_send_to, thread-safe
+                                    broadcastMissileSpawned(missileId, playerId, gameWorld);
+                                }
                             }
                         }
                     });

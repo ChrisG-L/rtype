@@ -16,6 +16,7 @@
 #include <variant>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>  // For std::snprintf in renderScoreHUD
 
 GameScene::GameScene(uint16_t roomGameSpeedPercent)
     : _roomGameSpeedMultiplier(static_cast<float>(std::clamp(roomGameSpeedPercent, static_cast<uint16_t>(50), static_cast<uint16_t>(200))) / 100.0f)
@@ -57,7 +58,26 @@ void GameScene::loadAssets()
     // Keep backward compatibility with old texture key
     _context.window->loadTexture(SHIP_TEXTURE_KEY, "assets/spaceship/Ship1.png");
     _context.window->loadTexture(MISSILE_TEXTURE_KEY, "assets/spaceship/missile.png");
-    _context.window->loadTexture(ENEMY_TEXTURE_KEY, "assets/spaceship/Ship1.png");
+
+    // Load enemy textures per type
+    // TODO: Replace with proper enemy sprites when assets are created
+    // Expected assets:
+    //   - assets/enemies/basic.png (gray standard enemy)
+    //   - assets/enemies/tracker.png (red aggressive enemy)
+    //   - assets/enemies/zigzag.png (green erratic enemy)
+    //   - assets/enemies/fast.png (yellow fast enemy)
+    //   - assets/enemies/bomber.png (purple heavy enemy)
+    // For now, use different ship skins as visual distinction
+    _context.window->loadTexture(ENEMY_BASIC_KEY, "assets/spaceship/Ship2.png");    // Different ship for basic
+    _context.window->loadTexture(ENEMY_TRACKER_KEY, "assets/spaceship/Ship3.png");  // Different ship for tracker
+    _context.window->loadTexture(ENEMY_ZIGZAG_KEY, "assets/spaceship/Ship4.png");   // Different ship for zigzag
+    _context.window->loadTexture(ENEMY_FAST_KEY, "assets/spaceship/Ship5.png");     // Different ship for fast
+    _context.window->loadTexture(ENEMY_BOMBER_KEY, "assets/spaceship/Ship6.png");   // Different ship for bomber
+    _context.window->loadTexture(ENEMY_TEXTURE_KEY, "assets/spaceship/Ship2.png");  // Fallback
+
+    // Load boss texture (use Ship6 as placeholder until proper boss sprite exists)
+    _context.window->loadTexture(BOSS_TEXTURE_KEY, "assets/spaceship/Ship6.png");
+
     _context.window->loadFont(FONT_KEY, "assets/fonts/ARIA.TTF");
     _assetsLoaded = true;
 
@@ -394,6 +414,13 @@ void GameScene::update(float deltatime)
         if (accessConfig.isActionKey(accessibility::GameAction::Shoot, key)) {
             shootPressed = true;
         }
+        // Weapon switching: Q = previous, E = next
+        if (key == events::Key::Q) {
+            inputKeys |= InputKeys::WEAPON_PREV;
+        }
+        if (key == events::Key::E) {
+            inputKeys |= InputKeys::WEAPON_NEXT;
+        }
     }
 
     // Client-side prediction: send input with sequence, store pending, apply locally
@@ -484,6 +511,125 @@ void GameScene::renderHUD()
             healthColor
         );
     }
+}
+
+void GameScene::renderScoreHUD()
+{
+    auto localId = _context.udpClient->getLocalPlayerId();
+    if (!localId) return;
+
+    auto players = _context.udpClient->getPlayers();
+
+    // Find local player's score data
+    uint32_t score = 0;
+    uint16_t kills = 0;
+    uint8_t combo = 10;  // 1.0x default
+
+    for (const auto& p : players) {
+        if (p.id == *localId) {
+            score = p.score;
+            kills = p.kills;
+            combo = p.combo;
+            break;
+        }
+    }
+
+    // Get wave number
+    uint16_t waveNumber = _context.udpClient->getWaveNumber();
+
+    // === Score display (top-right) ===
+    float scoreX = SCREEN_WIDTH - 280.0f;
+    float scoreY = 20.0f;
+
+    // Score background
+    _context.window->drawRect(scoreX - 10.0f, scoreY - 5.0f, 270.0f, 75.0f, {20, 20, 40, 180});
+
+    // Score value
+    std::string scoreText = "SCORE: " + std::to_string(score);
+    _context.window->drawText(FONT_KEY, scoreText, scoreX, scoreY, 22, {255, 255, 255, 255});
+
+    // Kills
+    std::string killsText = "KILLS: " + std::to_string(kills);
+    _context.window->drawText(FONT_KEY, killsText, scoreX, scoreY + 28.0f, 16, {200, 200, 200, 255});
+
+    // Combo (only show if > 1.0x)
+    if (combo > 10) {
+        float comboValue = static_cast<float>(combo) / 10.0f;
+
+        // Format combo (e.g., "x1.5" or "x2.0")
+        char comboBuf[16];
+        std::snprintf(comboBuf, sizeof(comboBuf), "COMBO x%.1f", comboValue);
+        std::string comboText = comboBuf;
+
+        // Color based on combo level
+        rgba comboColor;
+        if (combo >= 25) {
+            comboColor = {255, 100, 100, 255};  // Red for high combo (2.5x+)
+        } else if (combo >= 20) {
+            comboColor = {255, 200, 50, 255};   // Gold for medium-high (2.0x+)
+        } else {
+            comboColor = {100, 255, 100, 255};  // Green for building combo
+        }
+
+        _context.window->drawText(FONT_KEY, comboText, scoreX + 120.0f, scoreY + 28.0f, 16, comboColor);
+    }
+
+    // === Wave display (top-center) ===
+    if (waveNumber > 0) {
+        std::string waveText = "WAVE " + std::to_string(waveNumber);
+        float waveX = (SCREEN_WIDTH - 100.0f) / 2.0f;
+        float waveY = 20.0f;
+
+        // Wave background
+        _context.window->drawRect(waveX - 15.0f, waveY - 5.0f, 130.0f, 35.0f, {20, 20, 40, 180});
+
+        _context.window->drawText(FONT_KEY, waveText, waveX, waveY, 22, {255, 220, 100, 255});
+    }
+}
+
+void GameScene::renderWeaponHUD()
+{
+    auto localId = _context.udpClient->getLocalPlayerId();
+    if (!localId) return;
+
+    auto players = _context.udpClient->getPlayers();
+
+    // Find local player's weapon
+    uint8_t currentWeapon = 0;
+    for (const auto& p : players) {
+        if (p.id == *localId) {
+            currentWeapon = p.currentWeapon;
+            break;
+        }
+    }
+
+    // Weapon names
+    static const char* weaponNames[] = {"STANDARD", "SPREAD", "LASER", "MISSILE"};
+    static const rgba weaponColors[] = {
+        {180, 180, 180, 255},  // Standard - gray
+        {100, 200, 255, 255},  // Spread - cyan
+        {255, 100, 100, 255},  // Laser - red
+        {100, 255, 100, 255}   // Missile - green
+    };
+
+    // Clamp weapon index
+    if (currentWeapon >= 4) currentWeapon = 0;
+
+    // Display position (bottom-left, above chat)
+    float hudX = 20.0f;
+    float hudY = SCREEN_HEIGHT - 150.0f;
+
+    // Background
+    _context.window->drawRect(hudX - 5.0f, hudY - 5.0f, 180.0f, 50.0f, {20, 20, 40, 200});
+
+    // Label
+    _context.window->drawText(FONT_KEY, "WEAPON", hudX, hudY, 12, {150, 150, 150, 255});
+
+    // Current weapon name with color
+    _context.window->drawText(FONT_KEY, weaponNames[currentWeapon], hudX, hudY + 18.0f, 18, weaponColors[currentWeapon]);
+
+    // Control hint
+    _context.window->drawText(FONT_KEY, "[Q/E] Switch", hudX + 90.0f, hudY + 22.0f, 10, {100, 100, 120, 255});
 }
 
 void GameScene::renderPlayers()
@@ -578,28 +724,89 @@ void GameScene::renderMissiles()
     }
 }
 
+std::string GameScene::getEnemyTextureKey(uint8_t enemyType) const
+{
+    // EnemyType enum from GameWorld.hpp:
+    // Basic = 0, Tracker = 1, Zigzag = 2, Fast = 3, Bomber = 4
+    switch (enemyType) {
+        case 0: return ENEMY_BASIC_KEY;    // Basic
+        case 1: return ENEMY_TRACKER_KEY;  // Tracker
+        case 2: return ENEMY_ZIGZAG_KEY;   // Zigzag
+        case 3: return ENEMY_FAST_KEY;     // Fast
+        case 4: return ENEMY_BOMBER_KEY;   // Bomber
+        default: return ENEMY_BASIC_KEY;   // Fallback to basic
+    }
+}
+
 void GameScene::renderEnemies()
 {
     auto enemies = _context.udpClient->getEnemies();
 
     for (const auto& enemy : enemies) {
         if (_assetsLoaded) {
+            // Use different texture based on enemy type
+            std::string textureKey = getEnemyTextureKey(enemy.enemy_type);
+
+            // Adjust size based on enemy type (bomber is larger)
+            float width = ENEMY_WIDTH;
+            float height = ENEMY_HEIGHT;
+            if (enemy.enemy_type == 4) {  // Bomber
+                width = ENEMY_WIDTH * 1.5f;
+                height = ENEMY_HEIGHT * 1.5f;
+            } else if (enemy.enemy_type == 3) {  // Fast (smaller)
+                width = ENEMY_WIDTH * 0.8f;
+                height = ENEMY_HEIGHT * 0.8f;
+            }
+
             _context.window->drawSprite(
-                ENEMY_TEXTURE_KEY,
+                textureKey,
                 static_cast<float>(enemy.x),
                 static_cast<float>(enemy.y),
-                ENEMY_WIDTH,
-                ENEMY_HEIGHT
+                width,
+                height
             );
         } else {
-            auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
-            auto c = accessConfig.getEnemyColor();
+            // Accessibility mode: use different colors per enemy type
+            rgba color;
+            switch (enemy.enemy_type) {
+                case 0:  // Basic - gray
+                    color = {150, 150, 150, 255};
+                    break;
+                case 1:  // Tracker - red (aggressive)
+                    color = {255, 80, 80, 255};
+                    break;
+                case 2:  // Zigzag - green (erratic)
+                    color = {80, 255, 80, 255};
+                    break;
+                case 3:  // Fast - yellow (speed)
+                    color = {255, 255, 80, 255};
+                    break;
+                case 4:  // Bomber - purple (heavy)
+                    color = {180, 80, 255, 255};
+                    break;
+                default:
+                    auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+                    auto c = accessConfig.getEnemyColor();
+                    color = {c.r, c.g, c.b, c.a};
+                    break;
+            }
+
+            float width = ENEMY_WIDTH;
+            float height = ENEMY_HEIGHT;
+            if (enemy.enemy_type == 4) {  // Bomber (larger)
+                width = ENEMY_WIDTH * 1.5f;
+                height = ENEMY_HEIGHT * 1.5f;
+            } else if (enemy.enemy_type == 3) {  // Fast (smaller)
+                width = ENEMY_WIDTH * 0.8f;
+                height = ENEMY_HEIGHT * 0.8f;
+            }
+
             _context.window->drawRect(
                 static_cast<float>(enemy.x),
                 static_cast<float>(enemy.y),
-                ENEMY_WIDTH,
-                ENEMY_HEIGHT,
-                {c.r, c.g, c.b, c.a}
+                width,
+                height,
+                color
             );
         }
     }
@@ -730,10 +937,14 @@ void GameScene::render()
 
     renderBackground();
     renderEnemies();
+    renderBoss();          // Boss sprite (Gameplay Phase 2)
     renderPlayers();
     renderMissiles();
     renderEnemyMissiles();
     renderHUD();
+    renderScoreHUD();
+    renderWeaponHUD();     // Weapon indicator (Gameplay Phase 2)
+    renderBossHealthBar(); // Boss HP bar at top (Gameplay Phase 2)
     renderVoiceIndicator();
 
     // Always render chat overlay (even when dead)
@@ -744,6 +955,116 @@ void GameScene::render()
     } else if (_context.udpClient->isLocalPlayerDead()) {
         renderDeathScreen();
     }
+}
+
+// ============================================================================
+// Boss System (Gameplay Phase 2)
+// ============================================================================
+
+void GameScene::renderBoss()
+{
+    auto bossOpt = _context.udpClient->getBossState();
+    if (!bossOpt || !bossOpt->is_active) return;
+
+    const auto& boss = *bossOpt;
+
+    if (_assetsLoaded) {
+        _context.window->drawSprite(
+            BOSS_TEXTURE_KEY,
+            static_cast<float>(boss.x),
+            static_cast<float>(boss.y),
+            BOSS_WIDTH,
+            BOSS_HEIGHT
+        );
+    } else {
+        // Accessibility mode: purple color for boss
+        rgba bossColor;
+        switch (boss.phase) {
+            case 0:  // Phase 1 - dark purple
+                bossColor = {120, 40, 180, 255};
+                break;
+            case 1:  // Phase 2 - brighter purple
+                bossColor = {160, 60, 220, 255};
+                break;
+            case 2:  // Phase 3 - red/purple (enraged)
+                bossColor = {220, 40, 140, 255};
+                break;
+            default:
+                bossColor = {140, 40, 200, 255};
+                break;
+        }
+
+        _context.window->drawRect(
+            static_cast<float>(boss.x),
+            static_cast<float>(boss.y),
+            BOSS_WIDTH,
+            BOSS_HEIGHT,
+            bossColor
+        );
+    }
+
+    // Draw "BOSS" label above
+    float labelX = static_cast<float>(boss.x) + BOSS_WIDTH / 2.0f - 25.0f;
+    float labelY = static_cast<float>(boss.y) - 25.0f;
+    _context.window->drawText(FONT_KEY, "BOSS", labelX, labelY, 18, {255, 50, 50, 255});
+}
+
+void GameScene::renderBossHealthBar()
+{
+    auto bossOpt = _context.udpClient->getBossState();
+    if (!bossOpt || !bossOpt->is_active) return;
+
+    const auto& boss = *bossOpt;
+
+    // Large health bar at top of screen
+    static constexpr float BAR_WIDTH = 600.0f;
+    static constexpr float BAR_HEIGHT = 25.0f;
+    float barX = (SCREEN_WIDTH - BAR_WIDTH) / 2.0f;
+    float barY = 60.0f;
+
+    // Background
+    _context.window->drawRect(barX - 2, barY - 2, BAR_WIDTH + 4, BAR_HEIGHT + 4, {40, 40, 60, 220});
+
+    // Health ratio
+    float healthRatio = (boss.max_health > 0)
+        ? static_cast<float>(boss.health) / static_cast<float>(boss.max_health)
+        : 0.0f;
+    float currentWidth = BAR_WIDTH * healthRatio;
+
+    // Color based on phase
+    rgba barColor;
+    switch (boss.phase) {
+        case 0:  // Phase 1 - purple
+            barColor = {140, 60, 200, 255};
+            break;
+        case 1:  // Phase 2 - orange
+            barColor = {255, 140, 40, 255};
+            break;
+        case 2:  // Phase 3 - red (enraged)
+            barColor = {255, 40, 40, 255};
+            break;
+        default:
+            barColor = {140, 60, 200, 255};
+            break;
+    }
+
+    if (currentWidth > 0) {
+        _context.window->drawRect(barX, barY, currentWidth, BAR_HEIGHT, barColor);
+    }
+
+    // Boss name / phase indicator
+    std::string bossTitle = "BOSS";
+    if (boss.phase > 0) {
+        bossTitle += " - PHASE " + std::to_string(boss.phase + 1);
+    }
+    float titleX = barX;
+    float titleY = barY - 22.0f;
+    _context.window->drawText(FONT_KEY, bossTitle, titleX, titleY, 16, {255, 200, 100, 255});
+
+    // Health numbers
+    std::string hpText = std::to_string(boss.health) + " / " + std::to_string(boss.max_health);
+    float hpX = barX + BAR_WIDTH - 120.0f;
+    _context.window->drawText(FONT_KEY, hpText, hpX, titleY, 14, {200, 200, 200, 255});
 }
 
 // ============================================================================

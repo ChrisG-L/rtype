@@ -38,6 +38,17 @@ enum class MessageType: uint16_t {
     EnemyDestroyed = 0x0091,
     PlayerDamaged = 0x00A0,
     PlayerDied = 0x00A1,
+    // Score system (Gameplay Phase 2)
+    ScoreUpdate = 0x00B0,
+    ComboUpdate = 0x00B1,
+    WaveComplete = 0x00B2,
+    // Boss system (Gameplay Phase 2)
+    BossSpawn = 0x00C0,
+    BossPhaseChange = 0x00C1,
+    BossDefeated = 0x00C2,
+    // Weapon system (Gameplay Phase 2)
+    SwitchWeapon = 0x00D0,
+    WeaponChanged = 0x00D1,
     // TCP Authentication messages
     Login = 0x0100,
     LoginAck = 0x0101,
@@ -111,7 +122,21 @@ namespace InputKeys {
     constexpr uint16_t LEFT  = 0x0004;
     constexpr uint16_t RIGHT = 0x0008;
     constexpr uint16_t SHOOT = 0x0010;
+    // Weapon switching (Gameplay Phase 2)
+    constexpr uint16_t WEAPON_NEXT = 0x0020;  // Switch to next weapon
+    constexpr uint16_t WEAPON_PREV = 0x0040;  // Switch to previous weapon
 }
+
+// Weapon types (Gameplay Phase 2)
+enum class WeaponType : uint8_t {
+    Standard = 0,   // Default single shot
+    Spread = 1,     // 3-way spread shot
+    Laser = 2,      // Fast narrow beam
+    Missile = 3,    // Slow homing projectile
+    COUNT           // Number of weapon types
+};
+
+static constexpr uint8_t MAX_WEAPON_TYPES = static_cast<uint8_t>(WeaponType::COUNT);
 
 // Session token for UDP authentication
 struct SessionToken {
@@ -1363,7 +1388,8 @@ struct MissileState {
     uint8_t owner_id;
     uint16_t x;
     uint16_t y;
-    static constexpr size_t WIRE_SIZE = 7;
+    uint8_t weapon_type;  // WeaponType enum (Gameplay Phase 2)
+    static constexpr size_t WIRE_SIZE = 8;  // was 7, added 1 byte for weapon_type
 
     void to_bytes(uint8_t* buf) const {
         uint16_t net_id = swap16(id);
@@ -1373,6 +1399,7 @@ struct MissileState {
         uint16_t net_y = swap16(y);
         std::memcpy(buf + 3, &net_x, 2);
         std::memcpy(buf + 5, &net_y, 2);
+        buf[7] = weapon_type;
     }
 
     static std::optional<MissileState> from_bytes(const void* buf, size_t buf_len) {
@@ -1387,6 +1414,7 @@ struct MissileState {
         std::memcpy(&net_y, ptr + 5, 2);
         ms.x = swap16(net_x);
         ms.y = swap16(net_y);
+        ms.weapon_type = ptr[7];
         return ms;
     }
 };
@@ -1472,7 +1500,13 @@ struct PlayerState {
     uint8_t alive;
     uint16_t lastAckedInputSeq;  // Last processed input sequence (for client-side prediction)
     uint8_t shipSkin;  // Ship skin variant (1-6 for Ship1.png to Ship6.png)
-    static constexpr size_t WIRE_SIZE = 10;
+    // Score system (Gameplay Phase 2)
+    uint32_t score;    // Total score
+    uint16_t kills;    // Total kills
+    uint8_t combo;     // Combo multiplier (x10, e.g., 15 = 1.5x, max 30 = 3.0x)
+    // Weapon system (Gameplay Phase 2)
+    uint8_t currentWeapon;  // WeaponType enum
+    static constexpr size_t WIRE_SIZE = 18;  // was 17, added 1 byte for currentWeapon
 
     void to_bytes(uint8_t* buf) const {
         buf[0] = id;
@@ -1485,6 +1519,14 @@ struct PlayerState {
         buf[6] = alive;
         std::memcpy(buf + 7, &net_seq, 2);
         buf[9] = shipSkin;
+        // Score fields
+        uint32_t net_score = swap32(score);
+        uint16_t net_kills = swap16(kills);
+        std::memcpy(buf + 10, &net_score, 4);
+        std::memcpy(buf + 14, &net_kills, 2);
+        buf[16] = combo;
+        // Weapon field
+        buf[17] = currentWeapon;
     }
 
     static std::optional<PlayerState> from_bytes(const void* buf, size_t buf_len) {
@@ -1504,6 +1546,16 @@ struct PlayerState {
         ps.alive = ptr[6];
         ps.lastAckedInputSeq = swap16(net_seq);
         ps.shipSkin = ptr[9];
+        // Score fields
+        uint32_t net_score;
+        uint16_t net_kills;
+        std::memcpy(&net_score, ptr + 10, 4);
+        std::memcpy(&net_kills, ptr + 14, 2);
+        ps.score = swap32(net_score);
+        ps.kills = swap16(net_kills);
+        ps.combo = ptr[16];
+        // Weapon field
+        ps.currentWeapon = ptr[17];
         return ps;
     }
 };
@@ -1564,6 +1616,53 @@ struct EnemyDestroyed {
     }
 };
 
+// Boss State (Gameplay Phase 2)
+struct BossState {
+    uint16_t id;
+    uint16_t x;
+    uint16_t y;
+    uint16_t max_health;
+    uint16_t health;
+    uint8_t phase;      // 1, 2, or 3
+    uint8_t is_active;  // 0 or 1
+    static constexpr size_t WIRE_SIZE = 12;
+
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_id = swap16(id);
+        uint16_t net_x = swap16(x);
+        uint16_t net_y = swap16(y);
+        uint16_t net_max_hp = swap16(max_health);
+        uint16_t net_hp = swap16(health);
+        std::memcpy(buf, &net_id, 2);
+        std::memcpy(buf + 2, &net_x, 2);
+        std::memcpy(buf + 4, &net_y, 2);
+        std::memcpy(buf + 6, &net_max_hp, 2);
+        std::memcpy(buf + 8, &net_hp, 2);
+        buf[10] = phase;
+        buf[11] = is_active;
+    }
+
+    static std::optional<BossState> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        BossState bs;
+        uint16_t net_id, net_x, net_y, net_max_hp, net_hp;
+        std::memcpy(&net_id, ptr, 2);
+        std::memcpy(&net_x, ptr + 2, 2);
+        std::memcpy(&net_y, ptr + 4, 2);
+        std::memcpy(&net_max_hp, ptr + 6, 2);
+        std::memcpy(&net_hp, ptr + 8, 2);
+        bs.id = swap16(net_id);
+        bs.x = swap16(net_x);
+        bs.y = swap16(net_y);
+        bs.max_health = swap16(net_max_hp);
+        bs.health = swap16(net_hp);
+        bs.phase = ptr[10];
+        bs.is_active = ptr[11];
+        return bs;
+    }
+};
+
 struct PlayerDamaged {
     uint8_t player_id;
     uint8_t damage;
@@ -1613,12 +1712,23 @@ struct GameSnapshot {
     EnemyState enemies[MAX_ENEMIES];
     uint8_t enemy_missile_count;
     MissileState enemy_missiles[MAX_ENEMY_MISSILES];
+    // Gameplay Phase 2: wave info
+    uint16_t wave_number;  // Current wave (0 = not started)
+    // Gameplay Phase 2: boss state
+    uint8_t has_boss;      // 0 or 1
+    BossState boss_state;  // Only valid if has_boss == 1
 
     size_t wire_size() const {
-        return 1 + player_count * PlayerState::WIRE_SIZE
+        size_t size = 1 + player_count * PlayerState::WIRE_SIZE
              + 1 + missile_count * MissileState::WIRE_SIZE
              + 1 + enemy_count * EnemyState::WIRE_SIZE
-             + 1 + enemy_missile_count * MissileState::WIRE_SIZE;
+             + 1 + enemy_missile_count * MissileState::WIRE_SIZE
+             + 2   // wave_number
+             + 1;  // has_boss
+        if (has_boss) {
+            size += BossState::WIRE_SIZE;
+        }
+        return size;
     }
 
     void to_bytes(uint8_t* buf) const {
@@ -1645,6 +1755,17 @@ struct GameSnapshot {
         for (uint8_t i = 0; i < enemy_missile_count; ++i) {
             enemy_missiles[i].to_bytes(buf + offset);
             offset += MissileState::WIRE_SIZE;
+        }
+        // Wave number
+        uint16_t net_wave = swap16(wave_number);
+        std::memcpy(buf + offset, &net_wave, 2);
+        offset += 2;
+
+        // Boss state
+        buf[offset] = has_boss;
+        offset += 1;
+        if (has_boss) {
+            boss_state.to_bytes(buf + offset);
         }
     }
 
@@ -1739,6 +1860,34 @@ struct GameSnapshot {
             }
             gs.enemy_missiles[i] = *msOpt;
             offset += MissileState::WIRE_SIZE;
+        }
+
+        // Wave number (optional for backward compat, default 0)
+        if (buf_len >= offset + 2) {
+            uint16_t net_wave;
+            std::memcpy(&net_wave, ptr + offset, 2);
+            gs.wave_number = swap16(net_wave);
+            offset += 2;
+        } else {
+            gs.wave_number = 0;
+            gs.has_boss = 0;
+            return gs;
+        }
+
+        // Boss state (optional for backward compat)
+        if (buf_len >= offset + 1) {
+            gs.has_boss = ptr[offset];
+            offset += 1;
+            if (gs.has_boss && buf_len >= offset + BossState::WIRE_SIZE) {
+                auto bsOpt = BossState::from_bytes(ptr + offset, BossState::WIRE_SIZE);
+                if (bsOpt) {
+                    gs.boss_state = *bsOpt;
+                } else {
+                    gs.has_boss = 0;
+                }
+            }
+        } else {
+            gs.has_boss = 0;
         }
 
         return gs;

@@ -53,6 +53,10 @@ private:
     void renderKickedScreen();
     void renderChatOverlay();
     void renderVoiceIndicator();
+    void renderScoreHUD();  // Score, combo, wave info (Gameplay Phase 2)
+    void renderWeaponHUD(); // Current weapon indicator (Gameplay Phase 2)
+    void renderBoss();      // Boss sprite (Gameplay Phase 2)
+    void renderBossHealthBar();  // Boss HP bar (Gameplay Phase 2)
     void loadAssets();
     void initStars();
     void initAudio();
@@ -121,7 +125,22 @@ private:
     static constexpr float ENEMY_HEIGHT = 40.0f;
     static constexpr float ENEMY_MISSILE_WIDTH = 24.0f;
     static constexpr float ENEMY_MISSILE_HEIGHT = 12.0f;
-    static constexpr const char* ENEMY_TEXTURE_KEY = "enemy";
+
+    // Enemy texture keys per type (matches EnemyType enum from GameWorld)
+    static constexpr const char* ENEMY_TEXTURE_KEY = "enemy";  // Fallback
+    static constexpr const char* ENEMY_BASIC_KEY = "enemy_basic";
+    static constexpr const char* ENEMY_TRACKER_KEY = "enemy_tracker";
+    static constexpr const char* ENEMY_ZIGZAG_KEY = "enemy_zigzag";
+    static constexpr const char* ENEMY_FAST_KEY = "enemy_fast";
+    static constexpr const char* ENEMY_BOMBER_KEY = "enemy_bomber";
+
+    // Helper to get texture key based on enemy type
+    std::string getEnemyTextureKey(uint8_t enemyType) const;
+
+    // Boss rendering constants (Gameplay Phase 2)
+    static constexpr float BOSS_WIDTH = 150.0f;
+    static constexpr float BOSS_HEIGHT = 120.0f;
+    static constexpr const char* BOSS_TEXTURE_KEY = "boss";
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;

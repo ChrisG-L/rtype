@@ -25,6 +25,9 @@ set(TEST_SOURCES
 
     # Tests Network - Voice Protocol
     network/VoiceProtocolTest.cpp
+
+    # Tests Game - Gameplay Phase 2 (Score, Boss, Weapons)
+    game/GameplayTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests

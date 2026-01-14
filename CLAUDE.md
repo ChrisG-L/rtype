@@ -105,12 +105,18 @@ Binary protocol over UDP with network byte order (big-endian). All messages star
 |------|-------|-----------|---------|-------------|
 | `HeartBeat` | 0x0001 | Both | - | Keep-alive |
 | `Snapshot` | 0x0040 | S→C | GameSnapshot | Full game state (20Hz) |
-| `MovePlayer` | 0x0060 | C→S | x, y (4B) | Player position update |
+| `PlayerInput` | 0x0061 | C→S | keys, seq (4B) | Input bitfield + sequence |
 | `PlayerJoin` | 0x0070 | S→C | player_id (1B) | New player joined |
 | `PlayerLeave` | 0x0071 | S→C | player_id (1B) | Player disconnected |
 | `ShootMissile` | 0x0080 | C→S | - | Fire missile request |
-| `MissileSpawned` | 0x0081 | S→C | MissileState (7B) | Missile created |
+| `MissileSpawned` | 0x0081 | S→C | MissileState (8B) | Missile created |
 | `MissileDestroyed` | 0x0082 | S→C | missile_id (2B) | Missile removed |
+| `ScoreUpdate` | 0x00B0 | S→C | - | Score system (in snapshot) |
+| `BossSpawn` | 0x00C0 | S→C | BossState | Boss appeared |
+| `BossPhaseChange` | 0x00C1 | S→C | phase (1B) | Boss phase changed |
+| `BossDefeated` | 0x00C2 | S→C | - | Boss killed |
+| `SwitchWeapon` | 0x00D0 | C→S | direction (1B) | Change weapon |
+| `WeaponChanged` | 0x00D1 | S→C | weapon_type (1B) | Weapon confirmed |
 | `VoiceJoin` | 0x0300 | C→S | VoiceJoin (38B) | Join voice channel |
 | `VoiceJoinAck` | 0x0301 | S→C | player_id (1B) | Voice join confirmed |
 | `VoiceLeave` | 0x0302 | C→S | player_id (1B) | Leave voice channel |
@@ -127,27 +133,49 @@ struct UDPHeader {
     uint64_t timestamp;     // Milliseconds since epoch
 };
 
-// PlayerState (7 bytes)
+// PlayerState (18 bytes) - Includes score and weapon
 struct PlayerState {
     uint8_t id;
     uint16_t x, y;
     uint8_t health;         // 0-100
     uint8_t alive;          // 0 or 1
+    uint16_t lastAckedInputSeq;  // Client-side prediction
+    uint8_t shipSkin;       // 1-6
+    uint32_t score;         // Total score
+    uint16_t kills;         // Kill count
+    uint8_t combo;          // Combo x10 (15 = 1.5x)
+    uint8_t currentWeapon;  // WeaponType enum
 };
 
-// MissileState (7 bytes)
+// MissileState (8 bytes) - Includes weapon type
 struct MissileState {
     uint16_t id;
     uint8_t owner_id;
     uint16_t x, y;
+    uint8_t weapon_type;    // WeaponType enum
+};
+
+// BossState (12 bytes) - Boss fight data
+struct BossState {
+    uint16_t id;
+    uint16_t x, y;
+    uint16_t max_health;
+    uint16_t health;
+    uint8_t phase;          // 0, 1, 2
+    uint8_t is_active;      // 0 or 1
 };
 
 // GameSnapshot (variable size) - Broadcast at 20Hz
 struct GameSnapshot {
     uint8_t player_count;
-    PlayerState players[MAX_PLAYERS];  // MAX_PLAYERS = 4
+    PlayerState players[MAX_PLAYERS];      // MAX_PLAYERS = 4
     uint8_t missile_count;
-    MissileState missiles[MAX_MISSILES]; // MAX_MISSILES = 32
+    MissileState missiles[MAX_MISSILES];   // MAX_MISSILES = 32
+    uint8_t enemy_count;
+    EnemyState enemies[MAX_ENEMIES];       // MAX_ENEMIES = 16
+    uint16_t wave_number;
+    uint8_t has_boss;
+    BossState boss_state;                  // If has_boss
 };
 
 // VoiceFrame (5-485 bytes) - Opus-encoded audio
@@ -350,6 +378,41 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | `OPUS_SAMPLE_RATE` | 48000 Hz | OpusCodec.hpp |
 | `OPUS_FRAME_SIZE` | 960 samples | OpusCodec.hpp |
 | `AUDIO_DEVICE_NAME_LEN` | 64 bytes | Protocol.hpp |
+
+### Boss System Constants
+
+| Constant | Value | Location |
+|----------|-------|----------|
+| `BOSS_SPAWN_WAVE` | 10 | GameWorld.hpp |
+| `BOSS_MAX_HEALTH` | 1000 | GameWorld.hpp |
+| `BOSS_WIDTH/HEIGHT` | 150.0f / 120.0f | GameScene.hpp |
+| `BOSS_PHASE1_THRESHOLD` | 65% HP | GameWorld.hpp |
+| `BOSS_PHASE2_THRESHOLD` | 30% HP | GameWorld.hpp |
+| `BOSS_ENRAGE_THRESHOLD` | 20% HP | GameWorld.hpp |
+| `BOSS_ATTACK_COOLDOWN` | 2.0s (base) | GameWorld.hpp |
+
+### Weapon System Constants
+
+| Constant | Value | Location |
+|----------|-------|----------|
+| `WeaponType::Standard` | 0 | Protocol.hpp |
+| `WeaponType::Spread` | 1 | Protocol.hpp |
+| `WeaponType::Laser` | 2 | Protocol.hpp |
+| `WeaponType::Missile` | 3 | Protocol.hpp |
+| `MAX_WEAPON_TYPES` | 4 | Protocol.hpp |
+| `SPREAD_ANGLE` | 15.0f deg | GameWorld.hpp |
+| `LASER_SPEED_MULT` | 1.5x | GameWorld.hpp |
+| `HOMING_TURN_RATE` | 2.0f rad/s | GameWorld.hpp |
+
+### Score System Constants
+
+| Constant | Value | Location |
+|----------|-------|----------|
+| `ENEMY_KILL_SCORE` | 100 | GameWorld.hpp |
+| `BOSS_DEFEAT_SCORE` | 5000 | GameWorld.hpp |
+| `COMBO_DECAY_TIME` | 3.0s | GameWorld.hpp |
+| `COMBO_MAX_MULT` | 3.0x (30) | GameWorld.hpp |
+| `COMBO_INCREMENT` | 0.1x per kill | GameWorld.hpp |
 
 ## Assets
 
