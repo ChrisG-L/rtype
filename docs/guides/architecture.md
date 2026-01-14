@@ -16,13 +16,13 @@
 ### Infrastructure Réseau ✅
 - **UDPServer** - Serveur UDP asynchrone sur port **4124** (gameplay temps réel, broadcast 20Hz)
 - **UDPClient** - Client UDP thread-safe (Boost.ASIO)
-- **Protocol binaire** - 14 types de messages avec network byte order
+- **Protocol binaire** - 62 types de messages avec network byte order
 - **Documentation complète:** [Network Architecture](network-architecture.md)
 
 ### Architecture Hexagonale ✅
-- **Domain Layer** - Entités (Player, User), Value Objects (9 VOs), Exceptions (10)
-- **Application Layer** - Use Cases (Move, Login, Register), Ports (IGameCommands, IPlayerRepository)
-- **Infrastructure Layer** - GameWorld, UDPServer, Collision System
+- **Domain Layer** - Entités (Player, User, Room), Value Objects (10 VOs), Exceptions (15)
+- **Application Layer** - Use Cases (Login, Register), Ports OUT (IUserRepository, IUserSettingsRepository, IChatMessageRepository, IIdGenerator, ILogger)
+- **Infrastructure Layer** - GameWorld (PlayerInput), UDPServer, VoiceUDPServer, Collision System
 - **Documentation complète:** [Hexagonal Architecture](hexagonal-architecture.md)
 
 ### Client Graphique Multi-Backend ✅
@@ -56,7 +56,7 @@ R-Type est un projet C++23 moderne structuré en architecture client-serveur ave
 
 ```mermaid
 graph TB
-    subgraph "Client (62 fichiers)"
+    subgraph "Client (93 fichiers)"
         Boot[Boot] --> Engine
         Engine --> GameLoop[GameLoop 60 FPS]
         GameLoop --> SceneManager
@@ -66,7 +66,7 @@ graph TB
         GameScene --> AccessConfig[AccessibilityConfig]
     end
 
-    subgraph "Serveur (45 fichiers)"
+    subgraph "Serveur (106 fichiers)"
         UDPServer[UDPServer :4124]
         UDPServer --> GameWorld
         GameWorld --> Collision[AABB Collision]
@@ -215,7 +215,7 @@ graph TB
 - `src/server/main.cpp` - Point d'entrée
 - `src/server/CMakeLists.txt` - Configuration build
 
-### Client (✅ Implémenté - 62 fichiers)
+### Client (✅ Implémenté - 93 fichiers)
 
 **Responsabilités :**
 
@@ -544,7 +544,7 @@ docker-compose -f ci_cd/docker/docker-compose.docs.yml up
 ### Moyen terme
 
 - [x] ~~Client graphique (SFML/SDL)~~ ✅ Multi-backend
-- [x] ~~Protocole réseau custom~~ ✅ (14 types de messages)
+- [x] ~~Protocole réseau custom~~ ✅ (62 types de messages)
 - [ ] Power-ups et bonus
 - [ ] Niveaux et progression
 - [ ] Matchmaking et lobby

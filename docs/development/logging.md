@@ -71,7 +71,7 @@ auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
 
 **Exemple:**
 ```
-[2025-11-20 22:45:12.345] [info] [Network] Connecting to 127.0.0.1:4123...
+[2025-11-20 22:45:12.345] [info] [Network] Connecting to 127.0.0.1:4125...
 [2025-11-20 22:45:12.456] [debug] [Network] IO thread started
 [2025-11-20 22:45:12.567] [info] [Boot] Connected to server!
 ```

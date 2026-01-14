@@ -14,7 +14,7 @@ Le serveur R-Type utilise une architecture reseau **hybride UDP/TCP** avec Boost
 
 | Protocole | Port | Utilisation | Raison |
 |-----------|------|-------------|--------|
-| **TCP** | 4123 | Authentification (Login/Register) | **Fiabilite** - Les donnees doivent arriver dans l'ordre |
+| **TCP/TLS** | 4125 | Authentification (Login/Register) | **Fiabilite + Securite** - TLS 1.2+ pour credentials |
 | **UDP** | 4124 | Positions, mouvements, actions de jeu | **Vitesse** - Pas besoin de fiabilite, les anciennes donnees sont obsoletes |
 | **UDP** | 4126 | Chat vocal (VoiceFrame Opus) | **Temps reel** - Audio ne doit pas etre retarde |
 
@@ -25,12 +25,12 @@ Le serveur R-Type utilise une architecture reseau **hybride UDP/TCP** avec Boost
 ```mermaid
 graph TB
     subgraph "Client R-Type"
-        CT[TCPClient<br/>Port 4123]
+        CT[TCPClient<br/>Port 4125 TLS]
         CU[UDPClient<br/>Port 4124]
     end
 
     subgraph "Serveur R-Type"
-        TCP[TCPServer + Session<br/>infrastructure/adapters/in/network]
+        TCP[TCPAuthServer + Session<br/>infrastructure/adapters/in/network]
         UDP[UDPServer<br/>infrastructure/adapters/in/network]
         VOICE[VoiceUDPServer<br/>Port 4126 - Relay audio]
         EX[Execute Dispatcher<br/>execute/]
@@ -103,7 +103,7 @@ Total: 12 bytes (WIRE_SIZE)
 | BasicAck | 0x0031 | - | Reserve |
 | Snapshot | 0x0040 | S → C | Etat complet du jeu (20Hz) |
 | Player | 0x0050 | - | Reserve |
-| MovePlayer | 0x0060 | C → S | Position joueur (4 bytes) |
+| PlayerInput | 0x0061 | C → S | Commandes joueur (4 bytes bitfield) |
 | PlayerJoin | 0x0070 | S → C | Nouveau joueur connecte (1 byte) |
 | PlayerLeave | 0x0071 | S → C | Joueur deconnecte (1 byte) |
 | ShootMissile | 0x0080 | C → S | Demande de tir (0 byte) |
@@ -142,13 +142,22 @@ struct RegisterMessage {
 };
 ```
 
-#### MovePlayer (4 bytes)
+#### PlayerInput (4 bytes)
 
 ```cpp
-struct MovePlayer {
-    uint16_t x;  // 2 bytes, Big-endian
-    uint16_t y;  // 2 bytes, Big-endian
+struct PlayerInput {
+    uint16_t keys;        // Bitfield (Up/Down/Left/Right/Shoot)
+    uint16_t sequenceNum; // Pour reconciliation client-side prediction
 };
+
+// InputKeys namespace
+namespace InputKeys {
+    constexpr uint16_t Up    = 0x01;
+    constexpr uint16_t Down  = 0x02;
+    constexpr uint16_t Left  = 0x04;
+    constexpr uint16_t Right = 0x08;
+    constexpr uint16_t Shoot = 0x10;
+}
 ```
 
 #### PlayerJoin (1 byte)
@@ -390,9 +399,9 @@ sequenceDiagram
     S->>C: GameStart
 
     loop Game Loop (20Hz)
-        Note over C,S: Mouvement
-        C->>S: MovePlayer(x, y)
-        S->>GW: updatePlayerPosition()
+        Note over C,S: Input
+        C->>S: PlayerInput(keys, seq)
+        S->>GW: processInput()
 
         Note over C,S: Tir
         C->>S: ShootMissile
@@ -439,15 +448,15 @@ UDPHeader:
    0        1        2        3        4        5        6        7        8        9       10       11
 ```
 
-**Exemple: Message MovePlayer**
+**Exemple: Message PlayerInput**
 ```
 Offset  Valeur   Description
 ------  -------  -----------
-0-1     0x00 60  type = MovePlayer (0x0060)
+0-1     0x00 61  type = PlayerInput (0x0061)
 2-3     0x00 0A  sequence_num = 10
 4-11    ...      timestamp (ms depuis epoch)
-12-13   0x01 90  x = 400
-14-15   0x00 C8  y = 200
+12-13   0x00 09  keys = Up(0x01) + Right(0x08) = 0x09
+14-15   0x00 42  inputSeqNum = 66
 ```
 
 ---
@@ -554,23 +563,19 @@ private:
 };
 ```
 
-### Flux Mouvement Joueur
+### Flux Input Joueur
 
 ```mermaid
 sequenceDiagram
     participant C as Client UDP
     participant U as UDPServer
-    participant E as Execute
-    participant EP as ExecutePlayer
-    participant M as Move UseCase
+    participant GW as GameWorld
 
-    C->>U: UDPHeader(type=MovePlayer) + MovePlayer(x,y)
+    C->>U: UDPHeader(type=PlayerInput) + PlayerInput(keys, seq)
     U->>U: handle_receive()
-    U->>E: Execute(cmd)
-    E->>EP: ExecutePlayer::move()
-    EP->>M: Move::execute(playerId, x, y, 0)
-    M->>M: Update ECS (futur)
-    U->>C: UDPHeader(type=Snapshot) + GameState
+    U->>GW: processPlayerInput(playerId, keys)
+    GW->>GW: updatePlayerPosition()
+    U->>C: UDPHeader(type=Snapshot) + GameSnapshot
 ```
 
 ---
@@ -606,7 +611,7 @@ Command.type
     |                               +-- LoginAck --> Login::execute()
     |                               +-- RegisterAck --> Register::execute()
     |
-    +-- MovePlayer --> ExecutePlayer
+    +-- PlayerInput --> GameWorld
                            |
                            +-- MovePlayer --> Move::execute()
 ```
@@ -651,8 +656,8 @@ class UDPClient {
 TCPClient tcpClient;
 UDPClient udpClient;
 
-tcpClient.connect("127.0.0.1", 4123);
-udpClient.connect(tcpClient, "127.0.0.1", 4124);
+tcpClient.connect("127.0.0.1", 4125);  // TCP/TLS auth
+udpClient.connect(tcpClient, "127.0.0.1", 4124);  // UDP gameplay
 
 Engine::initialize(tcpClient, udpClient);
 Engine::run();
@@ -707,7 +712,7 @@ inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
 
 | Service | Port | Protocole |
 |---------|------|-----------|
-| Authentification | 4123 | TCP |
+| Authentification | 4125 | TCP/TLS |
 | Gameplay | 4124 | UDP |
 | Chat Vocal | 4126 | UDP |
 
@@ -736,8 +741,8 @@ TEST(TCPIntegrationTest, LoginFlow) {
 ### Integration UDP
 
 ```cpp
-TEST(UDPIntegrationTest, MovePlayer) {
-    // Test envoi/reception MovePlayer
+TEST(UDPIntegrationTest, PlayerInput) {
+    // Test envoi/reception PlayerInput
 }
 ```
 
@@ -748,7 +753,7 @@ TEST(UDPIntegrationTest, MovePlayer) {
 | Fichier | Description |
 |---------|-------------|
 | `src/common/protocol/Protocol.hpp` | Structures protocole binaire |
-| `src/server/infrastructure/adapters/in/network/TCPServer.cpp` | Serveur TCP + Session |
+| `src/server/infrastructure/adapters/in/network/TCPAuthServer.cpp` | Serveur TCP/TLS + Session |
 | `src/server/infrastructure/adapters/in/network/UDPServer.cpp` | Serveur UDP |
 | `src/server/infrastructure/adapters/in/network/execute/Execute.cpp` | Command dispatcher |
 | `src/client/src/network/TCPClient.cpp` | Client TCP |

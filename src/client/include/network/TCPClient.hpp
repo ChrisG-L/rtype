@@ -9,6 +9,7 @@
 #define TCPCLIENT_HPP_
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <string>
 #include <cstdint>
 #include <thread>
@@ -24,6 +25,7 @@
 namespace client::network
 {
     using boost::asio::ip::tcp;
+    namespace ssl = boost::asio::ssl;
 
     class TCPClient
     {
@@ -117,9 +119,13 @@ namespace client::network
         void scheduleHeartbeat();
         void sendHeartbeat();
 
-        // Contexte et socket
+        // SSL initialization
+        void initSSLContext();
+
+        // Contexte et socket (TLS)
         boost::asio::io_context _ioContext;
-        tcp::socket _socket;
+        ssl::context _sslContext;
+        ssl::stream<tcp::socket> _socket;
         std::jthread _ioThread;
 
         // HeartBeat timer

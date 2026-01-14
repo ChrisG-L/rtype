@@ -8,7 +8,7 @@ R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **H
 
 | Component | Technology | Port |
 |-----------|------------|------|
-| Server | C++23, Boost.ASIO | UDP 4124 (game), UDP 4126 (voice) |
+| Server | C++23, Boost.ASIO | TCP 4125 (auth/TLS), UDP 4124 (game), UDP 4126 (voice) |
 | Client | C++23, SFML/SDL2 (multi-backend) | - |
 | Build | CMake 3.30+, Ninja, vcpkg, Nix | - |
 
@@ -25,9 +25,8 @@ rtype/
 │   │   │   │   ├── exceptions/          # DomainException, etc.
 │   │   │   │   └── services/            # GameRule
 │   │   │   ├── application/             # Use cases, ports
-│   │   │   │   ├── use_cases/player/    # Move
-│   │   │   │   ├── ports/in/            # IGameCommands
-│   │   │   │   └── ports/out/           # IPlayerRepository
+│   │   │   │   ├── use_cases/auth/      # Login, Register
+│   │   │   │   └── ports/out/           # IUserRepository, IUserSettingsRepository, ILogger, etc.
 │   │   │   └── infrastructure/          # Adapters, network, game
 │   │   │       ├── adapters/in/network/ # UDPServer
 │   │   │       ├── game/                # GameWorld (missiles, players)
@@ -347,7 +346,7 @@ class GameWorld {
 
 Network adapter (`src/server/infrastructure/adapters/in/network/UDPServer.hpp`):
 
-- Handles incoming messages (MovePlayer, ShootMissile)
+- Handles incoming messages (PlayerInput, ShootMissile)
 - Broadcasts GameSnapshot at 20Hz
 - Broadcasts MissileSpawned/MissileDestroyed events
 
@@ -446,6 +445,42 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 | **VoiceUDPServer** | `src/server/infrastructure/adapters/in/network/VoiceUDPServer.cpp` |
 | **VoiceChatManager** | `src/client/src/audio/VoiceChatManager.cpp` |
 | **OpusCodec** | `src/client/src/audio/OpusCodec.cpp` |
+| **TCPAuthServer** | `src/server/infrastructure/adapters/in/network/TCPAuthServer.cpp` |
+| **TCPClient** | `src/client/src/network/TCPClient.cpp` |
+| **SessionManager** | `src/server/infrastructure/session/SessionManager.cpp` |
+
+## TLS Security
+
+Authentication traffic (TCP port 4125) is encrypted using TLS 1.2+.
+
+### Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Port | TCP 4125 |
+| Protocol | TLS 1.2 minimum |
+| Cipher Suites | ECDHE + AES-GCM / ChaCha20-Poly1305 |
+| Certificate | `certs/server.crt` (auto-generated for dev) |
+| Private Key | `certs/server.key` (auto-generated for dev) |
+
+### Certificate Generation
+
+```bash
+./scripts/generate_dev_certs.sh        # Creates certs/ directory
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TLS_CERT_FILE` | `certs/server.crt` | Path to TLS certificate |
+| `TLS_KEY_FILE` | `certs/server.key` | Path to TLS private key |
+
+### Security Notes
+
+- Session tokens are generated using OpenSSL `RAND_bytes()` (CSPRNG)
+- Client uses `verify_none` for self-signed certificates (development only)
+- In production, use `verify_peer` with proper CA certificates
 
 ## Coding Conventions
 

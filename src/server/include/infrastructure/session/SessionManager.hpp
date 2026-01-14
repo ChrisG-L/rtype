@@ -14,7 +14,6 @@
 #include <unordered_set>
 #include <mutex>
 #include <chrono>
-#include <random>
 #include <functional>
 #include "Protocol.hpp"
 
@@ -216,12 +215,8 @@ private:
     // Callback for player leaving game (called to notify UDPServer)
     PlayerLeaveGameCallback _playerLeaveGameCallback;
 
-    // Generates a cryptographically random token
+    // Generates a cryptographically secure random token using OpenSSL RAND_bytes
     SessionToken generateToken();
-
-    // Random number generator for token generation
-    std::random_device _rd;
-    std::mt19937_64 _rng{_rd()};
 };
 
 } // namespace infrastructure::session

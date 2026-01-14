@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <openssl/ssl.h>
 
 namespace infrastructure::adapters::in::network {
     static constexpr int CLIENT_TIMEOUT_MS = 2000;
@@ -20,7 +21,7 @@ namespace infrastructure::adapters::in::network {
 
     // Session implementation
     Session::Session(
-        tcp::socket socket,
+        ssl::stream<tcp::socket> socket,
         std::shared_ptr<IUserRepository> userRepository,
         std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
         std::shared_ptr<IIdGenerator> idGenerator,
@@ -68,6 +69,13 @@ namespace infrastructure::adapters::in::network {
             }
         } else {
             logger->debug("Session closed (unauthenticated)");
+        }
+
+        // SSL shutdown (graceful close)
+        boost::system::error_code ec;
+        _socket.shutdown(ec);
+        if (ec && ec != boost::asio::error::eof && ec != boost::asio::ssl::error::stream_truncated) {
+            logger->debug("SSL shutdown notice: {}", ec.message());
         }
     }
 
@@ -242,7 +250,7 @@ namespace infrastructure::adapters::in::network {
                 logger->warn("TCP Client heartbeat timeout ({}ms) - closing session", elapsed);
 
                 boost::system::error_code closeEc;
-                _socket.close(closeEc);
+                _socket.lowest_layer().close(closeEc);
                 return;
             }
 
@@ -500,19 +508,71 @@ namespace infrastructure::adapters::in::network {
     // TCPAuthServer implementation
     TCPAuthServer::TCPAuthServer(
         boost::asio::io_context& io_ctx,
+        const std::string& certFile,
+        const std::string& keyFile,
         std::shared_ptr<IUserRepository> userRepository,
         std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
         std::shared_ptr<RoomManager> roomManager)
-        : _io_ctx(io_ctx), _userRepository(userRepository),
-          _userSettingsRepository(userSettingsRepository),
-          _idGenerator(idGenerator), _logger(logger),
-          _sessionManager(sessionManager), _roomManager(roomManager),
-          _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4125)) {
+        : _io_ctx(io_ctx)
+        , _sslContext(ssl::context::tlsv12_server)
+        , _certFile(certFile)
+        , _keyFile(keyFile)
+        , _userRepository(userRepository)
+        , _userSettingsRepository(userSettingsRepository)
+        , _idGenerator(idGenerator)
+        , _logger(logger)
+        , _sessionManager(sessionManager)
+        , _roomManager(roomManager)
+        , _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4125))
+    {
+        initSSLContext();
+
         auto networkLogger = server::logging::Logger::getNetworkLogger();
-        networkLogger->info("TCP Auth Server started on port 4125");
+        networkLogger->info("TCP Auth Server started on port 4125 with TLS 1.2+");
+    }
+
+    void TCPAuthServer::initSSLContext() {
+        auto networkLogger = server::logging::Logger::getNetworkLogger();
+
+        // Disable obsolete protocols (SSLv2, SSLv3, TLS 1.0, TLS 1.1)
+        _sslContext.set_options(
+            ssl::context::default_workarounds |
+            ssl::context::no_sslv2 |
+            ssl::context::no_sslv3 |
+            ssl::context::no_tlsv1 |
+            ssl::context::no_tlsv1_1 |
+            ssl::context::single_dh_use
+        );
+
+        // Force TLS 1.2 minimum
+        SSL_CTX_set_min_proto_version(_sslContext.native_handle(), TLS1_2_VERSION);
+
+        // Load certificate and private key
+        try {
+            _sslContext.use_certificate_chain_file(_certFile);
+            networkLogger->info("TLS Certificate loaded: {}", _certFile);
+
+            _sslContext.use_private_key_file(_keyFile, ssl::context::pem);
+            networkLogger->info("TLS Private key loaded: {}", _keyFile);
+        } catch (const std::exception& e) {
+            networkLogger->error("Failed to load TLS certificates: {}", e.what());
+            throw;
+        }
+
+        // Modern cipher suites (AEAD only, forward secrecy)
+        SSL_CTX_set_cipher_list(_sslContext.native_handle(),
+            "ECDHE-ECDSA-AES256-GCM-SHA384:"
+            "ECDHE-RSA-AES256-GCM-SHA384:"
+            "ECDHE-ECDSA-AES128-GCM-SHA256:"
+            "ECDHE-RSA-AES128-GCM-SHA256:"
+            "ECDHE-ECDSA-CHACHA20-POLY1305:"
+            "ECDHE-RSA-CHACHA20-POLY1305"
+        );
+
+        networkLogger->info("TLS context initialized successfully");
     }
 
     void TCPAuthServer::start() {
@@ -530,16 +590,54 @@ namespace infrastructure::adapters::in::network {
     void TCPAuthServer::start_accept() {
         auto networkLogger = server::logging::Logger::getNetworkLogger();
 
+        // Create a new ssl::stream for each incoming connection
+        auto sslSocket = std::make_shared<ssl::stream<tcp::socket>>(_io_ctx, _sslContext);
+
         _acceptor.async_accept(
-            [this, networkLogger](boost::system::error_code ec, tcp::socket socket) {
+            sslSocket->lowest_layer(),  // Accept on the underlying TCP socket
+            [this, sslSocket, networkLogger](boost::system::error_code ec) {
                 if (ec) {
                     if (ec != boost::asio::error::operation_aborted) {
                         networkLogger->error("Accept error: {}", ec.message());
                     }
+                    // Continue accepting even on error
+                    start_accept();
                     return;
                 }
-                networkLogger->info("TCP New connection accepted!");
-                std::make_shared<Session>(std::move(socket), _userRepository, _userSettingsRepository, _idGenerator, _logger, _sessionManager, _roomManager)->start();
+
+                auto clientEndpoint = sslSocket->lowest_layer().remote_endpoint();
+                networkLogger->debug("TCP connection from {}, starting TLS handshake...",
+                    clientEndpoint.address().to_string());
+
+                // Async TLS handshake
+                sslSocket->async_handshake(
+                    ssl::stream_base::server,
+                    [this, sslSocket, networkLogger, clientEndpoint](boost::system::error_code hsError) {
+                        if (hsError) {
+                            networkLogger->warn("TLS handshake failed from {}: {}",
+                                clientEndpoint.address().to_string(), hsError.message());
+                            // Don't create session if handshake fails
+                            return;
+                        }
+
+                        networkLogger->info("TLS handshake successful from {}",
+                            clientEndpoint.address().to_string());
+
+                        // Create the session with the secured SSL socket
+                        auto session = std::make_shared<Session>(
+                            std::move(*sslSocket),
+                            _userRepository,
+                            _userSettingsRepository,
+                            _idGenerator,
+                            _logger,
+                            _sessionManager,
+                            _roomManager
+                        );
+                        session->start();
+                    }
+                );
+
+                // Continue accepting new connections
                 start_accept();
             }
         );

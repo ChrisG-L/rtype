@@ -89,8 +89,22 @@ namespace infrastructure::bootstrap {
                 // Create shared RoomManager for room/lobby management (with chat persistence)
                 auto roomManager = std::make_shared<RoomManager>(chatMessageRepo);
 
-                // Start TCP Auth Server on port 4125
-                TCPAuthServer tcpAuthServer(io_ctx, userRepo, userSettingsRepo, idGenerator, logger, sessionManager, roomManager);
+                // Get TLS certificate paths from environment variables or use defaults
+                const char* certFile = std::getenv("TLS_CERT_FILE");
+                const char* keyFile = std::getenv("TLS_KEY_FILE");
+
+                // Start TCP Auth Server on port 4125 with TLS
+                TCPAuthServer tcpAuthServer(
+                    io_ctx,
+                    certFile ? certFile : "certs/server.crt",
+                    keyFile ? keyFile : "certs/server.key",
+                    userRepo,
+                    userSettingsRepo,
+                    idGenerator,
+                    logger,
+                    sessionManager,
+                    roomManager
+                );
                 tcpAuthServer.start();
 
                 // Start UDP Game Server on port 4124 (shares SessionManager with TCP)

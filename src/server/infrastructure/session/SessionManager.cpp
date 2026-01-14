@@ -7,18 +7,21 @@
 
 #include "infrastructure/session/SessionManager.hpp"
 #include <algorithm>
+#include <stdexcept>
+#include <openssl/rand.h>
 
 namespace infrastructure::session {
 
 SessionToken SessionManager::generateToken() {
     SessionToken token;
-    // Generate 32 bytes of random data using mt19937_64
-    // Each call to _rng() produces 8 bytes
-    for (size_t i = 0; i < TOKEN_SIZE; i += 8) {
-        uint64_t val = _rng();
-        size_t remaining = std::min(static_cast<size_t>(8), TOKEN_SIZE - i);
-        std::memcpy(token.bytes + i, &val, remaining);
+
+    // Use OpenSSL CSPRNG (cryptographically secure)
+    // RAND_bytes returns 1 on success, 0 on failure
+    if (RAND_bytes(token.bytes, TOKEN_SIZE) != 1) {
+        // Extremely rare - system has insufficient entropy
+        throw std::runtime_error("CSPRNG failure: cannot generate secure session token");
     }
+
     return token;
 }
 
