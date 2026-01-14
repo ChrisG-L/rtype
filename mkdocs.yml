@@ -175,6 +175,20 @@ nav:
       - Abstraction: technique/graphiques/abstraction.md
       - SDL2: technique/graphiques/sdl2.md
       - SFML: technique/graphiques/sfml.md
+      - Shaders: technique/graphiques/shaders.md
+    - Audio:
+      - technique/audio/index.md
+      - Voice Chat: technique/audio/voice-chat.md
+      - SFX & Musique: technique/audio/sfx-music.md
+    - Gameplay:
+      - technique/gameplay/index.md
+      - GameWorld: technique/gameplay/game-world.md
+      - Entités: technique/gameplay/entites.md
+      - Collisions: technique/gameplay/collisions.md
+      - Prédiction: technique/gameplay/prediction.md
+    - Persistance:
+      - technique/persistance/index.md
+      - MongoDB: technique/persistance/mongodb.md
     - API Reference: technique/api/index.md
   - Référence:
     - reference/index.md
