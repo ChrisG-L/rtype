@@ -73,6 +73,41 @@ std::optional<SessionManager::CreateSessionResult> SessionManager::createSession
     };
 }
 
+std::optional<SessionManager::ValidateResult> SessionManager::validateToken(
+    const SessionToken& token)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    std::string tokenHex = token.toHex();
+
+    // Find session by token
+    auto tokenIt = _tokenToEmail.find(tokenHex);
+    if (tokenIt == _tokenToEmail.end()) {
+        return std::nullopt;  // Token not found
+    }
+
+    const std::string& email = tokenIt->second;
+    auto sessionIt = _sessionsByEmail.find(email);
+    if (sessionIt == _sessionsByEmail.end()) {
+        // Inconsistent state - clean up
+        _tokenToEmail.erase(tokenIt);
+        return std::nullopt;
+    }
+
+    const Session& session = sessionIt->second;
+
+    // Check if session is active (must have connected to game first)
+    if (session.status != Session::Status::Active) {
+        return std::nullopt;
+    }
+
+    return ValidateResult{
+        .email = session.email,
+        .displayName = session.displayName,
+        .playerId = session.playerId.value_or(0)
+    };
+}
+
 std::optional<SessionManager::ValidateResult> SessionManager::validateAndBindUDP(
     const SessionToken& token,
     const std::string& endpoint)
@@ -123,7 +158,8 @@ std::optional<SessionManager::ValidateResult> SessionManager::validateAndBindUDP
 
     return ValidateResult{
         .email = session.email,
-        .displayName = session.displayName
+        .displayName = session.displayName,
+        .playerId = session.playerId.value_or(0)
     };
 }
 

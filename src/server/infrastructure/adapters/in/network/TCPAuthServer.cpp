@@ -1314,7 +1314,18 @@ namespace infrastructure::adapters::in::network {
             resp.settings.gameSpeedPercent = settingsOpt->gameSpeedPercent;
             std::memcpy(resp.settings.keyBindings, settingsOpt->keyBindings.data(), KEY_BINDINGS_COUNT);
             resp.settings.shipSkin = settingsOpt->shipSkin;
-            logger->debug("GetUserSettings: found settings for {}", email);
+            // Voice settings
+            resp.settings.voiceMode = settingsOpt->voiceMode;
+            resp.settings.vadThreshold = settingsOpt->vadThreshold;
+            resp.settings.micGain = settingsOpt->micGain;
+            resp.settings.voiceVolume = settingsOpt->voiceVolume;
+            // Audio device selection
+            std::strncpy(resp.settings.audioInputDevice, settingsOpt->audioInputDevice.c_str(), AUDIO_DEVICE_NAME_LEN);
+            resp.settings.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+            std::strncpy(resp.settings.audioOutputDevice, settingsOpt->audioOutputDevice.c_str(), AUDIO_DEVICE_NAME_LEN);
+            resp.settings.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+            logger->debug("GetUserSettings: found settings for {} (input='{}', output='{}')",
+                email, settingsOpt->audioInputDevice, settingsOpt->audioOutputDevice);
         } else {
             resp.found = 0;
             // Return defaults
@@ -1324,6 +1335,14 @@ namespace infrastructure::adapters::in::network {
             defaults.setDefaultKeyBindings();
             std::memcpy(resp.settings.keyBindings, defaults.keyBindings.data(), KEY_BINDINGS_COUNT);
             resp.settings.shipSkin = defaults.shipSkin;
+            // Voice defaults
+            resp.settings.voiceMode = 0;  // PTT
+            resp.settings.vadThreshold = 2;
+            resp.settings.micGain = 100;
+            resp.settings.voiceVolume = 100;
+            // Audio device defaults (empty = auto)
+            resp.settings.audioInputDevice[0] = '\0';
+            resp.settings.audioOutputDevice[0] = '\0';
             logger->debug("GetUserSettings: no settings found for {}, returning defaults", email);
         }
 
@@ -1359,10 +1378,19 @@ namespace infrastructure::adapters::in::network {
         data.gameSpeedPercent = reqOpt->settings.gameSpeedPercent;
         std::memcpy(data.keyBindings.data(), reqOpt->settings.keyBindings, KEY_BINDINGS_COUNT);
         data.shipSkin = reqOpt->settings.shipSkin;
+        // Voice settings
+        data.voiceMode = reqOpt->settings.voiceMode;
+        data.vadThreshold = reqOpt->settings.vadThreshold;
+        data.micGain = reqOpt->settings.micGain;
+        data.voiceVolume = reqOpt->settings.voiceVolume;
+        // Audio device selection
+        data.audioInputDevice = std::string(reqOpt->settings.audioInputDevice);
+        data.audioOutputDevice = std::string(reqOpt->settings.audioOutputDevice);
 
         try {
             _userSettingsRepository->save(email, data);
-            logger->info("SaveUserSettings: saved settings for {}", email);
+            logger->info("SaveUserSettings: saved settings for {} (input='{}', output='{}')",
+                email, data.audioInputDevice, data.audioOutputDevice);
 
             // If player is in a room, update their ship skin and broadcast to other players
             if (_roomManager) {

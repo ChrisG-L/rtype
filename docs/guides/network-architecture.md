@@ -16,6 +16,7 @@ Le serveur R-Type utilise une architecture reseau **hybride UDP/TCP** avec Boost
 |-----------|------|-------------|--------|
 | **TCP** | 4123 | Authentification (Login/Register) | **Fiabilite** - Les donnees doivent arriver dans l'ordre |
 | **UDP** | 4124 | Positions, mouvements, actions de jeu | **Vitesse** - Pas besoin de fiabilite, les anciennes donnees sont obsoletes |
+| **UDP** | 4126 | Chat vocal (VoiceFrame Opus) | **Temps reel** - Audio ne doit pas etre retarde |
 
 ---
 
@@ -31,6 +32,7 @@ graph TB
     subgraph "Serveur R-Type"
         TCP[TCPServer + Session<br/>infrastructure/adapters/in/network]
         UDP[UDPServer<br/>infrastructure/adapters/in/network]
+        VOICE[VoiceUDPServer<br/>Port 4126 - Relay audio]
         EX[Execute Dispatcher<br/>execute/]
         EA[ExecuteAuth<br/>Login/Register]
         EP[ExecutePlayer<br/>Move]
@@ -113,6 +115,11 @@ Total: 12 bytes (WIRE_SIZE)
 | PlayerDied | 0x00A1 | S → C | Joueur mort (1 byte) |
 | GameStart | 0x00B0 | S → C | Debut de partie (0 byte) |
 | LobbyStatus | 0x00B1 | S → C | Etat du lobby (2 bytes) |
+| VoiceJoin | 0x0300 | C → S | Rejoindre channel vocal (38 bytes) |
+| VoiceJoinAck | 0x0301 | S → C | Confirmation (1 byte) |
+| VoiceLeave | 0x0302 | C → S | Quitter channel vocal (1 byte) |
+| VoiceFrame | 0x0303 | Bidirectionnel | Audio Opus encode (5-485 bytes) |
+| VoiceMute | 0x0304 | Bidirectionnel | Notification mute (2 bytes) |
 
 ### Structures de Messages
 
@@ -298,6 +305,69 @@ wire_size = 1 + player_count * 7
           + 1 + enemy_count * 8
           + 1 + enemy_missile_count * 7
 ```
+
+#### VoiceJoin (38 bytes)
+
+```cpp
+struct VoiceJoin {
+    SessionToken token;      // 32 bytes - Reutilise auth existante
+    char roomCode[6];        // 6 bytes - Code de la room
+};
+```
+
+#### VoiceFrame (5-485 bytes)
+
+Structure audio comprimee avec codec Opus (20ms de voix).
+
+```cpp
+struct VoiceFrame {
+    uint8_t speaker_id;       // 1 byte - ID du joueur qui parle
+    uint16_t sequence;        // 2 bytes - Detection perte paquets
+    uint16_t opus_len;        // 2 bytes - Taille donnees Opus
+    uint8_t opus_data[480];   // max 480 bytes - Audio Opus encode
+};
+
+// Constantes
+static constexpr uint16_t VOICE_UDP_PORT = 4126;
+static constexpr size_t MAX_OPUS_FRAME_SIZE = 480;
+```
+
+#### VoiceMute (2 bytes)
+
+```cpp
+struct VoiceMute {
+    uint8_t player_id;  // ID du joueur
+    uint8_t muted;      // 0 = unmuted, 1 = muted
+};
+```
+
+### Persistance des Parametres Audio
+
+Les preferences audio sont stockees dans UserSettingsPayload et synchronisees avec MongoDB :
+
+```cpp
+// UserSettingsPayload (ajouts voice chat)
+struct UserSettingsPayload {
+    // ... champs existants ...
+    uint8_t voiceMode;                        // 0 = PTT, 1 = VAD
+    uint8_t vadThreshold;                     // 0-100 (sensibilite)
+    uint8_t micGain;                          // 0-200 (gain micro)
+    uint8_t voiceVolume;                      // 0-100 (volume playback)
+    char audioInputDevice[64];                // Nom peripherique entree
+    char audioOutputDevice[64];               // Nom peripherique sortie
+
+    static constexpr size_t WIRE_SIZE = /* ... */ + 4 + 128;  // +4 voice params +128 device names
+};
+```
+
+| Champ | Taille | Description |
+|-------|--------|-------------|
+| voiceMode | 1 byte | 0=PushToTalk, 1=VoiceActivity |
+| vadThreshold | 1 byte | 0-100 (mappe vers 0.0-1.0) |
+| micGain | 1 byte | 0-200 (mappe vers 0.0-2.0) |
+| voiceVolume | 1 byte | 0-100 |
+| audioInputDevice | 64 bytes | Nom du peripherique d'entree (ou vide pour auto) |
+| audioOutputDevice | 64 bytes | Nom du peripherique de sortie (ou vide pour auto) |
 
 ---
 
@@ -639,6 +709,7 @@ inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
 |---------|------|-----------|
 | Authentification | 4123 | TCP |
 | Gameplay | 4124 | UDP |
+| Chat Vocal | 4126 | UDP |
 
 ### Buffer Size
 
@@ -682,6 +753,9 @@ TEST(UDPIntegrationTest, MovePlayer) {
 | `src/server/infrastructure/adapters/in/network/execute/Execute.cpp` | Command dispatcher |
 | `src/client/src/network/TCPClient.cpp` | Client TCP |
 | `src/client/src/network/UDPClient.cpp` | Client UDP |
+| `src/server/infrastructure/adapters/in/network/VoiceUDPServer.cpp` | Serveur Voice (relay) |
+| `src/client/src/audio/VoiceChatManager.cpp` | Client Voice Chat |
+| `src/client/src/audio/OpusCodec.cpp` | Encodeur/Decodeur Opus |
 
 ---
 
@@ -691,7 +765,8 @@ TEST(UDPIntegrationTest, MovePlayer) {
 2. ~~**Missiles et Combat** - Systeme de tir et collisions~~ ✅ Implemente
 3. ~~**Ennemis** - Spawn et destruction d'ennemis~~ ✅ Implemente
 4. ~~**Systeme de Lobby** - Attente des joueurs avant partie~~ ✅ Implemente
-5. **Interpolation** - Prediction cote client
+5. ~~**Chat Vocal** - Communication temps reel Opus/PortAudio~~ ✅ Implemente
+6. **Interpolation** - Prediction cote client
 6. **Reconnexion** - Gestion deconnexion/reconnexion
 7. **Chiffrement** - TLS pour TCP
 8. **Compression** - Delta compression pour snapshots
@@ -699,6 +774,6 @@ TEST(UDPIntegrationTest, MovePlayer) {
 
 ---
 
-**Derniere revision:** 15/12/2025
+**Derniere revision:** 13/01/2026
 **Auteur:** General + Claude Code
-**Statut:** A jour avec le code (v1.0.0)
+**Statut:** A jour avec le code (v1.1.0 - Audio device selection)

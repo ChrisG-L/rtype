@@ -100,6 +100,13 @@ namespace client::network
         float gameSpeed;                    // 0.5 to 2.0
         std::array<uint8_t, 12> keyBindings; // 6 actions × 2 keys
         uint8_t shipSkin;                   // Ship skin variant (1-6)
+        // Voice settings
+        uint8_t voiceMode;                  // 0 = PTT, 1 = VAD
+        uint8_t vadThreshold;               // 0-100
+        uint8_t micGain;                    // 0-200
+        uint8_t voiceVolume;                // 0-100
+        std::string audioInputDevice;       // Input device name (empty = auto)
+        std::string audioOutputDevice;      // Output device name (empty = auto)
     };
 
     struct TCPSaveSettingsResultEvent {

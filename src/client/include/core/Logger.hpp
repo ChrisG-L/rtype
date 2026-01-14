@@ -27,6 +27,7 @@ namespace client::logging {
         static std::shared_ptr<spdlog::logger> getSceneLogger();
         static std::shared_ptr<spdlog::logger> getUILogger();
         static std::shared_ptr<spdlog::logger> getBootLogger();
+        static std::shared_ptr<spdlog::logger> getAudioLogger();
 
     private:
         static std::shared_ptr<spdlog::logger> s_networkLogger;
@@ -35,6 +36,7 @@ namespace client::logging {
         static std::shared_ptr<spdlog::logger> s_sceneLogger;
         static std::shared_ptr<spdlog::logger> s_uiLogger;
         static std::shared_ptr<spdlog::logger> s_bootLogger;
+        static std::shared_ptr<spdlog::logger> s_audioLogger;
     };
 
 } // namespace client::logging

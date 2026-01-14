@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <array>
+#include <vector>
 #include <optional>
 
 class SettingsScene : public IScene
@@ -35,11 +36,17 @@ private:
     // Button callbacks
     void onColorBlindModeClick();
     void onShipSkinClick(uint8_t skinId);
-    // Game speed is now per-room (configured in LobbyScene by host)
+    void onVoiceModeClick();
+    void onInputDeviceClick();
+    void onOutputDeviceClick();
     void onKeyBindClick(accessibility::GameAction action, bool isPrimary);
     void onResetBindingsClick();
     void onApplyClick();
     void onBackClick();
+
+    // Helpers
+    void loadAudioDevices();
+    std::string truncateDeviceName(const std::string& name, size_t maxLen = 25) const;
 
     // Exit confirmation callbacks
     void onConfirmSaveExitClick();
@@ -62,9 +69,22 @@ private:
     // Working copy of settings (applied on Save)
     accessibility::ColorBlindMode _colorBlindMode;
     uint8_t _shipSkin = 1;  // Ship skin variant (1-6)
-    // Game speed removed - now per-room (configured in LobbyScene by host)
     static constexpr size_t ACTION_COUNT = static_cast<size_t>(accessibility::GameAction::ActionCount);
     std::array<std::array<events::Key, 2>, ACTION_COUNT> _keyBindings;
+
+    // Voice settings
+    uint8_t _voiceMode = 0;       // 0 = PTT, 1 = VAD
+    uint8_t _vadThreshold = 2;    // 0-100
+    uint8_t _micGain = 100;       // 0-200
+    uint8_t _voiceVolume = 100;   // 0-100
+
+    // Audio device selection
+    std::string _selectedInputDevice;   // "" = auto
+    std::string _selectedOutputDevice;  // "" = auto
+    std::vector<std::string> _inputDeviceNames;
+    std::vector<std::string> _outputDeviceNames;
+    int _inputDeviceIndex = 0;   // Index in _inputDeviceNames (0 = Auto)
+    int _outputDeviceIndex = 0;  // Index in _outputDeviceNames (0 = Auto)
 
     // Key rebinding state machine
     enum class KeyRebindState {
@@ -82,7 +102,19 @@ private:
 
     // Section: Accessibility
     std::unique_ptr<ui::Button> _colorBlindModeBtn;
-    // Speed buttons removed - game speed is now per-room (LobbyScene)
+
+    // Section: Voice Chat
+    std::unique_ptr<ui::Button> _voiceModeBtn;
+    std::unique_ptr<ui::Button> _vadThresholdMinusBtn;
+    std::unique_ptr<ui::Button> _vadThresholdPlusBtn;
+    std::unique_ptr<ui::Button> _micGainMinusBtn;
+    std::unique_ptr<ui::Button> _micGainPlusBtn;
+    std::unique_ptr<ui::Button> _voiceVolumeMinusBtn;
+    std::unique_ptr<ui::Button> _voiceVolumePlusBtn;
+
+    // Section: Audio Device Selection
+    std::unique_ptr<ui::Button> _inputDeviceBtn;
+    std::unique_ptr<ui::Button> _outputDeviceBtn;
 
     // Section: Ship Selection
     static constexpr size_t SHIP_SKIN_COUNT = 6;

@@ -81,6 +81,12 @@ enum class MessageType: uint16_t {
     SendChatMessageAck = 0x0291,
     ChatMessageBroadcast = 0x0292,
     ChatHistory = 0x0293,
+    // Voice Chat System (0x030x)
+    VoiceJoin = 0x0300,
+    VoiceJoinAck = 0x0301,
+    VoiceLeave = 0x0302,
+    VoiceFrame = 0x0303,
+    VoiceMute = 0x0304,
 };
 
 static constexpr uint8_t MAX_PLAYERS = 4;
@@ -1013,7 +1019,8 @@ struct QuickJoinNack {
 // ============================================================================
 
 static constexpr size_t COLORBLIND_MODE_LEN = 16;
-static constexpr size_t KEY_BINDINGS_COUNT = 12;  // 6 actions × 2 keys
+static constexpr size_t KEY_BINDINGS_COUNT = 14;  // 7 actions × 2 keys
+static constexpr size_t AUDIO_DEVICE_NAME_LEN = 64;  // Audio device name storage
 
 // UserSettingsPayload: Core settings data
 struct UserSettingsPayload {
@@ -1021,8 +1028,15 @@ struct UserSettingsPayload {
     uint16_t gameSpeedPercent;                  // 50-200 (represents 0.5x-2.0x)
     uint8_t keyBindings[KEY_BINDINGS_COUNT];    // [action0_primary, action0_secondary, ...]
     uint8_t shipSkin;                           // Ship skin variant (1-6)
+    uint8_t voiceMode;                          // 0 = PushToTalk, 1 = VoiceActivity
+    uint8_t vadThreshold;                       // 0-100 (scaled from 0.0-1.0)
+    uint8_t micGain;                            // 0-200 (scaled from 0.0-2.0)
+    uint8_t voiceVolume;                        // 0-100
+    // Audio device selection (0 = auto, stored name for matching on different machines)
+    char audioInputDevice[AUDIO_DEVICE_NAME_LEN];   // Preferred input device name ("" = auto)
+    char audioOutputDevice[AUDIO_DEVICE_NAME_LEN];  // Preferred output device name ("" = auto)
 
-    static constexpr size_t WIRE_SIZE = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT + 1;
+    static constexpr size_t WIRE_SIZE = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT + 1 + 4 + (AUDIO_DEVICE_NAME_LEN * 2);
 
     void to_bytes(void* buf) const {
         auto* ptr = static_cast<uint8_t*>(buf);
@@ -1030,7 +1044,15 @@ struct UserSettingsPayload {
         uint16_t net_speed = swap16(gameSpeedPercent);
         std::memcpy(ptr + COLORBLIND_MODE_LEN, &net_speed, 2);
         std::memcpy(ptr + COLORBLIND_MODE_LEN + 2, keyBindings, KEY_BINDINGS_COUNT);
-        ptr[COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT] = shipSkin;
+        size_t offset = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT;
+        ptr[offset] = shipSkin;
+        ptr[offset + 1] = voiceMode;
+        ptr[offset + 2] = vadThreshold;
+        ptr[offset + 3] = micGain;
+        ptr[offset + 4] = voiceVolume;
+        // Audio device names
+        std::memcpy(ptr + offset + 5, audioInputDevice, AUDIO_DEVICE_NAME_LEN);
+        std::memcpy(ptr + offset + 5 + AUDIO_DEVICE_NAME_LEN, audioOutputDevice, AUDIO_DEVICE_NAME_LEN);
     }
 
     static std::optional<UserSettingsPayload> from_bytes(const void* buf, size_t buf_len) {
@@ -1043,7 +1065,17 @@ struct UserSettingsPayload {
         std::memcpy(&net_speed, ptr + COLORBLIND_MODE_LEN, 2);
         payload.gameSpeedPercent = swap16(net_speed);
         std::memcpy(payload.keyBindings, ptr + COLORBLIND_MODE_LEN + 2, KEY_BINDINGS_COUNT);
-        payload.shipSkin = ptr[COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT];
+        size_t offset = COLORBLIND_MODE_LEN + 2 + KEY_BINDINGS_COUNT;
+        payload.shipSkin = ptr[offset];
+        payload.voiceMode = ptr[offset + 1];
+        payload.vadThreshold = ptr[offset + 2];
+        payload.micGain = ptr[offset + 3];
+        payload.voiceVolume = ptr[offset + 4];
+        // Audio device names
+        std::memcpy(payload.audioInputDevice, ptr + offset + 5, AUDIO_DEVICE_NAME_LEN);
+        payload.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+        std::memcpy(payload.audioOutputDevice, ptr + offset + 5 + AUDIO_DEVICE_NAME_LEN, AUDIO_DEVICE_NAME_LEN);
+        payload.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
         return payload;
     }
 };
@@ -1713,5 +1745,135 @@ struct GameSnapshot {
     }
 };
 
+// ============================================================================
+// Voice Chat Protocol Structures (UDP port 4126)
+// ============================================================================
+
+// Voice chat constants
+static constexpr uint16_t VOICE_UDP_PORT = 4126;
+static constexpr size_t MAX_OPUS_FRAME_SIZE = 480;  // Max Opus frame at 32kbps, 20ms
+
+// VoiceJoin: Client requests to join voice channel for a room
+struct VoiceJoin {
+    SessionToken token;                    // 32 bytes - reuse existing auth
+    char roomCode[ROOM_CODE_LEN];          // 6 bytes
+
+    static constexpr size_t WIRE_SIZE = TOKEN_SIZE + ROOM_CODE_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        token.to_bytes(buf);
+        std::memcpy(buf + TOKEN_SIZE, roomCode, ROOM_CODE_LEN);
+    }
+
+    static std::optional<VoiceJoin> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto tokenOpt = SessionToken::from_bytes(buf, len);
+        if (!tokenOpt) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        VoiceJoin msg;
+        msg.token = *tokenOpt;
+        std::memcpy(msg.roomCode, ptr + TOKEN_SIZE, ROOM_CODE_LEN);
+        return msg;
+    }
+};
+
+// VoiceJoinAck: Server confirms voice channel join
+struct VoiceJoinAck {
+    uint8_t player_id;                     // 1 byte - assigned player ID
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = player_id;
+    }
+
+    static std::optional<VoiceJoinAck> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        return VoiceJoinAck{.player_id = ptr[0]};
+    }
+};
+
+// VoiceLeave: Client leaves voice channel
+struct VoiceLeave {
+    uint8_t player_id;                     // 1 byte
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = player_id;
+    }
+
+    static std::optional<VoiceLeave> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        return VoiceLeave{.player_id = ptr[0]};
+    }
+};
+
+// VoiceFrame: Compressed audio data (Opus codec)
+struct VoiceFrame {
+    uint8_t speaker_id;                    // 1 byte - who is speaking
+    uint16_t sequence;                     // 2 bytes - for packet loss detection
+    uint16_t opus_len;                     // 2 bytes - actual Opus data length
+    uint8_t opus_data[MAX_OPUS_FRAME_SIZE]; // max 480 bytes
+
+    static constexpr size_t HEADER_SIZE = 5;  // speaker_id + sequence + opus_len
+    static constexpr size_t MAX_WIRE_SIZE = HEADER_SIZE + MAX_OPUS_FRAME_SIZE;
+
+    // Returns actual wire size (header + opus_len)
+    size_t wire_size() const {
+        return HEADER_SIZE + opus_len;
+    }
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = speaker_id;
+        uint16_t net_seq = swap16(sequence);
+        uint16_t net_len = swap16(opus_len);
+        std::memcpy(buf + 1, &net_seq, 2);
+        std::memcpy(buf + 3, &net_len, 2);
+        std::memcpy(buf + HEADER_SIZE, opus_data, opus_len);
+    }
+
+    static std::optional<VoiceFrame> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < HEADER_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+
+        VoiceFrame frame;
+        frame.speaker_id = ptr[0];
+
+        uint16_t net_seq, net_len;
+        std::memcpy(&net_seq, ptr + 1, 2);
+        std::memcpy(&net_len, ptr + 3, 2);
+        frame.sequence = swap16(net_seq);
+        frame.opus_len = swap16(net_len);
+
+        // Validate opus_len
+        if (frame.opus_len > MAX_OPUS_FRAME_SIZE) return std::nullopt;
+        if (len < HEADER_SIZE + frame.opus_len) return std::nullopt;
+
+        std::memcpy(frame.opus_data, ptr + HEADER_SIZE, frame.opus_len);
+        return frame;
+    }
+};
+
+// VoiceMute: Notification that a player muted/unmuted
+struct VoiceMute {
+    uint8_t player_id;                     // 1 byte
+    uint8_t muted;                         // 1 byte - 0 = unmuted, 1 = muted
+
+    static constexpr size_t WIRE_SIZE = 2;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = player_id;
+        buf[1] = muted;
+    }
+
+    static std::optional<VoiceMute> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        return VoiceMute{.player_id = ptr[0], .muted = ptr[1]};
+    }
+};
 
 #endif /* !PROTOCOL_HPP_ */

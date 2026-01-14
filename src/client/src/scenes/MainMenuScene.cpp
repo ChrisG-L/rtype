@@ -11,6 +11,7 @@
 #include "scenes/SettingsScene.hpp"
 #include "scenes/RoomBrowserScene.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
+#include "audio/VoiceChatManager.hpp"
 #include <variant>
 
 MainMenuScene::MainMenuScene()
@@ -390,6 +391,17 @@ void MainMenuScene::processTCPEvents()
                         events::Key secondary = static_cast<events::Key>(event.keyBindings[i * 2 + 1]);
                         config.setKeyBinding(action, primary, secondary);
                     }
+
+                    // Apply voice/audio settings to VoiceChatManager
+                    auto& voice = audio::VoiceChatManager::getInstance();
+                    voice.setVoiceMode(event.voiceMode == 0
+                        ? audio::VoiceChatManager::VoiceMode::PushToTalk
+                        : audio::VoiceChatManager::VoiceMode::VoiceActivity);
+                    voice.setVADThreshold(event.vadThreshold / 100.0f);
+                    voice.setMicGain(event.micGain / 100.0f);
+                    voice.setPlaybackVolume(event.voiceVolume);
+                    voice.setSelectedDevices(event.audioInputDevice, event.audioOutputDevice);
+
                     showInfo("Settings loaded from server");
                 }
                 // If not found, keep defaults (already set by AccessibilityConfig constructor)

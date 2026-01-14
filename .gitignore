@@ -39,6 +39,10 @@ output.txt
 
 *.log
 
+# Test audio files
+test.wav
+*.wav
+
 # Environment files (contains secrets)
 .env
 .env.local

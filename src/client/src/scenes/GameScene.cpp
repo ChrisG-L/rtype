@@ -117,6 +117,42 @@ void GameScene::initAudio()
     client::logging::Logger::getSceneLogger()->debug("Audio initialized");
 }
 
+void GameScene::initVoiceChat()
+{
+    if (_voiceChatInitialized) return;
+
+    auto& voiceMgr = audio::VoiceChatManager::getInstance();
+
+    if (!voiceMgr.isInitialized()) {
+        if (!voiceMgr.init()) {
+            client::logging::Logger::getSceneLogger()->warn("Failed to initialize voice chat system");
+            _voiceChatInitialized = true;
+            return;
+        }
+    }
+
+    // Get server host from TCP client
+    if (_context.tcpClient && _context.tcpClient->isConnected()) {
+        std::string serverHost = _context.tcpClient->getLastHost();
+
+        // Connect to voice server
+        if (voiceMgr.connect(serverHost, VOICE_UDP_PORT)) {
+            // Get room code and session token for voice channel
+            auto roomCodeOpt = _context.tcpClient->getCurrentRoomCode();
+            auto tokenOpt = _context.tcpClient->getSessionToken();
+
+            if (roomCodeOpt && tokenOpt) {
+                voiceMgr.joinVoiceChannel(*tokenOpt, *roomCodeOpt);
+                client::logging::Logger::getSceneLogger()->info(
+                    "Voice chat connected for room '{}'", *roomCodeOpt);
+            }
+        }
+    }
+
+    _voiceChatInitialized = true;
+    client::logging::Logger::getSceneLogger()->debug("Voice chat initialized");
+}
+
 void GameScene::handleEvent(const events::Event& event)
 {
     // Handle chat input when open
@@ -172,9 +208,28 @@ void GameScene::handleEvent(const events::Event& event)
             _chatExpanded = !_chatExpanded;
             return;
         }
+
+        // Push-to-Talk (configurable key)
+        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+        if (accessConfig.isActionKey(accessibility::GameAction::PushToTalk, key.key) && !_chatInputOpen) {
+            auto& voiceMgr = audio::VoiceChatManager::getInstance();
+            if (voiceMgr.isConnected() &&
+                voiceMgr.getVoiceMode() == audio::VoiceChatManager::VoiceMode::PushToTalk) {
+                voiceMgr.startTalking();
+            }
+        }
     } else if (std::holds_alternative<events::KeyReleased>(event)) {
         auto& key = std::get<events::KeyReleased>(event);
         _keysPressed.erase(key.key);
+
+        // Release Push-to-Talk (configurable key)
+        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+        if (accessConfig.isActionKey(accessibility::GameAction::PushToTalk, key.key)) {
+            auto& voiceMgr = audio::VoiceChatManager::getInstance();
+            if (voiceMgr.isConnected()) {
+                voiceMgr.stopTalking();
+            }
+        }
     }
 }
 
@@ -254,6 +309,13 @@ void GameScene::update(float deltatime)
     if (!_chatUIInitialized) {
         initChatUI();
     }
+
+    if (!_voiceChatInitialized) {
+        initVoiceChat();
+    }
+
+    // Update voice chat (process incoming audio)
+    audio::VoiceChatManager::getInstance().update();
 
     // Process UDP events (check for kick)
     processUDPEvents();
@@ -619,6 +681,49 @@ void GameScene::renderKickedScreen()
     }
 }
 
+void GameScene::renderVoiceIndicator()
+{
+    if (!_context.window) return;
+
+    auto& voiceMgr = audio::VoiceChatManager::getInstance();
+    if (!voiceMgr.isConnected()) return;
+
+    float indicatorX = SCREEN_WIDTH - 200.0f;
+    float indicatorY = 20.0f;
+
+    // Show muted indicator
+    if (voiceMgr.isMuted()) {
+        _context.window->drawRect(indicatorX, indicatorY, 80, 24, {100, 100, 100, 220});
+        _context.window->drawText(FONT_KEY, "MUTED", indicatorX + 10, indicatorY + 4, 14, {200, 200, 200, 255});
+        indicatorY += 30.0f;
+    }
+    // Show "MIC" indicator when we're talking
+    else if (voiceMgr.isTalking()) {
+        _context.window->drawRect(indicatorX, indicatorY, 60, 24, {180, 40, 40, 220});
+        _context.window->drawText(FONT_KEY, "MIC", indicatorX + 10, indicatorY + 4, 14, {255, 255, 255, 255});
+        indicatorY += 30.0f;
+    }
+
+    // Show who is speaking
+    auto speakers = voiceMgr.getActiveSpeakers();
+    for (uint8_t speakerId : speakers) {
+        _context.window->drawRect(indicatorX, indicatorY, 120, 22, {40, 120, 40, 200});
+        std::string label = "P" + std::to_string(speakerId) + " speaking";
+        _context.window->drawText(FONT_KEY, label, indicatorX + 8, indicatorY + 4, 12, {255, 255, 255, 255});
+        indicatorY += 26.0f;
+    }
+
+    // Show voice mode hint in bottom-right
+    if (!voiceMgr.isTalking() && speakers.empty() && !voiceMgr.isMuted()) {
+        float hintX = SCREEN_WIDTH - 140.0f;
+        float hintY = SCREEN_HEIGHT - 30.0f;
+
+        bool isVAD = (voiceMgr.getVoiceMode() == audio::VoiceChatManager::VoiceMode::VoiceActivity);
+        std::string hint = isVAD ? "Voice Activity" : "[V] Push-to-Talk";
+        _context.window->drawText(FONT_KEY, hint, hintX, hintY, 12, {100, 100, 120, 255});
+    }
+}
+
 void GameScene::render()
 {
     if (!_context.window || !_context.udpClient) return;
@@ -629,6 +734,7 @@ void GameScene::render()
     renderMissiles();
     renderEnemyMissiles();
     renderHUD();
+    renderVoiceIndicator();
 
     // Always render chat overlay (even when dead)
     renderChatOverlay();

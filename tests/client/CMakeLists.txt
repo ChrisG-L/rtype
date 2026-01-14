@@ -14,11 +14,26 @@ set(TEST_SOURCES
     # Tests Utils
     utils/VecsTest.cpp
     utils/SignalTest.cpp
+
+    # Tests Accessibility
+    accessibility/AccessibilityConfigTest.cpp
+
+    # Tests Audio
+    audio/VoiceAudioTest.cpp
+    audio/PortAudioTest.cpp
+    audio/VoiceIntegrationTest.cpp
+    audio/AudioDevicePersistenceTest.cpp
+)
+
+# Sources du client nécessaires pour les tests
+set(CLIENT_SOURCES_FOR_TESTS
+    ${CMAKE_SOURCE_DIR}/src/client/src/accessibility/AccessibilityConfig.cpp
 )
 
 # Créer l'exécutable de tests
 add_executable(client_tests
     ${TEST_SOURCES}
+    ${CLIENT_SOURCES_FOR_TESTS}
 )
 
 # Configuration de compilation pour les tests
@@ -37,10 +52,32 @@ target_include_directories(client_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client/include
 )
 
+# Trouver Opus et PortAudio pour les tests audio
+find_package(Opus CONFIG REQUIRED)
+
+# PortAudio - essayer d'abord vcpkg (portaudio_static), puis pkg-config
+find_package(portaudio CONFIG QUIET)
+if(TARGET portaudio_static)
+    set(PORTAUDIO_TARGET portaudio_static)
+    message(STATUS "[Tests] PortAudio found via vcpkg (portaudio_static)")
+elseif(TARGET portaudio)
+    set(PORTAUDIO_TARGET portaudio)
+    message(STATUS "[Tests] PortAudio found via vcpkg (portaudio)")
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
+    target_include_directories(client_tests PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
+    set(PORTAUDIO_TARGET ${PORTAUDIO_LIBRARIES})
+    message(STATUS "[Tests] PortAudio found via pkg-config")
+endif()
+
 # Lier les bibliothèques nécessaires
+# Note: portaudio_static includes INTERFACE_LINK_LIBRARIES with winmm, dsound, etc.
 target_link_libraries(client_tests PRIVATE
     GTest::gtest
     GTest::gtest_main
+    Opus::opus
+    ${PORTAUDIO_TARGET}
 )
 
 # Enregistrer les tests avec CTest (sauf en cross-compilation)

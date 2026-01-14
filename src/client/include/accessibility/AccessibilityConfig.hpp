@@ -37,6 +37,7 @@ enum class GameAction {
     MoveRight,
     Shoot,
     Pause,
+    PushToTalk,
     ActionCount
 };
 

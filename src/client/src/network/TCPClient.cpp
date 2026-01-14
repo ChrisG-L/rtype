@@ -579,7 +579,16 @@ namespace client::network
                         event.gameSpeed = static_cast<float>(respOpt->settings.gameSpeedPercent) / 100.0f;
                         std::memcpy(event.keyBindings.data(), respOpt->settings.keyBindings, KEY_BINDINGS_COUNT);
                         event.shipSkin = respOpt->settings.shipSkin;
-                        logger->debug("Received user settings (found={})", event.found);
+                        // Voice settings
+                        event.voiceMode = respOpt->settings.voiceMode;
+                        event.vadThreshold = respOpt->settings.vadThreshold;
+                        event.micGain = respOpt->settings.micGain;
+                        event.voiceVolume = respOpt->settings.voiceVolume;
+                        // Audio device names
+                        event.audioInputDevice = std::string(respOpt->settings.audioInputDevice);
+                        event.audioOutputDevice = std::string(respOpt->settings.audioOutputDevice);
+                        logger->debug("Received user settings (found={}, input='{}', output='{}')",
+                            event.found, event.audioInputDevice, event.audioOutputDevice);
                         _eventQueue.push(std::move(event));
                     }
                 }
