@@ -13,7 +13,42 @@ Communiquez vocalement avec votre équipe.
 
 - **Opus** : Codec audio haute qualité
 - **PortAudio** : Capture cross-platform
-- **UDP** : Transport temps réel (port 4243)
+- **UDP** : Transport temps réel (port 4126)
+
+---
+
+## Prérequis Linux (PipeWire)
+
+Sur les distributions Linux modernes utilisant PipeWire (Ubuntu 22.04+, Fedora, etc.), vous devez installer les paquets audio et utiliser le script de lancement dédié.
+
+### Installation des dépendances audio
+
+```bash
+sudo apt install pulseaudio pulseaudio-utils libpulse0 pipewire pipewire-pulse pipewire-jack pipewire-bin
+```
+
+### Activation de PipeWire
+
+```bash
+systemctl --user enable --now pipewire pipewire-pulse wireplumber
+```
+
+### Lancement du client
+
+Utilisez le script `run-client.sh` qui gère automatiquement le wrapper JACK pour PipeWire :
+
+```bash
+./scripts/run-client.sh
+```
+
+Ce script :
+
+- Détecte si PipeWire est actif
+- Utilise automatiquement `pw-jack` pour la compatibilité audio
+- Passe tous les arguments au client (ex: `./scripts/run-client.sh --graphics=sdl2`)
+
+!!! tip "Pourquoi pw-jack ?"
+    PortAudio utilise JACK pour l'audio. Sur les systèmes PipeWire, le wrapper `pw-jack` permet à JACK de fonctionner via PipeWire sans configuration supplémentaire.
 
 ---
 

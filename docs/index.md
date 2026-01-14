@@ -21,7 +21,7 @@ hide:
 
 <div class="stats-grid animate-fade-in">
   <div class="stat-item">
-    <div class="number">15k+</div>
+    <div class="number">33k+</div>
     <div class="label">Lignes de code</div>
   </div>
   <div class="stat-item">

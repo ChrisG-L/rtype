@@ -157,7 +157,7 @@ vcpkg version
     ./scripts/build.sh    # Configuration
     ./scripts/compile.sh  # Compilation
     ```
-    Pour plus de détails, consultez la section [Compilation](building.md).
+    Pour plus de détails, consultez la section [Compilation](compilation.md).
 
 ---
 

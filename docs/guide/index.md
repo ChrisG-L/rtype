@@ -42,7 +42,7 @@ Bienvenue ! Cette section vous accompagne de l'installation à votre première p
 |-----------|---------|
 | **OS** | Linux (Ubuntu 22.04+), Windows 10+ |
 | **Compilateur** | GCC 11+ ou Clang 15+ |
-| **CMake** | 3.20+ |
+| **CMake** | 3.30+ |
 | **vcpkg** | Latest |
 
 ---
