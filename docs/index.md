@@ -15,7 +15,7 @@ git clone https://github.com/Pluenet-Killian/rtype.git && cd rtype
 **Accès:**
 - 📚 Documentation: http://localhost:8000
 - 🔧 Jenkins CI/CD: http://localhost:8081
-- 🎮 Serveur: localhost:4124 (UDP gameplay) / localhost:3000 (TCP auth)
+- 🎮 Serveur: localhost:4124 (UDP gameplay) / localhost:4125 (TCP/TLS auth)
 
 [→ Guide complet de démarrage](getting-started/index.md){ .md-button .md-button--primary }
 
@@ -23,7 +23,7 @@ git clone https://github.com/Pluenet-Killian/rtype.git && cd rtype
 
 ## 🚧 État du Projet
 
-!!! success "Phase Actuelle: Gameplay Foundation - v0.5.0"
+!!! success "Phase Actuelle: Gameplay Foundation - v0.5.1"
     Le projet est en **phase gameplay** avec client SDL2/SFML multi-backend fonctionnel et serveur de jeu complet.
 
     **Infrastructure:** ✅ 100% complété
@@ -200,7 +200,7 @@ graph TB
 ```
 rtype/
 ├── src/
-│   ├── client/                    # Client de jeu (62 fichiers)
+│   ├── client/                    # Client de jeu (93 fichiers)
 │   │   ├── include/
 │   │   │   ├── core/             # Engine, GameLoop, Boot, Logger
 │   │   │   ├── graphics/         # IWindow, IDrawable, Graphics
@@ -214,7 +214,7 @@ rtype/
 │   │       ├── sfml/             # Backend SFML
 │   │       └── sdl2/             # Backend SDL2 (défaut)
 │   │
-│   ├── server/                    # Serveur de jeu (45 fichiers)
+│   ├── server/                    # Serveur de jeu (106 fichiers)
 │   │   ├── domain/               # Entités, Value Objects, Exceptions
 │   │   ├── application/          # Use Cases, Ports
 │   │   └── infrastructure/
@@ -222,7 +222,7 @@ rtype/
 │   │       └── adapters/in/network/  # UDPServer
 │   │
 │   ├── common/                    # Code partagé
-│   │   ├── protocol/             # Protocol.hpp (14 message types)
+│   │   ├── protocol/             # Protocol.hpp (62 message types)
 │   │   └── collision/            # AABB.hpp (hitboxes)
 │   │
 │   └── ECS/                       # Blob-ECS (non intégré)
@@ -385,12 +385,12 @@ rtype/
 | Métrique | Valeur |
 |----------|--------|
 | **Lignes de code** | ~15,000+ |
-| **Fichiers sources** | 110+ (client: 62, server: 45, common: 2, ECS: 6) |
-| **Types de messages** | 14 (Protocol.hpp) |
+| **Fichiers sources** | 200+ (client: 93, server: 106, common: 2, ECS: 6) |
+| **Types de messages** | 62 (Protocol.hpp) |
 | **Types d'ennemis** | 5 (Basic, Tracker, Zigzag, Fast, Bomber) |
 | **Loggers implémentés** | 12 (6 client + 6 serveur) |
-| **Value Objects** | 9 (avec validation) |
-| **Use Cases** | 3 (Login, Register, MovePlayer) |
+| **Value Objects** | 10 (avec validation) |
+| **Use Cases** | 2 (Login, Register) |
 | **Commits** | 150+ |
 | **Documentation** | 81 pages |
 
@@ -409,6 +409,7 @@ rtype/
 - [x] **UDPClient** - Communication temps réel (thread-safe, Boost.ASIO)
 - [x] **Multi-Backend Graphics** - SDL2 (défaut) et SFML via plugins dynamiques
 - [x] **AudioManager** - Musique + effets sonores (SDL2_mixer)
+- [x] **VoiceChatManager** - Chat vocal temps réel (Opus + PortAudio, PTT/VAD)
 - [x] **AccessibilityConfig** - Remapping clavier, modes daltonien, vitesse de jeu
 - [x] **GameScene** - Gameplay complet avec HUD, missiles, ennemis, étoiles animées
 - [x] **EntityManager** - Gestion entités avec template spawn<T>()
@@ -421,16 +422,17 @@ rtype/
 ### Serveur
 
 - [x] **UDPServer** - Serveur UDP asynchrone (port 4124, broadcast 20Hz)
+- [x] **VoiceUDPServer** - Relay vocal temps réel (port 4126, Opus)
 - [x] **GameWorld** - État de jeu centralisé (joueurs, missiles, ennemis)
 - [x] **Architecture Hexagonale** - Domain, Application, Infrastructure
 - [x] **5 Types d'Ennemis** - Basic, Tracker, Zigzag, Fast, Bomber (IA unique)
 - [x] **Système de Missiles** - Joueur et ennemis, destruction automatique
 - [x] **Collision System** - AABB avec damage events et death broadcasts
 - [x] **Wave Spawning** - Vagues d'ennemis (6-12s, 2-6 ennemis)
-- [x] **Protocol Binaire** - 14 types de messages avec byte order network
+- [x] **Protocol Binaire** - 62 types de messages avec byte order network
 - [x] **Player Entity** - Position, Health, PlayerId
-- [x] **Value Objects** - 9 VOs avec validation
-- [x] **Use Cases** - Login, Register, MovePlayer
+- [x] **Value Objects** - 10 VOs avec validation
+- [x] **Use Cases** - Login, Register
 - [x] **Logging** - Système centralisé spdlog (6 loggers)
 
 ### Infrastructure

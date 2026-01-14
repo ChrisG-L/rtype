@@ -23,7 +23,7 @@ Le projet R-Type est en phase de **gameplay actif** avec un client multi-backend
 - ✅ GameWorld serveur - joueurs, missiles, 5 types d'ennemis avec IA
 - ✅ Système de collision AABB avec damage events
 - ✅ Wave spawning - vagues d'ennemis automatiques
-- ✅ Protocol binaire - 14 types de messages (network byte order)
+- ✅ Protocol binaire - 62 types de messages (network byte order)
 - ✅ Broadcast à 20Hz avec état de jeu complet
 - ✅ **Blob-ECS** - Librairie ECS complète (51.3M ops/s, non intégrée)
 
@@ -39,27 +39,29 @@ Le projet R-Type est en phase de **gameplay actif** avec un client multi-backend
 | **Documentation** | 🚧 En cours | 90% | 81 pages, mise à jour en cours |
 | **Architecture Hexagonale** | ✅ Terminé | 100% | 3 couches complètes |
 | ├─ Séparation .hpp/.cpp | ✅ Terminé | 100% | 110+ fichiers |
-| └─ Serveurs Réseau | ✅ Terminé | 100% | UDP 4124 + TCP 3000 |
+| └─ Serveurs Réseau | ✅ Terminé | 100% | UDP 4124 + TCP/TLS 4125 |
 | **Domain Layer** | ✅ Terminé | 100% | Entités et Value Objects |
 | ├─ Entité Player | ✅ Terminé | 100% | Position, Health, PlayerId |
 | ├─ Entité User | ✅ Terminé | 100% | Auth (Username, Email, Password) |
-| ├─ Value Objects | ✅ Terminé | 100% | 9 Value Objects (incl. Email) |
-| └─ Exceptions | ✅ Terminé | 100% | 10 Exceptions métier |
+| ├─ Value Objects | ✅ Terminé | 100% | 10 Value Objects (incl. Email) |
+| └─ Exceptions | ✅ Terminé | 100% | 15 exceptions métier |
 | **Application Layer** | ✅ Terminé | 100% | Use Cases |
-| ├─ MovePlayerUseCase | ✅ Terminé | 100% | Déplacement joueur |
+| ├─ PlayerInput | ✅ Terminé | 100% | Commandes joueur (via GameWorld) |
 | ├─ LoginUseCase | ✅ Terminé | 100% | Authentification par email |
 | └─ RegisterUseCase | ✅ Terminé | 100% | Inscription utilisateur |
 | **Infrastructure Layer** | ✅ Terminé | 95% | Adapters |
 | ├─ UDPServer | ✅ Terminé | 100% | Port 4124, broadcast 20Hz |
 | ├─ GameWorld | ✅ Terminé | 100% | Joueurs, missiles, ennemis, collisions |
-| ├─ Protocol | ✅ Terminé | 100% | 14 types de messages |
-| └─ Collision System | ✅ Terminé | 100% | AABB hitboxes |
+| ├─ Protocol | ✅ Terminé | 100% | 62 types de messages |
+| ├─ Collision System | ✅ Terminé | 100% | AABB hitboxes |
+| └─ VoiceUDPServer | ✅ Terminé | 100% | Port 4126, relay Opus |
 | **Client Graphique** | ✅ Terminé | 90% | Multi-backend SDL2/SFML |
 | ├─ Boot/Engine/GameLoop | ✅ Terminé | 100% | Architecture complète, 60 FPS |
 | ├─ SceneManager | ✅ Terminé | 100% | GameScene complet |
 | ├─ UDPClient | ✅ Terminé | 100% | Thread-safe, async |
 | ├─ SDL2/SFML Backends | ✅ Terminé | 100% | Plugins dynamiques |
 | ├─ AudioManager | ✅ Terminé | 100% | SDL2_mixer, musique + SFX |
+| ├─ VoiceChatManager | ✅ Terminé | 100% | Opus + PortAudio, PTT/VAD |
 | └─ AccessibilityConfig | ✅ Terminé | 100% | Remapping, daltonisme |
 | **Module Gameplay** | ✅ Terminé | 95% | Complet côté serveur et client |
 | ├─ GameScene | ✅ Terminé | 100% | HUD, missiles, ennemis, stars |
@@ -83,16 +85,16 @@ Le projet R-Type est en phase de **gameplay actif** avec un client multi-backend
 
 | Catégorie | Fichiers | Lignes | Pourcentage |
 |-----------|----------|--------|-------------|
-| **Code Source Serveur** | 45 | ~4,500 | 30% |
-| ├─ Headers (.hpp) | 31 | ~2,000 | 13% |
-| └─ Implémentations (.cpp) | 14 | ~2,500 | 17% |
-| **Code Source Client** | 62 | ~5,000 | 33% |
-| ├─ Headers (.hpp) | 32 | ~2,000 | 13% |
-| └─ Implémentations (.cpp) | 28 | ~3,000 | 20% |
+| **Code Source Serveur** | 106 | ~7,500 | 38% |
+| ├─ Headers (.hpp) | 62 | ~3,500 | 18% |
+| └─ Implémentations (.cpp) | 44 | ~4,000 | 20% |
+| **Code Source Client** | 93 | ~6,500 | 32% |
+| ├─ Headers (.hpp) | 56 | ~3,000 | 15% |
+| └─ Implémentations (.cpp) | 37 | ~3,500 | 17% |
 | **Code Common** | 2 | ~600 | 4% |
 | **Blob-ECS Library** | 6 | ~800 | 5% |
 | **Documentation** | 81 | ~8,000 | 28% |
-| **Total Projet** | 200+ | ~15,000 | 100% |
+| **Total Projet** | 207+ | ~20,000 | 100% |
 
 **Ratio Documentation/Code:** 0.8:1
 
@@ -100,16 +102,15 @@ Le projet R-Type est en phase de **gameplay actif** avec un client multi-backend
 
 ```
 src/
-├── server/                          # Serveur de jeu (45 fichiers)
+├── server/                          # Serveur de jeu (106 fichiers)
 │   ├── domain/
 │   │   ├── entities/Player.hpp/.cpp ✅
 │   │   ├── value_objects/ ✅ (Health, Position, PlayerId, etc.)
 │   │   ├── services/GameRule.hpp ✅
-│   │   └── exceptions/ ✅ (10 exceptions métier)
+│   │   └── exceptions/ ✅ (15 exceptions métier)
 │   ├── application/
-│   │   ├── use_cases/ (Move, Login, Register) ✅
-│   │   ├── ports/in/IGameCommands.hpp ✅
-│   │   └── ports/out/IPlayerRepository.hpp ✅
+│   │   ├── use_cases/ (Login, Register) ✅
+│   │   └── ports/out/ ✅ (IUserRepository, IUserSettingsRepository, IChatMessageRepository, IIdGenerator, ILogger)
 │   └── infrastructure/
 │       ├── game/
 │       │   └── GameWorld.hpp/.cpp ✅  # Joueurs, missiles, ennemis, collisions
@@ -119,7 +120,7 @@ src/
 │       ├── logging/Logger.hpp/.cpp ✅
 │       └── bootstrap/GameBootstrap.hpp ✅
 │
-├── client/                          # Client de jeu (62 fichiers)
+├── client/                          # Client de jeu (93 fichiers)
 │   ├── include/
 │   │   ├── core/ (Engine, GameLoop, Logger, DynamicLib)
 │   │   ├── graphics/ (IWindow, IDrawable, Graphics, Asset)
@@ -135,7 +136,7 @@ src/
 │   └── main.cpp ✅
 │
 ├── common/                          # Code partagé (2 fichiers)
-│   ├── protocol/Protocol.hpp ✅     # 14 types de messages
+│   ├── protocol/Protocol.hpp ✅     # 62 types de messages
 │   └── collision/AABB.hpp ✅        # Hitboxes
 │
 └── ECS/                             # Blob-ECS (6 fichiers, non intégré)
@@ -395,7 +396,7 @@ src/
 - ✅ 5 types d'ennemis avec IA unique (Basic, Tracker, Zigzag, Fast, Bomber)
 - ✅ Wave spawning automatique (6-12s, 2-6 ennemis)
 - ✅ Système de collision AABB avec damage events
-- ✅ Protocol binaire - 14 types de messages
+- ✅ Protocol binaire - 62 types de messages
 - ✅ Architecture hexagonale respectée
 - ✅ Système de logging (6 loggers serveur)
 

@@ -231,7 +231,7 @@ src/server/
 │       │   │   │   └── CLIGameController.hpp
 │       │   │   └── network/
 │       │   │       ├── UDPServer.hpp
-│       │   │       └── TCPServer.hpp
+│       │   │       └── TCPAuthServer.hpp
 │       │   └── out/
 │       │       └── persistence/
 │       │           └── MongoDBConfiguration.hpp
@@ -404,7 +404,7 @@ add_executable(rtype_server
     # Infrastructure - Adapters
     infrastructure/adapters/in/cli/CLIGameController.cpp
     infrastructure/adapters/in/network/UDPServer.cpp
-    infrastructure/adapters/in/network/TCPServer.cpp
+    infrastructure/adapters/in/network/TCPAuthServer.cpp
     infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
 )
 
@@ -627,7 +627,7 @@ class UDPServer {
 
 namespace infrastructure::adapters::in::network {
     UDPServer::UDPServer(boost::asio::io_context& io_ctx)
-        : _socket(io_ctx, udp::endpoint(udp::v4(), 4123)),
+        : _socket(io_ctx, udp::endpoint(udp::v4(), 4124)),
           _io_ctx(io_ctx) {}
 
     void UDPServer::start(boost::asio::io_context& io_ctx) {

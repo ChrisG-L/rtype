@@ -203,6 +203,11 @@ nav:
       - Archives: reports/archives/index.md
       - Templates: reports/templates/index.md
 
+  - RNCP:
+      - Étude Comparative (C6): RNCP/C6_ETUDE_COMPARATIVE.md
+      - Audit Sécurité (C7): RNCP/C7_AUDIT_SECURITE.md
+      - Évaluation Prototypes (C8): RNCP/C8_EVALUATION_PROTOTYPES.md
+
   - Army2077:
       - Introduction: hive/introduction.md
       - Architecture: hive/architecture.md

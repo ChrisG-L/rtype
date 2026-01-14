@@ -25,6 +25,9 @@ set(TEST_SOURCES
 
     # Tests Network - Voice Protocol
     network/VoiceProtocolTest.cpp
+
+    # Tests Infrastructure - Session (CSPRNG crypto tests)
+    infrastructure/session/SessionManagerCryptoTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests
@@ -53,6 +56,9 @@ set(SERVER_SOURCES
     # Domain - Entities
     ${CMAKE_SOURCE_DIR}/src/server/domain/entities/Player.cpp
     ${CMAKE_SOURCE_DIR}/src/server/domain/entities/User.cpp
+
+    # Infrastructure - Session (for CSPRNG tests)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/session/SessionManager.cpp
 )
 
 # Créer l'exécutable de tests

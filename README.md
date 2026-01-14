@@ -9,28 +9,30 @@
 
 ## 📋 État du Projet
 
-🚧 **En développement actif** - Phase: Infrastructure et fondations
+✅ **Fonctionnel** - Phase: Gameplay Foundation (v0.5.1)
 
-### ✅ Actuellement implémenté
+### ✅ Implémenté
 
-- **Infrastructure CI/CD complète** (Jenkins, Docker)
-- **Système de build moderne** (CMake 3.26+, vcpkg, C++23)
-- **Documentation technique détaillée** (MkDocs Material)
-- **Pipeline de tests automatisés** (Google Test)
-- **Scripts de build automatisés**
+**Client:**
+- **Multi-Backend Graphics** - SDL2 (défaut) et SFML via plugins dynamiques
+- **UDPClient Temps Réel** - Synchronisation 20Hz (Boost.ASIO, thread-safe)
+- **AudioManager** - Musique et effets sonores (SDL2_mixer)
+- **VoiceChatManager** - Chat vocal temps réel (Opus + PortAudio, PTT/VAD)
+- **AccessibilityConfig** - Remapping clavier, modes daltonien
+- **GameScene Complet** - HUD, missiles, ennemis, parallax stars
 
-### 🔨 En cours de développement
+**Serveur:**
+- **UDPServer** - Gameplay temps réel (port 4124, broadcast 20Hz)
+- **VoiceUDPServer** - Relay audio vocal (port 4126, Opus)
+- **TCPAuthServer** - Authentification sécurisée (port 4125, TLS 1.2+)
+- **GameWorld** - Joueurs, missiles, 5 types d'ennemis avec IA
+- **Protocol Binaire** - 62 types de messages avec byte order network
+- **Architecture Hexagonale** - Domain, Application, Infrastructure
 
-- Architecture ECS (Entity Component System)
-- Système réseau asynchrone (Boost.ASIO)
-- Serveur de jeu multijoueur
-
-### 📋 Planifié
-
-- Client graphique (rendu, UI, input)
-- Gameplay complet (ennemis, power-ups, niveaux)
-- Système audio
-- Base de données persistante (MongoDB)
+**Infrastructure:**
+- **Jenkins CI/CD** - Pipeline complet avec sanitizers
+- **MongoDB** - Persistance utilisateurs et paramètres
+- **Documentation** - MkDocs Material (80+ pages)
 
 ## 🚀 Quick Start
 
@@ -146,14 +148,24 @@ rtype/
 | Composant | Technologie | Version |
 |-----------|-------------|---------|
 | **Langage** | C++ | 23 |
-| **Build System** | CMake + Ninja | 3.26+ |
+| **Build System** | CMake + Ninja | 3.30+ |
 | **Gestionnaire de dépendances** | vcpkg | Latest |
-| **Networking** | Boost.ASIO | Via vcpkg |
+| **Networking** | Boost.ASIO + OpenSSL | Via vcpkg |
+| **Graphics** | SDL2 / SFML | Via vcpkg |
+| **Audio** | SDL2_mixer, Opus, PortAudio | Via vcpkg |
 | **Tests** | Google Test | Via vcpkg |
 | **Base de données** | MongoDB C++ Driver | Via vcpkg |
 | **CI/CD** | Jenkins | LTS |
 | **Conteneurisation** | Docker + Docker Compose | Latest |
 | **Documentation** | MkDocs Material | 1.5+ |
+
+## 🌐 Architecture Réseau
+
+| Service | Port | Protocole | Description |
+|---------|------|-----------|-------------|
+| **Auth** | 4125 | TCP/TLS 1.2+ | Authentification sécurisée |
+| **Game** | 4124 | UDP | Gameplay temps réel (20Hz) |
+| **Voice** | 4126 | UDP (Opus) | Chat vocal temps réel |
 
 ## 📚 Documentation
 

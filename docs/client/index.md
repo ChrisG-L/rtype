@@ -175,7 +175,7 @@ graph TB
 ## 📂 Structure du Code Source
 
 ```
-src/client/                          # 62 fichiers total
+src/client/                          # 93 fichiers total
 ├── include/
 │   ├── boot/Boot.hpp               # Bootstrapper
 │   ├── core/

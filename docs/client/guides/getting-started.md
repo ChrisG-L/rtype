@@ -87,7 +87,7 @@ ls -lh build/src/client/rtype_client
 
 ### Démarrer le Serveur (Requis)
 
-**⚠️ Important** : Le client tente de se connecter à `127.0.0.1:4123` au démarrage.
+**⚠️ Important** : Le client tente de se connecter à `127.0.0.1:4125` au démarrage.
 
 ```bash
 # Dans un terminal séparé, lancer le serveur
@@ -146,9 +146,9 @@ graph LR
 
 **Solution** :
 1. Vérifier que le serveur est lancé
-2. Vérifier le port 4123 est disponible :
+2. Vérifier le port 4125 est disponible :
    ```bash
-   netstat -tuln | grep 4123
+   netstat -tuln | grep 4125
    ```
 3. Vérifier le firewall
 

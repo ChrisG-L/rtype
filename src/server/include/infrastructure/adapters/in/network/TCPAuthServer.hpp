@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <iostream>
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <memory>
 #include <optional>
 #include <functional>
@@ -38,6 +39,7 @@
 
 namespace infrastructure::adapters::in::network {
     using boost::asio::ip::tcp;
+    namespace ssl = boost::asio::ssl;
     using application::ports::out::persistence::IUserRepository;
     using application::ports::out::persistence::IUserSettingsRepository;
     using application::ports::out::persistence::UserSettingsData;
@@ -49,7 +51,7 @@ namespace infrastructure::adapters::in::network {
 
     class Session: public std::enable_shared_from_this<Session> {
         private:
-            tcp::socket _socket;
+            ssl::stream<tcp::socket> _socket;
             char _readBuffer[BUFFER_SIZE];
             std::vector<uint8_t> _accumulator;
             std::optional<User> _user;
@@ -128,7 +130,7 @@ namespace infrastructure::adapters::in::network {
             void broadcastGameStarting(domain::entities::Room* room, uint8_t countdown);
 
             public:
-                Session(tcp::socket socket,
+                Session(ssl::stream<tcp::socket> socket,
                     std::shared_ptr<IUserRepository> userRepository,
                     std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
                     std::shared_ptr<IIdGenerator> idGenerator,
@@ -143,6 +145,9 @@ namespace infrastructure::adapters::in::network {
     class TCPAuthServer {
             private:
                 boost::asio::io_context& _io_ctx;
+                ssl::context _sslContext;
+                std::string _certFile;
+                std::string _keyFile;
                 std::shared_ptr<IUserRepository> _userRepository;
                 std::shared_ptr<IUserSettingsRepository> _userSettingsRepository;
                 std::shared_ptr<IIdGenerator> _idGenerator;
@@ -150,11 +155,15 @@ namespace infrastructure::adapters::in::network {
                 std::shared_ptr<SessionManager> _sessionManager;
                 std::shared_ptr<RoomManager> _roomManager;
                 tcp::acceptor _acceptor;
+
+                void initSSLContext();
                 void start_accept();
 
         public:
             TCPAuthServer(
                 boost::asio::io_context& io_ctx,
+                const std::string& certFile,
+                const std::string& keyFile,
                 std::shared_ptr<IUserRepository> userRepository,
                 std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
                 std::shared_ptr<IIdGenerator> idGenerator,

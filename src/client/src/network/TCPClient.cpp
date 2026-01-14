@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <unistd.h>
+#include <openssl/ssl.h>
 
 namespace client::network
 {
@@ -20,9 +21,31 @@ namespace client::network
     static constexpr int HEARTBEAT_TIMEOUT_MS = 2000;
 
     TCPClient::TCPClient()
-        : _socket(_ioContext), _heartbeatTimer(_ioContext), _isAuthenticated(false), _isWriting(false)
+        : _ioContext()
+        , _sslContext(ssl::context::tlsv12_client)
+        , _socket(_ioContext, _sslContext)
+        , _heartbeatTimer(_ioContext)
+        , _isAuthenticated(false)
+        , _isWriting(false)
     {
-        client::logging::Logger::getNetworkLogger()->debug("TCPClient created");
+        initSSLContext();
+        client::logging::Logger::getNetworkLogger()->debug("TCPClient created with TLS support");
+    }
+
+    void TCPClient::initSSLContext() {
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        // For development with self-signed certificates, use verify_none
+        // In production, change to verify_peer and load CA certificates
+        _sslContext.set_verify_mode(ssl::verify_none);
+
+        // Load system CA certificates for future production use
+        _sslContext.set_default_verify_paths();
+
+        // Force TLS 1.2 minimum
+        SSL_CTX_set_min_proto_version(_sslContext.native_handle(), TLS1_2_VERSION);
+
+        logger->debug("SSL context initialized (TLS 1.2+)");
     }
 
     TCPClient::~TCPClient()
@@ -68,7 +91,7 @@ namespace client::network
             _ioThread.join();
         }
 
-        logger->info("Connecting to {}:{}...", host, port);
+        logger->info("Connecting to {}:{} (TLS)...", host, port);
 
         // Store connection info for potential reconnection
         _lastHost = host;
@@ -80,13 +103,12 @@ namespace client::network
         // Reset io_context for reuse
         _ioContext.restart();
 
-        // Ensure socket is closed and recreate
-        if (_socket.is_open()) {
-            boost::system::error_code ec;
-            _socket.shutdown(tcp::socket::shutdown_both, ec);
-            _socket.close(ec);
-        }
-        _socket = tcp::socket(_ioContext);
+        // Close existing SSL socket's lowest layer and recreate
+        boost::system::error_code ec;
+        _socket.lowest_layer().close(ec);
+
+        // Recreate ssl::stream (cannot be reused after close)
+        _socket = ssl::stream<tcp::socket>(_ioContext, _sslContext);
 
         try {
             tcp::resolver resolver(_ioContext);
@@ -128,7 +150,7 @@ namespace client::network
         }
 
         auto logger = client::logging::Logger::getNetworkLogger();
-        logger->info("Disconnecting TCP...");
+        logger->info("Disconnecting TCP (TLS)...");
 
         _connecting.store(false);
         _connected.store(false);
@@ -137,9 +159,13 @@ namespace client::network
 
         _ioContext.stop();
 
+        // SSL shutdown (graceful close)
         boost::system::error_code ec;
-        _socket.shutdown(tcp::socket::shutdown_both, ec);
-        _socket.close(ec);
+        _socket.shutdown(ec);
+        if (ec && ec != boost::asio::error::eof && ec != boost::asio::ssl::error::stream_truncated) {
+            logger->debug("SSL shutdown notice: {}", ec.message());
+        }
+        _socket.lowest_layer().close(ec);
 
         _accumulator.clear();
 
@@ -153,7 +179,7 @@ namespace client::network
         }
 
         _ioContext.restart();
-        _socket = tcp::socket(_ioContext);
+        _socket = ssl::stream<tcp::socket>(_ioContext, _sslContext);
 
         while (!_sendQueue.empty()) {
             _sendQueue.pop();
@@ -165,18 +191,19 @@ namespace client::network
 
     bool TCPClient::isConnected() const
     {
-        return _connected.load() && _socket.is_open();
+        return _connected.load() && _socket.lowest_layer().is_open();
     }
 
     bool TCPClient::isConnecting() const
     {
-        return _connecting.load() && _socket.is_open();
+        return _connecting.load() && _socket.lowest_layer().is_open();
     }
 
     void TCPClient::asyncConnect(tcp::resolver::results_type endpoints)
     {
+        // First, establish TCP connection to the lowest layer
         boost::asio::async_connect(
-            _socket,
+            _socket.lowest_layer(),  // Connect on underlying TCP socket
             endpoints,
             [this](const boost::system::error_code &error, const tcp::endpoint &) {
                 handleConnect(error);
@@ -204,21 +231,38 @@ namespace client::network
         auto logger = client::logging::Logger::getNetworkLogger();
 
         if (!error) {
-            // _connecting is already true from connect(), wait for HeartBeatAck to confirm
+            logger->info("TCP socket connected, starting TLS handshake...");
 
-            logger->info("TCP socket connected, waiting for server response...");
+            // Perform async TLS handshake
+            _socket.async_handshake(
+                ssl::stream_base::client,
+                [this](const boost::system::error_code &hsError) {
+                    auto logger = client::logging::Logger::getNetworkLogger();
+                    if (hsError) {
+                        logger->error("TLS handshake failed: {}", hsError.message());
+                        _connecting.store(false);
+                        _eventQueue.push(TCPErrorEvent{"TLS handshake failed: " + hsError.message()});
+                        if (_onError) {
+                            _onError("TLS handshake failed: " + hsError.message());
+                        }
+                        return;
+                    }
 
-            {
-                std::lock_guard<std::mutex> lock(_heartbeatMutex);
-                _lastServerResponse = std::chrono::steady_clock::now();
-            }
+                    logger->info("TLS handshake successful, waiting for server response...");
 
-            // Send initial heartbeat to verify server application is responding
-            sendHeartbeat();
-            scheduleHeartbeat();
+                    {
+                        std::lock_guard<std::mutex> lock(_heartbeatMutex);
+                        _lastServerResponse = std::chrono::steady_clock::now();
+                    }
 
-            // Start reading - TCPConnectedEvent will be pushed when HeartBeatAck is received
-            asyncRead();
+                    // Send initial heartbeat to verify server application is responding
+                    sendHeartbeat();
+                    scheduleHeartbeat();
+
+                    // Start reading - TCPConnectedEvent will be pushed when HeartBeatAck is received
+                    asyncRead();
+                }
+            );
         } else {
             logger->error("Connection failed: {}", error.message());
 
@@ -739,7 +783,7 @@ namespace client::network
 
     void TCPClient::sendHeartbeat() {
         // Check socket is open (works for both connected and connecting states)
-        if (!_socket.is_open()) {
+        if (!_socket.lowest_layer().is_open()) {
             return;
         }
 

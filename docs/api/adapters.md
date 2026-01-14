@@ -20,7 +20,8 @@ Les Adapters de l'Infrastructure Layer implémentent les **Ports** définis dans
 │  │   (Driving)      │  │   (Driven)      │ │
 │  ├──────────────────┤  ├─────────────────┤ │
 │  │ • UDPServer      │  │ • MongoDB       │ │
-│  │ • TCPServer      │  │ • Repositories  │ │
+│  │ • TCPAuthServer  │  │ • Repositories  │ │
+│  │ • VoiceUDPServer │  │                 │ │
 │  │ • CLI Controller │  │                 │ │
 │  └─────────┬────────┘  └────────┬────────┘ │
 └────────────┼──────────────────────┼──────────┘
@@ -28,8 +29,9 @@ Les Adapters de l'Infrastructure Layer implémentent les **Ports** définis dans
              ▼                      ▼
     ┌────────────────────────────────────┐
     │      Application Layer (Ports)     │
-    │  • IGameCommands (IN)             │
-    │  • IPlayerRepository (OUT)        │
+    │  • IUserRepository (OUT)          │
+    │  • IUserSettingsRepository (OUT)  │
+    │  • ILogger (OUT)                  │
     └────────────────────────────────────┘
 ```
 
@@ -37,7 +39,7 @@ Les Adapters de l'Infrastructure Layer implémentent les **Ports** définis dans
 
 | Type | Direction | Rôle | Exemples |
 |------|-----------|------|----------|
-| **Adapters IN** | Driving | Pilotent l'application (entrées) | UDPServer, TCPServer, CLI |
+| **Adapters IN** | Driving | Pilotent l'application (entrées) | UDPServer, TCPAuthServer, VoiceUDPServer, CLI |
 | **Adapters OUT** | Driven | Pilotés par l'application (sorties) | MongoDB, Repositories |
 
 ---
@@ -50,11 +52,11 @@ Les Adapters de l'Infrastructure Layer implémentent les **Ports** définis dans
 **Namespace:** `infrastructure::adapters::in::network`
 **Port:** 4124 (UDP)
 
-**Description:** Serveur UDP asynchrone pour le gameplay temps réel. Gère les connexions clients, reçoit les commandes (MovePlayer, ShootMissile) et broadcast l'état de jeu à 20Hz via GameSnapshot.
+**Description:** Serveur UDP asynchrone pour le gameplay temps réel. Gère les connexions clients, reçoit les commandes (PlayerInput, ShootMissile) et broadcast l'état de jeu à 20Hz via GameSnapshot.
 
 #### Caractéristiques
 
-- **Protocole:** UDP binaire (14 types de messages)
+- **Protocole:** UDP binaire (62 types de messages)
 - **Port:** 4124
 - **Broadcast:** 20Hz (50ms)
 - **GameWorld:** Joueurs, missiles, 5 types d'ennemis
@@ -158,7 +160,7 @@ int main() {
 
 **Implémenté:**
 - ✅ Socket UDP sur port 4124
-- ✅ Protocole binaire (14 types de messages)
+- ✅ Protocole binaire (62 types de messages)
 - ✅ GameWorld (joueurs, missiles, ennemis)
 - ✅ Broadcast GameSnapshot à 20Hz
 - ✅ 5 types d'ennemis avec IA unique
@@ -166,19 +168,19 @@ int main() {
 - ✅ Wave spawning automatique
 
 **Fonctionnalités:**
-- MovePlayer, ShootMissile, PlayerJoin/Leave
+- PlayerInput, ShootMissile, PlayerJoin/Leave
 - MissileSpawned/Destroyed, EnemySpawned/Destroyed
 - GameSnapshot synchronisation temps réel
 
 ---
 
-### TCPServer + Session
+### TCPAuthServer + Session
 
-**Fichiers:** `infrastructure/adapters/in/network/TCPServer.hpp`
+**Fichiers:** `infrastructure/adapters/in/network/TCPAuthServer.hpp`
 **Namespace:** `infrastructure::adapters::in::network`
-**Port:** 3000 (TCP)
+**Port:** 4125 (TCP/TLS)
 
-**Description:** Serveur TCP asynchrone pour l'authentification et les communications fiables. Chaque connexion crée une `Session`. Optionnel pour le gameplay (UDP principal).
+**Description:** Serveur TCP/TLS asynchrone pour l'authentification sécurisée. Utilise TLS 1.2+ pour chiffrer toutes les communications (credentials, tokens). Chaque connexion crée une `Session`.
 
 #### Architecture
 
@@ -288,7 +290,7 @@ explicit TCPServer(boost::asio::io_context& io_ctx);
 **Paramètres:**
 - `io_ctx` - Référence au contexte I/O Boost.Asio
 
-**Action:** Initialise l'acceptor TCP sur port 3000.
+**Action:** Initialise l'acceptor TCP/TLS sur port 4125.
 
 #### Méthodes Publiques
 
@@ -354,7 +356,7 @@ int main() {
     // Démarrer l'acceptation
     tcpServer.start(io_ctx);
 
-    std::cout << "Serveur TCP prêt sur port 3000" << std::endl;
+    std::cout << "Serveur TCP/TLS prêt sur port 4125" << std::endl;
 
     // Lancer boucle événementielle (bloque)
     tcpServer.run();
@@ -374,14 +376,14 @@ int main() {
 int main() {
     boost::asio::io_context io_ctx;
 
-    // Serveurs UDP (gameplay) et TCP (auth) séparés
-    UDPServer udpServer(io_ctx);  // Port 4124
-    TCPServer tcpServer(io_ctx);  // Port 3000
+    // Serveurs UDP (gameplay) et TCP/TLS (auth) séparés
+    UDPServer udpServer(io_ctx);       // Port 4124
+    TCPAuthServer tcpAuthServer(io_ctx, "certs/server.crt", "certs/server.key");  // Port 4125
 
     udpServer.start(io_ctx);
-    tcpServer.start(io_ctx);
+    tcpAuthServer.start(io_ctx);
 
-    std::cout << "UDP :4124 (gameplay) | TCP :3000 (auth)" << std::endl;
+    std::cout << "UDP :4124 (gameplay) | TCP/TLS :4125 (auth)" << std::endl;
 
     // Un seul io_context.run() gère les deux serveurs
     io_ctx.run();
@@ -390,20 +392,20 @@ int main() {
 }
 ```
 
-**Note:** Le gameplay utilise principalement UDP (port 4124). TCP (port 3000) est optionnel pour l'authentification.
+**Note:** Le gameplay utilise UDP (port 4124). TCP/TLS (port 4125) est utilisé pour l'authentification sécurisée.
 
 #### État Actuel
 
 **Implémenté:**
-- ✅ Acceptor TCP sur port 3000
+- ✅ Acceptor TCP/TLS sur port 4125
 - ✅ Création de Session par connexion
 - ✅ Lecture/écriture asynchrone
 - ✅ Pattern `shared_from_this` pour gestion du cycle de vie
 - ✅ Intégration avec Use Cases auth (Login, Register)
 
 **Optionnel (gameplay via UDP):**
-- TCP utilisé uniquement pour l'authentification
-- Gameplay principal via UDPServer (port 4124)
+- TCP/TLS utilisé pour l'authentification sécurisée (TLS 1.2+)
+- Gameplay temps réel via UDPServer (port 4124)
 
 ---
 
@@ -762,8 +764,9 @@ int main() {
 | Adapter | Type | Port | Protocole | Statut | Use Case |
 |---------|------|------|-----------|--------|----------|
 | **UDPServer** | Network | 4124 | UDP binaire | ✅ Implémenté | Gameplay temps réel (20Hz) |
+| **VoiceUDPServer** | Network | 4126 | UDP (Opus) | ✅ Implémenté | Chat vocal temps réel |
 | **GameWorld** | Game | - | - | ✅ Implémenté | État de jeu, missiles, ennemis |
-| **TCPServer** | Network | 3000 | TCP | ✅ Implémenté | Authentification |
+| **TCPAuthServer** | Network | 4125 | TCP/TLS | ✅ Implémenté | Authentification sécurisée |
 | **CLIGameController** | CLI | - | CLI | ✅ Implémenté | Tests et debug |
 
 ### Adapters OUT (Driven)
@@ -855,7 +858,7 @@ RTYPE_MONGODB_DB=rtype
 
 # Network
 RTYPE_UDP_PORT=4124
-RTYPE_TCP_PORT=3000
+RTYPE_TCP_PORT=4125
 RTYPE_MAX_CLIENTS=4
 RTYPE_BROADCAST_RATE=20
 ```
@@ -866,7 +869,7 @@ RTYPE_BROADCAST_RATE=20
 {
   "network": {
     "udp_port": 4124,
-    "tcp_port": 3000,
+    "tcp_port": 4125,
     "broadcast_rate_hz": 20,
     "max_players": 4,
     "max_missiles": 32

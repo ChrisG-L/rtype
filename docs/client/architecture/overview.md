@@ -357,7 +357,7 @@ private:
 
 **État actuel** :
 
-- ✅ Connexion asynchrone à `127.0.0.1:4123`
+- ✅ Connexion asynchrone à `127.0.0.1:4125`
 - ✅ Gestion erreurs de connexion
 - ⏳ Lecture/écriture à implémenter
 - ⏳ Intégration avec Engine (multi-thread)
