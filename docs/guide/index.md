@@ -6,40 +6,40 @@ tags:
 
 # Guide Utilisateur
 
-Bienvenue dans le guide utilisateur R-Type ! Cette section vous accompagne de l'installation au lancement de votre première partie.
+Bienvenue ! Cette section vous accompagne de l'installation à votre première partie.
 
 <div class="grid-cards">
   <div class="card">
     <div class="card-icon">📥</div>
     <h3><a href="installation/">Installation</a></h3>
-    <p>Prérequis et installation des dépendances.</p>
+    <p>Prérequis et dépendances</p>
   </div>
 
   <div class="card">
     <div class="card-icon">🚀</div>
     <h3><a href="quickstart/">Démarrage Rapide</a></h3>
-    <p>Lancez votre première partie en 5 minutes.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-icon">⚙️</div>
-    <h3><a href="configuration/">Configuration</a></h3>
-    <p>Personnalisez le client et le serveur.</p>
+    <p>Première partie en 5 minutes</p>
   </div>
 
   <div class="card">
     <div class="card-icon">🔨</div>
-    <h3><a href="building/">Compilation</a></h3>
-    <p>Options de build et compilation avancée.</p>
+    <h3><a href="compilation/">Compilation</a></h3>
+    <p>Options de build avancées</p>
+  </div>
+
+  <div class="card card-highlight">
+    <div class="card-icon">🎮</div>
+    <h3><a href="gameplay/">Gameplay</a></h3>
+    <p>Contrôles, multijoueur, voice chat</p>
   </div>
 </div>
 
 ---
 
-## Prérequis Rapides
+## Prérequis
 
-| Composant | Version Minimum |
-|-----------|-----------------|
+| Composant | Version |
+|-----------|---------|
 | **OS** | Linux (Ubuntu 22.04+), Windows 10+ |
 | **Compilateur** | GCC 11+ ou Clang 15+ |
 | **CMake** | 3.20+ |
@@ -47,19 +47,18 @@ Bienvenue dans le guide utilisateur R-Type ! Cette section vous accompagne de l'
 
 ---
 
-## Flux de Démarrage
+## Flux
 
 ```mermaid
 flowchart LR
-    A[Installation] --> B[Configuration]
-    B --> C[Compilation]
-    C --> D[Lancement Serveur]
-    D --> E[Lancement Client]
-    E --> F[Jouer !]
+    A[Installation] --> B[Compilation]
+    B --> C[Serveur]
+    C --> D[Client]
+    D --> E[Jouer !]
 
     style A fill:#7c3aed,color:#fff
-    style F fill:#f59e0b,color:#000
+    style E fill:#f59e0b,color:#000
 ```
 
 !!! tip "Premier lancement ?"
-    Suivez le [Démarrage Rapide](quickstart.md) pour une expérience guidée pas à pas.
+    Suivez le [Démarrage Rapide](quickstart.md) pour une expérience guidée.

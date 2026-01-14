@@ -145,16 +145,26 @@ nav:
     - guide/index.md
     - Installation: guide/installation.md
     - Démarrage rapide: guide/quickstart.md
-    - Configuration: guide/configuration.md
-    - Compilation: guide/building.md
+    - Compilation: guide/compilation.md
+    - Gameplay:
+      - guide/gameplay/index.md
+      - Contrôles: guide/gameplay/controles.md
+      - Multijoueur: guide/gameplay/multijoueur.md
+      - Voice Chat: guide/gameplay/voice-chat.md
+  - Configuration:
+    - configuration/index.md
+    - Serveur: configuration/serveur.md
+    - Client: configuration/client.md
+    - Accessibilité: configuration/accessibilite.md
+    - Audio: configuration/audio.md
   - Technique:
     - technique/index.md
     - Architecture: technique/architecture.md
-    - Librairies Graphiques:
+    - Graphiques:
       - technique/graphiques/index.md
-      - Couche d'Abstraction: technique/graphiques/abstraction.md
-      - Backend SDL2: technique/graphiques/sdl2.md
-      - Backend SFML: technique/graphiques/sfml.md
+      - Abstraction: technique/graphiques/abstraction.md
+      - SDL2: technique/graphiques/sdl2.md
+      - SFML: technique/graphiques/sfml.md
     - Réseau:
       - technique/reseau/index.md
     - API Reference: technique/api/index.md
