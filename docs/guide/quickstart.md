@@ -56,19 +56,33 @@ Ou directement avec le script :
 
 Sortie attendue :
 ```
-[INFO] R-Type Server v1.0.0
-[INFO] Loading configuration...
-[INFO] Server listening on 0.0.0.0:4242
-[INFO] Waiting for players...
+[INFO] R-Type server starting...
+[INFO] Loaded configuration from .env file
+[INFO] TCP Auth Server listening on port 4125
+[INFO] UDP Game Server listening on port 4124
+[INFO] Voice UDP Server listening on port 4126
 ```
 
-### Options du Serveur
+### Configuration du Serveur
 
-| Option | Description | Défaut |
-|--------|-------------|--------|
-| `-p, --port` | Port d'écoute | `4242` |
-| `-c, --config` | Fichier de configuration | `config/server.json` |
-| `-v, --verbose` | Mode verbeux | `false` |
+Le serveur utilise un fichier `.env` pour la configuration :
+
+```bash
+# Ports
+TCP_PORT=4125        # Authentification TCP
+UDP_PORT=4124        # Game UDP
+VOICE_PORT=4126      # Voice chat UDP
+
+# MongoDB
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB=rtype
+```
+
+| Port | Protocol | Usage |
+|------|----------|-------|
+| 4124 | UDP | Synchronisation de jeu (snapshots, inputs) |
+| 4125 | TCP | Authentification, rooms, chat |
+| 4126 | UDP | Voice chat (Opus) |
 
 ---
 
@@ -90,10 +104,13 @@ Ou avec le script :
 
 | Option | Description | Défaut |
 |--------|-------------|--------|
-| `-h, --host` | Adresse du serveur | `127.0.0.1` |
-| `-p, --port` | Port du serveur | `4242` |
-| `--backend` | Backend graphique (`sdl2` ou `sfml`) | `sdl2` |
-| `-f, --fullscreen` | Mode plein écran | `false` |
+| `--graphics=<name>` | Backend graphique (`sdl2` ou `sfml`) | `sfml` |
+| `--graphics-path=<path>` | Chemin vers un plugin graphique custom | - |
+| `-h, --help` | Afficher l'aide | - |
+
+!!! note "Adresse serveur"
+    L'adresse du serveur est configurée en dur dans le code (`127.0.0.1`).
+    Pour se connecter à un serveur distant, modifiez `src/client/src/boot/Boot.cpp`.
 
 ---
 
@@ -116,17 +133,26 @@ Ou avec le script :
 
 ```bash
 # Sur la machine hôte
-./artifacts/server/linux/rtype_server -p 4242
+./artifacts/server/linux/rtype_server
 ```
 
-Communiquez votre IP publique aux autres joueurs.
+Le serveur écoute sur les ports :
+- **4124** (UDP) : Game
+- **4125** (TCP) : Auth
+- **4126** (UDP) : Voice
+
+Communiquez votre IP publique aux autres joueurs et ouvrez ces ports sur votre routeur.
 
 ### Rejoindre une Partie
 
-```bash
-# Sur les machines clientes
-./artifacts/client/linux/rtype_client -h <IP_HOTE> -p 4242
+Pour l'instant, l'adresse du serveur est codée en dur. Pour rejoindre un serveur distant :
+
+1. Modifiez `src/client/src/boot/Boot.cpp` ligne 82-83 :
+```cpp
+tcpClient->connect("<IP_HOTE>", 4125);
+udpClient->connect("<IP_HOTE>", 4124);
 ```
+2. Recompilez le client
 
 ---
 
@@ -138,18 +164,26 @@ sequenceDiagram
     participant C1 as Client 1
     participant C2 as Client 2
 
-    S->>S: Démarrage sur port 4242
-    C1->>S: Connexion
-    S->>C1: Bienvenue, Player 1
-    C2->>S: Connexion
-    S->>C2: Bienvenue, Player 2
-    S->>C1: Player 2 a rejoint
-    S->>S: Lancement de la partie
-    loop Game Loop
-        C1->>S: Input (position, tir)
-        C2->>S: Input (position, tir)
-        S->>C1: Game State
-        S->>C2: Game State
+    S->>S: Démarrage (TCP:4125, UDP:4124)
+    C1->>S: Login (TCP)
+    S->>C1: LoginAck + SessionToken
+    C1->>S: CreateRoom (TCP)
+    S->>C1: CreateRoomAck + RoomCode
+    C2->>S: Login (TCP)
+    S->>C2: LoginAck + SessionToken
+    C2->>S: JoinRoomByCode (TCP)
+    S->>C2: JoinRoomAck
+    S->>C1: RoomUpdate (Player 2 joined)
+    Note over S,C2: Host starts game
+    C1->>S: JoinGame (UDP + Token)
+    C2->>S: JoinGame (UDP + Token)
+    S->>C1: JoinGameAck (player_id)
+    S->>C2: JoinGameAck (player_id)
+    loop Game Loop (20Hz)
+        C1->>S: PlayerInput (keys bitfield)
+        C2->>S: PlayerInput (keys bitfield)
+        S->>C1: Snapshot (all players, missiles, enemies)
+        S->>C2: Snapshot
     end
 ```
 

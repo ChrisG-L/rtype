@@ -15,441 +15,325 @@ L'abstraction graphique suit plusieurs principes clés :
 
 1. **Dependency Inversion** : Le code métier dépend d'abstractions, pas d'implémentations
 2. **Single Responsibility** : Chaque interface a une responsabilité unique
-3. **Interface Segregation** : Interfaces minimales et focalisées
+3. **Plugin Architecture** : Les backends sont chargés dynamiquement
 4. **RAII** : Gestion automatique des ressources
 
 ---
 
-## Diagramme de Classes
+## Architecture
 
 ```mermaid
 classDiagram
-    class IGraphicsBackend {
-        <<interface>>
-        +initialize(config) bool
-        +shutdown() void
-        +getWindow() IWindow&
-        +loadTexture(path) ITexture*
-        +loadFont(path, size) IFont*
-        +clear(color) void
-        +draw(drawable) void
-        +present() void
-    }
-
     class IWindow {
         <<interface>>
+        +getSize() Vec2u
         +isOpen() bool
         +close() void
-        +getSize() Vector2u
-        +setTitle(title) void
-        +setFullscreen(enabled) void
-        +pollEvent(event) bool
-    }
-
-    class ITexture {
-        <<interface>>
-        +getSize() Vector2u
-        +bind() void
+        +pollEvent() Event
+        +clear() void
+        +display() void
+        +draw(IDrawable) void
+        +drawRect(x, y, w, h, color) void
+        +drawSprite(key, x, y, w, h) void
+        +drawText(font, text, x, y, size, color) void
+        +loadTexture(key, path) bool
+        +loadFont(key, path) bool
+        +loadShader(key, vert, frag) bool
+        +setPostProcessShader(key) void
     }
 
     class IDrawable {
         <<interface>>
-        +draw(backend) void
+        +draw(window) void
     }
 
-    class Sprite {
-        +texture: ITexture*
-        +position: Vector2f
-        +sourceRect: IntRect
-        +draw(backend) void
+    class SFMLWindow {
+        -sf::RenderWindow window
+        -sf::RenderTexture renderTexture
+        -std::map textures
+        -std::map fonts
+        -std::map shaders
     }
 
-    class Text {
-        +font: IFont*
-        +content: string
-        +position: Vector2f
-        +draw(backend) void
+    class SDL2Window {
+        -SDL_Window* window
+        -SDL_Renderer* renderer
+        -std::map textures
+        -std::map fonts
     }
 
-    IGraphicsBackend --> IWindow
-    IGraphicsBackend --> ITexture
-    IDrawable <|.. Sprite
-    IDrawable <|.. Text
-    Sprite --> ITexture
+    IWindow <|.. SFMLWindow
+    IWindow <|.. SDL2Window
+    IWindow --> IDrawable
 ```
 
 ---
 
-## Interfaces Core
+## Interface IWindow
 
-### IGraphicsBackend
-
-Interface principale du système graphique.
+L'interface principale du système graphique. Définie dans `src/client/include/graphics/IWindow.hpp`.
 
 ```cpp
-namespace rtype::graphics {
-
-struct WindowConfig {
-    std::string title = "R-Type";
-    uint32_t width = 1920;
-    uint32_t height = 1080;
-    bool fullscreen = false;
-    bool vsync = true;
-};
-
-class IGraphicsBackend {
-public:
-    virtual ~IGraphicsBackend() = default;
-
-    // === Lifecycle ===
-
-    /// Initialize the graphics subsystem
-    /// @param config Window configuration
-    /// @return true on success
-    virtual bool initialize(const WindowConfig& config) = 0;
-
-    /// Cleanup all resources
-    virtual void shutdown() = 0;
-
-    // === Window ===
-
-    /// Get the main window
-    virtual IWindow& getWindow() = 0;
-
-    // === Resource Loading ===
-
-    /// Load a texture from file
-    /// @param path Path to image file
-    /// @return Texture or nullptr on failure
-    virtual std::unique_ptr<ITexture> loadTexture(
-        const std::filesystem::path& path) = 0;
-
-    /// Load a font from file
-    virtual std::unique_ptr<IFont> loadFont(
-        const std::filesystem::path& path, int size) = 0;
-
-    // === Rendering ===
-
-    /// Clear the screen
-    virtual void clear(Color color = Color::Black) = 0;
-
-    /// Draw a drawable object
-    virtual void draw(const IDrawable& drawable) = 0;
-
-    /// Draw a sprite directly
-    virtual void drawSprite(
-        const ITexture& texture,
-        const Vector2f& position,
-        const IntRect& sourceRect = {},
-        float rotation = 0.f,
-        const Vector2f& scale = {1.f, 1.f}) = 0;
-
-    /// Draw text directly
-    virtual void drawText(
-        const IFont& font,
-        const std::string& text,
-        const Vector2f& position,
-        Color color = Color::White) = 0;
-
-    /// Present the frame
-    virtual void present() = 0;
-
-    // === Info ===
-
-    virtual std::string getName() const = 0;
-};
-
-} // namespace rtype::graphics
-```
-
-### IWindow
-
-Interface de gestion de fenêtre.
-
-```cpp
-namespace rtype::graphics {
+namespace graphics {
 
 class IWindow {
 public:
     virtual ~IWindow() = default;
 
-    /// Check if window is open
-    virtual bool isOpen() const = 0;
-
-    /// Close the window
+    // === Window Management ===
+    virtual Vec2u getSize() const = 0;
+    virtual bool isOpen() = 0;
     virtual void close() = 0;
+    virtual events::Event pollEvent() = 0;
 
-    /// Get window size
-    virtual Vector2u getSize() const = 0;
+    // === Drawing ===
+    virtual void draw(const IDrawable& drawable) = 0;
+    virtual void drawRect(float x, float y, float width, float height, rgba color) = 0;
+    virtual void drawImg(IDrawable drawable, float x, float y, float scaleX, float scaleY) = 0;
+    virtual void drawSprite(const std::string& textureKey, float x, float y, float width, float height) = 0;
+    virtual void drawText(const std::string& fontKey, const std::string& text,
+                          float x, float y, unsigned int size, rgba color) = 0;
 
-    /// Set window title
-    virtual void setTitle(const std::string& title) = 0;
+    // === Resource Loading ===
+    virtual bool loadTexture(const std::string& key, const std::string& filepath) = 0;
+    virtual bool loadFont(const std::string& key, const std::string& filepath) = 0;
 
-    /// Toggle fullscreen
-    virtual void setFullscreen(bool enabled) = 0;
+    // === Frame Management ===
+    virtual void clear() = 0;
+    virtual void display() = 0;
 
-    /// Poll next event
-    /// @param event Output event
-    /// @return true if event was available
-    virtual bool pollEvent(Event& event) = 0;
+    // === Post-Processing Shaders ===
+    virtual bool loadShader(const std::string& key,
+                           const std::string& vertexPath,
+                           const std::string& fragmentPath) = 0;
+    virtual void setPostProcessShader(const std::string& key) = 0;
+    virtual void clearPostProcessShader() = 0;
+    virtual void setShaderUniform(const std::string& name, int value) = 0;
+    virtual bool supportsShaders() const = 0;
 
-    /// Check if window has focus
-    virtual bool hasFocus() const = 0;
+    // === Frame with Post-Processing ===
+    virtual void beginFrame() = 0;
+    virtual void endFrame() = 0;
+
+    // === Native Handle ===
+    virtual void* getNativeHandle() = 0;
 };
 
-} // namespace rtype::graphics
-```
-
-### ITexture
-
-Interface pour les textures.
-
-```cpp
-namespace rtype::graphics {
-
-class ITexture {
-public:
-    virtual ~ITexture() = default;
-
-    /// Get texture dimensions
-    virtual Vector2u getSize() const = 0;
-
-    /// Get native handle (for advanced usage)
-    virtual void* getNativeHandle() const = 0;
-};
-
-} // namespace rtype::graphics
+} // namespace graphics
 ```
 
 ---
 
 ## Types Communs
 
+### Vecteurs
+
+Définis dans `src/client/include/utils/Vecs.hpp` :
+
 ```cpp
-namespace rtype::graphics {
-
-// === Vectors ===
-
-template<typename T>
-struct Vector2 {
-    T x{}, y{};
-
-    Vector2() = default;
-    Vector2(T x, T y) : x(x), y(y) {}
-
-    Vector2 operator+(const Vector2& o) const { return {x + o.x, y + o.y}; }
-    Vector2 operator-(const Vector2& o) const { return {x - o.x, y - o.y}; }
-    Vector2 operator*(T s) const { return {x * s, y * s}; }
+struct Vec2u {
+    unsigned int x, y;
 };
 
-using Vector2f = Vector2<float>;
-using Vector2i = Vector2<int>;
-using Vector2u = Vector2<unsigned>;
-
-// === Rectangles ===
-
-struct IntRect {
-    int x{}, y{}, width{}, height{};
-
-    bool contains(int px, int py) const {
-        return px >= x && px < x + width &&
-               py >= y && py < y + height;
-    }
+struct Vec2f {
+    float x, y;
 };
+```
 
-struct FloatRect {
-    float x{}, y{}, width{}, height{};
+### Couleurs
 
-    bool intersects(const FloatRect& other) const;
+```cpp
+struct rgba {
+    uint8_t r, g, b, a;
 };
+```
 
-// === Color ===
+### Events
 
-struct Color {
-    uint8_t r{}, g{}, b{}, a{255};
+Le système d'événements utilise `std::variant` :
 
-    Color() = default;
-    Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255)
-        : r(r), g(g), b(b), a(a) {}
+```cpp
+namespace events {
 
-    static const Color Black;
-    static const Color White;
-    static const Color Red;
-    static const Color Green;
-    static const Color Blue;
-    static const Color Transparent;
-};
-
-// === Events ===
-
-enum class EventType {
-    Closed,
-    Resized,
+using Event = std::variant<
+    None,
+    WindowClosed,
     KeyPressed,
-    KeyReleased,
-    MouseMoved,
-    MouseButtonPressed,
-    MouseButtonReleased
+    KeyReleased
+>;
+
+enum class Key {
+    A, B, C, /* ... */ Z,
+    Num0, Num1, /* ... */ Num9,
+    Space, Enter, Escape,
+    Up, Down, Left, Right,
+    LShift, RShift, LControl, RControl
 };
 
-struct Event {
-    EventType type;
-
-    union {
-        struct { int width, height; } size;
-        struct { KeyCode code; bool alt, ctrl, shift; } key;
-        struct { int x, y; } mouse;
-        struct { int x, y; MouseButton button; } mouseButton;
-    };
+struct KeyPressed {
+    Key key;
 };
 
-} // namespace rtype::graphics
+struct KeyReleased {
+    Key key;
+};
+
+} // namespace events
 ```
 
 ---
 
-## Pattern Factory
+## Implémentations
 
-Création des backends via factory :
+### SFML Backend
+
+Localisation : `src/client/lib/sfml/`
 
 ```cpp
-namespace rtype::graphics {
-
-/// Factory function type for backends
-using BackendFactory = std::unique_ptr<IGraphicsBackend>(*)();
-
-/// Registry of available backends
-class BackendRegistry {
+class SFMLWindow : public IWindow {
 public:
-    static BackendRegistry& instance();
+    SFMLWindow(unsigned width, unsigned height, const std::string& title);
 
-    /// Register a backend factory
-    void registerBackend(
-        const std::string& name,
-        BackendFactory factory);
-
-    /// Create a backend by name
-    std::unique_ptr<IGraphicsBackend> create(
-        const std::string& name) const;
-
-    /// List available backends
-    std::vector<std::string> listBackends() const;
+    // Utilise sf::RenderWindow pour le rendu
+    // Supporte les shaders GLSL via sf::Shader
+    // Post-processing via sf::RenderTexture
 
 private:
-    std::unordered_map<std::string, BackendFactory> factories_;
+    sf::RenderWindow _window;
+    sf::RenderTexture _renderTexture;  // Pour post-processing
+    std::map<std::string, sf::Texture> _textures;
+    std::map<std::string, sf::Font> _fonts;
+    std::map<std::string, sf::Shader> _shaders;
+    std::string _activeShader;
 };
-
-/// Macro for auto-registration
-#define REGISTER_GRAPHICS_BACKEND(name, class_name) \
-    static bool _registered_##class_name = [] { \
-        BackendRegistry::instance().registerBackend( \
-            name, \
-            []() { return std::make_unique<class_name>(); } \
-        ); \
-        return true; \
-    }()
-
-} // namespace rtype::graphics
 ```
 
-Usage dans les implémentations :
+### SDL2 Backend
+
+Localisation : `src/client/lib/sdl2/`
 
 ```cpp
-// Dans SDL2Backend.cpp
-REGISTER_GRAPHICS_BACKEND("sdl2", SDL2Backend);
-
-// Dans SFMLBackend.cpp
-REGISTER_GRAPHICS_BACKEND("sfml", SFMLBackend);
-```
-
----
-
-## Gestion des Ressources
-
-### TextureCache
-
-Cache intelligent pour les textures :
-
-```cpp
-class TextureCache {
+class SDL2Window : public IWindow {
 public:
-    TextureCache(IGraphicsBackend& backend) : backend_(backend) {}
+    SDL2Window(unsigned width, unsigned height, const std::string& title);
 
-    /// Get or load a texture
-    ITexture* get(const std::string& path) {
-        auto it = cache_.find(path);
-        if (it != cache_.end()) {
-            return it->second.get();
-        }
-
-        auto texture = backend_.loadTexture(path);
-        if (!texture) {
-            spdlog::error("Failed to load texture: {}", path);
-            return nullptr;
-        }
-
-        auto* ptr = texture.get();
-        cache_[path] = std::move(texture);
-        return ptr;
-    }
-
-    /// Clear unused textures
-    void cleanup() {
-        // Implementation with reference counting
-    }
+    // Utilise SDL_Renderer pour le rendu
+    // Shaders non supportés (supportsShaders() = false)
 
 private:
-    IGraphicsBackend& backend_;
-    std::unordered_map<std::string, std::unique_ptr<ITexture>> cache_;
+    SDL_Window* _window;
+    SDL_Renderer* _renderer;
+    std::map<std::string, SDL_Texture*> _textures;
+    std::map<std::string, TTF_Font*> _fonts;
 };
 ```
 
 ---
 
-## Exemple d'Utilisation
+## Chargement Dynamique
+
+Les backends sont compilés en bibliothèques partagées et chargés dynamiquement :
+
+```
+lib/
+├── sfml/
+│   └── librtype_sfml.so (ou .dll)
+└── sdl2/
+    └── librtype_sdl2.so (ou .dll)
+```
+
+Sélection via CLI :
+
+```bash
+# SFML (par défaut)
+./rtype_client
+
+# SDL2
+./rtype_client --graphics=sdl2
+
+# Plugin custom
+./rtype_client --graphics-path=./mon_plugin.so
+```
+
+---
+
+## Post-Processing Shaders
+
+Le backend SFML supporte les shaders GLSL pour les effets post-processing :
 
 ```cpp
-#include "graphics/IGraphicsBackend.hpp"
-#include "graphics/BackendRegistry.hpp"
+// Charger un shader
+window->loadShader("colorblind", "shaders/passthrough.vert", "shaders/colorblind.frag");
 
-int main() {
-    using namespace rtype::graphics;
+// Activer le shader
+window->setPostProcessShader("colorblind");
 
-    // Create backend
-    auto backend = BackendRegistry::instance().create("sdl2");
-    if (!backend) {
-        return 1;
+// Passer des uniforms
+window->setShaderUniform("mode", 1);  // 1 = protanopia
+
+// Render loop avec post-processing
+window->beginFrame();
+// ... draw everything ...
+window->endFrame();  // Applique le shader
+```
+
+!!! note "Support SDL2"
+    Le backend SDL2 ne supporte pas les shaders. `supportsShaders()` retourne `false`.
+
+---
+
+## Utilisation dans le Code
+
+### GameScene
+
+```cpp
+void GameScene::render() {
+    auto& window = *_context.window;
+
+    window.beginFrame();
+    window.clear();
+
+    // Dessiner le background
+    window.drawSprite("background", 0, 0, 1920, 1080);
+
+    // Dessiner les joueurs
+    for (const auto& player : _players) {
+        window.drawSprite("ship", player.x, player.y, 64, 64);
     }
 
-    // Initialize
-    WindowConfig config{
-        .title = "R-Type",
-        .width = 1920,
-        .height = 1080
-    };
-
-    if (!backend->initialize(config)) {
-        return 1;
+    // Dessiner les missiles
+    for (const auto& missile : _missiles) {
+        window.drawSprite("missile", missile.x, missile.y, 32, 16);
     }
 
-    // Load resources
-    auto playerTexture = backend->loadTexture("assets/player.png");
+    // HUD
+    window.drawText("font", "Score: " + std::to_string(_score),
+                    10, 10, 24, {255, 255, 255, 255});
 
-    // Game loop
-    while (backend->getWindow().isOpen()) {
-        Event event;
-        while (backend->getWindow().pollEvent(event)) {
-            if (event.type == EventType::Closed) {
-                backend->getWindow().close();
-            }
-        }
+    window.endFrame();
+    window.display();
+}
+```
 
-        backend->clear(Color::Black);
-        backend->drawSprite(*playerTexture, {100.f, 100.f});
-        backend->present();
+### Chargement de ressources
+
+```cpp
+void GameScene::loadResources() {
+    auto& window = *_context.window;
+
+    // Textures
+    window.loadTexture("ship", "assets/spaceship/Ship1.png");
+    window.loadTexture("missile", "assets/spaceship/missile.png");
+    window.loadTexture("background", "assets/backgrounds/space.png");
+
+    // Fonts
+    window.loadFont("font", "assets/fonts/main.ttf");
+
+    // Shaders (SFML only)
+    if (window.supportsShaders()) {
+        window.loadShader("colorblind",
+                         "assets/shaders/passthrough.vert",
+                         "assets/shaders/colorblind.frag");
     }
-
-    backend->shutdown();
-    return 0;
 }
 ```

@@ -6,209 +6,240 @@ tags:
 
 # Système Réseau
 
-Architecture réseau client-serveur utilisant UDP pour une latence minimale.
+Architecture réseau client-serveur utilisant UDP et TCP.
 
 ## Vue d'Ensemble
 
-R-Type utilise un modèle **client-serveur autoritatif** où le serveur est la source de vérité pour l'état du jeu.
+R-Type utilise un modèle **client-serveur autoritatif** avec deux protocoles :
+
+- **TCP (port 4125)** : Authentification, gestion des rooms, chat
+- **UDP (port 4124)** : Synchronisation de jeu temps réel
+- **UDP (port 4126)** : Voice chat (Opus codec)
 
 ```mermaid
 graph LR
     subgraph Clients
         C1[Client 1]
         C2[Client 2]
-        C3[Client 3]
     end
 
     subgraph Server
-        S[Game Server]
-        GS[Game State]
+        TCP[TCP Server :4125]
+        UDP[UDP Server :4124]
+        Voice[Voice Server :4126]
+        Auth[Auth Service]
+        Rooms[Room Manager]
+        Game[Game World]
     end
 
-    C1 <-->|UDP| S
-    C2 <-->|UDP| S
-    C3 <-->|UDP| S
-    S --> GS
+    C1 <-->|TCP| TCP
+    C2 <-->|TCP| TCP
+    C1 <-->|UDP| UDP
+    C2 <-->|UDP| UDP
+    C1 <-->|UDP| Voice
+    C2 <-->|UDP| Voice
 
-    style S fill:#7c3aed,color:#fff
-    style GS fill:#f59e0b,color:#000
+    TCP --> Auth
+    TCP --> Rooms
+    UDP --> Game
+
+    style TCP fill:#10b981,color:#fff
+    style UDP fill:#7c3aed,color:#fff
+    style Voice fill:#f59e0b,color:#000
 ```
 
 ---
 
-## Pourquoi UDP ?
+## Protocole TCP (Authentification & Rooms)
 
-| Aspect | UDP | TCP |
-|--------|-----|-----|
-| **Latence** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Fiabilité** | ❌ (géré manuellement) | ✅ (garanti) |
-| **Ordre** | ❌ (non garanti) | ✅ (garanti) |
-| **Overhead** | Minimal | Headers + ACKs |
+### Header TCP
 
-Pour un jeu d'action en temps réel, la **latence est critique**. UDP permet :
-
-- Envoi immédiat sans attente d'ACK
-- Tolérance à la perte de paquets (état suivant remplace le précédent)
-- Contrôle fin sur la fiabilité quand nécessaire
-
----
-
-## Architecture
-
-```mermaid
-flowchart TB
-    subgraph "Client Network Stack"
-        CI[Input Collector]
-        CS[State Interpolator]
-        CP[Packet Sender]
-        CR[Packet Receiver]
-    end
-
-    subgraph "Network Layer"
-        UDP((UDP Socket))
-    end
-
-    subgraph "Server Network Stack"
-        SR[Packet Receiver]
-        SP[Packet Sender]
-        SQ[Input Queue]
-        SS[State Broadcaster]
-    end
-
-    CI --> CP
-    CP --> UDP
-    UDP --> SR
-    SR --> SQ
-
-    SS --> SP
-    SP --> UDP
-    UDP --> CR
-    CR --> CS
-
-    style UDP fill:#10b981,color:#fff
-```
-
----
-
-## Protocole de Communication
-
-### Types de Paquets
-
-| ID | Type | Direction | Description |
-|----|------|-----------|-------------|
-| `0x01` | `CONNECT` | C→S | Demande de connexion |
-| `0x02` | `ACCEPT` | S→C | Connexion acceptée |
-| `0x03` | `REJECT` | S→C | Connexion refusée |
-| `0x04` | `DISCONNECT` | C↔S | Déconnexion |
-| `0x10` | `INPUT` | C→S | Inputs du joueur |
-| `0x20` | `STATE` | S→C | État du monde |
-| `0x21` | `DELTA` | S→C | Delta state |
-| `0x30` | `EVENT` | S→C | Événement de jeu |
-| `0x40` | `PING` | C↔S | Mesure latence |
-| `0x41` | `PONG` | C↔S | Réponse ping |
-
-### Format des Paquets
-
-```
-+--------+--------+--------+--------+--------+
-| Magic  | Type   | Seq#   | Size   | Data   |
-| 2B     | 1B     | 4B     | 2B     | ...    |
-+--------+--------+--------+--------+--------+
-```
+Tous les messages TCP commencent par un header de 7 bytes :
 
 ```cpp
-struct PacketHeader {
-    uint16_t magic = 0x5254;  // "RT" for R-Type
-    uint8_t type;
-    uint32_t sequence;
-    uint16_t dataSize;
+struct Header {
+    uint8_t  isAuthenticated;  // 1 byte
+    uint16_t type;             // 2 bytes (network order)
+    uint32_t payload_size;     // 4 bytes (network order)
+};
+```
+
+### Types de Messages TCP
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `Login` | 0x0100 | C→S | Connexion utilisateur |
+| `LoginAck` | 0x0101 | S→C | Réponse login + SessionToken |
+| `Register` | 0x0102 | C→S | Création de compte |
+| `RegisterAck` | 0x0103 | S→C | Réponse inscription |
+| `CreateRoom` | 0x0200 | C→S | Créer une room |
+| `CreateRoomAck` | 0x0201 | S→C | Room créée + code |
+| `JoinRoomByCode` | 0x0210 | C→S | Rejoindre par code |
+| `JoinRoomAck` | 0x0211 | S→C | Accès accordé |
+| `JoinRoomNack` | 0x0212 | S→C | Accès refusé |
+| `LeaveRoom` | 0x0220 | C→S | Quitter room |
+| `SetReady` | 0x0230 | C→S | Prêt à jouer |
+| `StartGame` | 0x0240 | C→S | Lancer la partie (host) |
+| `RoomUpdate` | 0x0250 | S→C | État room (broadcast) |
+| `GameStarting` | 0x0251 | S→C | Countdown démarrage |
+
+### Structures TCP Clés
+
+```cpp
+// Session token (32 bytes) - Pour authentifier UDP
+struct SessionToken {
+    uint8_t bytes[32];
+};
+
+// LoginMessage
+struct LoginMessage {
+    char username[32];
+    char password[64];
+};
+
+// AuthResponseWithToken (succès login)
+struct AuthResponseWithToken {
+    bool success;
+    char error_code[32];
+    char message[128];
+    SessionToken token;  // Pour auth UDP
+};
+
+// RoomPlayerState (état d'un joueur dans le lobby)
+struct RoomPlayerState {
+    uint8_t slotId;
+    uint8_t occupied;
+    char displayName[32];
+    char email[255];
+    uint8_t isReady;
+    uint8_t isHost;
+    uint8_t shipSkin;  // 1-6
 };
 ```
 
 ---
 
-## Implémentation Boost.ASIO
+## Protocole UDP (Game)
 
-### UDPSocket Wrapper
+### Header UDP
+
+Tous les messages UDP commencent par un header de 12 bytes :
 
 ```cpp
-#include <boost/asio.hpp>
-
-namespace rtype::network {
-
-using boost::asio::ip::udp;
-
-class UDPSocket {
-public:
-    UDPSocket(boost::asio::io_context& io)
-        : socket_(io, udp::endpoint(udp::v4(), 0))
-    {}
-
-    void bind(uint16_t port) {
-        socket_.bind(udp::endpoint(udp::v4(), port));
-    }
-
-    void sendTo(const Packet& packet, const udp::endpoint& dest) {
-        auto buffer = packet.serialize();
-        socket_.send_to(boost::asio::buffer(buffer), dest);
-    }
-
-    void asyncReceive() {
-        socket_.async_receive_from(
-            boost::asio::buffer(receiveBuffer_),
-            senderEndpoint_,
-            [this](auto ec, auto bytes) {
-                if (!ec) {
-                    handleReceive(bytes);
-                }
-                asyncReceive();
-            }
-        );
-    }
-
-private:
-    void handleReceive(std::size_t bytes);
-
-    udp::socket socket_;
-    udp::endpoint senderEndpoint_;
-    std::array<uint8_t, 1024> receiveBuffer_;
+struct UDPHeader {
+    uint16_t type;          // 2 bytes (network order)
+    uint16_t sequence_num;  // 2 bytes (network order)
+    uint64_t timestamp;     // 8 bytes (milliseconds since epoch)
 };
-
-} // namespace rtype::network
 ```
 
-### Client Network
+### Types de Messages UDP
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `HeartBeat` | 0x0001 | Both | Keep-alive |
+| `HeartBeatAck` | 0x0002 | S→C | Réponse heartbeat |
+| `JoinGame` | 0x0010 | C→S | Authentification UDP (token) |
+| `JoinGameAck` | 0x0011 | S→C | player_id assigné |
+| `JoinGameNack` | 0x0012 | S→C | Rejet (token invalide) |
+| `Snapshot` | 0x0040 | S→C | État complet du jeu (20Hz) |
+| `PlayerInput` | 0x0061 | C→S | Inputs du joueur |
+| `PlayerJoin` | 0x0070 | S→C | Nouveau joueur |
+| `PlayerLeave` | 0x0071 | S→C | Joueur déconnecté |
+| `ShootMissile` | 0x0080 | C→S | Demande de tir |
+| `MissileSpawned` | 0x0081 | S→C | Missile créé |
+| `MissileDestroyed` | 0x0082 | S→C | Missile détruit |
+| `EnemyDestroyed` | 0x0091 | S→C | Ennemi détruit |
+| `PlayerDamaged` | 0x00A0 | S→C | Joueur touché |
+| `PlayerDied` | 0x00A1 | S→C | Joueur mort |
+
+### Structures UDP Clés
+
+#### JoinGame (authentification UDP)
 
 ```cpp
-class NetworkClient {
-public:
-    void connect(const std::string& host, uint16_t port) {
-        serverEndpoint_ = *resolver_.resolve(host, std::to_string(port));
+struct JoinGame {
+    SessionToken token;      // 32 bytes - Token du login TCP
+    uint8_t shipSkin;        // 1 byte - Skin vaisseau (1-6)
+    char roomCode[6];        // 6 bytes - Code de la room
+    // Total: 39 bytes
+};
+```
 
-        // Send connect packet
-        Packet connectPacket(PacketType::CONNECT);
-        connectPacket.write(playerName_);
-        socket_.sendTo(connectPacket, serverEndpoint_);
+#### PlayerInput (envoi des touches)
 
-        // Start receiving
-        socket_.asyncReceive();
-        ioThread_ = std::thread([this] { io_.run(); });
-    }
+**IMPORTANT** : Le client envoie les **touches pressées**, pas la position !
 
-    void sendInput(const PlayerInput& input) {
-        Packet packet(PacketType::INPUT);
-        packet.write(input.sequence);
-        packet.write(input.moveX);
-        packet.write(input.moveY);
-        packet.write(input.shooting);
-        socket_.sendTo(packet, serverEndpoint_);
-    }
+```cpp
+struct PlayerInput {
+    uint16_t keys;         // Bitfield des touches
+    uint16_t sequenceNum;  // Pour réconciliation client-side
+    // Total: 4 bytes
+};
 
-private:
-    boost::asio::io_context io_;
-    UDPSocket socket_{io_};
-    udp::endpoint serverEndpoint_;
-    std::thread ioThread_;
+// Bitfield des touches
+namespace InputKeys {
+    constexpr uint16_t UP    = 0x0001;
+    constexpr uint16_t DOWN  = 0x0002;
+    constexpr uint16_t LEFT  = 0x0004;
+    constexpr uint16_t RIGHT = 0x0008;
+    constexpr uint16_t SHOOT = 0x0010;
+}
+```
+
+#### PlayerState (dans Snapshot)
+
+```cpp
+struct PlayerState {
+    uint8_t  id;
+    uint16_t x;
+    uint16_t y;
+    uint8_t  health;
+    uint8_t  alive;
+    uint16_t lastAckedInputSeq;  // Pour réconciliation
+    uint8_t  shipSkin;
+    // Total: 10 bytes
+};
+```
+
+#### GameSnapshot (broadcast 20Hz)
+
+```cpp
+struct GameSnapshot {
+    uint8_t player_count;
+    PlayerState players[4];      // MAX_PLAYERS = 4
+    uint8_t missile_count;
+    MissileState missiles[32];   // MAX_MISSILES = 32
+    uint8_t enemy_count;
+    EnemyState enemies[16];      // MAX_ENEMIES = 16
+    uint8_t enemy_missile_count;
+    MissileState enemy_missiles[32];
+};
+```
+
+---
+
+## Voice Chat (UDP port 4126)
+
+### Types de Messages Voice
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `VoiceJoin` | 0x0300 | C→S | Rejoindre voice channel |
+| `VoiceJoinAck` | 0x0301 | S→C | Confirmation |
+| `VoiceLeave` | 0x0302 | C→S | Quitter voice |
+| `VoiceFrame` | 0x0303 | Both | Audio Opus encodé |
+| `VoiceMute` | 0x0304 | Both | Mute/unmute |
+
+### Structure VoiceFrame
+
+```cpp
+struct VoiceFrame {
+    uint8_t  speaker_id;    // 1 byte - Qui parle
+    uint16_t sequence;      // 2 bytes - Détection perte paquets
+    uint16_t opus_len;      // 2 bytes - Taille données Opus
+    uint8_t  opus_data[480]; // Max 480 bytes Opus
+    // Header: 5 bytes, Total max: 485 bytes
 };
 ```
 
@@ -216,187 +247,74 @@ private:
 
 ## Sérialisation
 
-### Packet Class
+Toutes les structures utilisent **network byte order** (big-endian) :
 
 ```cpp
-class Packet {
-public:
-    explicit Packet(PacketType type)
-        : header_{.type = static_cast<uint8_t>(type)}
-    {}
+// Conversion host → network
+inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
+inline uint32_t swap32(uint32_t v) { return __builtin_bswap32(v); }
+inline uint64_t swap64(uint64_t v) { return __builtin_bswap64(v); }
 
-    template<typename T>
-    void write(const T& value) {
-        static_assert(std::is_trivially_copyable_v<T>);
-        auto ptr = reinterpret_cast<const uint8_t*>(&value);
-        data_.insert(data_.end(), ptr, ptr + sizeof(T));
-    }
-
-    void write(const std::string& str) {
-        write(static_cast<uint16_t>(str.size()));
-        data_.insert(data_.end(), str.begin(), str.end());
-    }
-
-    template<typename T>
-    T read() {
-        static_assert(std::is_trivially_copyable_v<T>);
-        T value;
-        std::memcpy(&value, &data_[readPos_], sizeof(T));
-        readPos_ += sizeof(T);
-        return value;
-    }
-
-    std::vector<uint8_t> serialize() const {
-        std::vector<uint8_t> buffer;
-        // Write header
-        auto headerPtr = reinterpret_cast<const uint8_t*>(&header_);
-        buffer.insert(buffer.end(), headerPtr, headerPtr + sizeof(header_));
-        // Write data
-        buffer.insert(buffer.end(), data_.begin(), data_.end());
-        return buffer;
-    }
-
-private:
-    PacketHeader header_;
-    std::vector<uint8_t> data_;
-    size_t readPos_ = 0;
-};
-```
-
----
-
-## Synchronisation
-
-### Server-Side
-
-Le serveur maintient l'état autoritatif et le broadcast régulièrement :
-
-```cpp
-void Server::tick() {
-    // Process all pending inputs
-    while (auto input = inputQueue_.pop()) {
-        applyInput(*input);
-    }
-
-    // Update game state
-    gameWorld_.update(TICK_DURATION);
-
-    // Broadcast state to all clients
-    Packet statePacket(PacketType::STATE);
-    statePacket.write(currentTick_);
-    statePacket.write(gameWorld_.serialize());
-
-    for (auto& [id, session] : sessions_) {
-        socket_.sendTo(statePacket, session.endpoint);
-    }
+// Pattern standard
+void to_bytes(uint8_t* buf) const {
+    uint16_t net_x = swap16(x);
+    std::memcpy(buf, &net_x, 2);
 }
-```
 
-### Client-Side Interpolation
-
-```cpp
-void Client::updateWorld(float dt) {
-    // Interpolate between received states
-    float t = interpolationTime_ / TICK_DURATION;
-    t = std::clamp(t, 0.f, 1.f);
-
-    for (auto& [id, entity] : entities_) {
-        if (auto* prev = findState(id, previousTick_)) {
-            if (auto* next = findState(id, currentTick_)) {
-                entity.position = lerp(prev->position, next->position, t);
-            }
-        }
-    }
-
-    interpolationTime_ += dt;
+static std::optional<T> from_bytes(const void* buf, size_t len) {
+    if (len < WIRE_SIZE) return std::nullopt;
+    uint16_t net_x;
+    std::memcpy(&net_x, buf, 2);
+    return T{.x = swap16(net_x)};
 }
 ```
 
 ---
 
-## Gestion de la Latence
-
-### Ping/Pong
-
-```cpp
-void Client::measureLatency() {
-    auto now = Clock::now();
-    Packet ping(PacketType::PING);
-    ping.write(now.time_since_epoch().count());
-    socket_.sendTo(ping, serverEndpoint_);
-}
-
-void Client::onPong(const Packet& packet) {
-    auto sentTime = packet.read<int64_t>();
-    auto rtt = Clock::now().time_since_epoch().count() - sentTime;
-    latency_ = rtt / 2;  // One-way latency estimate
-}
-```
-
-### Client-Side Prediction
-
-```cpp
-void Client::applyLocalInput(const PlayerInput& input) {
-    // Apply immediately for responsiveness
-    localPlayer_.applyInput(input);
-
-    // Store for reconciliation
-    pendingInputs_.push_back({input, localPlayer_.position});
-
-    // Send to server
-    sendInput(input);
-}
-
-void Client::reconcile(const ServerState& state) {
-    // Find our player in server state
-    auto serverPos = state.getPlayerPosition(playerId_);
-
-    // Remove acknowledged inputs
-    pendingInputs_.erase(
-        std::remove_if(pendingInputs_.begin(), pendingInputs_.end(),
-            [&](auto& pi) { return pi.input.sequence <= state.lastAck; }),
-        pendingInputs_.end()
-    );
-
-    // Re-apply pending inputs from server position
-    localPlayer_.position = serverPos;
-    for (auto& pi : pendingInputs_) {
-        localPlayer_.applyInput(pi.input);
-    }
-}
-```
-
----
-
-## Diagramme de Séquence Complet
+## Diagramme de Séquence
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant S as Server
+    participant TCP as TCP Server
+    participant UDP as UDP Server
 
-    Note over C,S: Connection
-    C->>S: CONNECT (name)
-    S->>C: ACCEPT (id, state)
+    Note over C,UDP: Phase 1: Authentification (TCP)
+    C->>TCP: Login (username, password)
+    TCP->>C: LoginAck (SessionToken)
 
-    Note over C,S: Game Loop (60Hz)
-    loop Every Client Frame
-        C->>C: Collect Input
-        C->>C: Predict Movement
-        C->>S: INPUT (seq, dx, dy, shoot)
+    Note over C,UDP: Phase 2: Room (TCP)
+    C->>TCP: CreateRoom / JoinRoomByCode
+    TCP->>C: RoomAck (roomCode, players)
+
+    Note over C,UDP: Phase 3: Game Start
+    TCP->>C: GameStarting (countdown)
+
+    Note over C,UDP: Phase 4: Game Loop (UDP)
+    C->>UDP: JoinGame (token, roomCode)
+    UDP->>C: JoinGameAck (player_id)
+
+    loop Every Frame (Client)
+        C->>UDP: PlayerInput (keys bitfield)
     end
 
-    loop Every Server Tick (60Hz)
-        S->>S: Process Inputs
-        S->>S: Update Physics
-        S->>S: Check Collisions
-        S->>C: STATE (tick, entities[])
+    loop Every 50ms (Server, 20Hz)
+        UDP->>C: Snapshot (players, missiles, enemies)
     end
-
-    C->>C: Interpolate State
-    C->>C: Reconcile Prediction
-
-    Note over C,S: Disconnect
-    C->>S: DISCONNECT
-    S->>C: ACK
 ```
+
+---
+
+## Constantes
+
+| Constante | Valeur | Description |
+|-----------|--------|-------------|
+| `MAX_PLAYERS` | 4 | Joueurs max par partie |
+| `MAX_MISSILES` | 32 | Missiles joueurs max |
+| `MAX_ENEMIES` | 16 | Ennemis max |
+| `MAX_ENEMY_MISSILES` | 32 | Missiles ennemis max |
+| `MAX_ROOM_PLAYERS` | 6 | Joueurs max par room |
+| `TOKEN_SIZE` | 32 | Taille SessionToken (bytes) |
+| `BROADCAST_RATE` | 20Hz | Fréquence snapshots |
+| `VOICE_UDP_PORT` | 4126 | Port voice chat |
+| `MAX_OPUS_FRAME_SIZE` | 480 | Taille max frame Opus |

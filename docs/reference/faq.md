@@ -62,17 +62,29 @@ Questions fréquemment posées sur R-Type.
 ## Gameplay
 
 ??? question "Comment changer le backend graphique ?"
-    Trois méthodes :
+    Via l'option CLI :
 
-    1. **CLI** : `./r-type_client --backend=sfml`
-    2. **Config** : Éditez `config/client.json` : `"backend": "sfml"`
-    3. **Environnement** : `RTYPE_BACKEND=sfml ./r-type_client`
+    ```bash
+    # Utiliser SFML (par défaut)
+    ./rtype_client
+
+    # Utiliser SDL2
+    ./rtype_client --graphics=sdl2
+
+    # Plugin custom
+    ./rtype_client --graphics-path=./mon_plugin.so
+    ```
 
 ??? question "Comment jouer en multijoueur ?"
-    1. **Hôte** : Lance le serveur avec `./r-type_server`
-    2. **Joueurs** : Connectent avec `./r-type_client -h <IP_HOTE>`
+    1. **Hôte** : Lance le serveur avec `./rtype_server`
+    2. **Joueurs** : Actuellement, l'adresse serveur est codée en dur (`127.0.0.1`).
+       Pour se connecter à un serveur distant, modifiez `src/client/src/boot/Boot.cpp`.
 
-    L'hôte doit partager son IP publique et ouvrir le port 4242/UDP.
+    L'hôte doit partager son IP publique et ouvrir les ports :
+
+    - **4124/UDP** : Game
+    - **4125/TCP** : Auth
+    - **4126/UDP** : Voice chat
 
 ??? question "Le jeu lag beaucoup"
     Vérifiez :
@@ -94,16 +106,22 @@ Questions fréquemment posées sur R-Type.
 
 ## Réseau
 
-??? question "Quel port utilise R-Type ?"
-    - **Port par défaut** : 4242 (UDP)
-    - **Console debug** : 4243 (TCP)
+??? question "Quels ports utilise R-Type ?"
+    | Port | Protocol | Usage |
+    |------|----------|-------|
+    | 4124 | UDP | Synchronisation de jeu (snapshots, inputs) |
+    | 4125 | TCP | Authentification, rooms, chat |
+    | 4126 | UDP | Voice chat (codec Opus) |
 
-    Modifiable via `-p` ou dans la configuration.
+    Les ports sont configurés via le fichier `.env` du serveur.
 
 ??? question "Comment ouvrir les ports sur mon routeur ?"
     1. Accédez à l'interface admin de votre routeur (souvent `192.168.1.1`)
     2. Trouvez "Port Forwarding" ou "NAT"
-    3. Ajoutez une règle : Port 4242, Protocol UDP, vers votre IP locale
+    3. Ajoutez trois règles :
+        - Port **4124**, Protocol **UDP** → votre IP locale
+        - Port **4125**, Protocol **TCP** → votre IP locale
+        - Port **4126**, Protocol **UDP** → votre IP locale
 
     Consultez la documentation de votre routeur pour les détails.
 

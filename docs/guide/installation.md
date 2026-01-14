@@ -43,7 +43,7 @@ Guide complet pour installer R-Type et ses dépendances sur votre système.
 
     1. **Visual Studio 2022** avec le workload "Développement Desktop C++"
     2. **Git for Windows** : [git-scm.com](https://git-scm.com/)
-    3. **CMake 3.20+** : [cmake.org](https://cmake.org/download/)
+    3. **CMake 3.30+** : [cmake.org](https://cmake.org/download/)
 
 === "macOS"
 
@@ -102,16 +102,33 @@ Le projet utilise vcpkg en mode manifest. Les dépendances sont définies dans `
 {
   "dependencies": [
     "boost-asio",
-    "boost-serialization",
-    "spdlog",
-    "nlohmann-json",
+    "gtest",
+    "mongo-cxx-driver",
+    "openssl",
+    "protobuf",
     "sdl2",
     "sdl2-image",
     "sdl2-ttf",
-    "sfml"
+    "sdl2-mixer",
+    "sfml",
+    "spdlog",
+    "opus",
+    "portaudio"
   ]
 }
 ```
+
+| Dépendance | Usage |
+|------------|-------|
+| `boost-asio` | Networking asynchrone (serveur) |
+| `gtest` | Tests unitaires |
+| `mongo-cxx-driver` | Base de données (authentification, rooms) |
+| `openssl` | Chiffrement (authentification) |
+| `protobuf` | Sérialisation (non utilisé actuellement) |
+| `sdl2`, `sdl2-image`, `sdl2-ttf`, `sdl2-mixer` | Backend graphique SDL2 |
+| `sfml` | Backend graphique SFML (par défaut) |
+| `spdlog` | Logging |
+| `opus`, `portaudio` | Voice chat (codec audio + I/O) |
 
 L'installation est automatique lors du premier build CMake.
 
@@ -121,8 +138,8 @@ L'installation est automatique lors du premier build CMake.
 
 ```bash
 # Vérifier les versions
-cmake --version   # >= 3.20
-g++ --version     # >= 11 (ou clang++ >= 15)
+cmake --version   # >= 3.30
+g++ --version     # >= 13 (ou clang++ >= 15)
 vcpkg version
 ```
 
