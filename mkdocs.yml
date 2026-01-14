@@ -189,7 +189,25 @@ nav:
     - Persistance:
       - technique/persistance/index.md
       - MongoDB: technique/persistance/mongodb.md
-    - API Reference: technique/api/index.md
+  - API:
+    - api/index.md
+    - Serveur:
+      - api/serveur/index.md
+      - Application: api/serveur/application.md
+      - RoomManager: api/serveur/room-manager.md
+      - ClientSession: api/serveur/client-session.md
+      - GameWorld: api/serveur/game-world.md
+    - Client:
+      - api/client/index.md
+      - Engine: api/client/engine.md
+      - SceneManager: api/client/scene-manager.md
+      - NetworkClient: api/client/network-client.md
+      - AudioManager: api/client/audio-manager.md
+    - Réseau:
+      - api/reseau/index.md
+      - Protocol: api/reseau/protocol.md
+      - Packet: api/reseau/packet.md
+      - Serialization: api/reseau/serialization.md
   - Référence:
     - reference/index.md
     - Glossaire: reference/glossaire.md
