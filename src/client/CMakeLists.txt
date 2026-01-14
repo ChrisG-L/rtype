@@ -408,3 +408,11 @@ if(PORTAUDIO_FOUND_VIA_VCPKG)
 else()
     target_link_libraries(rtype_client PRIVATE PkgConfig::PORTAUDIO)
 endif()
+
+# Copy assets folder to client output directory after build
+add_custom_command(TARGET rtype_client POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/assets
+    $<TARGET_FILE_DIR:rtype_client>/assets
+    COMMENT "Copying assets to client output directory..."
+)
