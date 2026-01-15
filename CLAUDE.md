@@ -104,7 +104,7 @@ Binary protocol over UDP with network byte order (big-endian). All messages star
 |------|-------|-----------|---------|-------------|
 | `HeartBeat` | 0x0001 | Both | - | Keep-alive |
 | `Snapshot` | 0x0040 | S→C | GameSnapshot | Full game state (20Hz) |
-| `PlayerInput` | 0x0061 | C→S | keys, seq (4B) | Input bitfield + sequence |
+| `PlayerInput` | 0x0060 | C→S | keys (2B), seq (2B) | Player input bitfield |
 | `PlayerJoin` | 0x0070 | S→C | player_id (1B) | New player joined |
 | `PlayerLeave` | 0x0071 | S→C | player_id (1B) | Player disconnected |
 | `ShootMissile` | 0x0080 | C→S | - | Fire missile request |
@@ -620,8 +620,6 @@ Authentication traffic (TCP port 4125) is encrypted using TLS 1.2+.
 ### Security Notes
 
 - Session tokens are generated using OpenSSL `RAND_bytes()` (CSPRNG)
-- Room codes are generated using OpenSSL `RAND_bytes()` (CSPRNG) to prevent hijacking
-- Gameplay RNG (enemy spawns, power-ups) uses `std::mt19937` - acceptable per SonarQube cpp:S2245
 - Client uses `verify_none` for self-signed certificates (development only)
 - In production, use `verify_peer` with proper CA certificates
 

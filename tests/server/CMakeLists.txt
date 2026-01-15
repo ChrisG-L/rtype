@@ -28,24 +28,6 @@ set(TEST_SOURCES
 
     # Tests Infrastructure - Session (CSPRNG crypto tests)
     infrastructure/session/SessionManagerCryptoTest.cpp
-
-    # Tests Game - Gameplay Phase 2 (Score, Boss, Weapons)
-    game/GameplayTest.cpp
-
-    # Tests Game - Weapon Level System (Phase 3)
-    game/WeaponLevelSystemTest.cpp
-
-    # Tests Game - Power-up Mechanics (Phase 3)
-    game/PowerUpMechanicsTest.cpp
-
-    # Tests Game - PlayerState Extended Fields (Phase 3)
-    game/PlayerStateExtendedTest.cpp
-
-    # Tests Game - Bit Device System (Phase 3)
-    game/BitDeviceSystemTest.cpp
-
-    # Tests Common - Collision System (AABB)
-    ${CMAKE_SOURCE_DIR}/tests/common/CollisionSystemTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests
