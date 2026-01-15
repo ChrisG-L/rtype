@@ -223,10 +223,10 @@ namespace infrastructure::game {
         // Standard (20 dmg): Basic dies in 2 shots, Bomber in 4
         static constexpr uint8_t HEALTH_BASIC = 40;     // 2 Standard shots or 5 Laser
         static constexpr uint8_t HEALTH_TRACKER = 35;   // Follows player, moderate HP
-        static constexpr uint8_t HEALTH_ZIGZAG = 25;    // Dodges, low HP
-        static constexpr uint8_t HEALTH_FAST = 20;      // Fast but fragile
+        static constexpr uint8_t HEALTH_ZIGZAG = 30;    // Dodges, survives 1 Standard shot
+        static constexpr uint8_t HEALTH_FAST = 25;      // Fast but fragile
         static constexpr uint8_t HEALTH_BOMBER = 80;    // Tanky, 4 Standard shots
-        static constexpr uint8_t HEALTH_POW_ARMOR = 50; // Medium HP, 100% power-up drop
+        static constexpr uint8_t HEALTH_POW_ARMOR = 60; // Tanky reward enemy, 100% power-up drop
 
         static constexpr float WIDTH = 40.0f;
         static constexpr float HEIGHT = 40.0f;
@@ -294,13 +294,14 @@ namespace infrastructure::game {
     static constexpr uint16_t POINTS_POW_ARMOR = 200;   // Special power-up carrier
     static constexpr uint16_t POINTS_BOSS = 5000;       // Boss kill bonus
     static constexpr uint16_t POINTS_WAVE_BONUS = 500;  // Bonus for completing wave without damage
-    static constexpr float COMBO_DECAY_TIME = 2.0f;     // Reset combo after 2s without kill
+    static constexpr float COMBO_DECAY_TIME = 3.0f;     // Reset combo after 3s without kill
     static constexpr float COMBO_INCREMENT = 0.1f;      // +0.1x per kill
     static constexpr float COMBO_MAX = 3.0f;            // Max 3.0x multiplier
 
     // Boss system constants
     static constexpr uint16_t BOSS_SPAWN_WAVE = 10;     // Spawn boss after this wave
-    static constexpr uint16_t BOSS_MAX_HEALTH = 1500;   // ~22s fight at 67 dps (epic)
+    static constexpr uint16_t BOSS_MAX_HEALTH = 1500;   // Base HP (actual = base + 500×cycle + 1000×players)
+    static constexpr uint16_t BOSS_HP_PER_PLAYER = 1000; // +1000 HP per player for multiplayer scaling
     static constexpr float BOSS_PHASE2_THRESHOLD = 0.65f;  // 65% HP (~975 HP)
     static constexpr float BOSS_PHASE3_THRESHOLD = 0.30f;  // 30% HP (~450 HP)
 
@@ -459,7 +460,7 @@ namespace infrastructure::game {
         static constexpr float HEIGHT = 32.0f;
         static constexpr float SPEED = 400.0f;
         static constexpr float ATTACH_OFFSET_X = 50.0f;
-        static constexpr uint8_t CONTACT_DAMAGE = 45;   // Kills Zigzag (25 HP) or Fast (20 HP)
+        static constexpr uint8_t CONTACT_DAMAGE = 30;   // Kills Fast (25 HP) in 1 hit
         static constexpr float HIT_COOLDOWN = 0.5f;     // Can hit same enemy again after 0.5s
         static constexpr float SHOOT_COOLDOWN = 0.35f;  // Slightly slower than player base cooldown
     };
@@ -483,7 +484,7 @@ namespace infrastructure::game {
         static constexpr float ORBIT_RADIUS = 50.0f;    // Distance from player center
         static constexpr float ORBIT_SPEED = 3.0f;      // Radians per second
         static constexpr float SHOOT_COOLDOWN = 0.4f;   // Slightly slower than player
-        static constexpr uint8_t CONTACT_DAMAGE = 20;   // Less than Force Pod (45)
+        static constexpr uint8_t CONTACT_DAMAGE = 15;   // Less than Force Pod (30)
         static constexpr float HIT_COOLDOWN = 0.5f;
     };
 

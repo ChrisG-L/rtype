@@ -43,7 +43,7 @@ TEST_F(BitDeviceConstantsTest, BitDeviceShootCooldown) {
 }
 
 TEST_F(BitDeviceConstantsTest, BitDeviceContactDamage) {
-    EXPECT_EQ(BitDevice::CONTACT_DAMAGE, 20);
+    EXPECT_EQ(BitDevice::CONTACT_DAMAGE, 15);  // Less than Force Pod (30)
 }
 
 TEST_F(BitDeviceConstantsTest, BitDeviceHitCooldown) {
@@ -76,37 +76,38 @@ protected:
 };
 
 TEST_F(BitDeviceVsEnemyTest, BitDeviceOneHitKillsFast) {
-    // Fast enemy: 20 HP, BitDevice contact: 20 dmg
-    constexpr uint8_t FAST_HP = 20;
-    EXPECT_GE(BitDevice::CONTACT_DAMAGE, FAST_HP);
+    // Fast enemy: 25 HP, BitDevice contact: 15 dmg - needs 2 hits
+    constexpr uint8_t FAST_HP = 25;
+    int hitsNeeded = (FAST_HP + BitDevice::CONTACT_DAMAGE - 1) / BitDevice::CONTACT_DAMAGE;
+    EXPECT_EQ(hitsNeeded, 2);
 }
 
 TEST_F(BitDeviceVsEnemyTest, BitDeviceTwoHitsKillsZigzag) {
-    // Zigzag enemy: 25 HP, BitDevice contact: 20 dmg
-    constexpr uint8_t ZIGZAG_HP = 25;
+    // Zigzag enemy: 30 HP, BitDevice contact: 15 dmg - needs exactly 2 hits
+    constexpr uint8_t ZIGZAG_HP = 30;
     int hitsNeeded = (ZIGZAG_HP + BitDevice::CONTACT_DAMAGE - 1) / BitDevice::CONTACT_DAMAGE;
     EXPECT_EQ(hitsNeeded, 2);
 }
 
 TEST_F(BitDeviceVsEnemyTest, BitDeviceTwoHitsKillsTracker) {
-    // Tracker enemy: 35 HP, BitDevice contact: 20 dmg
+    // Tracker enemy: 35 HP, BitDevice contact: 15 dmg - needs 3 hits
     constexpr uint8_t TRACKER_HP = 35;
     int hitsNeeded = (TRACKER_HP + BitDevice::CONTACT_DAMAGE - 1) / BitDevice::CONTACT_DAMAGE;
-    EXPECT_EQ(hitsNeeded, 2);
+    EXPECT_EQ(hitsNeeded, 3);
 }
 
 TEST_F(BitDeviceVsEnemyTest, BitDeviceTwoHitsKillsBasic) {
-    // Basic enemy: 40 HP, BitDevice contact: 20 dmg
+    // Basic enemy: 40 HP, BitDevice contact: 15 dmg - needs 3 hits
     constexpr uint8_t BASIC_HP = 40;
     int hitsNeeded = (BASIC_HP + BitDevice::CONTACT_DAMAGE - 1) / BitDevice::CONTACT_DAMAGE;
-    EXPECT_EQ(hitsNeeded, 2);
+    EXPECT_EQ(hitsNeeded, 3);
 }
 
 TEST_F(BitDeviceVsEnemyTest, BitDeviceFourHitsKillsBomber) {
-    // Bomber enemy: 80 HP, BitDevice contact: 20 dmg
+    // Bomber enemy: 80 HP, BitDevice contact: 15 dmg - needs 6 hits
     constexpr uint8_t BOMBER_HP = 80;
     int hitsNeeded = (BOMBER_HP + BitDevice::CONTACT_DAMAGE - 1) / BitDevice::CONTACT_DAMAGE;
-    EXPECT_EQ(hitsNeeded, 4);
+    EXPECT_EQ(hitsNeeded, 6);
 }
 
 // ============================================================================
@@ -413,9 +414,9 @@ TEST_F(BitDeviceVsForcePodTest, SizeComparison) {
 }
 
 TEST_F(BitDeviceVsForcePodTest, ContactDamageComparison) {
-    // Force Pod: 45 dmg, Bit: 20 dmg
-    EXPECT_EQ(ForcePod::CONTACT_DAMAGE, 45);
-    EXPECT_EQ(BitDevice::CONTACT_DAMAGE, 20);
+    // Force Pod: 30 dmg, Bit: 15 dmg
+    EXPECT_EQ(ForcePod::CONTACT_DAMAGE, 30);
+    EXPECT_EQ(BitDevice::CONTACT_DAMAGE, 15);
 }
 
 TEST_F(BitDeviceVsForcePodTest, ShootCooldownComparison) {
@@ -430,12 +431,13 @@ TEST_F(BitDeviceVsForcePodTest, HitCooldownSame) {
 }
 
 TEST_F(BitDeviceVsForcePodTest, TotalContactDPSComparison) {
-    // Force Pod DPS = 45 / 0.5 = 90 per enemy
-    // 2 Bits DPS = 2 * (20 / 0.5) = 80 per enemy
+    // Force Pod DPS = 30 / 0.5 = 60 per enemy
+    // 2 Bits DPS = 2 * (15 / 0.5) = 60 per enemy (equal now)
     float forcePodDPS = ForcePod::CONTACT_DAMAGE / ForcePod::HIT_COOLDOWN;
     float twoBitsDPS = 2.0f * (BitDevice::CONTACT_DAMAGE / BitDevice::HIT_COOLDOWN);
 
-    EXPECT_NEAR(forcePodDPS, 90.0f, 0.1f);
-    EXPECT_NEAR(twoBitsDPS, 80.0f, 0.1f);
-    EXPECT_GT(forcePodDPS, twoBitsDPS);
+    EXPECT_NEAR(forcePodDPS, 60.0f, 0.1f);
+    EXPECT_NEAR(twoBitsDPS, 60.0f, 0.1f);
+    // Now they have equal DPS, but Force Pod has higher per-hit damage
+    EXPECT_EQ(forcePodDPS, twoBitsDPS);
 }

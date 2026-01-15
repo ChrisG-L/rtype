@@ -72,8 +72,8 @@ TEST_F(ForcePodConstantsTest, ForcePodAttachOffsetX) {
 }
 
 TEST_F(ForcePodConstantsTest, ForcePodContactDamage) {
-    // Should kill Zigzag (25 HP) or Fast (20 HP) in one hit
-    EXPECT_EQ(ForcePod::CONTACT_DAMAGE, 45);
+    // Should kill Fast (25 HP) in one hit, Zigzag (30 HP) needs 2 hits
+    EXPECT_EQ(ForcePod::CONTACT_DAMAGE, 30);
 }
 
 TEST_F(ForcePodConstantsTest, ForcePodHitCooldown) {
@@ -94,7 +94,7 @@ TEST_F(POWArmorConstantsTest, SpawnInterval) {
 }
 
 TEST_F(POWArmorConstantsTest, POWArmorHealth) {
-    EXPECT_EQ(Enemy::HEALTH_POW_ARMOR, 50);
+    EXPECT_EQ(Enemy::HEALTH_POW_ARMOR, 60);
 }
 
 TEST_F(POWArmorConstantsTest, POWArmorSpeed) {
@@ -460,11 +460,11 @@ TEST_F(EnemyHealthValuesTest, TrackerEnemyHealth) {
 }
 
 TEST_F(EnemyHealthValuesTest, ZigzagEnemyHealth) {
-    EXPECT_EQ(Enemy::HEALTH_ZIGZAG, 25);
+    EXPECT_EQ(Enemy::HEALTH_ZIGZAG, 30);  // Survives 1 Standard shot
 }
 
 TEST_F(EnemyHealthValuesTest, FastEnemyHealth) {
-    EXPECT_EQ(Enemy::HEALTH_FAST, 20);
+    EXPECT_EQ(Enemy::HEALTH_FAST, 25);  // Fast but fragile
 }
 
 TEST_F(EnemyHealthValuesTest, BomberEnemyHealth) {
@@ -472,7 +472,7 @@ TEST_F(EnemyHealthValuesTest, BomberEnemyHealth) {
 }
 
 TEST_F(EnemyHealthValuesTest, POWArmorEnemyHealth) {
-    EXPECT_EQ(Enemy::HEALTH_POW_ARMOR, 50);
+    EXPECT_EQ(Enemy::HEALTH_POW_ARMOR, 60);  // Tanky reward enemy
 }
 
 TEST_F(EnemyHealthValuesTest, EnemyHealthOrdering) {
@@ -487,10 +487,10 @@ TEST_F(EnemyHealthValuesTest, EnemyHealthOrdering) {
 TEST_F(EnemyHealthValuesTest, EnemyGetHealthForType) {
     EXPECT_EQ(Enemy::getHealthForType(EnemyType::Basic), 40);
     EXPECT_EQ(Enemy::getHealthForType(EnemyType::Tracker), 35);
-    EXPECT_EQ(Enemy::getHealthForType(EnemyType::Zigzag), 25);
-    EXPECT_EQ(Enemy::getHealthForType(EnemyType::Fast), 20);
+    EXPECT_EQ(Enemy::getHealthForType(EnemyType::Zigzag), 30);
+    EXPECT_EQ(Enemy::getHealthForType(EnemyType::Fast), 25);
     EXPECT_EQ(Enemy::getHealthForType(EnemyType::Bomber), 80);
-    EXPECT_EQ(Enemy::getHealthForType(EnemyType::POWArmor), 50);
+    EXPECT_EQ(Enemy::getHealthForType(EnemyType::POWArmor), 60);
 }
 
 // ============================================================================
@@ -503,23 +503,23 @@ protected:
 };
 
 TEST_F(ForcePodDamageTest, KillsFastEnemy) {
-    // Force Pod (45 dmg) should kill Fast enemy (20 HP) in one hit
+    // Force Pod (30 dmg) should kill Fast enemy (25 HP) in one hit
     EXPECT_GT(ForcePod::CONTACT_DAMAGE, Enemy::HEALTH_FAST);
 }
 
 TEST_F(ForcePodDamageTest, KillsZigzagEnemy) {
-    // Force Pod (45 dmg) should kill Zigzag enemy (25 HP) in one hit
-    EXPECT_GT(ForcePod::CONTACT_DAMAGE, Enemy::HEALTH_ZIGZAG);
+    // Force Pod (30 dmg) vs Zigzag (30 HP) - exactly equal, needs 2 hits
+    EXPECT_EQ(ForcePod::CONTACT_DAMAGE, Enemy::HEALTH_ZIGZAG);
 }
 
 TEST_F(ForcePodDamageTest, KillsTrackerEnemy) {
-    // Force Pod (45 dmg) should kill Tracker enemy (35 HP) in one hit
-    EXPECT_GT(ForcePod::CONTACT_DAMAGE, Enemy::HEALTH_TRACKER);
+    // Force Pod (30 dmg) vs Tracker (35 HP) - needs 2 hits
+    EXPECT_LT(ForcePod::CONTACT_DAMAGE, Enemy::HEALTH_TRACKER);
 }
 
 TEST_F(ForcePodDamageTest, DamagesBasicEnemy) {
-    // Force Pod (45 dmg) should heavily damage Basic enemy (40 HP) - one hit kill!
-    EXPECT_GT(ForcePod::CONTACT_DAMAGE, Enemy::HEALTH_BASIC);
+    // Force Pod (30 dmg) vs Basic (40 HP) - needs 2 hits
+    EXPECT_LT(ForcePod::CONTACT_DAMAGE, Enemy::HEALTH_BASIC);
 }
 
 TEST_F(ForcePodDamageTest, DamagesPOWArmorEnemy) {

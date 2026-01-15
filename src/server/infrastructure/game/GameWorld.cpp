@@ -927,8 +927,10 @@ namespace infrastructure::game {
         // Only spawn when all enemies are cleared
         if (!_enemies.empty()) return;
 
-        // Calculate boss HP: base + 500 per previous defeat
-        uint16_t bossHealth = BOSS_MAX_HEALTH + (_bossDefeatedCount * 500);
+        // Calculate boss HP: base + 500 per previous defeat + 500 per player
+        // This scales difficulty for multiplayer (1 player = +500, 4 players = +2000)
+        uint16_t playerCount = static_cast<uint16_t>(_players.size());
+        uint16_t bossHealth = BOSS_MAX_HEALTH + (_bossDefeatedCount * 500) + (playerCount * 500);
 
         // EPIC BOSS ENTRANCE!
         Boss boss;
@@ -1647,8 +1649,15 @@ namespace infrastructure::game {
             }
 
             case WeaponType::Spread: {
-                // 3 shots in a spread pattern
-                float angles[] = {-15.0f, 0.0f, 15.0f};  // degrees
+                // Level 0-2: 3 shots, Level 3: 5 shots (wider coverage)
+                std::vector<float> angles;
+                if (level >= 3) {
+                    // 5 shots: -20°, -10°, 0°, 10°, 20°
+                    angles = {-20.0f, -10.0f, 0.0f, 10.0f, 20.0f};
+                } else {
+                    // 3 shots: -15°, 0°, 15°
+                    angles = {-15.0f, 0.0f, 15.0f};
+                }
                 for (float angle : angles) {
                     float radians = angle * 3.14159f / 180.0f;
                     Missile missile{
