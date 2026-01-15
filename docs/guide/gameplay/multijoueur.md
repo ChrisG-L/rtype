@@ -105,7 +105,7 @@ MONGO_DB=rtype
 | 🟠 | 100-200ms | Moyen |
 | 🔴 | > 200ms | Mauvais |
 
----
+---Véri
 
 ## Dépannage
 

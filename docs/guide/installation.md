@@ -93,8 +93,8 @@ source ~/.bashrc
 
 ```bash
 # Clone avec submodules
-git clone --recursive https://github.com/votre-repo/r-type.git
-cd r-type
+git clone --recursive https://github.com/Pluenet-Killian/rtype.git
+cd rtype
 
 # Si vous avez déjà cloné sans --recursive
 git submodule update --init --recursive
@@ -146,8 +146,8 @@ L'installation est automatique lors du premier build CMake.
 
 ```bash
 # Vérifier les versions
-cmake --version   # >= 3.30
-g++ --version     # >= 13 (ou clang++ >= 15)
+cmake --version      # >= 3.30
+clang++ --version    # >= 15
 vcpkg version
 ```
 
@@ -194,18 +194,16 @@ vcpkg version
     # Doit afficher le chemin vers vcpkg
     ```
 
-??? question "Erreurs de compilation avec GCC"
-    R-Type requiert C++23. Vérifiez votre version de GCC :
+??? question "Erreurs de compilation avec Clang"
+    R-Type requiert C++23. Vérifiez votre version de Clang :
     ```bash
-    g++ --version
-    # Doit être >= 11
+    clang++ --version
+    # Doit être >= 15
     ```
 
-    Pour installer GCC 13 sur Ubuntu :
+    Pour installer Clang sur Ubuntu :
     ```bash
-    sudo apt install gcc-13 g++-13
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
-    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+    sudo apt install clang
     ```
 
 ??? question "Problèmes avec les libs graphiques sur Linux"

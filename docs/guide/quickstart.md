@@ -26,7 +26,7 @@ Lancez votre première partie R-Type en 5 minutes !
 ## Étape 1 : Compilation
 
 ```bash
-cd r-type
+cd rtype
 
 # Configuration initiale (installe vcpkg et configure CMake)
 ./scripts/build.sh
@@ -193,7 +193,7 @@ sequenceDiagram
 
 <div class="grid-cards">
   <div class="card">
-    <h3><a href="../configuration/">⚙️ Configuration</a></h3>
+    <h3><a href="../../configuration/">⚙️ Configuration</a></h3>
     <p>Personnalisez les paramètres du jeu.</p>
   </div>
   <div class="card">

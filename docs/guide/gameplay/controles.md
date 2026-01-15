@@ -9,53 +9,21 @@ tags:
 
 ## Clavier
 
-| Action | Touche | Alternative |
-|--------|--------|-------------|
-| **Haut** | ++arrow-up++ | ++w++ |
-| **Bas** | ++arrow-down++ | ++s++ |
-| **Gauche** | ++arrow-left++ | ++a++ |
-| **Droite** | ++arrow-right++ | ++d++ |
-| **Tir** | ++space++ | ++enter++ |
-| **Pause** | ++escape++ | - |
-| **Voice Chat** | ++v++ | - |
+| Action | Touche |
+|--------|--------|
+| **Haut** | ++arrow-up++ |
+| **Bas** | ++arrow-down++ |
+| **Gauche** | ++arrow-left++ |
+| **Droite** | ++arrow-right++ |
+| **Tir** | ++space++ |
+| **Pause** | ++escape++ |
+| **Voice Chat (PTT)** | ++v++ |
 
 ### Raccourcis Système
 
 | Action | Touche |
 |--------|--------|
 | Plein écran | ++f11++ |
-| Screenshot | ++f12++ |
-
----
-
-## Manette
-
-| Action | Xbox | PlayStation |
-|--------|------|-------------|
-| Déplacement | Stick gauche | Stick gauche |
-| Tir | A | X |
-| Pause | Start | Options |
-| Voice Chat | RB | R1 |
-
----
-
-## Rebinding (7 touches)
-
-Personnalisez dans **Options → Contrôles** ou `config/controls.json` :
-
-```json
-{
-  "keyboard": {
-    "move_up": "W",
-    "move_down": "S",
-    "move_left": "A",
-    "move_right": "D",
-    "shoot": "Space",
-    "pause": "Escape",
-    "voice_chat": "V"
-  }
-}
-```
 
 ---
 

@@ -28,7 +28,7 @@ Avant de compiler, assurez-vous d'avoir les outils suivants installés :
 |-------|-----------------|--------------|
 | CMake | 3.30+ | `cmake --version` |
 | Ninja | - | `ninja --version` |
-| Clang/GCC | Clang 15+ / GCC 13+ | `clang++ --version` |
+| Clang | 15+ | `clang++ --version` |
 | Git | - | `git --version` |
 
 ---
@@ -122,8 +122,8 @@ Le script `compile.sh` compile le projet et peut lancer les exécutables.
 
 ```bash
 # 1. Cloner le projet
-git clone --recursive https://github.com/votre-repo/r-type.git
-cd r-type
+git clone --recursive https://github.com/Pluenet-Killian/rtype.git
+cd rtype
 
 # 2. Configurer (installe vcpkg, configure CMake)
 ./scripts/build.sh
