@@ -14,17 +14,18 @@ Nous utilisons **GoogleTest** (gtest) pour les tests unitaires.
 
 ```cmake
 # CMakeLists.txt
-find_package(GTest REQUIRED)
+find_package(GTest CONFIG REQUIRED)
 
-add_executable(rtype_tests
-    tests/test_main.cpp
-    tests/test_gameworld.cpp
-    tests/test_protocol.cpp
+add_executable(rtype_server_tests
+    tests/server/main.cpp
+    tests/server/domain/entities/PlayerTest.cpp
+    tests/server/domain/value_objects/HealthTest.cpp
+    # ...
 )
 
-target_link_libraries(rtype_tests
+target_link_libraries(rtype_server_tests
     PRIVATE
-        rtype_common
+        rtype_server_lib
         GTest::gtest
         GTest::gtest_main
 )
@@ -36,242 +37,234 @@ target_link_libraries(rtype_tests
 
 ```
 tests/
-├── unit/
-│   ├── server/
-│   │   ├── test_gameworld.cpp
-│   │   ├── test_roommanager.cpp
-│   │   └── test_wavemanager.cpp
-│   ├── client/
-│   │   ├── test_prediction.cpp
-│   │   └── test_interpolation.cpp
-│   └── common/
-│       ├── test_protocol.cpp
-│       ├── test_serializer.cpp
-│       └── test_packet.cpp
-├── integration/
-│   ├── test_network.cpp
-│   └── test_game_session.cpp
-└── test_main.cpp
+├── server/
+│   ├── main.cpp
+│   ├── domain/
+│   │   ├── entities/
+│   │   │   └── PlayerTest.cpp
+│   │   └── value_objects/
+│   │       ├── EmailTest.cpp
+│   │       ├── HealthTest.cpp
+│   │       ├── PositionTest.cpp
+│   │       └── UsernameTest.cpp
+│   ├── network/
+│   │   ├── ProtobufTest.cpp
+│   │   ├── UDPIntegrationTest.cpp
+│   │   └── VoiceProtocolTest.cpp
+│   └── infrastructure/
+│       └── session/
+│           └── SessionManagerCryptoTest.cpp
+│
+├── client/
+│   ├── main.cpp
+│   ├── utils/
+│   │   ├── SignalTest.cpp
+│   │   └── VecsTest.cpp
+│   ├── audio/
+│   │   ├── AudioDevicePersistenceTest.cpp
+│   │   ├── PortAudioTest.cpp
+│   │   ├── VoiceAudioTest.cpp
+│   │   └── VoiceIntegrationTest.cpp
+│   └── accessibility/
+│       └── AccessibilityConfigTest.cpp
 ```
 
 ---
 
 ## Tests Unitaires
 
-### Exemple: GameWorld
+### Exemple: Player Entity
 
 ```cpp
 #include <gtest/gtest.h>
-#include "server/GameWorld.hpp"
+#include "domain/entities/Player.hpp"
+#include "domain/value_objects/Health.hpp"
+#include "domain/value_objects/Position.hpp"
+#include "domain/value_objects/player/PlayerId.hpp"
+#include "domain/exceptions/HealthException.hpp"
+#include "domain/exceptions/PositionException.hpp"
 
-class GameWorldTest : public ::testing::Test {
+using namespace domain::entities;
+using namespace domain::value_objects;
+using namespace domain::value_objects::player;
+using namespace domain::exceptions;
+
+class PlayerTest : public ::testing::Test {
+protected:
+    // ID MongoDB valide pour les tests
+    const std::string validId = "507f1f77bcf86cd799439011";
+
+    void SetUp() override {}
+    void TearDown() override {}
+};
+
+TEST_F(PlayerTest, CreateWithAllParameters) {
+    Health health(3.0f);
+    PlayerId id(validId);
+    Position position(100.0f, 200.0f, 50.0f);
+
+    ASSERT_NO_THROW({
+        Player player(health, id, position);
+    });
+}
+
+TEST_F(PlayerTest, MoveChangesPosition) {
+    Health health(3.0f);
+    PlayerId id(validId);
+    Position position(100.0f, 100.0f, 100.0f);
+
+    Player player(health, id, position);
+    player.move(50.0f, 25.0f, 10.0f);
+
+    EXPECT_FLOAT_EQ(player.getPosition().getX(), 150.0f);
+    EXPECT_FLOAT_EQ(player.getPosition().getY(), 125.0f);
+    EXPECT_FLOAT_EQ(player.getPosition().getZ(), 110.0f);
+}
+
+TEST_F(PlayerTest, MoveOutOfBoundsThrows) {
+    Health health(3.0f);
+    PlayerId id(validId);
+    Position position(900.0f, 0.0f, 0.0f);
+
+    Player player(health, id, position);
+
+    EXPECT_THROW({
+        player.move(200.0f, 0.0f, 0.0f);  // Dépasse limite 1000
+    }, PositionException);
+}
+
+TEST_F(PlayerTest, HealAboveMaxThrows) {
+    Health health(4.0f);
+    PlayerId id(validId);
+
+    Player player(health, id);
+
+    EXPECT_THROW({
+        player.heal(2.0f);  // 4.0 + 2.0 = 6.0 > 5.0 max
+    }, HealthException);
+}
+```
+
+### Exemple: Value Objects
+
+```cpp
+#include <gtest/gtest.h>
+#include "domain/value_objects/Health.hpp"
+#include "domain/exceptions/HealthException.hpp"
+
+using namespace domain::value_objects;
+using namespace domain::exceptions;
+
+TEST(HealthTest, CreateValidHealth) {
+    ASSERT_NO_THROW({
+        Health health(3.0f);
+    });
+}
+
+TEST(HealthTest, CreateInvalidHealthThrows) {
+    EXPECT_THROW({
+        Health health(6.0f);  // > 5.0 max
+    }, HealthException);
+
+    EXPECT_THROW({
+        Health health(-1.0f);  // < 0 min
+    }, HealthException);
+}
+
+TEST(HealthTest, BoundaryValues) {
+    ASSERT_NO_THROW({ Health health(0.0f); });  // Min
+    ASSERT_NO_THROW({ Health health(5.0f); });  // Max
+}
+```
+
+### Exemple: Protocol Serialization
+
+```cpp
+#include <gtest/gtest.h>
+#include "Protocol.hpp"
+
+using namespace protocol;
+
+TEST(ProtocolTest, PlayerStateRoundTrip) {
+    PlayerState original;
+    original.id = 1;
+    original.x = 500;
+    original.y = 300;
+    original.health = 100;
+    original.alive = 1;
+
+    uint8_t buffer[PlayerState::WIRE_SIZE];
+    original.to_bytes(buffer);
+
+    auto parsed = PlayerState::from_bytes(buffer, PlayerState::WIRE_SIZE);
+    ASSERT_TRUE(parsed.has_value());
+
+    EXPECT_EQ(parsed->id, original.id);
+    EXPECT_EQ(parsed->x, original.x);
+    EXPECT_EQ(parsed->y, original.y);
+    EXPECT_EQ(parsed->health, original.health);
+    EXPECT_EQ(parsed->alive, original.alive);
+}
+
+TEST(ProtocolTest, UDPHeaderSerialization) {
+    UDPHeader header;
+    header.type = static_cast<uint16_t>(MessageType::PlayerInput);
+    header.sequence_num = 42;
+    header.timestamp = 1234567890;
+
+    uint8_t buffer[UDPHeader::WIRE_SIZE];
+    header.to_bytes(buffer);
+
+    auto parsed = UDPHeader::from_bytes(buffer, UDPHeader::WIRE_SIZE);
+    ASSERT_TRUE(parsed.has_value());
+
+    EXPECT_EQ(parsed->type, header.type);
+    EXPECT_EQ(parsed->sequence_num, header.sequence_num);
+    EXPECT_EQ(parsed->timestamp, header.timestamp);
+}
+
+TEST(ProtocolTest, BufferTooSmall) {
+    uint8_t smallBuffer[3];  // Trop petit
+
+    auto result = PlayerState::from_bytes(smallBuffer, 3);
+    EXPECT_FALSE(result.has_value());
+}
+```
+
+### Exemple: Voice Audio
+
+```cpp
+#include <gtest/gtest.h>
+#include "audio/VoiceChatManager.hpp"
+
+class VoiceAudioTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        world_ = std::make_unique<GameWorld>();
+        // Setup
     }
 
     void TearDown() override {
-        world_.reset();
+        // Cleanup
     }
-
-    std::unique_ptr<GameWorld> world_;
 };
 
-TEST_F(GameWorldTest, AddPlayer) {
-    world_->addPlayer(1, {100.0f, 100.0f});
-
-    auto* player = world_->getPlayer(1);
-    ASSERT_NE(player, nullptr);
-    EXPECT_EQ(player->id(), 1);
-    EXPECT_FLOAT_EQ(player->x(), 100.0f);
-    EXPECT_FLOAT_EQ(player->y(), 100.0f);
+TEST_F(VoiceAudioTest, InitializeVoiceManager) {
+    auto& voice = VoiceChatManager::getInstance();
+    ASSERT_NO_THROW({
+        voice.init();
+    });
 }
 
-TEST_F(GameWorldTest, RemovePlayer) {
-    world_->addPlayer(1, {100.0f, 100.0f});
-    world_->removePlayer(1);
+TEST_F(VoiceAudioTest, ListAudioDevices) {
+    auto& voice = VoiceChatManager::getInstance();
+    voice.init();
 
-    EXPECT_EQ(world_->getPlayer(1), nullptr);
-}
+    auto inputs = voice.getInputDevices();
+    auto outputs = voice.getOutputDevices();
 
-TEST_F(GameWorldTest, ProcessInput) {
-    world_->addPlayer(1, {100.0f, 100.0f});
-
-    Input input{.sequence = 1, .keys = KEY_RIGHT};
-    world_->processInput(1, input);
-
-    auto* player = world_->getPlayer(1);
-    EXPECT_GT(player->x(), 100.0f);  // Moved right
-}
-
-TEST_F(GameWorldTest, CollisionDetection) {
-    world_->addPlayer(1, {100.0f, 100.0f});
-    world_->spawnEnemy(EnemyType::Basic, {100.0f, 100.0f});
-
-    world_->tick();
-
-    auto* player = world_->getPlayer(1);
-    EXPECT_LT(player->health(), Player::MAX_HEALTH);
-}
-```
-
-### Exemple: Serializer
-
-```cpp
-#include <gtest/gtest.h>
-#include "network/Serializer.hpp"
-
-TEST(SerializerTest, WriteReadInt) {
-    Serializer writer;
-    writer.write<uint32_t>(42);
-
-    Serializer reader(writer.data());
-    EXPECT_EQ(reader.read<uint32_t>(), 42);
-}
-
-TEST(SerializerTest, WriteReadFloat) {
-    Serializer writer;
-    writer.write<float>(3.14f);
-
-    Serializer reader(writer.data());
-    EXPECT_FLOAT_EQ(reader.read<float>(), 3.14f);
-}
-
-TEST(SerializerTest, WriteReadString) {
-    Serializer writer;
-    writer.writeString("Hello World");
-
-    Serializer reader(writer.data());
-    EXPECT_EQ(reader.readString(), "Hello World");
-}
-
-TEST(SerializerTest, BufferUnderflow) {
-    Serializer reader({0x01, 0x02});  // Only 2 bytes
-
-    EXPECT_THROW(reader.read<uint32_t>(), std::runtime_error);
-}
-```
-
-### Exemple: Packet
-
-```cpp
-#include <gtest/gtest.h>
-#include "network/Packet.hpp"
-
-TEST(PacketTest, SerializeDeserialize) {
-    LoginPacket login;
-    std::strcpy(login.username, "player1");
-    std::strcpy(login.passwordHash, "hash123");
-
-    Packet packet(PacketType::Login);
-    packet.write(login);
-
-    auto bytes = packet.serialize();
-
-    Packet received;
-    ASSERT_TRUE(received.deserialize(bytes));
-    EXPECT_EQ(received.type(), PacketType::Login);
-
-    auto data = received.as<LoginPacket>();
-    EXPECT_STREQ(data.username, "player1");
-}
-
-TEST(PacketTest, InvalidMagic) {
-    std::vector<uint8_t> invalid = {0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00};
-
-    Packet packet;
-    EXPECT_FALSE(packet.deserialize(invalid));
-}
-```
-
----
-
-## Tests d'Intégration
-
-### Exemple: Session de Jeu
-
-```cpp
-#include <gtest/gtest.h>
-#include "server/Application.hpp"
-#include "client/NetworkClient.hpp"
-
-class GameSessionTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        // Start server in background
-        server_ = std::make_unique<TestServer>();
-        server_->start(4242);
-
-        // Connect client
-        client_ = std::make_unique<NetworkClient>();
-        client_->connect("localhost", 4242);
-    }
-
-    void TearDown() override {
-        client_->disconnect();
-        server_->stop();
-    }
-
-    std::unique_ptr<TestServer> server_;
-    std::unique_ptr<NetworkClient> client_;
-};
-
-TEST_F(GameSessionTest, LoginFlow) {
-    // Send login
-    client_->send(PacketFactory::createLogin("player1", "hash"));
-
-    // Wait for response
-    auto packets = waitForPackets(client_.get(), 1);
-    ASSERT_EQ(packets.size(), 1);
-    EXPECT_EQ(packets[0].type(), PacketType::LoginAck);
-
-    auto ack = packets[0].as<LoginAckPacket>();
-    EXPECT_TRUE(ack.success);
-}
-
-TEST_F(GameSessionTest, JoinRoom) {
-    // Login first
-    login(client_.get(), "player1");
-
-    // Create and join room
-    client_->send(PacketFactory::createRoom("Test Room"));
-    auto packets = waitForPackets(client_.get(), 1);
-
-    auto ack = packets[0].as<CreateRoomAckPacket>();
-    EXPECT_TRUE(ack.success);
-    EXPECT_GT(ack.roomId, 0);
-}
-```
-
----
-
-## Mocks
-
-### Mock Repository
-
-```cpp
-class MockPlayerRepository : public IPlayerRepository {
-public:
-    MOCK_METHOD(std::optional<Player>, findById,
-                (const std::string&), (override));
-    MOCK_METHOD(std::optional<Player>, findByUsername,
-                (const std::string&), (override));
-    MOCK_METHOD(void, save, (const Player&), (override));
-    MOCK_METHOD(void, update, (const Player&), (override));
-    MOCK_METHOD(void, remove, (const std::string&), (override));
-};
-
-TEST(AuthServiceTest, LoginSuccess) {
-    MockPlayerRepository repo;
-    AuthService auth(repo);
-
-    Player existingPlayer{.id = "1", .username = "player1"};
-
-    EXPECT_CALL(repo, findByUsername("player1"))
-        .WillOnce(Return(existingPlayer));
-
-    auto result = auth.login("player1", "correctPassword");
-    EXPECT_TRUE(result.success);
+    // Au moins un périphérique par défaut
+    EXPECT_GE(inputs.size(), 0);
+    EXPECT_GE(outputs.size(), 0);
 }
 ```
 
@@ -281,42 +274,91 @@ TEST(AuthServiceTest, LoginSuccess) {
 
 ```bash
 # Tous les tests
-ctest --preset conan-release
+./scripts/test.sh
+
+# Via CTest
+cd buildLinux
+ctest --output-on-failure
 
 # Tests spécifiques
-./build/tests/rtype_tests --gtest_filter="GameWorldTest.*"
+./artifacts/server/linux/rtype_server_tests --gtest_filter="PlayerTest.*"
 
 # Avec output détaillé
-./build/tests/rtype_tests --gtest_output=xml:report.xml
+./artifacts/server/linux/rtype_server_tests --gtest_output=xml:report.xml
 
-# Coverage (avec gcov)
-cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON ..
-make
-./rtype_tests
-gcov *.gcda
+# Tests client
+./artifacts/client/linux/rtype_client_tests --gtest_filter="VoiceAudioTest.*"
+```
+
+---
+
+## Structure de Test Recommandée
+
+### Fixture Pattern
+
+```cpp
+class GameWorldTest : public ::testing::Test {
+protected:
+    boost::asio::io_context _io_ctx;
+    std::unique_ptr<infrastructure::game::GameWorld> _world;
+
+    void SetUp() override {
+        _world = std::make_unique<infrastructure::game::GameWorld>(_io_ctx);
+    }
+
+    void TearDown() override {
+        _world.reset();
+    }
+};
+
+TEST_F(GameWorldTest, AddPlayer) {
+    udp::endpoint endpoint(boost::asio::ip::make_address("127.0.0.1"), 12345);
+    auto playerId = _world->addPlayer(endpoint);
+
+    ASSERT_TRUE(playerId.has_value());
+    EXPECT_LT(*playerId, 4);  // MAX_PLAYERS = 4
+}
+```
+
+### Test des Exceptions
+
+```cpp
+TEST(HealthTest, DamageExceedingHealthThrows) {
+    Health health(1.0f);
+
+    EXPECT_THROW({
+        health.decrease(2.0f);  // 1.0 - 2.0 = -1.0 < 0
+    }, HealthException);
+}
+```
+
+### Test des Optionnels
+
+```cpp
+TEST(ProtocolTest, InvalidDataReturnsNullopt) {
+    uint8_t garbage[] = {0xFF, 0xFF, 0xFF};
+
+    auto result = PlayerState::from_bytes(garbage, sizeof(garbage));
+
+    EXPECT_FALSE(result.has_value());
+}
 ```
 
 ---
 
 ## Coverage
 
-### Configuration CMake
-
-```cmake
-option(ENABLE_COVERAGE "Enable coverage" OFF)
-
-if(ENABLE_COVERAGE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
-endif()
-```
-
-### Générer le Rapport
+### Script de Coverage
 
 ```bash
-# Avec lcov
+# Avec gcov/lcov
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
+cmake --build build
+cd build && ctest
+
+# Générer rapport
 lcov --capture --directory . --output-file coverage.info
-lcov --remove coverage.info '/usr/*' --output-file coverage.info
+lcov --remove coverage.info '/usr/*' 'third_party/*' --output-file coverage.info
 genhtml coverage.info --output-directory coverage_report
 ```
 
@@ -324,24 +366,22 @@ genhtml coverage.info --output-directory coverage_report
 
 ## CI Integration
 
+Les tests sont exécutés automatiquement par Jenkins à chaque push.
+
 ```yaml
-# .github/workflows/tests.yml
-test:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-
-    - name: Build
-      run: |
-        cmake --preset conan-release
-        cmake --build --preset conan-release
-
-    - name: Test
-      run: ctest --preset conan-release --output-on-failure
-
-    - name: Upload Results
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-results
-        path: build/Testing/
+# Le workflow jenkins-trigger.yml déclenche le build
+# Jenkins exécute les tests via scripts/test.sh
 ```
+
+Voir [CI/CD](ci-cd.md) pour plus de détails.
+
+---
+
+## Best Practices
+
+1. **Un test = un comportement**
+2. **Noms descriptifs** : `TEST_F(PlayerTest, MoveOutOfBoundsThrows)`
+3. **Arrange-Act-Assert** pattern
+4. **Tester les cas limites** (0, max, boundary)
+5. **Tester les erreurs** (exceptions, nullopt)
+6. **Tests indépendants** (pas de dépendances entre tests)

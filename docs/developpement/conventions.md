@@ -30,14 +30,15 @@ float calculateDistance();
 ### Variables
 
 ```cpp
-// camelCase
+// camelCase pour les variables locales
 int playerCount;
 float deltaTime;
 
-// Membres de classe: trailing underscore
+// Membres de classe: underscore prefix
 class Player {
-    int health_;
-    float speed_;
+    int _health;
+    float _speed;
+    std::string _displayName;
 };
 ```
 
@@ -51,11 +52,30 @@ constexpr float TICK_DURATION = 1.0f / 60.0f;
 
 ### Namespaces
 
+Le projet utilise des namespaces basés sur l'architecture hexagonale :
+
 ```cpp
-// snake_case
-namespace rtype::server { }
-namespace rtype::client { }
-namespace rtype::network { }
+// Serveur - Architecture hexagonale
+namespace domain::entities { }
+namespace domain::value_objects { }
+namespace domain::exceptions { }
+namespace application::use_cases::auth { }
+namespace application::ports::out { }
+namespace infrastructure::game { }
+namespace infrastructure::room { }
+namespace infrastructure::session { }
+namespace infrastructure::bootstrap { }
+namespace infrastructure::adapters::in::network { }
+namespace infrastructure::adapters::out::persistence { }
+
+// Client
+namespace core { }                    // Engine, GameLoop
+namespace client::network { }         // UDPClient, TCPClient
+namespace audio { }                   // AudioManager
+
+// Common
+namespace protocol { }                // MessageType, structures
+namespace collision { }               // AABB
 ```
 
 ---
@@ -76,21 +96,17 @@ void function() {
 ### Accolades
 
 ```cpp
-// Style Allman pour les fonctions
-void function()
-{
-    // ...
-}
+// Style K&R partout
+void function() {
+    if (condition) {
+        // ...
+    } else {
+        // ...
+    }
 
-// Style K&R pour le reste
-if (condition) {
-    // ...
-} else {
-    // ...
-}
-
-for (int i = 0; i < n; i++) {
-    // ...
+    for (int i = 0; i < n; i++) {
+        // ...
+    }
 }
 ```
 
@@ -153,13 +169,13 @@ Player* rawPtr;  // N'utiliser que si ownership clair
 
 ```cpp
 // Préférer
-for (const auto& player : players) {
+for (const auto& player : _players) {
     process(player);
 }
 
 // Éviter
-for (size_t i = 0; i < players.size(); i++) {
-    process(players[i]);
+for (size_t i = 0; i < _players.size(); i++) {
+    process(_players[i]);
 }
 ```
 
@@ -170,28 +186,28 @@ for (size_t i = 0; i < players.size(); i++) {
 ### Include Guards
 
 ```cpp
-#pragma once  // Préféré
+// Préférer ifndef/define (style Epitech)
+#ifndef GAMEWORLD_HPP_
+#define GAMEWORLD_HPP_
 
-// Ou garde traditionnelle
-#ifndef RTYPE_PLAYER_HPP
-#define RTYPE_PLAYER_HPP
 // ...
-#endif
+
+#endif /* !GAMEWORLD_HPP_ */
 ```
 
 ### Ordre des Includes
 
 ```cpp
 // 1. Header associé (pour .cpp)
-#include "Player.hpp"
+#include "GameWorld.hpp"
 
 // 2. Headers du projet
-#include "network/Protocol.hpp"
-#include "game/Entity.hpp"
+#include "Protocol.hpp"
+#include "domain/entities/Player.hpp"
 
 // 3. Headers de bibliothèques tierces
-#include <SFML/Graphics.hpp>
-#include <mongocxx/client.hpp>
+#include <boost/asio.hpp>
+#include <spdlog/spdlog.h>
 
 // 4. Headers standard
 #include <vector>
@@ -203,10 +219,12 @@ for (size_t i = 0; i < players.size(); i++) {
 
 ```cpp
 // Préférer forward declaration quand possible
-class Player;  // Au lieu de #include "Player.hpp"
+namespace domain::entities {
+    class Player;
+}
 
 class GameWorld {
-    std::vector<std::unique_ptr<Player>> players_;
+    std::vector<std::unique_ptr<domain::entities::Player>> _players;
 };
 ```
 
@@ -214,17 +232,25 @@ class GameWorld {
 
 ## Commentaires
 
-### Documentation Doxygen
+### En-tête de Fichier (Style Epitech)
+
+```cpp
+/*
+** EPITECH PROJECT, 2025
+** rtype
+** File description:
+** GameWorld - Manages game state and players
+*/
+```
+
+### Documentation
 
 ```cpp
 /**
- * @brief Traite un input joueur
+ * @brief Suite de tests pour l'entité Player
  *
- * @param playerId ID du joueur
- * @param input Input à traiter
- * @return true si l'input a été traité
+ * Player est une entité de domaine représentant un joueur.
  */
-bool processInput(PlayerId playerId, const Input& input);
 ```
 
 ### Commentaires Inline
@@ -255,14 +281,14 @@ i++;
 class GameWorld {
 public:
     // Types publics
-    using PlayerList = std::vector<Player>;
+    using PlayerMap = std::unordered_map<uint8_t, ConnectedPlayer>;
 
     // Constantes
     static constexpr int MAX_PLAYERS = 4;
 
     // Constructeurs / Destructeur
-    GameWorld();
-    ~GameWorld();
+    explicit GameWorld(boost::asio::io_context& io_ctx);
+    ~GameWorld() = default;
 
     // Pas de copie
     GameWorld(const GameWorld&) = delete;
@@ -274,46 +300,66 @@ public:
 
     // Méthodes publiques
     void tick();
-    void addPlayer(PlayerId id);
+    std::optional<uint8_t> addPlayer(const udp::endpoint& endpoint);
 
 private:
     // Méthodes privées
     void processInputs();
     void checkCollisions();
 
-    // Membres (ordre: dépendances d'abord)
-    PlayerList players_;
-    uint32_t currentTick_ = 0;
+    // Membres (underscore prefix)
+    PlayerMap _players;
+    uint32_t _currentTick = 0;
+    boost::asio::strand<boost::asio::io_context::executor_type> _strand;
 };
 ```
 
 ---
 
-## .clang-format
+## Patterns du Projet
 
-```yaml
-BasedOnStyle: LLVM
-IndentWidth: 4
-ColumnLimit: 100
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterFunction: true
-  AfterClass: false
-  AfterControlStatement: false
-PointerAlignment: Left
-SpaceAfterCStyleCast: false
-SpacesInParentheses: false
-AllowShortFunctionsOnASingleLine: Inline
-AllowShortIfStatementsOnASingleLine: Never
-SortIncludes: true
+### Sérialisation Réseau
+
+```cpp
+// Pattern to_bytes / from_bytes avec big-endian
+struct PlayerState {
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = id;
+        uint16_t net_x = swap16(x);
+        std::memcpy(buf + 1, &net_x, 2);
+        // ...
+    }
+
+    static std::optional<PlayerState> from_bytes(const void* buf, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        // Parse avec swap16/swap32 pour network to host
+    }
+};
+```
+
+### Value Objects Immutables
+
+```cpp
+// Domain value objects retournent de nouvelles instances
+class Position {
+public:
+    Position withX(float newX) const {
+        return Position(newX, _y, _z);
+    }
+
+private:
+    float _x, _y, _z;
+};
 ```
 
 ---
 
 ## Checklist PR
 
-- [ ] Code formaté avec clang-format
+- [ ] Code formaté correctement
 - [ ] Pas de warnings de compilation
 - [ ] Tests unitaires passent
-- [ ] Documentation mise à jour
+- [ ] Documentation mise à jour si nécessaire
 - [ ] Commit messages suivent conventional commits
+- [ ] Namespaces corrects (`infrastructure::`, `domain::`, etc.)
+- [ ] Membres avec underscore prefix (`_member`)

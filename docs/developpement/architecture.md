@@ -23,7 +23,7 @@ Adopter l'architecture hexagonale (Ports & Adapters).
 **Positives:**
 
 - Tests unitaires sans dépendances externes
-- Facilité de changer les implémentations (ex: MongoDB → PostgreSQL)
+- Facilité de changer les implémentations (ex: MongoDB -> PostgreSQL)
 - Séparation claire des responsabilités
 
 **Négatives:**
@@ -34,19 +34,20 @@ Adopter l'architecture hexagonale (Ports & Adapters).
 ```mermaid
 flowchart TB
     subgraph Domain
-        Entity[Entities]
-        Logic[Business Logic]
+        Entity[Entities<br/>Player, User, Room]
+        VO[Value Objects<br/>Health, Position, Email]
+        Logic[Business Logic<br/>GameRule]
     end
 
     subgraph Application
-        UseCase[Use Cases]
-        Port[Ports]
+        UseCase[Use Cases<br/>Login, Register]
+        Port[Ports<br/>IUserRepository, ILogger]
     end
 
     subgraph Infrastructure
-        DB[(Database)]
-        Net[Network]
-        FS[FileSystem]
+        DB[(MongoDB)]
+        Net[Network<br/>UDPServer, TCPAuthServer]
+        Game[GameWorld]
     end
 
     Net --> Port
@@ -54,12 +55,15 @@ flowchart TB
     UseCase --> Logic
     Logic --> Entity
     UseCase --> DB
-    UseCase --> FS
+
+    style Domain fill:#7c3aed,color:#fff
+    style Application fill:#ea580c,color:#fff
+    style Infrastructure fill:#059669,color:#fff
 ```
 
 ---
 
-## ADR-002: ECS vs Héritage (Entités)
+## ADR-002: Pas d'ECS (Entités Simples)
 
 ### Contexte
 
@@ -72,7 +76,7 @@ Comment représenter les entités du jeu (joueurs, ennemis, missiles)?
 
 ### Décision
 
-Héritage classique pour la simplicité.
+Structures simples dans GameWorld pour la simplicité.
 
 ### Justification
 
@@ -83,10 +87,26 @@ Héritage classique pour la simplicité.
 
 ```cpp
 // Simple et efficace pour R-Type
-class Entity { /* base */ };
-class Player : public Entity { /* ... */ };
-class Enemy : public Entity { /* ... */ };
-class Missile : public Entity { /* ... */ };
+struct ConnectedPlayer {
+    uint8_t id;
+    uint16_t x, y;
+    uint8_t health;
+    bool alive;
+    udp::endpoint endpoint;
+};
+
+struct Missile {
+    uint16_t id;
+    uint8_t owner_id;
+    float x, y;
+};
+
+struct Enemy {
+    uint16_t id;
+    float x, y;
+    uint8_t health;
+    uint8_t enemy_type;
+};
 ```
 
 ---
@@ -99,8 +119,9 @@ Quel protocole pour la synchronisation temps réel?
 
 ### Décision
 
-- **TCP** pour les données fiables (auth, chat, rooms)
-- **UDP** pour les données temps réel (inputs, snapshots)
+- **TCP** (port 4125 + TLS) pour les données fiables (auth, chat, rooms)
+- **UDP** (port 4124) pour les données temps réel (inputs, snapshots)
+- **UDP** (port 4126) pour le chat vocal
 
 ### Justification
 
@@ -109,13 +130,17 @@ Quel protocole pour la synchronisation temps réel?
 | Latence | ~50ms+ | ~10ms |
 | Fiabilité | Garantie | Non garantie |
 | Ordre | Garanti | Non garanti |
-| Utilisation | Auth, chat | Gameplay |
+| Utilisation | Auth, chat | Gameplay, voice |
 
 ```mermaid
 flowchart LR
-    Client -->|TCP 4242| Auth[Auth/Chat]
-    Client -->|UDP 4243| Game[Gameplay]
-    Client -->|UDP 4244| Voice[Voice]
+    Client -->|TCP 4125 + TLS| Auth[Auth/Chat/Rooms]
+    Client -->|UDP 4124| Game[Gameplay]
+    Client -->|UDP 4126| Voice[Voice Chat]
+
+    style Auth fill:#7c3aed,color:#fff
+    style Game fill:#ea580c,color:#fff
+    style Voice fill:#16a34a,color:#fff
 ```
 
 ---
@@ -166,30 +191,30 @@ Support de SDL2 et SFML pour la portabilité.
 
 ### Décision
 
-Interface `Renderer` avec implémentations SDL2 et SFML.
+Interface `IWindow` avec implémentations SDL2 et SFML.
 
 ### Structure
 
 ```cpp
-// Interface
-class IRenderer {
+// Interface (src/client/include/graphics/IWindow.hpp)
+class IWindow {
 public:
+    virtual void drawRect(float x, float y, float w, float h, rgba color) = 0;
+    virtual void drawSprite(const std::string& key, float x, float y, float w, float h) = 0;
+    virtual bool loadTexture(const std::string& key, const std::string& path) = 0;
+    virtual events::Event pollEvent() = 0;
     virtual void clear() = 0;
-    virtual void draw(const Sprite&) = 0;
-    virtual void present() = 0;
+    virtual void display() = 0;
 };
 
 // Implémentations
-class SDL2Renderer : public IRenderer { /* ... */ };
-class SFMLRenderer : public IRenderer { /* ... */ };
-
-// Factory
-auto renderer = createRenderer("sfml");  // ou "sdl2"
+class SFMLWindow : public IWindow { /* lib/sfml/ */ };
+class SDL2Window : public IWindow { /* lib/sdl2/ */ };
 ```
 
 ---
 
-## ADR-006: Voice Chat (Opus)
+## ADR-006: Voice Chat (Opus + PortAudio)
 
 ### Contexte
 
@@ -197,7 +222,7 @@ Chat vocal entre joueurs pendant la partie.
 
 ### Décision
 
-Utiliser Opus codec avec PortAudio.
+Utiliser Opus codec avec PortAudio pour l'I/O audio.
 
 ### Justification
 
@@ -208,10 +233,11 @@ Utiliser Opus codec avec PortAudio.
 
 | Paramètre | Valeur | Raison |
 |-----------|--------|--------|
+| Port | 4126 | Séparé du gameplay |
 | Sample Rate | 48000 Hz | Standard Opus |
 | Channels | 1 (mono) | Voix uniquement |
-| Bitrate | 24 kbps | Balance qualité/bande passante |
-| Frame Size | 20 ms | Latence acceptable |
+| Bitrate | 32 kbps | Balance qualité/bande passante |
+| Frame Size | 960 samples | 20 ms @ 48kHz |
 
 ---
 
@@ -219,7 +245,7 @@ Utiliser Opus codec avec PortAudio.
 
 ### Contexte
 
-Stockage des scores et profils joueurs.
+Stockage des comptes utilisateurs et paramètres.
 
 ### Options
 
@@ -238,9 +264,17 @@ MongoDB
 - Scaling horizontal si nécessaire
 - Bonne intégration C++ (mongocxx)
 
+### Collections
+
+| Collection | Contenu |
+|------------|---------|
+| `users` | Comptes (email, password hash) |
+| `user_settings` | Préférences (audio, video) |
+| `chat_messages` | Historique chat |
+
 ---
 
-## ADR-008: Tick Rate 20 Hz
+## ADR-008: Broadcast Rate 20 Hz
 
 ### Contexte
 
@@ -252,13 +286,41 @@ Fréquence de broadcast des snapshots serveur.
 
 ### Justification
 
-| Tick Rate | Latence | CPU | Use Case |
-|-----------|---------|-----|----------|
-| 20 Hz | 50ms | Faible | Action (R-Type) |
+| Broadcast Rate | Intervalle | CPU | Use Case |
+|----------------|------------|-----|----------|
+| 20 Hz | 50ms | Faible | Shoot'em up (R-Type) |
 | 60 Hz | 16ms | Moyen | FPS casual |
 | 128 Hz | 8ms | Élevé | FPS compétitif |
 
 R-Type est un shoot'em up horizontal où la précision frame-perfect n'est pas critique. 20 Hz (BROADCAST_INTERVAL_MS = 50ms) offre un excellent équilibre entre fluidité et bande passante.
+
+---
+
+## ADR-009: SessionToken 256-bit
+
+### Contexte
+
+Authentification des connexions UDP après login TCP.
+
+### Décision
+
+Token de 32 bytes (256 bits) généré avec OpenSSL RAND_bytes.
+
+### Justification
+
+- Généré cryptographiquement (CSPRNG)
+- Assez long pour éviter les collisions
+- Validité de 5 minutes pour connexion UDP
+- Session timeout de 30 secondes d'inactivité
+
+```cpp
+struct SessionToken {
+    uint8_t bytes[32];  // 256 bits
+
+    std::string toHex() const;
+    static std::optional<SessionToken> fromHex(const std::string& hex);
+};
+```
 
 ---
 
@@ -267,10 +329,13 @@ R-Type est un shoot'em up horizontal où la précision frame-perfect n'est pas c
 | Décision | Choix | Raison |
 |----------|-------|--------|
 | Architecture serveur | Hexagonale | Testabilité |
-| Entités | Héritage | Simplicité |
-| Protocole gameplay | UDP | Latence |
-| Latence | Prediction | UX |
-| Graphics | Abstraction | Portabilité |
-| Voice | Opus + PortAudio | Qualité |
+| Entités | Structs simples | Simplicité |
+| Protocole gameplay | UDP 4124 | Latence |
+| Protocole auth | TCP 4125 + TLS | Fiabilité, sécurité |
+| Protocole voice | UDP 4126 | Temps réel |
+| Latence | Prediction client | UX |
+| Graphics | IWindow abstraction | Portabilité |
+| Voice | Opus 32kbps + PortAudio | Qualité/cross-platform |
 | Database | MongoDB | Flexibilité |
-| Tick rate | 20 Hz | Balance latence/bande passante |
+| Broadcast rate | 20 Hz | Balance latence/bande |
+| Tokens | 256-bit CSPRNG | Sécurité |

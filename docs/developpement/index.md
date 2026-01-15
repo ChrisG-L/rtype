@@ -33,22 +33,23 @@ flowchart LR
 | Outil | Version | Description |
 |-------|---------|-------------|
 | C++ Compiler | GCC 13+ / Clang 16+ | Support C++23 |
-| CMake | 3.25+ | Build system |
+| CMake | 3.30+ | Build system |
+| Ninja | Latest | Build generator |
 | Git | 2.40+ | Version control |
-| Conan | 2.0+ | Package manager |
 | Python | 3.10+ | Scripts et docs |
 
-### Dépendances
+### Dépendances Système
 
 ```bash
 # Ubuntu/Debian
-sudo apt install build-essential cmake git python3 python3-pip
+sudo apt install build-essential cmake ninja-build git python3 python3-pip
+sudo apt install clang clang-tools  # Pour Linux natif
 
-# Installation Conan
-pip install conan
+# Pour cross-compile Windows
+sudo apt install mingw-w64
 
-# Profil Conan
-conan profile detect
+# macOS
+brew install cmake ninja git python3
 ```
 
 ---
@@ -57,31 +58,46 @@ conan profile detect
 
 ```
 rtype/
-├── client/                 # Application client
-│   ├── src/
-│   │   ├── engine/        # Moteur de jeu
-│   │   ├── scenes/        # Scènes (Menu, Game, etc.)
-│   │   ├── network/       # Client réseau
-│   │   └── audio/         # Audio et voice chat
-│   └── CMakeLists.txt
+├── src/
+│   ├── client/                    # Application client
+│   │   ├── include/
+│   │   │   ├── core/             # Engine, GameLoop
+│   │   │   ├── scenes/           # SceneManager, IScene
+│   │   │   ├── network/          # UDPClient, TCPClient
+│   │   │   ├── graphics/         # IWindow, IDrawable
+│   │   │   └── audio/            # AudioManager, VoiceChatManager
+│   │   ├── src/
+│   │   └── lib/                  # Backends graphiques
+│   │       ├── sfml/             # SFMLWindow, SFMLRenderer
+│   │       └── sdl2/             # SDL2Window, SDL2Renderer
+│   │
+│   ├── server/                    # Application serveur
+│   │   ├── include/
+│   │   │   ├── domain/           # Entités, Value Objects
+│   │   │   ├── application/      # Use Cases, Ports
+│   │   │   └── infrastructure/   # Adapters, Network, Game
+│   │   │       ├── adapters/in/network/  # UDPServer, TCPAuthServer
+│   │   │       ├── game/         # GameWorld
+│   │   │       ├── room/         # RoomManager
+│   │   │       ├── session/      # SessionManager
+│   │   │       └── bootstrap/    # GameBootstrap
+│   │   └── infrastructure/
+│   │
+│   ├── common/                    # Code partagé
+│   │   ├── protocol/             # Protocol.hpp
+│   │   └── collision/            # AABB.hpp
+│   │
+│   └── ECS/                       # Entity Component System (future)
 │
-├── server/                 # Application serveur
-│   ├── src/
-│   │   ├── application/   # Point d'entrée
-│   │   ├── rooms/         # Gestion des salons
-│   │   ├── game/          # Logique de jeu
-│   │   └── network/       # Serveurs TCP/UDP
-│   └── CMakeLists.txt
+├── tests/                         # Tests unitaires
+│   ├── server/                    # Tests serveur
+│   └── client/                    # Tests client
 │
-├── common/                 # Code partagé
-│   ├── include/
-│   │   └── protocol/      # Protocole réseau
-│   └── src/
-│
-├── docs/                   # Documentation
-├── tests/                  # Tests unitaires
-├── assets/                 # Ressources graphiques/audio
-└── CMakeLists.txt         # CMake racine
+├── docs/                          # Documentation MkDocs
+├── assets/                        # Ressources graphiques/audio
+├── scripts/                       # Scripts de build
+├── third_party/vcpkg/             # Package manager
+└── CMakeLists.txt                 # CMake racine
 ```
 
 ---
@@ -111,6 +127,28 @@ git add .
 git commit -m "feat: description"
 git push origin feature/ma-feature
 ```
+
+---
+
+## Build System
+
+### vcpkg
+
+Le projet utilise **vcpkg** comme gestionnaire de paquets, intégré dans `third_party/vcpkg/`.
+
+```bash
+# vcpkg est cloné et bootstrappé automatiquement par build.sh
+./scripts/build.sh
+```
+
+### Scripts de Build
+
+| Script | Description |
+|--------|-------------|
+| `scripts/build.sh` | Configure CMake + vcpkg |
+| `scripts/compile.sh` | Compile le projet |
+| `scripts/test.sh` | Exécute les tests |
+| `scripts/run-client.sh` | Lance le client |
 
 ---
 
@@ -145,18 +183,38 @@ git push origin feature/ma-feature
 
 ```bash
 # 1. Cloner le repo
-git clone https://github.com/Pluenet-Killian/rtype.git
+git clone https://github.com/your-org/rtype.git
 cd rtype
 
-# 2. Installer les dépendances
-conan install . --build=missing
+# 2. Configurer (installe vcpkg + dépendances)
+./scripts/build.sh
 
-# 3. Configurer CMake
-cmake --preset conan-release
+# 3. Compiler
+./scripts/compile.sh
 
-# 4. Compiler
-cmake --build --preset conan-release
+# 4. Exécuter les tests
+./scripts/test.sh
 
-# 5. Exécuter les tests
-ctest --preset conan-release
+# 5. Lancer
+./artifacts/server/linux/rtype_server  # Serveur
+./artifacts/client/linux/rtype_client  # Client
 ```
+
+### Cross-Compilation Windows
+
+```bash
+# Depuis Linux
+./scripts/build.sh --platform=windows
+./scripts/compile.sh
+# Binaires dans artifacts/*/windows/
+```
+
+---
+
+## Ports Réseau
+
+| Port | Protocole | Description |
+|------|-----------|-------------|
+| 4125 | TCP + TLS | Authentification, rooms, chat |
+| 4124 | UDP | Game loop (20Hz broadcast) |
+| 4126 | UDP | Voice chat (Opus) |

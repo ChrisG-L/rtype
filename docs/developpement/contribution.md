@@ -29,7 +29,7 @@ git clone https://github.com/VOTRE_USERNAME/rtype.git
 cd rtype
 
 # Ajouter le remote upstream
-git remote add upstream https://github.com/Pluenet-Killian/rtype.git
+git remote add upstream https://github.com/original-org/rtype.git
 ```
 
 ### 2. Créer une Branche
@@ -48,21 +48,20 @@ git checkout -b fix/mon-bugfix
 ### 3. Développer
 
 ```bash
-# Installer les dépendances
-conan install . --build=missing
+# Configurer (installe vcpkg + dépendances)
+./scripts/build.sh
 
-# Build
-cmake --preset conan-release
-cmake --build --preset conan-release
+# Compiler
+./scripts/compile.sh
 
 # Tester
-ctest --preset conan-release
+./scripts/test.sh
 ```
 
 ### 4. Commit
 
 ```bash
-# Format du commit
+# Format du commit (conventional commits)
 git commit -m "type(scope): description"
 
 # Exemples
@@ -183,7 +182,7 @@ Closes #XXX
 
 ### Review Process
 
-1. **CI doit passer** - Tous les checks automatiques
+1. **CI doit passer** - Jenkins build et tests
 2. **Au moins 1 approval** - Review par un mainteneur
 3. **Pas de conflicts** - Branche à jour avec develop
 4. **Squash and merge** - Pour un historique propre
@@ -217,7 +216,7 @@ Closes #XXX
 
 - OS: [ex: Ubuntu 24.04]
 - Version: [ex: v1.0.0]
-- Compilateur: [ex: GCC 13]
+- Compilateur: [ex: Clang 16]
 
 ## Logs/Screenshots
 
@@ -248,7 +247,7 @@ Closes #XXX
 
 ## Architecture Décisions
 
-Pour tout changement architectural significatif, créer un ADR:
+Pour tout changement architectural significatif, créer un ADR :
 
 ```markdown
 # ADR-XXX: Titre
@@ -297,6 +296,49 @@ Proposed | Accepted | Deprecated | Superseded
 | `help wanted` | Besoin d'aide |
 | `priority: high` | Priorité haute |
 | `priority: low` | Priorité basse |
+
+---
+
+## Setup Développement
+
+### Prérequis
+
+```bash
+# Ubuntu/Debian
+sudo apt install build-essential cmake ninja-build git clang
+
+# vcpkg est installé automatiquement par build.sh
+```
+
+### Build Rapide
+
+```bash
+# 1. Clone
+git clone https://github.com/org/rtype.git
+cd rtype
+
+# 2. Configure + Build
+./scripts/build.sh
+./scripts/compile.sh
+
+# 3. Test
+./scripts/test.sh
+
+# 4. Run
+./artifacts/server/linux/rtype_server
+./artifacts/client/linux/rtype_client
+```
+
+### Cross-Compile Windows
+
+```bash
+# Installer MinGW
+sudo apt install mingw-w64
+
+# Build pour Windows
+./scripts/build.sh --platform=windows
+./scripts/compile.sh
+```
 
 ---
 

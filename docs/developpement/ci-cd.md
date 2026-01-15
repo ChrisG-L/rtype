@@ -13,307 +13,222 @@ Intégration et déploiement continus pour R-Type.
 
 ```mermaid
 flowchart LR
-    Push[Git Push] --> Build[Build]
+    Push[Git Push] --> GH[GitHub Actions]
+    GH --> Jenkins[Jenkins]
+    Jenkins --> Build[Build]
     Build --> Test[Test]
-    Test --> Lint[Lint]
-    Lint --> Package[Package]
-    Package --> Release[Release]
+    Test --> Package[Package]
+    Package --> Artifacts[Artifacts]
 
     style Push fill:#7c3aed,color:#fff
-    style Release fill:#059669,color:#fff
+    style Artifacts fill:#059669,color:#fff
 ```
+
+---
+
+## Architecture CI/CD
+
+Le projet utilise une combinaison de **GitHub Actions** et **Jenkins** :
+
+| Composant | Rôle |
+|-----------|------|
+| GitHub Actions | Déclenche les builds Jenkins |
+| Jenkins | Build, test, packaging multi-plateforme |
+| vcpkg | Gestion des dépendances |
+| Ninja | Génération de build rapide |
 
 ---
 
 ## GitHub Actions
 
-### Workflow Principal
+### Workflow Jenkins Trigger
+
+Le fichier `.github/workflows/jenkins-trigger.yml` déclenche automatiquement Jenkins à chaque push.
 
 ```yaml
-# .github/workflows/ci.yml
-name: CI
+name: Jenkins Build Trigger
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+    branches:
+      - '**'  # Toutes les branches
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        build_type: [Release, Debug]
-
+  trigger-jenkins:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+      - name: Trigger and monitor Jenkins build
+        env:
+          JENKINS_PASSWORD: ${{ secrets.JENKINS_PASSWORD }}
+        run: |
+          # Déclenche le webhook Jenkins
+          curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" \
+            "$JENKINS_BASE/multibranch-webhook-trigger/invoke?token=Trigger-Rtype"
 
-      - name: Install Conan
-        run: pip install conan
-
-      - name: Configure Conan
-        run: conan profile detect
-
-      - name: Install Dependencies
-        run: conan install . --build=missing -s build_type=${{ matrix.build_type }}
-
-      - name: Configure CMake
-        run: cmake --preset conan-${{ matrix.build_type | lower }}
-
-      - name: Build
-        run: cmake --build --preset conan-${{ matrix.build_type | lower }}
-
-      - name: Test
-        run: ctest --preset conan-${{ matrix.build_type | lower }} --output-on-failure
+          # Attend et vérifie le résultat du build
+          # ...
 ```
+
+### Fonctionnement
+
+1. **Push** sur n'importe quelle branche
+2. **GitHub Actions** déclenche le webhook Jenkins
+3. **Jenkins** lance le build pour la branche
+4. **GitHub Actions** attend le résultat (timeout 58min)
+5. **Status** remonté dans la PR/commit
 
 ---
 
-## Jobs Détaillés
+## Jenkins Pipeline
 
 ### Build Matrix
 
-| OS | Compiler | Build Type |
-|----|----------|------------|
-| Ubuntu | GCC 13 | Release, Debug |
-| Windows | MSVC 2022 | Release, Debug |
-| macOS | Clang 16 | Release, Debug |
+| Plateforme | Compilateur | Triplet vcpkg |
+|------------|-------------|---------------|
+| Linux | Clang 16+ | `x64-linux` |
+| Windows | MinGW-w64 | `x64-mingw-static` |
+| macOS | Clang 16+ | `x64-osx` |
 
-### Lint Job
+### Étapes du Pipeline
 
-```yaml
-lint:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
+```groovy
+// Jenkinsfile (simplifié)
+pipeline {
+    agent any
 
-    - name: Install clang-format
-      run: sudo apt-get install clang-format-16
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
-    - name: Check Format
-      run: |
-        find . -name "*.cpp" -o -name "*.hpp" | \
-        xargs clang-format-16 --dry-run --Werror
+        stage('Configure') {
+            steps {
+                sh './scripts/build.sh'
+            }
+        }
 
-    - name: Run clang-tidy
-      run: |
-        cmake --preset conan-release
-        run-clang-tidy -p build
-```
+        stage('Build') {
+            steps {
+                sh './scripts/compile.sh'
+            }
+        }
 
-### Test Job avec Coverage
+        stage('Test') {
+            steps {
+                sh './scripts/test.sh'
+            }
+        }
 
-```yaml
-test-coverage:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-
-    - name: Build with Coverage
-      run: |
-        cmake -B build -DENABLE_COVERAGE=ON
-        cmake --build build
-
-    - name: Run Tests
-      run: ctest --test-dir build --output-on-failure
-
-    - name: Generate Coverage
-      run: |
-        lcov --capture --directory build --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' --output-file coverage.info
-
-    - name: Upload to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: coverage.info
+        stage('Package') {
+            steps {
+                archiveArtifacts artifacts: 'artifacts/**/*'
+            }
+        }
+    }
+}
 ```
 
 ---
 
-## Release Pipeline
+## Scripts de Build
 
-### Build Artifacts
+### build.sh
 
-```yaml
-# .github/workflows/release.yml
-name: Release
+Configure vcpkg et CMake :
 
-on:
-  push:
-    tags: ['v*']
+```bash
+#!/usr/bin/env bash
+# Configure pour la plateforme spécifiée
+./scripts/build.sh                    # Linux (défaut)
+./scripts/build.sh --platform=windows # Windows cross-compile
+./scripts/build.sh --platform=macos   # macOS
+```
 
-jobs:
-  build-release:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact: rtype-linux
-          - os: windows-latest
-            artifact: rtype-windows
-          - os: macos-latest
-            artifact: rtype-macos
+**Actions :**
 
-    steps:
-      - uses: actions/checkout@v4
+1. Clone/update vcpkg dans `third_party/vcpkg/`
+2. Bootstrap vcpkg
+3. Configure CMake avec Ninja
+4. Installe les dépendances vcpkg
 
-      - name: Build
-        run: |
-          conan install . --build=missing -s build_type=Release
-          cmake --preset conan-release
-          cmake --build --preset conan-release
+### compile.sh
 
-      - name: Package
-        run: |
-          mkdir -p dist
-          cp build/client/rtype_client dist/
-          cp build/server/rtype_server dist/
-          cp -r assets dist/
+Compile le projet :
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.artifact }}
-          path: dist/
+```bash
+#!/usr/bin/env bash
+ninja -C buildLinux   # ou buildWin, buildMac
+```
 
-  create-release:
-    needs: build-release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v3
+### test.sh
 
-      - name: Create Archives
-        run: |
-          zip -r rtype-linux.zip rtype-linux/
-          zip -r rtype-windows.zip rtype-windows/
-          zip -r rtype-macos.zip rtype-macos/
+Exécute les tests :
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            rtype-linux.zip
-            rtype-windows.zip
-            rtype-macos.zip
+```bash
+#!/usr/bin/env bash
+cd buildLinux
+ctest --output-on-failure
 ```
 
 ---
 
-## Docker
+## Artifacts
 
-### Dockerfile Server
+Les artifacts sont générés dans `artifacts/` :
 
-```dockerfile
-# Dockerfile.server
-FROM ubuntu:24.04 AS builder
-
-RUN apt-get update && apt-get install -y \
-    build-essential cmake git python3 python3-pip
-
-RUN pip install conan && conan profile detect
-
-WORKDIR /app
-COPY . .
-
-RUN conan install . --build=missing -s build_type=Release
-RUN cmake --preset conan-release
-RUN cmake --build --preset conan-release --target rtype_server
-
-# Runtime
-FROM ubuntu:24.04
-
-RUN apt-get update && apt-get install -y \
-    libstdc++6 ca-certificates
-
-COPY --from=builder /app/build/server/rtype_server /usr/local/bin/
-
-EXPOSE 4242 4243 4244
-
-CMD ["rtype_server"]
+```
+artifacts/
+├── server/
+│   ├── linux/
+│   │   └── rtype_server
+│   └── windows/
+│       └── rtype_server.exe
+└── client/
+    ├── linux/
+    │   └── rtype_client
+    └── windows/
+        └── rtype_client.exe
 ```
 
-### Docker Compose
+### Téléchargement
 
-```yaml
-# docker-compose.yml
-version: '3.8'
+Les artifacts sont disponibles sur Jenkins après un build réussi :
 
-services:
-  server:
-    build:
-      context: .
-      dockerfile: Dockerfile.server
-    ports:
-      - "4242:4242"
-      - "4243:4243/udp"
-      - "4244:4244/udp"
-    environment:
-      - MONGO_URI=mongodb://mongo:27017
-    depends_on:
-      - mongo
-
-  mongo:
-    image: mongo:7
-    volumes:
-      - mongo-data:/data/db
-
-volumes:
-  mongo-data:
+```
+https://jenkins.example.com/job/Rtype/job/<branch>/<build>/artifact/artifacts/
 ```
 
 ---
 
-## Conan Configuration
+## Configuration vcpkg
 
-### conanfile.py
+### Dépendances
 
-```python
-from conan import ConanFile
-from conan.tools.cmake import CMakeToolchain, CMakeDeps, cmake_layout
+Le projet utilise vcpkg pour gérer les dépendances C++ :
 
-class RTypeRecipe(ConanFile):
-    name = "rtype"
-    version = "1.0.0"
+| Package | Usage |
+|---------|-------|
+| `boost-asio` | Networking async |
+| `gtest` | Tests unitaires |
+| `spdlog` | Logging |
+| `openssl` | TLS/Crypto |
+| `protobuf` | Sérialisation |
+| `sfml` | Client graphics (SFML backend) |
+| `sdl2` | Client graphics (SDL2 backend) |
+| `opus` | Voice codec |
+| `portaudio` | Audio I/O |
 
-    settings = "os", "compiler", "build_type", "arch"
+### Triplets
 
-    requires = [
-        "sfml/2.6.1",
-        "sdl/2.28.5",
-        "opus/1.4",
-        "portaudio/19.7.0",
-        "mongo-cxx-driver/3.9.0",
-        "gtest/1.14.0",
-    ]
-
-    def layout(self):
-        cmake_layout(self)
-
-    def generate(self):
-        deps = CMakeDeps(self)
-        deps.generate()
-        tc = CMakeToolchain(self)
-        tc.generate()
-```
-
----
-
-## Badges
-
-```markdown
-[![CI](https://github.com/user/rtype/actions/workflows/ci.yml/badge.svg)](...)
-[![codecov](https://codecov.io/gh/user/rtype/branch/main/graph/badge.svg)](...)
-[![License](https://img.shields.io/github/license/user/rtype)](...)
-```
+| Plateforme | Triplet |
+|------------|---------|
+| Linux | `x64-linux` |
+| Windows (MinGW) | `x64-mingw-static` |
+| macOS | `x64-osx` |
 
 ---
 
@@ -321,6 +236,78 @@ class RTypeRecipe(ConanFile):
 
 | Secret | Description |
 |--------|-------------|
-| `CODECOV_TOKEN` | Token Codecov |
-| `DOCKER_USERNAME` | Docker Hub username |
-| `DOCKER_PASSWORD` | Docker Hub password |
+| `JENKINS_PASSWORD` | Token d'authentification Jenkins |
+
+---
+
+## Monitoring du Build
+
+Le workflow GitHub Actions :
+
+1. Trouve le job Jenkins pour la branche
+2. Déclenche le webhook
+3. Poll toutes les 10s pour le résultat (max 350 tentatives = ~58min)
+4. Vérifie que le commit correspond
+5. Retourne SUCCESS/FAILURE/ABORTED
+
+```yaml
+# Statut final
+case "$RESULT" in
+  SUCCESS) exit 0 ;;
+  FAILURE) exit 1 ;;
+  ABORTED) exit 1 ;;
+  *) exit 1 ;;
+esac
+```
+
+---
+
+## Diagramme de Séquence
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub
+    participant GA as GitHub Actions
+    participant JK as Jenkins
+
+    Dev->>GH: git push
+    GH->>GA: Trigger workflow
+    GA->>JK: POST webhook
+    JK->>JK: Build & Test
+
+    loop Poll result
+        GA->>JK: GET build status
+        JK-->>GA: IN_PROGRESS / SUCCESS / FAILURE
+    end
+
+    JK-->>GA: Final result
+    GA-->>GH: Update commit status
+    GH-->>Dev: Notification
+```
+
+---
+
+## Troubleshooting
+
+### Build Timeout
+
+Si le build dépasse 58 minutes :
+
+```
+::error::Build did not complete after 58 minutes
+```
+
+**Solution** : Vérifier les logs Jenkins pour identifier le blocage.
+
+### Branch Not Found
+
+```
+::warning::Branch feature/xyz not found in Jenkins jobs
+```
+
+**Solution** : Jenkins doit scanner les branches. Attendre ou déclencher manuellement.
+
+### Artifacts Not Available
+
+Les artifacts ne sont disponibles que si le build a réussi. En cas d'échec, consulter les logs Jenkins.

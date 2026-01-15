@@ -13,6 +13,7 @@ Lancez votre première partie R-Type en 5 minutes !
 ```bash
 # Configuration (première fois)
 ./scripts/build.sh
+./scripts/generate_dev_certs.sh  # Certificats TLS
 
 # Compilation + Lancement serveur
 ./scripts/compile.sh
@@ -41,6 +42,18 @@ cd rtype
 ---
 
 ## Étape 2 : Lancer le Serveur
+
+### Certificats TLS (première fois)
+
+Le serveur utilise TLS pour l'authentification. Générez les certificats de développement :
+
+```bash
+./scripts/generate_dev_certs.sh
+```
+
+Cela crée le dossier `certs/` avec `server.crt` et `server.key`.
+
+### Lancement
 
 Dans un premier terminal :
 
