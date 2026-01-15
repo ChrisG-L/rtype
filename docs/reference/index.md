@@ -40,18 +40,15 @@ Ressources de référence rapide pour R-Type.
 ### Commandes CLI
 
 ```bash
-# Serveur
-./r-type_server [OPTIONS]
-  -p, --port <PORT>     Port d'écoute (default: 4242)
-  -c, --config <FILE>   Fichier de configuration
-  -v, --verbose         Mode verbeux
+# Serveur (configuration via .env uniquement)
+./rtype_server
+# Voir docs/configuration/serveur.md pour les options .env
 
 # Client
-./r-type_client [OPTIONS]
-  -h, --host <HOST>     Adresse du serveur (default: 127.0.0.1)
-  -p, --port <PORT>     Port du serveur (default: 4242)
-  --backend <BACKEND>   Backend graphique (sdl2|sfml)
-  -f, --fullscreen      Mode plein écran
+./rtype_client [OPTIONS]
+  --graphics=<name>       Backend graphique (sdl2 ou sfml, défaut: sfml)
+  --graphics-path=<path>  Chemin vers un plugin graphique custom
+  -h, --help              Afficher l'aide
 ```
 
 ### Raccourcis Clavier
@@ -71,14 +68,16 @@ Ressources de référence rapide pour R-Type.
 
 | Service | Port | Protocol |
 |---------|------|----------|
-| Game Server | 4242 | UDP |
-| Debug Console | 4243 | TCP |
+| Authentification (TLS) | 4125 | TCP |
+| Game Server | 4124 | UDP |
+| Voice Chat | 4126 | UDP |
 
 ### Variables d'Environnement
 
 | Variable | Description |
 |----------|-------------|
-| `RTYPE_CONFIG_DIR` | Dossier des configurations |
-| `RTYPE_LOG_LEVEL` | Niveau de log |
-| `RTYPE_BACKEND` | Backend graphique |
+| `MONGODB_URI` | URI de connexion MongoDB |
+| `MONGODB_DB` | Nom de la base de données |
+| `TLS_CERT_FILE` | Chemin certificat TLS |
+| `TLS_KEY_FILE` | Chemin clé privée TLS |
 | `VCPKG_ROOT` | Chemin vers vcpkg |

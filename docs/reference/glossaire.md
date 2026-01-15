@@ -142,7 +142,7 @@ Unité de données envoyée sur le réseau. Contient un header et un payload.
 Module chargé dynamiquement à l'exécution. Les backends graphiques sont des plugins.
 
 ### Port
-Numéro identifiant un service réseau. R-Type utilise les ports 4242 (TCP), 4243 (UDP), 4244 (Voice).
+Numéro identifiant un service réseau. R-Type utilise les ports 4125 (TCP/TLS auth), 4124 (UDP game), 4126 (UDP voice).
 
 ### PortAudio
 Bibliothèque audio cross-platform pour la capture et la lecture audio en temps réel. Utilisée pour le voice chat.
@@ -185,6 +185,9 @@ Mise à jour du serveur. Le serveur tourne à 60 ticks/seconde = 16.67ms par tic
 
 ### Tick Rate
 Fréquence des mises à jour du serveur en Hertz.
+
+### TLS
+**Transport Layer Security** - Protocole de chiffrement des communications réseau. R-Type utilise TLS 1.2+ pour sécuriser l'authentification sur le port TCP 4125.
 
 ---
 

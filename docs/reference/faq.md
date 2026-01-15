@@ -82,9 +82,9 @@ Questions fréquemment posées sur R-Type.
 
     L'hôte doit partager son IP publique et ouvrir les ports :
 
-    - **4242/TCP** : Auth, rooms, chat
-    - **4243/UDP** : Gameplay (inputs, snapshots)
-    - **4244/UDP** : Voice chat
+    - **4125/TCP** : Auth TLS, rooms, chat
+    - **4124/UDP** : Gameplay (inputs, snapshots)
+    - **4126/UDP** : Voice chat
 
 ??? question "Le jeu lag beaucoup"
     Vérifiez :
@@ -109,19 +109,19 @@ Questions fréquemment posées sur R-Type.
 ??? question "Quels ports utilise R-Type ?"
     | Port | Protocol | Usage |
     |------|----------|-------|
-    | 4242 | TCP | Authentification, rooms, chat |
-    | 4243 | UDP | Synchronisation de jeu (snapshots, inputs) |
-    | 4244 | UDP | Voice chat (codec Opus) |
+    | 4125 | TCP (TLS) | Authentification, rooms, chat |
+    | 4124 | UDP | Synchronisation de jeu (snapshots, inputs) |
+    | 4126 | UDP | Voice chat (codec Opus) |
 
-    Les ports sont configurés via le fichier `.env` du serveur.
+    Les ports sont définis dans le code et ne sont pas configurables.
 
 ??? question "Comment ouvrir les ports sur mon routeur ?"
     1. Accédez à l'interface admin de votre routeur (souvent `192.168.1.1`)
     2. Trouvez "Port Forwarding" ou "NAT"
     3. Ajoutez trois règles :
-        - Port **4242**, Protocol **TCP** → votre IP locale
-        - Port **4243**, Protocol **UDP** → votre IP locale
-        - Port **4244**, Protocol **UDP** → votre IP locale
+        - Port **4125**, Protocol **TCP** → votre IP locale
+        - Port **4124**, Protocol **UDP** → votre IP locale
+        - Port **4126**, Protocol **UDP** → votre IP locale
 
     Consultez la documentation de votre routeur pour les détails.
 
@@ -157,12 +157,13 @@ Questions fréquemment posées sur R-Type.
     ```
 
 ??? question "Comment débugger le réseau ?"
-    Activez les logs verbeux :
-    ```bash
-    RTYPE_LOG_LEVEL=debug ./r-type_server -v
-    ```
+    Le serveur utilise spdlog avec une TUI intégrée qui affiche les logs en temps réel.
 
-    Ou utilisez Wireshark pour capturer le trafic UDP sur le port 4242.
+    Ou utilisez Wireshark pour capturer le trafic :
+
+    - UDP port 4124 (game)
+    - TCP port 4125 (auth)
+    - UDP port 4126 (voice)
 
 ??? question "Comment créer un nouveau backend graphique ?"
     1. Implémentez l'interface `IGraphicsBackend`
