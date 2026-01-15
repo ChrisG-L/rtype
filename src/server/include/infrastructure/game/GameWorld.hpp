@@ -16,6 +16,7 @@
 #include <vector>
 #include <array>
 #include <chrono>
+#include <random>
 
 namespace infrastructure::game {
     using boost::asio::ip::udp;
@@ -689,6 +690,9 @@ namespace infrastructure::game {
         // Game speed configuration
         uint16_t _gameSpeedPercent = 100;      // 50-200, default 100%
         float _gameSpeedMultiplier = 1.0f;     // 0.5-2.0, derived from percent
+
+        // Secure RNG for gameplay randomness (SonarQube cpp:S2245 compliant)
+        mutable std::mt19937 _rng{std::random_device{}()};
 
         std::unordered_map<uint8_t, ConnectedPlayer> _players;
         std::unordered_map<uint8_t, uint16_t> _playerInputs;      // Player ID -> input keys bitfield

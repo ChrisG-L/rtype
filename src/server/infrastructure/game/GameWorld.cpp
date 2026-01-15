@@ -9,8 +9,6 @@
 #include "collision/AABB.hpp"
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
-#include <ctime>
 
 namespace infrastructure::game {
 
@@ -18,7 +16,7 @@ namespace infrastructure::game {
         : _strand(boost::asio::make_strand(io_ctx))
         , _nextPlayerId(1)
     {
-        std::srand(static_cast<unsigned>(std::time(nullptr)));
+        // RNG initialized in header with std::random_device
     }
 
     void GameWorld::setGameSpeedPercent(uint16_t percent) {
@@ -437,6 +435,9 @@ namespace infrastructure::game {
                     default: shootInterval = Enemy::SHOOT_INTERVAL_BASIC; break;
                 }
 
+                std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+                std::uniform_int_distribution<int> distBool(0, 1);
+
                 Enemy enemy{
                     .id = enemyId,
                     .x = SPAWN_X,
@@ -444,12 +445,12 @@ namespace infrastructure::game {
                     .health = health,
                     .enemy_type = typeValue,
                     .baseY = it->spawnY,
-                    .phaseOffset = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 6.28f,
+                    .phaseOffset = dist01(_rng) * 6.28f,
                     .aliveTime = 0.0f,
-                    .shootCooldown = shootInterval * (0.3f + 0.7f * static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)),
+                    .shootCooldown = shootInterval * (0.3f + 0.7f * dist01(_rng)),
                     .targetY = it->spawnY,
                     .zigzagTimer = 0.0f,
-                    .zigzagUp = (std::rand() % 2) == 0
+                    .zigzagUp = distBool(_rng) == 0
                 };
 
                 _enemies[enemyId] = enemy;
@@ -482,15 +483,15 @@ namespace infrastructure::game {
             _waveTimer = 0.0f;
             _waveNumber++;
 
-            _currentWaveInterval = WAVE_INTERVAL_MIN +
-                static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * (WAVE_INTERVAL_MAX - WAVE_INTERVAL_MIN);
+            std::uniform_real_distribution<float> waveIntervalDist(WAVE_INTERVAL_MIN, WAVE_INTERVAL_MAX);
+            _currentWaveInterval = waveIntervalDist(_rng);
 
             // Enemy count scales with wave number (infinite scaling)
             // Base: 2-6 enemies
             // Bonus: +1 enemy every 3 waves, capped at +4 (reached at wave 12)
             // Cycle bonus: +1 enemy per boss cycle completed
-            uint8_t baseCount = ENEMIES_PER_WAVE_MIN +
-                static_cast<uint8_t>(std::rand() % (ENEMIES_PER_WAVE_MAX - ENEMIES_PER_WAVE_MIN + 1));
+            std::uniform_int_distribution<int> enemyCountDist(ENEMIES_PER_WAVE_MIN, ENEMIES_PER_WAVE_MAX);
+            uint8_t baseCount = static_cast<uint8_t>(enemyCountDist(_rng));
             uint8_t waveBonus = std::min(static_cast<uint8_t>(_waveNumber / 3), static_cast<uint8_t>(4));
             uint8_t cycleBonus = std::min(_bossDefeatedCount, static_cast<uint8_t>(3));  // +1 per cycle, max +3
             uint8_t enemyCount = std::min(static_cast<uint8_t>(baseCount + waveBonus + cycleBonus),
@@ -505,21 +506,24 @@ namespace infrastructure::game {
             // Tier affects enemy type probabilities
             uint16_t difficultyTier = (_waveNumber / 5) + (_bossDefeatedCount * 2);
 
+            std::uniform_real_distribution<float> spawnDelayDist(SPAWN_DELAY_MIN, SPAWN_DELAY_MAX);
+            std::uniform_real_distribution<float> jitterDist(-50.0f, 50.0f);
+            std::uniform_int_distribution<int> typeDist(0, 99);
+
             for (uint8_t i = 0; i < enemyCount; ++i) {
                 // Spawn delay decreases with difficulty (faster waves)
                 float delayMultiplier = std::max(0.5f, 1.0f - (difficultyTier * 0.05f));
-                float spawnDelay = (SPAWN_DELAY_MIN +
-                    static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * (SPAWN_DELAY_MAX - SPAWN_DELAY_MIN)) * delayMultiplier;
+                float spawnDelay = spawnDelayDist(_rng) * delayMultiplier;
                 cumulativeDelay += spawnDelay;
 
                 float baseY = SPAWN_Y_MIN + ySpacing * static_cast<float>(i + 1);
-                float jitter = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) - 0.5f) * 100.0f;
+                float jitter = jitterDist(_rng);
                 float spawnY = std::clamp(baseY + jitter, SPAWN_Y_MIN, SPAWN_Y_MAX);
 
                 // Enemy type selection with scaling probabilities
                 // Higher waves and cycles increase chances of dangerous enemies
                 EnemyType type = EnemyType::Basic;
-                int roll = std::rand() % 100;
+                int roll = typeDist(_rng);
 
                 // Probability thresholds scale with difficulty
                 // Base thresholds: Bomber 10%, Fast 15%, Zigzag 15%, Tracker 15%, Basic 45%
@@ -719,8 +723,9 @@ namespace infrastructure::game {
 
                         // POWArmor always drops power-up, other enemies have a chance
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
+                        std::uniform_int_distribution<int> dropDist(0, 99);
                         if (enemyType == EnemyType::POWArmor ||
-                            std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                            dropDist(_rng) < POWERUP_DROP_CHANCE) {
                             spawnPowerUp(enemy.x, enemy.y);
                         }
                     }
@@ -1468,6 +1473,7 @@ namespace infrastructure::game {
             EnemyType type = (i % 2 == 0) ? EnemyType::Fast : EnemyType::Tracker;
             uint8_t health = Enemy::getHealthForType(type);
 
+            std::uniform_real_distribution<float> phaseDist(0.0f, 6.28f);
             Enemy enemy{
                 .id = enemyId,
                 .x = boss.x - 50.0f,
@@ -1475,7 +1481,7 @@ namespace infrastructure::game {
                 .health = health,
                 .enemy_type = static_cast<uint8_t>(type),
                 .baseY = spawnY,
-                .phaseOffset = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 6.28f,
+                .phaseOffset = phaseDist(_rng),
                 .aliveTime = 0.0f,
                 .shootCooldown = Enemy::SHOOT_INTERVAL_FAST,
                 .targetY = spawnY,
@@ -1492,8 +1498,10 @@ namespace infrastructure::game {
         Boss& boss = _boss.value();
 
         // Teleport to a random position on the right side
-        float newX = SCREEN_WIDTH - 150.0f - static_cast<float>(std::rand() % 200);
-        float newY = 150.0f + static_cast<float>(std::rand() % static_cast<int>(SCREEN_HEIGHT - 350.0f));
+        std::uniform_real_distribution<float> xDist(SCREEN_WIDTH - 350.0f, SCREEN_WIDTH - 150.0f);
+        std::uniform_real_distribution<float> yDist(150.0f, SCREEN_HEIGHT - 200.0f);
+        float newX = xDist(_rng);
+        float newY = yDist(_rng);
 
         boss.x = newX;
         boss.y = newY;
@@ -1895,8 +1903,9 @@ namespace infrastructure::game {
                         awardKillScore(wc.owner_id, enemyType);
 
                         // POWArmor always drops power-up, other enemies have a chance
+                        std::uniform_int_distribution<int> dropDist(0, 99);
                         if (enemyType == EnemyType::POWArmor ||
-                            std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                            dropDist(_rng) < POWERUP_DROP_CHANCE) {
                             spawnPowerUp(enemy.x, enemy.y);
                         }
                     }
@@ -1953,7 +1962,8 @@ namespace infrastructure::game {
 
     void GameWorld::spawnPowerUp(float x, float y) {
         // Random power-up type selection (R-Type authentic - no Shield)
-        int roll = std::rand() % 100;
+        std::uniform_int_distribution<int> typeDist(0, 99);
+        int roll = typeDist(_rng);
         PowerUpType type;
 
         if (roll < 25) {
@@ -2093,7 +2103,8 @@ namespace infrastructure::game {
 
     void GameWorld::spawnPOWArmor() {
         // Spawn a special enemy that guarantees a power-up drop
-        float y = static_cast<float>(100 + std::rand() % 800);
+        std::uniform_real_distribution<float> yDist(100.0f, 900.0f);
+        float y = yDist(_rng);
 
         Enemy powArmor{
             .id = _nextEnemyId++,
@@ -2264,8 +2275,9 @@ namespace infrastructure::game {
                         awardKillScore(playerId, enemyType);
 
                         // POWArmor always drops power-up, other enemies have a chance
+                        std::uniform_int_distribution<int> dropDist(0, 99);
                         if (enemyType == EnemyType::POWArmor ||
-                            std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                            dropDist(_rng) < POWERUP_DROP_CHANCE) {
                             spawnPowerUp(enemy.x, enemy.y);
                         }
                     }
@@ -2589,8 +2601,9 @@ namespace infrastructure::game {
                             awardKillScore(playerId, enemyType);
 
                             // POWArmor always drops power-up, others have a chance
+                            std::uniform_int_distribution<int> dropDist(0, 99);
                             if (enemyType == EnemyType::POWArmor ||
-                                std::rand() % 100 < POWERUP_DROP_CHANCE) {
+                                dropDist(_rng) < POWERUP_DROP_CHANCE) {
                                 spawnPowerUp(enemy.x, enemy.y);
                             }
                         }
