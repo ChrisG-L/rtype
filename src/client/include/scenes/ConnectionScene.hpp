@@ -10,8 +10,7 @@
 
 #include "IScene.hpp"
 #include "ui/StarfieldBackground.hpp"
-#include "ui/TextInput.hpp"
-#include "ui/Button.hpp"
+#include "ui/ServerConfigPanel.hpp"
 #include "core/ConnectionState.hpp"
 #include "network/NetworkEvents.hpp"
 #include <memory>
@@ -41,11 +40,8 @@ private:
     std::string getModeTitle() const;
 
     // Server config UI
-    void initServerConfigUI();
     void showServerConfigUI();
     void hideServerConfigUI();
-    void applyServerConfig();
-    void renderServerConfigUI();
 
     bool _assetsLoaded = false;
     core::ConnectionSceneMode _mode;
@@ -82,14 +78,7 @@ private:
 
     // Server config UI (shown after failed connection attempts)
     bool _showingConfigUI = false;
-    std::unique_ptr<ui::TextInput> _hostInput;
-    std::unique_ptr<ui::TextInput> _tcpPortInput;
-    std::unique_ptr<ui::TextInput> _udpPortInput;
-    std::unique_ptr<ui::Button> _connectButton;
-    std::unique_ptr<ui::Button> _cancelButton;
-    std::unique_ptr<ui::Button> _franceButton;
-    std::unique_ptr<ui::Button> _localButton;
-    bool _configUIInitialized = false;
+    std::unique_ptr<ui::ServerConfigPanel> _configPanel;
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;

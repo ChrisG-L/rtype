@@ -202,38 +202,8 @@ bool ConnectionScene::isReconnected() const
 void ConnectionScene::handleEvent(const events::Event& event)
 {
     // Handle server config UI events first
-    if (_showingConfigUI && _context.window) {
-        if (_hostInput) _hostInput->handleEvent(event);
-        if (_tcpPortInput) _tcpPortInput->handleEvent(event);
-        if (_udpPortInput) _udpPortInput->handleEvent(event);
-        if (_franceButton) _franceButton->handleEvent(event);
-        if (_localButton) _localButton->handleEvent(event);
-        if (_connectButton) _connectButton->handleEvent(event);
-        if (_cancelButton) _cancelButton->handleEvent(event);
-
-        // Handle clicking outside inputs to unfocus
-        if (auto* mousePressed = std::get_if<events::MouseButtonPressed>(&event)) {
-            float mx = static_cast<float>(mousePressed->x);
-            float my = static_cast<float>(mousePressed->y);
-
-            // Check if click is inside any input
-            bool inHost = _hostInput && mx >= _hostInput->getPos().x &&
-                         mx <= _hostInput->getPos().x + _hostInput->getSize().x &&
-                         my >= _hostInput->getPos().y &&
-                         my <= _hostInput->getPos().y + _hostInput->getSize().y;
-            bool inTcp = _tcpPortInput && mx >= _tcpPortInput->getPos().x &&
-                        mx <= _tcpPortInput->getPos().x + _tcpPortInput->getSize().x &&
-                        my >= _tcpPortInput->getPos().y &&
-                        my <= _tcpPortInput->getPos().y + _tcpPortInput->getSize().y;
-            bool inUdp = _udpPortInput && mx >= _udpPortInput->getPos().x &&
-                        mx <= _udpPortInput->getPos().x + _udpPortInput->getSize().x &&
-                        my >= _udpPortInput->getPos().y &&
-                        my <= _udpPortInput->getPos().y + _udpPortInput->getSize().y;
-
-            if (_hostInput) _hostInput->setFocused(inHost);
-            if (_tcpPortInput) _tcpPortInput->setFocused(inTcp);
-            if (_udpPortInput) _udpPortInput->setFocused(inUdp);
-        }
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->handleEvent(event);
         return;
     }
 
@@ -293,14 +263,8 @@ void ConnectionScene::update(float deltaTime)
     }
 
     // Update server config UI if visible
-    if (_showingConfigUI) {
-        if (_hostInput) _hostInput->update(deltaTime);
-        if (_tcpPortInput) _tcpPortInput->update(deltaTime);
-        if (_udpPortInput) _udpPortInput->update(deltaTime);
-        if (_franceButton) _franceButton->update(deltaTime);
-        if (_localButton) _localButton->update(deltaTime);
-        if (_connectButton) _connectButton->update(deltaTime);
-        if (_cancelButton) _cancelButton->update(deltaTime);
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->update(deltaTime);
     }
 
     // Process network events
@@ -464,141 +428,26 @@ void ConnectionScene::render()
     }
 
     // Draw server config UI if visible
-    if (_showingConfigUI) {
-        renderServerConfigUI();
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->render(*_context.window);
     }
-}
-
-void ConnectionScene::initServerConfigUI()
-{
-    if (_configUIInitialized) return;
-
-    auto& serverConfig = config::ServerConfigManager::getInstance();
-
-    // Panel dimensions (must match renderServerConfigUI)
-    float panelWidth = 450.0f;
-    float panelX = SCREEN_WIDTH / 2 - panelWidth / 2;
-    float panelY = SCREEN_HEIGHT / 2 - 180.0f;
-
-    // Layout inside panel
-    float contentX = panelX + 30.0f;
-    float inputWidth = panelWidth - 60.0f;  // 30px margin on each side
-    float inputHeight = 40.0f;
-    float labelHeight = 25.0f;
-    float inputStartY = panelY + 70.0f;
-
-    // Host input (with label above)
-    _hostInput = std::make_unique<ui::TextInput>(
-        Vec2f{contentX, inputStartY + labelHeight},
-        Vec2f{inputWidth, inputHeight},
-        "Adresse serveur",
-        FONT_KEY
-    );
-    _hostInput->setText(serverConfig.getHost());
-    _hostInput->setMaxLength(63);
-
-    // Port inputs row (below host)
-    float portsY = inputStartY + labelHeight + inputHeight + 40.0f;
-    float portInputWidth = (inputWidth - 20.0f) / 2.0f;  // 20px gap between ports
-
-    // TCP Port input
-    _tcpPortInput = std::make_unique<ui::TextInput>(
-        Vec2f{contentX, portsY + labelHeight},
-        Vec2f{portInputWidth, inputHeight},
-        "Port TCP",
-        FONT_KEY
-    );
-    _tcpPortInput->setText(std::to_string(serverConfig.getTcpPort()));
-    _tcpPortInput->setMaxLength(5);
-
-    // UDP Port input
-    _udpPortInput = std::make_unique<ui::TextInput>(
-        Vec2f{contentX + portInputWidth + 20.0f, portsY + labelHeight},
-        Vec2f{portInputWidth, inputHeight},
-        "Port UDP",
-        FONT_KEY
-    );
-    _udpPortInput->setText(std::to_string(serverConfig.getUdpPort()));
-    _udpPortInput->setMaxLength(5);
-
-    // Quick connect buttons row (FRANCE / LOCAL)
-    float quickBtnY = portsY + labelHeight + inputHeight + 25.0f;
-    float quickBtnWidth = (inputWidth - 20.0f) / 2.0f;
-
-    // FRANCE button
-    _franceButton = std::make_unique<ui::Button>(
-        Vec2f{contentX, quickBtnY},
-        Vec2f{quickBtnWidth, 40},
-        "FRANCE",
-        FONT_KEY
-    );
-    _franceButton->setOnClick([this]() {
-        config::ServerConfigManager::getInstance().applyFrancePreset();
-        hideServerConfigUI();
-        attemptReconnection();
-    });
-    _franceButton->setNormalColor({50, 80, 120, 255});
-    _franceButton->setHoveredColor({70, 100, 150, 255});
-
-    // LOCAL button
-    _localButton = std::make_unique<ui::Button>(
-        Vec2f{contentX + quickBtnWidth + 20.0f, quickBtnY},
-        Vec2f{quickBtnWidth, 40},
-        "LOCAL",
-        FONT_KEY
-    );
-    _localButton->setOnClick([this]() {
-        config::ServerConfigManager::getInstance().applyLocalPreset();
-        hideServerConfigUI();
-        attemptReconnection();
-    });
-    _localButton->setNormalColor({60, 100, 60, 255});
-    _localButton->setHoveredColor({80, 130, 80, 255});
-
-    // Bottom buttons row (CONNECTER / ANNULER)
-    float buttonsY = quickBtnY + 55.0f;
-    float buttonWidth = 150.0f;
-    float buttonGap = 20.0f;
-    float buttonsStartX = panelX + (panelWidth - buttonWidth * 2 - buttonGap) / 2.0f;
-
-    // Connect button
-    _connectButton = std::make_unique<ui::Button>(
-        Vec2f{buttonsStartX, buttonsY},
-        Vec2f{buttonWidth, 45},
-        "CONNECTER",
-        FONT_KEY
-    );
-    _connectButton->setOnClick([this]() {
-        applyServerConfig();
-    });
-
-    // Cancel button
-    _cancelButton = std::make_unique<ui::Button>(
-        Vec2f{buttonsStartX + buttonWidth + buttonGap, buttonsY},
-        Vec2f{buttonWidth, 45},
-        "ANNULER",
-        FONT_KEY
-    );
-    _cancelButton->setOnClick([this]() {
-        hideServerConfigUI();
-    });
-    _cancelButton->setNormalColor({80, 60, 60, 255});
-    _cancelButton->setHoveredColor({100, 70, 70, 255});
-
-    _configUIInitialized = true;
 }
 
 void ConnectionScene::showServerConfigUI()
 {
-    initServerConfigUI();
+    if (!_configPanel) {
+        _configPanel = std::make_unique<ui::ServerConfigPanel>(SCREEN_WIDTH, SCREEN_HEIGHT, FONT_KEY);
+        _configPanel->setOnConnect([this]() {
+            hideServerConfigUI();
+            attemptReconnection();
+        });
+        _configPanel->setOnCancel([this]() {
+            hideServerConfigUI();
+        });
+    }
+    _configPanel->refreshFromConfig();
     _showingConfigUI = true;
     _statusMessage = "Configuration du serveur";
-
-    // Reset values from config
-    auto& serverConfig = config::ServerConfigManager::getInstance();
-    if (_hostInput) _hostInput->setText(serverConfig.getHost());
-    if (_tcpPortInput) _tcpPortInput->setText(std::to_string(serverConfig.getTcpPort()));
-    if (_udpPortInput) _udpPortInput->setText(std::to_string(serverConfig.getUdpPort()));
 }
 
 void ConnectionScene::hideServerConfigUI()
@@ -606,116 +455,4 @@ void ConnectionScene::hideServerConfigUI()
     _showingConfigUI = false;
     _retryCount = 0;  // Reset retry count
     _retryTimer = 0.0f;
-}
-
-void ConnectionScene::applyServerConfig()
-{
-    auto& serverConfig = config::ServerConfigManager::getInstance();
-
-    // Get values from inputs
-    std::string host = _hostInput ? _hostInput->getText() : "127.0.0.1";
-    std::string tcpPortStr = _tcpPortInput ? _tcpPortInput->getText() : "4125";
-    std::string udpPortStr = _udpPortInput ? _udpPortInput->getText() : "4124";
-
-    // Validate and apply
-    if (!host.empty()) {
-        serverConfig.setHost(host);
-    }
-
-    try {
-        int tcpPort = std::stoi(tcpPortStr);
-        if (tcpPort > 0 && tcpPort <= 65535) {
-            serverConfig.setTcpPort(static_cast<uint16_t>(tcpPort));
-        }
-    } catch (...) {}
-
-    try {
-        int udpPort = std::stoi(udpPortStr);
-        if (udpPort > 0 && udpPort <= 65535) {
-            serverConfig.setUdpPort(static_cast<uint16_t>(udpPort));
-        }
-    } catch (...) {}
-
-    // Save config to file
-    serverConfig.save();
-
-    // Hide UI and retry connection
-    hideServerConfigUI();
-    _statusMessage = "Connexion a " + serverConfig.getHost() + "...";
-
-    // Force immediate reconnection attempt
-    attemptReconnection();
-}
-
-void ConnectionScene::renderServerConfigUI()
-{
-    if (!_context.window) return;
-
-    // Semi-transparent overlay
-    _context.window->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, {0, 0, 0, 180});
-
-    // Config panel background (same dimensions as initServerConfigUI)
-    float panelWidth = 450.0f;
-    float panelHeight = 420.0f;
-    float panelX = SCREEN_WIDTH / 2 - panelWidth / 2;
-    float panelY = SCREEN_HEIGHT / 2 - 180.0f;
-
-    _context.window->drawRect(panelX, panelY, panelWidth, panelHeight, {25, 25, 45, 250});
-
-    // Panel border
-    _context.window->drawRect(panelX, panelY, panelWidth, 3, {80, 100, 180, 255});
-    _context.window->drawRect(panelX, panelY + panelHeight - 3, panelWidth, 3, {80, 100, 180, 255});
-    _context.window->drawRect(panelX, panelY, 3, panelHeight, {80, 100, 180, 255});
-    _context.window->drawRect(panelX + panelWidth - 3, panelY, 3, panelHeight, {80, 100, 180, 255});
-
-    // Title
-    _context.window->drawText(FONT_KEY, "CONFIGURATION SERVEUR",
-        SCREEN_WIDTH / 2 - 140, panelY + 20, 28, {100, 150, 255, 255});
-
-    // Layout variables (must match initServerConfigUI)
-    float contentX = panelX + 30.0f;
-    float inputWidth = panelWidth - 60.0f;
-    float inputHeight = 40.0f;
-    float labelHeight = 25.0f;
-    float inputStartY = panelY + 70.0f;
-    float portInputWidth = (inputWidth - 20.0f) / 2.0f;
-
-    // Host label (above host input)
-    _context.window->drawText(FONT_KEY, "Adresse du serveur:",
-        contentX, inputStartY, 18, {180, 180, 200, 255});
-
-    // Render host input
-    if (_hostInput) _hostInput->render(*_context.window);
-
-    // Ports row
-    float portsY = inputStartY + labelHeight + inputHeight + 40.0f;
-
-    // TCP port label (above TCP input)
-    _context.window->drawText(FONT_KEY, "Port TCP:",
-        contentX, portsY, 18, {180, 180, 200, 255});
-
-    // UDP port label (above UDP input)
-    _context.window->drawText(FONT_KEY, "Port UDP:",
-        contentX + portInputWidth + 20.0f, portsY, 18, {180, 180, 200, 255});
-
-    // Render port inputs
-    if (_tcpPortInput) _tcpPortInput->render(*_context.window);
-    if (_udpPortInput) _udpPortInput->render(*_context.window);
-
-    // Quick connect label
-    float quickBtnY = portsY + labelHeight + inputHeight + 25.0f;
-    _context.window->drawText(FONT_KEY, "Connexion rapide:",
-        contentX, quickBtnY - 22.0f, 16, {140, 140, 160, 255});
-
-    // Render quick connect buttons
-    if (_franceButton) _franceButton->render(*_context.window);
-    if (_localButton) _localButton->render(*_context.window);
-
-    // Render bottom buttons
-    if (_connectButton) _connectButton->render(*_context.window);
-    if (_cancelButton) _cancelButton->render(*_context.window);
-
-    // Manual input hint at bottom
-    _context.window->drawText(FONT_KEY, "Ou saisir une adresse personnalisee ci-dessus",
-        SCREEN_WIDTH / 2 - 160, panelY + panelHeight - 30, 13, {100, 100, 120, 255});
 }

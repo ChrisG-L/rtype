@@ -18,6 +18,9 @@ set(TEST_SOURCES
     # Tests Config
     config/ServerConfigManagerTest.cpp
 
+    # Tests UI
+    ui/ServerConfigPanelTest.cpp
+
     # Tests Accessibility
     accessibility/AccessibilityConfigTest.cpp
 
@@ -33,6 +36,9 @@ set(CLIENT_SOURCES_FOR_TESTS
     ${CMAKE_SOURCE_DIR}/src/client/src/accessibility/AccessibilityConfig.cpp
     ${CMAKE_SOURCE_DIR}/src/client/src/config/ServerConfigManager.cpp
     ${CMAKE_SOURCE_DIR}/src/client/src/core/Logger.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/ui/ServerConfigPanel.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/ui/Button.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/ui/TextInput.cpp
 )
 
 # Créer l'exécutable de tests
