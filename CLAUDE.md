@@ -620,6 +620,8 @@ Authentication traffic (TCP port 4125) is encrypted using TLS 1.2+.
 ### Security Notes
 
 - Session tokens are generated using OpenSSL `RAND_bytes()` (CSPRNG)
+- Room codes are generated using OpenSSL `RAND_bytes()` (CSPRNG) to prevent hijacking
+- Gameplay RNG (enemy spawns, power-ups) uses `std::mt19937` - acceptable per SonarQube cpp:S2245
 - Client uses `verify_none` for self-signed certificates (development only)
 - In production, use `verify_peer` with proper CA certificates
 

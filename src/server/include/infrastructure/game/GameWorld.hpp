@@ -692,7 +692,13 @@ namespace infrastructure::game {
         uint16_t _gameSpeedPercent = 100;      // 50-200, default 100%
         float _gameSpeedMultiplier = 1.0f;     // 0.5-2.0, derived from percent
 
-        // Secure RNG for gameplay randomness (SonarQube cpp:S2245 compliant)
+        // PRNG for gameplay randomness only (enemy spawns, power-ups, patterns).
+        // NOT used for security-sensitive operations (auth tokens, room codes).
+        // std::mt19937 is acceptable here per SonarQube cpp:S2245 because:
+        // 1. Predictable sequences don't provide gameplay advantage (server-side)
+        // 2. No security implications - purely cosmetic/gameplay variation
+        // 3. Performance matters for real-time game loop (60 FPS)
+        // Security-sensitive RNG uses OpenSSL RAND_bytes (see SessionManager, RoomManager).
         mutable std::mt19937 _rng{std::random_device{}()};
 
         std::unordered_map<uint8_t, ConnectedPlayer> _players;

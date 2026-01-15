@@ -9,6 +9,7 @@
 #include "infrastructure/logging/Logger.hpp"  // server::logging::Logger
 #include <algorithm>
 #include <cstring>
+#include <openssl/rand.h>  // RAND_bytes - CSPRNG for room codes
 
 namespace infrastructure::room {
 
@@ -25,14 +26,27 @@ RoomManager::RoomManager(std::shared_ptr<IChatMessageRepository> chatRepo)
 }
 
 std::string RoomManager::generateRoomCode() {
-    std::uniform_int_distribution<> dist(0, sizeof(ROOM_CODE_CHARSET) - 2);
+    // Use CSPRNG (OpenSSL RAND_bytes) for room code generation
+    // Room codes are security-sensitive: predictable codes could allow room hijacking
+    // This addresses SonarQube cpp:S2245 security hotspot
+    constexpr size_t charsetSize = sizeof(ROOM_CODE_CHARSET) - 1;  // Exclude null terminator
     std::string code;
     code.reserve(ROOM_CODE_LENGTH);
+    unsigned char randomBytes[ROOM_CODE_LENGTH];
 
     for (int attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; ++attempt) {
         code.clear();
+
+        // Generate cryptographically secure random bytes
+        if (RAND_bytes(randomBytes, ROOM_CODE_LENGTH) != 1) {
+            auto logger = server::logging::Logger::getMainLogger();
+            logger->error("CSPRNG failure in generateRoomCode - RAND_bytes failed");
+            throw std::runtime_error("CSPRNG failure: cannot generate secure room code");
+        }
+
+        // Map random bytes to charset indices
         for (size_t i = 0; i < ROOM_CODE_LENGTH; ++i) {
-            code.push_back(ROOM_CODE_CHARSET[dist(_rng)]);
+            code.push_back(ROOM_CODE_CHARSET[randomBytes[i] % charsetSize]);
         }
 
         // Check if code is not in use by an active room
@@ -59,8 +73,11 @@ std::string RoomManager::generateRoomCode() {
 
     // Generate a new code (should now be available)
     code.clear();
+    if (RAND_bytes(randomBytes, ROOM_CODE_LENGTH) != 1) {
+        throw std::runtime_error("CSPRNG failure: cannot generate secure room code");
+    }
     for (size_t i = 0; i < ROOM_CODE_LENGTH; ++i) {
-        code.push_back(ROOM_CODE_CHARSET[dist(_rng)]);
+        code.push_back(ROOM_CODE_CHARSET[randomBytes[i] % charsetSize]);
     }
     return code;
 }
@@ -757,9 +774,15 @@ std::optional<RoomManager::JoinResult> RoomManager::quickJoin(
             return std::nullopt;
         }
 
-        // Pick a random room
-        std::uniform_int_distribution<size_t> dist(0, eligibleCodes.size() - 1);
-        selectedCode = eligibleCodes[dist(_rng)];
+        // Pick a random room using CSPRNG for consistency
+        // (not strictly security-sensitive, but avoids maintaining separate PRNG)
+        unsigned char randomByte;
+        if (RAND_bytes(&randomByte, 1) != 1) {
+            // Fallback to first room if CSPRNG fails (non-critical operation)
+            selectedCode = eligibleCodes[0];
+        } else {
+            selectedCode = eligibleCodes[randomByte % eligibleCodes.size()];
+        }
     }
 
     // Use existing joinRoomByCode logic (will re-acquire lock)
