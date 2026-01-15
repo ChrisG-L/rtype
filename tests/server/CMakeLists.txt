@@ -82,6 +82,7 @@ target_include_directories(server_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/server
     ${CMAKE_SOURCE_DIR}/src/server/include
     ${CMAKE_SOURCE_DIR}/src/common/protocol  # Protocol.hpp
+    ${CMAKE_SOURCE_DIR}/src/common           # collision/AABB.hpp
     ${CMAKE_BINARY_DIR}  # Pour les headers Protobuf générés
     ${Protobuf_INCLUDE_DIRS}
 )

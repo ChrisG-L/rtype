@@ -1426,6 +1426,8 @@ namespace infrastructure::adapters::in::network {
             resp.settings.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
             std::strncpy(resp.settings.audioOutputDevice, settingsOpt->audioOutputDevice.c_str(), AUDIO_DEVICE_NAME_LEN);
             resp.settings.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+            // Chat settings
+            resp.settings.keepChatOpenAfterSend = settingsOpt->keepChatOpenAfterSend ? 1 : 0;
             logger->debug("GetUserSettings: found settings for {} (input='{}', output='{}')",
                 email, settingsOpt->audioInputDevice, settingsOpt->audioOutputDevice);
         } else {
@@ -1445,6 +1447,8 @@ namespace infrastructure::adapters::in::network {
             // Audio device defaults (empty = auto)
             resp.settings.audioInputDevice[0] = '\0';
             resp.settings.audioOutputDevice[0] = '\0';
+            // Chat defaults
+            resp.settings.keepChatOpenAfterSend = 0;  // Close after send by default
             logger->debug("GetUserSettings: no settings found for {}, returning defaults", email);
         }
 
@@ -1488,6 +1492,8 @@ namespace infrastructure::adapters::in::network {
         // Audio device selection
         data.audioInputDevice = std::string(reqOpt->settings.audioInputDevice);
         data.audioOutputDevice = std::string(reqOpt->settings.audioOutputDevice);
+        // Chat settings
+        data.keepChatOpenAfterSend = (reqOpt->settings.keepChatOpenAfterSend != 0);
 
         try {
             _userSettingsRepository->save(email, data);

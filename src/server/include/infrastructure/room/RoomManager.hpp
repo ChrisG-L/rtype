@@ -13,7 +13,6 @@
 #include <unordered_map>
 #include <memory>
 #include <mutex>
-#include <random>
 #include <vector>
 #include <functional>
 #include "domain/entities/Room.hpp"
@@ -247,10 +246,9 @@ private:
     // Secondary index: email -> room code (player can only be in one room)
     std::unordered_map<std::string, std::string> _playerToRoom;
 
-    // Code generation
+    // Code generation using CSPRNG (OpenSSL RAND_bytes)
+    // Room codes are security-sensitive: predictable codes allow room hijacking
     std::string generateRoomCode();
-    std::random_device _rd;
-    std::mt19937 _rng{_rd()};
 
     // Internal helpers
     void removePlayerFromIndex(const std::string& email);

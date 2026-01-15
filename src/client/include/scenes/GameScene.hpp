@@ -17,7 +17,6 @@
 #include "network/NetworkEvents.hpp"
 #include "network/UDPClient.hpp"
 #include "ui/TextInput.hpp"
-#include <iostream>
 #include <unordered_set>
 #include <vector>
 #include <deque>
@@ -53,6 +52,18 @@ private:
     void renderKickedScreen();
     void renderChatOverlay();
     void renderVoiceIndicator();
+    void renderScoreHUD();  // Score, combo, wave info (Gameplay Phase 2)
+    void renderWeaponHUD(); // Current weapon indicator (Gameplay Phase 2)
+    void renderBoss();      // Boss sprite (Gameplay Phase 2)
+    void renderBossHealthBar();  // Boss HP bar (Gameplay Phase 2)
+    // R-Type Authentic (Phase 3) rendering
+    void renderWaveCannons();    // Wave Cannon beams
+    void renderPowerUps();       // Power-up items
+    void renderForcePods();      // Force pods
+    void renderBitDevices();     // Bit devices (orbiting satellites)
+    void renderChargeGauge();    // Wave Cannon charge indicator
+    void renderSpeedIndicator(); // Speed upgrade level (below health bar)
+    void renderControlsHUD();    // Controls help (bottom-right)
     void loadAssets();
     void initStars();
     void initAudio();
@@ -121,7 +132,33 @@ private:
     static constexpr float ENEMY_HEIGHT = 40.0f;
     static constexpr float ENEMY_MISSILE_WIDTH = 24.0f;
     static constexpr float ENEMY_MISSILE_HEIGHT = 12.0f;
-    static constexpr const char* ENEMY_TEXTURE_KEY = "enemy";
+
+    // Enemy texture keys per type (matches EnemyType enum from GameWorld)
+    static constexpr const char* ENEMY_TEXTURE_KEY = "enemy";  // Fallback
+    static constexpr const char* ENEMY_BASIC_KEY = "enemy_basic";
+    static constexpr const char* ENEMY_TRACKER_KEY = "enemy_tracker";
+    static constexpr const char* ENEMY_ZIGZAG_KEY = "enemy_zigzag";
+    static constexpr const char* ENEMY_FAST_KEY = "enemy_fast";
+    static constexpr const char* ENEMY_BOMBER_KEY = "enemy_bomber";
+    static constexpr const char* ENEMY_POW_ARMOR_KEY = "enemy_pow_armor";
+
+    // Helper to get texture key based on enemy type
+    std::string getEnemyTextureKey(uint8_t enemyType) const;
+
+    // Boss rendering constants (Gameplay Phase 2)
+    static constexpr float BOSS_WIDTH = 150.0f;
+    static constexpr float BOSS_HEIGHT = 120.0f;
+    static constexpr const char* BOSS_TEXTURE_KEY = "boss";
+
+    // R-Type Authentic (Phase 3) constants
+    static constexpr float POWERUP_SIZE = 32.0f;
+    static constexpr float FORCE_POD_WIDTH = 32.0f;
+    static constexpr float FORCE_POD_HEIGHT = 32.0f;  // Match server hitbox
+    static constexpr float BIT_DEVICE_SIZE = 24.0f;   // Bit devices are smaller than Force Pod
+    static constexpr float WAVECANNON_HEIGHT = 16.0f;  // Base height, actual depends on level
+    static constexpr float CHARGE_GAUGE_WIDTH = 100.0f;
+    static constexpr float CHARGE_GAUGE_HEIGHT = 8.0f;
+    static constexpr float QUICK_TAP_THRESHOLD = 0.15f;  // Max time for quick tap (no charge)
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;
@@ -145,5 +182,13 @@ private:
     static constexpr float CHAT_MESSAGE_DISPLAY_TIME = 8.0f;
     static constexpr size_t MAX_CHAT_DISPLAY_MESSAGES = 20;  // Keep more history
     static constexpr size_t ALWAYS_VISIBLE_MESSAGES = 3;  // Last N messages never expire
+
+    // R-Type Authentic (Phase 3) state
+    bool _isCharging = false;           // Is fire button held?
+    float _chargeTimer = 0.0f;          // Time spent charging
+    uint8_t _clientChargeLevel = 0;     // Client-side predicted charge level (0-3)
+
+    // Controls HUD visibility (toggle with H key by default)
+    bool _showControlsHUD = true;       // Show controls help by default
 };
 #endif /* !GAMESCENE_HPP_ */

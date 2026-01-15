@@ -217,6 +217,24 @@ namespace client::network
             std::lock_guard<std::mutex> emlock(_enemyMissilesMutex);
             _enemyMissiles.clear();
         }
+        // R-Type Authentic (Phase 3) state cleanup
+        {
+            std::lock_guard<std::mutex> wclock(_waveCannonsMutex);
+            _waveCannons.clear();
+        }
+        {
+            std::lock_guard<std::mutex> pulock(_powerUpsMutex);
+            _powerUps.clear();
+        }
+        {
+            std::lock_guard<std::mutex> fplock(_forcePodsMutex);
+            _forcePods.clear();
+        }
+        {
+            std::lock_guard<std::mutex> cLock(_chargeMutex);
+            _localChargeLevel = 0;
+            _isCharging = false;
+        }
 
         _accumulator.clear();
 
@@ -276,6 +294,18 @@ namespace client::network
     {
         std::lock_guard<std::mutex> lock(_playersMutex);
         return _isLocalPlayerDead;
+    }
+
+    uint16_t UDPClient::getWaveNumber() const
+    {
+        std::lock_guard<std::mutex> lock(_waveNumberMutex);
+        return _waveNumber;
+    }
+
+    std::optional<NetworkBoss> UDPClient::getBossState() const
+    {
+        std::lock_guard<std::mutex> lock(_bossMutex);
+        return _bossState;
     }
 
     void UDPClient::asyncReceiveFrom()
@@ -373,7 +403,17 @@ namespace client::network
                 .health = ps.health,
                 .alive = ps.alive != 0,
                 .lastAckedInputSeq = ps.lastAckedInputSeq,
-                .shipSkin = ps.shipSkin
+                .shipSkin = ps.shipSkin,
+                .score = ps.score,
+                .kills = ps.kills,
+                .combo = ps.combo,
+                .currentWeapon = ps.currentWeapon,
+                // R-Type Authentic (Phase 3)
+                .chargeLevel = ps.chargeLevel,
+                .speedLevel = ps.speedLevel,
+                .weaponLevel = ps.weaponLevel,
+                .hasForce = ps.hasForce,
+                .shieldTimer = ps.shieldTimer
             });
         }
 
@@ -386,7 +426,8 @@ namespace client::network
                 .id = ms.id,
                 .owner_id = ms.owner_id,
                 .x = ms.x,
-                .y = ms.y
+                .y = ms.y,
+                .weapon_type = ms.weapon_type
             });
         }
 
@@ -413,7 +454,8 @@ namespace client::network
                 .id = ms.id,
                 .owner_id = ms.owner_id,
                 .x = ms.x,
-                .y = ms.y
+                .y = ms.y,
+                .weapon_type = ms.weapon_type
             });
         }
 
@@ -432,6 +474,64 @@ namespace client::network
         {
             std::lock_guard<std::mutex> lock(_enemyMissilesMutex);
             _enemyMissiles = std::move(newEnemyMissiles);
+        }
+        {
+            std::lock_guard<std::mutex> lock(_waveNumberMutex);
+            _waveNumber = gsOpt->wave_number;
+        }
+
+        // Boss state
+        {
+            std::lock_guard<std::mutex> lock(_bossMutex);
+            if (gsOpt->has_boss) {
+                _bossState = NetworkBoss{
+                    .id = gsOpt->boss_state.id,
+                    .x = gsOpt->boss_state.x,
+                    .y = gsOpt->boss_state.y,
+                    .max_health = gsOpt->boss_state.max_health,
+                    .health = gsOpt->boss_state.health,
+                    .phase = gsOpt->boss_state.phase,
+                    .is_active = (gsOpt->boss_state.is_active != 0)
+                };
+            } else {
+                _bossState = std::nullopt;
+            }
+        }
+
+        // Force Pods from snapshot
+        {
+            std::vector<NetworkForce> newForces;
+            newForces.reserve(gsOpt->force_count);
+            for (uint8_t i = 0; i < gsOpt->force_count; ++i) {
+                const auto& fs = gsOpt->forces[i];
+                newForces.push_back(NetworkForce{
+                    .owner_id = fs.owner_id,
+                    .x = fs.x,
+                    .y = fs.y,
+                    .is_attached = (fs.is_attached != 0),
+                    .level = fs.level
+                });
+            }
+            std::lock_guard<std::mutex> lock(_forcePodsMutex);
+            _forcePods = std::move(newForces);
+        }
+
+        // Bit Devices from snapshot
+        {
+            std::vector<NetworkBit> newBits;
+            newBits.reserve(gsOpt->bit_count);
+            for (uint8_t i = 0; i < gsOpt->bit_count; ++i) {
+                const auto& bs = gsOpt->bits[i];
+                newBits.push_back(NetworkBit{
+                    .owner_id = bs.owner_id,
+                    .bit_index = bs.bit_index,
+                    .x = bs.x,
+                    .y = bs.y,
+                    .is_attached = (bs.is_attached != 0)
+                });
+            }
+            std::lock_guard<std::mutex> lock(_bitDevicesMutex);
+            _bitDevices = std::move(newBits);
         }
 
         if (_onSnapshot) {
@@ -479,6 +579,23 @@ namespace client::network
         }
     }
 
+    void UDPClient::handleEnemyDestroyed(const uint8_t* payload, size_t size) {
+        auto edOpt = EnemyDestroyed::from_bytes(payload, size);
+        if (!edOpt) return;
+
+        {
+            std::lock_guard<std::mutex> lock(_enemiesMutex);
+            _enemies.erase(
+                std::remove_if(_enemies.begin(), _enemies.end(),
+                    [&](const NetworkEnemy& e) { return e.id == edOpt->enemy_id; }),
+                _enemies.end()
+            );
+        }
+
+        client::logging::Logger::getNetworkLogger()->debug(
+            "Enemy {} destroyed", edOpt->enemy_id);
+    }
+
     void UDPClient::handlePlayerDied(const uint8_t* payload, size_t size) {
         auto pdOpt = PlayerDied::from_bytes(payload, size);
         if (!pdOpt) return;
@@ -497,6 +614,36 @@ namespace client::network
         if (_onPlayerDied) {
             _onPlayerDied(pdOpt->player_id);
         }
+    }
+
+    void UDPClient::handlePlayerDamaged(const uint8_t* payload, size_t size) {
+        auto pdOpt = PlayerDamaged::from_bytes(payload, size);
+        if (!pdOpt) return;
+
+        auto logger = client::logging::Logger::getNetworkLogger();
+
+        // Update the player's health immediately (don't wait for next snapshot)
+        {
+            std::lock_guard<std::mutex> lock(_playersMutex);
+            for (auto& player : _players) {
+                if (player.id == pdOpt->player_id) {
+                    player.health = pdOpt->new_health;
+                    break;
+                }
+            }
+        }
+
+        logger->debug("Player {} took {} damage, health now {}",
+            static_cast<int>(pdOpt->player_id),
+            static_cast<int>(pdOpt->damage),
+            static_cast<int>(pdOpt->new_health));
+
+        // Push event for UI feedback (screen shake, flash, etc.)
+        _eventQueue.push(UDPPlayerDamagedEvent{
+            pdOpt->player_id,
+            pdOpt->damage,
+            pdOpt->new_health
+        });
     }
 
     void UDPClient::handleRead(const boost::system::error_code &error, std::size_t bytes)
@@ -550,6 +697,12 @@ namespace client::network
                     case MessageType::MissileDestroyed:
                         handleMissileDestroyed(payload, payload_size);
                         break;
+                    case MessageType::EnemyDestroyed:
+                        handleEnemyDestroyed(payload, payload_size);
+                        break;
+                    case MessageType::PlayerDamaged:
+                        handlePlayerDamaged(payload, payload_size);
+                        break;
                     case MessageType::PlayerDied:
                         handlePlayerDied(payload, payload_size);
                         break;
@@ -575,6 +728,22 @@ namespace client::network
                                 _eventQueue.push(UDPJoinGameNackEvent{reason});
                             }
                         }
+                        break;
+                    // R-Type Authentic (Phase 3) message handlers
+                    case MessageType::WaveCannonFired:
+                        handleWaveCannonFired(payload, payload_size);
+                        break;
+                    case MessageType::PowerUpSpawned:
+                        handlePowerUpSpawned(payload, payload_size);
+                        break;
+                    case MessageType::PowerUpCollected:
+                        handlePowerUpCollected(payload, payload_size);
+                        break;
+                    case MessageType::PowerUpExpired:
+                        handlePowerUpExpired(payload, payload_size);
+                        break;
+                    case MessageType::ForceStateUpdate:
+                        handleForceStateUpdate(payload, payload_size);
                         break;
                     default:
                         break;
@@ -651,6 +820,24 @@ namespace client::network
         {
             std::lock_guard<std::mutex> lock(_enemyMissilesMutex);
             _enemyMissiles.clear();
+        }
+        // R-Type Authentic (Phase 3) state reset
+        {
+            std::lock_guard<std::mutex> lock(_waveCannonsMutex);
+            _waveCannons.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(_powerUpsMutex);
+            _powerUps.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(_forcePodsMutex);
+            _forcePods.clear();
+        }
+        {
+            std::lock_guard<std::mutex> lock(_chargeMutex);
+            _localChargeLevel = 0;
+            _isCharging = false;
         }
 
         // Get the player's ship skin from settings
@@ -738,6 +925,246 @@ namespace client::network
 
     std::optional<UDPEvent> UDPClient::pollEvent() {
         return _eventQueue.poll();
+    }
+
+    // ============================================================================
+    // R-Type Authentic (Phase 3) Implementation
+    // ============================================================================
+
+    std::vector<NetworkWaveCannon> UDPClient::getWaveCannons() {
+        std::lock_guard<std::mutex> lock(_waveCannonsMutex);
+
+        // Remove expired Wave Cannons (beams have a short lifetime)
+        auto now = std::chrono::steady_clock::now();
+        _waveCannons.erase(
+            std::remove_if(_waveCannons.begin(), _waveCannons.end(),
+                [&now](const NetworkWaveCannon& wc) {
+                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now - wc.spawnTime).count();
+                    return elapsed > NetworkWaveCannon::BEAM_LIFETIME_MS;
+                }),
+            _waveCannons.end()
+        );
+
+        return _waveCannons;
+    }
+
+    std::vector<NetworkPowerUp> UDPClient::getPowerUps() const {
+        std::lock_guard<std::mutex> lock(_powerUpsMutex);
+        return _powerUps;
+    }
+
+    std::vector<NetworkForce> UDPClient::getForcePods() const {
+        std::lock_guard<std::mutex> lock(_forcePodsMutex);
+        return _forcePods;
+    }
+
+    std::vector<NetworkBit> UDPClient::getBitDevices() const {
+        std::lock_guard<std::mutex> lock(_bitDevicesMutex);
+        return _bitDevices;
+    }
+
+    uint8_t UDPClient::getLocalPlayerChargeLevel() const {
+        std::lock_guard<std::mutex> lock(_chargeMutex);
+        return _localChargeLevel;
+    }
+
+    void UDPClient::startCharging() {
+        {
+            std::lock_guard<std::mutex> lock(_chargeMutex);
+            if (_isCharging) return;  // Already charging
+            _isCharging = true;
+            _localChargeLevel = 0;
+        }
+
+        UDPHeader head = {
+            .type = static_cast<uint16_t>(MessageType::ChargeStart),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE;
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+        head.to_bytes(buf->data());
+        asyncSendTo(buf, totalSize);
+
+        client::logging::Logger::getNetworkLogger()->debug("ChargeStart sent");
+    }
+
+    void UDPClient::releaseCharge() {
+        uint8_t chargeLevel;
+        {
+            std::lock_guard<std::mutex> lock(_chargeMutex);
+            if (!_isCharging) return;  // Not charging
+            _isCharging = false;
+            chargeLevel = _localChargeLevel;
+            _localChargeLevel = 0;
+        }
+
+        ChargeRelease release = {.charge_level = chargeLevel};
+
+        UDPHeader head = {
+            .type = static_cast<uint16_t>(MessageType::ChargeRelease),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + ChargeRelease::WIRE_SIZE;
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+        head.to_bytes(buf->data());
+        release.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
+        asyncSendTo(buf, totalSize);
+
+        client::logging::Logger::getNetworkLogger()->debug("ChargeRelease sent with level {}", chargeLevel);
+    }
+
+    void UDPClient::toggleForce() {
+        UDPHeader head = {
+            .type = static_cast<uint16_t>(MessageType::ForceToggle),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE;
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+        head.to_bytes(buf->data());
+        asyncSendTo(buf, totalSize);
+
+        client::logging::Logger::getNetworkLogger()->debug("ForceToggle sent");
+    }
+
+    void UDPClient::handleWaveCannonFired(const uint8_t* payload, size_t size) {
+        auto wcOpt = WaveCannonState::from_bytes(payload, size);
+        if (!wcOpt) return;
+
+        NetworkWaveCannon wc{
+            .id = wcOpt->id,
+            .owner_id = wcOpt->owner_id,
+            .x = wcOpt->x,
+            .y = wcOpt->y,
+            .charge_level = wcOpt->charge_level,
+            .width = wcOpt->width,
+            .spawnTime = std::chrono::steady_clock::now()
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_waveCannonsMutex);
+            _waveCannons.push_back(wc);
+        }
+
+        client::logging::Logger::getNetworkLogger()->debug(
+            "WaveCannon spawned: id={}, owner={}, level={}", wc.id, wc.owner_id, wc.charge_level);
+    }
+
+    void UDPClient::handlePowerUpSpawned(const uint8_t* payload, size_t size) {
+        auto puOpt = PowerUpState::from_bytes(payload, size);
+        if (!puOpt) return;
+
+        NetworkPowerUp pu{
+            .id = puOpt->id,
+            .x = static_cast<float>(puOpt->x),
+            .y = static_cast<float>(puOpt->y),
+            .type = puOpt->type,
+            .remaining_time = static_cast<float>(puOpt->remaining_time)
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_powerUpsMutex);
+            _powerUps.push_back(pu);
+        }
+
+        client::logging::Logger::getNetworkLogger()->debug(
+            "PowerUp spawned: id={}, type={}", pu.id, pu.type);
+    }
+
+    void UDPClient::handlePowerUpCollected(const uint8_t* payload, size_t size) {
+        auto pcOpt = PowerUpCollected::from_bytes(payload, size);
+        if (!pcOpt) return;
+
+        {
+            std::lock_guard<std::mutex> lock(_powerUpsMutex);
+            _powerUps.erase(
+                std::remove_if(_powerUps.begin(), _powerUps.end(),
+                    [&](const NetworkPowerUp& pu) { return pu.id == pcOpt->powerup_id; }),
+                _powerUps.end()
+            );
+        }
+
+        client::logging::Logger::getNetworkLogger()->debug(
+            "PowerUp {} collected by player {}", pcOpt->powerup_id, pcOpt->player_id);
+    }
+
+    void UDPClient::handlePowerUpExpired(const uint8_t* payload, size_t size) {
+        auto peOpt = PowerUpExpired::from_bytes(payload, size);
+        if (!peOpt) return;
+
+        {
+            std::lock_guard<std::mutex> lock(_powerUpsMutex);
+            _powerUps.erase(
+                std::remove_if(_powerUps.begin(), _powerUps.end(),
+                    [&](const NetworkPowerUp& pu) { return pu.id == peOpt->powerup_id; }),
+                _powerUps.end()
+            );
+        }
+
+        client::logging::Logger::getNetworkLogger()->debug(
+            "PowerUp {} expired", peOpt->powerup_id);
+    }
+
+    void UDPClient::updatePowerUps(float deltaTime) {
+        std::lock_guard<std::mutex> lock(_powerUpsMutex);
+
+        // Remove expired power-ups and update drift
+        _powerUps.erase(
+            std::remove_if(_powerUps.begin(), _powerUps.end(),
+                [deltaTime](NetworkPowerUp& pu) {
+                    // Simulate drift (same as server)
+                    pu.x += NetworkPowerUp::DRIFT_SPEED * deltaTime;
+
+                    // Update remaining time
+                    pu.remaining_time -= deltaTime;
+
+                    // Remove if off-screen or expired
+                    return pu.x < -50.0f || pu.remaining_time <= 0.0f;
+                }),
+            _powerUps.end()
+        );
+    }
+
+    void UDPClient::handleForceStateUpdate(const uint8_t* payload, size_t size) {
+        auto fsOpt = ForceState::from_bytes(payload, size);
+        if (!fsOpt) return;
+
+        NetworkForce force{
+            .owner_id = fsOpt->owner_id,
+            .x = fsOpt->x,
+            .y = fsOpt->y,
+            .is_attached = (fsOpt->is_attached != 0),
+            .level = fsOpt->level
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_forcePodsMutex);
+            // Update or add
+            auto it = std::find_if(_forcePods.begin(), _forcePods.end(),
+                [&](const NetworkForce& f) { return f.owner_id == force.owner_id; });
+            if (it != _forcePods.end()) {
+                *it = force;
+            } else if (force.level > 0) {
+                _forcePods.push_back(force);
+            }
+            // Remove if level is 0 (no force)
+            if (force.level == 0) {
+                _forcePods.erase(
+                    std::remove_if(_forcePods.begin(), _forcePods.end(),
+                        [&](const NetworkForce& f) { return f.owner_id == force.owner_id; }),
+                    _forcePods.end()
+                );
+            }
+        }
+
+        client::logging::Logger::getNetworkLogger()->debug(
+            "Force update: owner={}, level={}, attached={}", force.owner_id, force.level, force.is_attached);
     }
 
 }

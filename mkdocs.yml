@@ -186,6 +186,9 @@ nav:
       - Entités: technique/gameplay/entites.md
       - Collisions: technique/gameplay/collisions.md
       - Prédiction: technique/gameplay/prediction.md
+      - Combat: technique/gameplay/combat-system.md
+      - R-Type Authentique: technique/gameplay/rtype-mechanics.md
+      - IA Ennemie: technique/gameplay/enemy-ai.md
     - Persistance:
       - technique/persistance/index.md
       - MongoDB: technique/persistance/mongodb.md
