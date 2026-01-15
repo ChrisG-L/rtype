@@ -50,7 +50,6 @@ test.wav
 .claude/agentdb/db.sqlite-shm
 .claude/agentdb/db.sqlite-wal
 .claude/agentdb/db.sqlite.bak
-.claude/logs/
 
 # TLS certificates (development - auto-generated)
 certs/
