@@ -489,8 +489,8 @@ namespace infrastructure::game {
     };
 
     // Power-up drop rates (percentage)
-    static constexpr uint8_t POWERUP_DROP_CHANCE = 15;       // 15% on regular enemy
-    static constexpr uint8_t POWERUP_POW_ARMOR_CHANCE = 100; // 100% on POW Armor
+    static constexpr uint8_t POWERUP_DROP_CHANCE = 8;        // 8% on regular enemy
+    static constexpr uint8_t POWERUP_POW_ARMOR_CHANCE = 50;  // 50% on POW Armor
 
     // POW Armor spawn interval
     static constexpr float POW_ARMOR_SPAWN_INTERVAL = 25.0f;
