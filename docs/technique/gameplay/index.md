@@ -101,4 +101,16 @@ void GameWorld::tick() {
     <h3><a href="prediction/">🔮 Prédiction</a></h3>
     <p>Client-side prediction</p>
   </div>
+  <div class="card">
+    <h3><a href="combat-system/">⚔️ Combat</a></h3>
+    <p>Degats, HP, equilibrage</p>
+  </div>
+  <div class="card">
+    <h3><a href="rtype-mechanics/">🎮 R-Type</a></h3>
+    <p>Wave Cannon, Force Pod, Power-ups</p>
+  </div>
+  <div class="card">
+    <h3><a href="enemy-ai/">🤖 IA Ennemie</a></h3>
+    <p>Difficulte adaptative</p>
+  </div>
 </div>
