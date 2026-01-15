@@ -167,7 +167,7 @@ static constexpr uint8_t MAX_SPEED_LEVEL = 3;   // Max speed upgrades
 static constexpr uint8_t MAX_BITS = 8;          // Max Bit Devices on screen (2 per player × 4 players)
 
 // Wave Cannon constants (R-Type Authentic - Phase 3)
-// Balanced: Lv3 = ~2.5s to charge, deals 200 dmg = ~80 dps if spammed
+// Balanced: Lv3 = ~2.2s to charge, deals 250 dmg = ~114 dps if spammed
 // Best used vs groups (piercing) or boss burst damage
 namespace WaveCannon {
     constexpr float CHARGE_TIME_LV1 = 0.6f;     // Quick shot
@@ -175,7 +175,7 @@ namespace WaveCannon {
     constexpr float CHARGE_TIME_LV3 = 2.2f;     // Full charge for max damage
     constexpr uint8_t DAMAGE_LV1 = 50;          // Kills Fast enemy (20 HP)
     constexpr uint8_t DAMAGE_LV2 = 100;         // Kills most enemies
-    constexpr uint8_t DAMAGE_LV3 = 200;         // Kills Bomber or big boss damage
+    constexpr uint16_t DAMAGE_LV3 = 250;        // Rewards full charge risk
     constexpr float SPEED = 850.0f;             // Beam speed
     constexpr float WIDTH_LV1 = 20.0f;
     constexpr float WIDTH_LV2 = 35.0f;

@@ -496,18 +496,18 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | `WIDTH_LV3` | 55.0f | Protocol.hpp (beam width) |
 | `DAMAGE_LV1` | 50 | Protocol.hpp (WaveCannon) |
 | `DAMAGE_LV2` | 100 | Protocol.hpp (WaveCannon) |
-| `DAMAGE_LV3` | 200 | Protocol.hpp (WaveCannon) |
+| `DAMAGE_LV3` | 250 | Protocol.hpp (WaveCannon) |
 | `WAVE_CANNON_SPEED` | 850.0f | Protocol.hpp (beam speed) |
-| `POWERUP_DROP_CHANCE` | 15% | GameWorld.hpp |
-| `POWERUP_POW_ARMOR_CHANCE` | 100% | GameWorld.hpp (POWArmor enemy) |
+| `POWERUP_DROP_CHANCE` | 8% | GameWorld.hpp |
+| `POWERUP_POW_ARMOR_CHANCE` | 50% | GameWorld.hpp (POWArmor enemy) |
 | `POWERUP_LIFETIME` | 10.0s | GameWorld.hpp |
 | `POWERUP_SIZE` | 32.0f | GameScene.hpp |
 | `FORCE_POD_WIDTH/HEIGHT` | 32.0f / 32.0f | GameScene.hpp |
-| `FORCE_POD_CONTACT_DAMAGE` | 45 | GameWorld.hpp |
+| `FORCE_POD_CONTACT_DAMAGE` | 30 | GameWorld.hpp |
 | `BIT_DEVICE_SIZE` | 24.0f | GameScene.hpp |
 | `BIT_DEVICE_ORBIT_RADIUS` | 50.0f | GameWorld.hpp |
 | `BIT_DEVICE_ORBIT_SPEED` | 3.0 rad/s | GameWorld.hpp |
-| `BIT_DEVICE_CONTACT_DAMAGE` | 20 | GameWorld.hpp |
+| `BIT_DEVICE_CONTACT_DAMAGE` | 15 | GameWorld.hpp |
 | `BIT_DEVICE_SHOOT_COOLDOWN` | 0.4s | GameWorld.hpp |
 | `MAX_BITS` | 8 (2×4 players) | Protocol.hpp |
 | `SHIELD_DURATION` | 3.0s | GameWorld.cpp |
@@ -539,7 +539,7 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | `POINTS_BOMBER` | 250 | GameWorld.hpp |
 | `POINTS_POW_ARMOR` | 200 | GameWorld.hpp |
 | `POINTS_BOSS` | 5000 | GameWorld.hpp |
-| `COMBO_DECAY_TIME` | 2.0s | GameWorld.hpp |
+| `COMBO_DECAY_TIME` | 3.0s | GameWorld.hpp |
 | `COMBO_MAX_MULT` | 3.0x | GameWorld.hpp |
 | `COMBO_INCREMENT` | 0.1x per kill | GameWorld.hpp |
 
@@ -549,10 +549,10 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 |------|-------|-------|----|----|--------|---------|
 | Basic | 0 | -120 | 40 | 2.5s | 100 | - |
 | Tracker | 1 | -100 | 35 | 2.0s | 150 | Follows player Y |
-| Zigzag | 2 | -140 | 25 | 3.0s | 120 | Zig-zag movement |
-| Fast | 3 | -220 | 20 | 1.5s | 180 | Very fast |
+| Zigzag | 2 | -140 | 30 | 3.0s | 120 | Zig-zag movement |
+| Fast | 3 | -220 | 25 | 1.5s | 180 | Very fast |
 | Bomber | 4 | -80 | 80 | 1.0s | 250 | Tanky, rapid fire |
-| POWArmor | 5 | -90 | 50 | 4.0s | 200 | 100% power-up drop |
+| POWArmor | 5 | -90 | 60 | 4.0s | 200 | 50% power-up drop |
 
 ## Assets
 
