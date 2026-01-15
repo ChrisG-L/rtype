@@ -1,53 +1,51 @@
 site_name: R-Type Documentation
+site_description: "Documentation officielle du projet R-Type - Jeu multijoueur client-serveur en C++23"
 site_url: https://rtype.example
-site_description: Documentation technique et utilisateur pour le projet R-Type
-site_author: AREA Team
-
-repo_name: rtype
 repo_url: https://github.com/Pluenet-Killian/rtype
-edit_uri: edit/main/docs/
+repo_name: rtype
 
 theme:
   name: material
   language: fr
-  font:
-    text: Merriweather Sans
-    code: Red Hat Mono
+  custom_dir: docs/overrides
 
   palette:
-    # Mode sombre
-    - scheme: slate
-      toggle:
-        icon: material/brightness-4
-        name: Passer en mode clair
-      primary: indigo
-      accent: deep purple
-
     # Mode clair
-    - scheme: default
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
       toggle:
-        icon: material/brightness-7
+        icon: material/weather-night
         name: Passer en mode sombre
-      primary: indigo
-      accent: deep orange
+    # Mode sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Passer en mode clair
+
+  font:
+    text: Inter
+    code: JetBrains Mono
 
   features:
     # Navigation
     - navigation.instant
-    - navigation.instant.prefetch
+    - navigation.instant.progress
     - navigation.tracking
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
     - navigation.path
-    - navigation.indexes
     - navigation.top
     - navigation.footer
 
     # Table des matières
     - toc.follow
-    - toc.integrate
 
     # Recherche
     - search.suggest
@@ -56,199 +54,175 @@ theme:
 
     # Contenu
     - content.code.copy
+    - content.code.select
     - content.code.annotate
     - content.tabs.link
     - content.tooltips
 
   icon:
     repo: fontawesome/brands/github
-    edit: material/pencil
-    view: material/eye
+    admonition:
+      note: fontawesome/solid/note-sticky
+      abstract: fontawesome/solid/book
+      info: fontawesome/solid/circle-info
+      tip: fontawesome/solid/bullhorn
+      success: fontawesome/solid/check
+      question: fontawesome/solid/circle-question
+      warning: fontawesome/solid/triangle-exclamation
+      failure: fontawesome/solid/bomb
+      danger: fontawesome/solid/skull
+      bug: fontawesome/solid/robot
+      example: fontawesome/solid/flask
+      quote: fontawesome/solid/quote-left
 
-# Extensions Markdown
+plugins:
+  - search:
+      lang: fr
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - tags:
+      tags_file: reference/tags.md
+
 markdown_extensions:
-  # Highlight de code
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Lien permanent
+      toc_depth: 3
+
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
-      use_pygments: true
   - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
   - pymdownx.snippets:
-      check_paths: true
-
-  # Superfences (code blocks et diagrammes)
+      auto_append:
+        - docs/includes/abbreviations.md
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
-
   - pymdownx.tabbed:
       alternate_style: true
-
-  # Admonitions (boîtes d'information)
-  - admonition
-  - pymdownx.details
-
-  # Formatage avancé
-  - pymdownx.critic
-  - pymdownx.caret
-  - pymdownx.mark
-  - pymdownx.tilde
-  - pymdownx.keys
-
-  # Emojis et icônes
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-
-  # Listes et tableaux
-  - def_list
+      combine_header_slug: true
   - pymdownx.tasklist:
       custom_checkbox: true
-  - tables
+  - pymdownx.tilde
 
-  # Attributs et HTML
-  - attr_list
-  - md_in_html
-
-  # Autres
-  - footnotes
-  - abbr
-  - pymdownx.smartsymbols
-
-# Navigation
-nav:
-  - Accueil: index.md
-  - État du Projet: project-status.md
-
-  - Pour Commencer:
-      - getting-started/index.md
-      - Installation: getting-started/installation.md
-      - Démarrage Rapide: getting-started/quickstart.md
-      - Compilation: getting-started/building.md
-
-  - Client:
-      - client/index.md
-      - Architecture:
-          - Vue d'ensemble: client/architecture/overview.md
-      - Core:
-          - client/core/index.md
-          - Main: client/core/main.md
-          - Boot: client/core/boot.md
-          - Engine: client/core/engine.md
-          - GameLoop: client/core/gameloop.md
-          - Scenes: client/core/scenes.md
-          - Renderer: client/core/renderer.md
-      - Graphics:
-          - client/graphics/index.md
-          - Vue d'ensemble: client/graphics/overview.md
-          - AssetManager: client/graphics/asset-manager.md
-          - Implémentation SFML: client/graphics/sfml-implementation.md
-      - Network:
-          - client/network/index.md
-          - TCPClient: client/network/tcp-client.md
-          - Voice Chat: client/network/voice-chat.md
-      - API:
-          - Interfaces: client/api/interfaces.md
-      - Guides:
-          - Démarrage: client/guides/getting-started.md
-
-  - Guides:
-      - Architecture Générale: guides/architecture.md
-      - Architecture Hexagonale: guides/hexagonal-architecture.md
-      - Architecture Réseau: guides/network-architecture.md
-      - Séparation Header/Implementation C++: guides/cpp-header-implementation.md
-      - Système d'Authentification: guides/authentication.md
-      - SonarQube - Qualité Code: guides/sonarqube.md
-      - Accessibilité: guides/accessibility.md
-
-  - Référence API:
-      - Vue d'ensemble: api/overview.md
-      - API Domaine: api/domain.md
-      - API Adapters: api/adapters.md
-      - Guide de Migration: api/migration.md
-
-  - Développement:
-      - development/index.md
-      - Claude Code Tooling: development/claude-code.md
-      - Roadmap Complète: development/roadmap.md
-      - Contribuer: development/contributing.md
-      - Système de Logging: development/logging.md
-      - Politiques de Commit: development/COMMIT_POLICES.md
-      - Tests: development/testing.md
-      - CI/CD Jenkins: development/ci-cd.md
-      - API Builder Jenkins: development/jenkins-builder-api.md
-      - Cross-Compilation Windows: development/cross-compilation.md
-      - Changelog: development/changelog.md
-
-  - Rapports:
-      - reports/index.md
-      - Général:
-          - reports/general/index.md
-          - Dernier Rapport: reports/general/latest.md
-      - Commandants:
-          - reports/commanders/index.md
-          - Sécurité: reports/commanders/security/latest.md
-          - Tests: reports/commanders/tests/latest.md
-          - Documentation: reports/commanders/documentation/latest.md
-          - Qualité: reports/commanders/quality/latest.md
-          - Git: reports/commanders/git/latest.md
-      - Soldats:
-          - reports/soldiers/index.md
-          - Architecture: reports/soldiers/architecture/latest.md
-          - Code Review: reports/soldiers/code-review/latest.md
-          - Mentor: reports/soldiers/learning/latest.md
-      - Archives: reports/archives/index.md
-      - Templates: reports/templates/index.md
-
-  - RNCP:
-      - Étude Comparative (C6): RNCP/C6_ETUDE_COMPARATIVE.md
-      - Audit Sécurité (C7): RNCP/C7_AUDIT_SECURITE.md
-      - Évaluation Prototypes (C8): RNCP/C8_EVALUATION_PROTOTYPES.md
-
-  - Army2077:
-      - Introduction: hive/introduction.md
-      - Architecture: hive/architecture.md
-      - Workflows: hive/workflows.md
-      - Référence Rapide: hive/quick-reference.md
-      - Agents:
-          - Vue d'ensemble: hive/agents/index.md
-          - Général: hive/agents/general.md
-          - Commandants:
-              - Documentation: hive/agents/commander-documentation.md
-              - Git: hive/agents/commander-git.md
-              - Qualité: hive/agents/commander-quality.md
-              - Sécurité: hive/agents/commander-security.md
-              - Tests: hive/agents/commander-tests.md
-          - Soldats:
-              - Architecte: hive/agents/soldier-architecture.md
-              - Code Review: hive/agents/soldier-code-review.md
-              - Mentor: hive/agents/soldier-learning-advisor.md
-
-  - Centre d'Apprentissage:
-      - learning/index.md
-      - Analyses de Code: learning/analyses/index.md
-      - Concepts Techniques: learning/concepts/index.md
-      - Bonnes Pratiques: learning/best-practices/index.md
-      - Parcours d'Apprentissage: learning/roadmaps/index.md
-
-  - Référence:
-      - FAQ: reference/faq.md
-
-# Configuration extra
 extra:
-  version:
-    provider: mike
+  generator: false
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/Pluenet-Killian/rtype
-
-  # Pied de page personnalisé
-  generator: false
+      name: GitHub
 
 extra_css:
-  - stylesheets/extra.css
+  - assets/css/custom.css
 
-strict: false
+nav:
+  - Accueil: index.md
+  - Guide:
+    - guide/index.md
+    - Installation: guide/installation.md
+    - Démarrage rapide: guide/quickstart.md
+    - Compilation: guide/compilation.md
+    - Gameplay:
+      - guide/gameplay/index.md
+      - Contrôles: guide/gameplay/controles.md
+      - Multijoueur: guide/gameplay/multijoueur.md
+      - Voice Chat: guide/gameplay/voice-chat.md
+  - Configuration:
+    - configuration/index.md
+    - Serveur: configuration/serveur.md
+    - Client: configuration/client.md
+    - Accessibilité: configuration/accessibilite.md
+    - Audio: configuration/audio.md
+  - Technique:
+    - technique/index.md
+    - Architecture:
+      - technique/architecture/index.md
+      - Hexagonale: technique/architecture/hexagonale.md
+      - Client: technique/architecture/client.md
+      - Protocoles: technique/architecture/protocoles.md
+    - Réseau:
+      - technique/reseau/index.md
+      - TCP: technique/reseau/tcp.md
+      - UDP: technique/reseau/udp.md
+      - Voice: technique/reseau/voice.md
+      - Structures: technique/reseau/structures.md
+    - Graphiques:
+      - technique/graphiques/index.md
+      - Abstraction: technique/graphiques/abstraction.md
+      - SDL2: technique/graphiques/sdl2.md
+      - SFML: technique/graphiques/sfml.md
+      - Shaders: technique/graphiques/shaders.md
+    - Audio:
+      - technique/audio/index.md
+      - Voice Chat: technique/audio/voice-chat.md
+      - SFX & Musique: technique/audio/sfx-music.md
+    - Gameplay:
+      - technique/gameplay/index.md
+      - GameWorld: technique/gameplay/game-world.md
+      - Entités: technique/gameplay/entites.md
+      - Collisions: technique/gameplay/collisions.md
+      - Prédiction: technique/gameplay/prediction.md
+    - Persistance:
+      - technique/persistance/index.md
+      - MongoDB: technique/persistance/mongodb.md
+  - API:
+    - api/index.md
+    - Serveur:
+      - api/serveur/index.md
+      - Application: api/serveur/application.md
+      - RoomManager: api/serveur/room-manager.md
+      - ClientSession: api/serveur/client-session.md
+      - GameWorld: api/serveur/game-world.md
+    - Client:
+      - api/client/index.md
+      - Engine: api/client/engine.md
+      - SceneManager: api/client/scene-manager.md
+      - NetworkClient: api/client/network-client.md
+      - AudioManager: api/client/audio-manager.md
+    - Réseau:
+      - api/reseau/index.md
+      - Protocol: api/reseau/protocol.md
+      - Packet: api/reseau/packet.md
+      - Serialization: api/reseau/serialization.md
+  - Développement:
+    - developpement/index.md
+    - Architecture: developpement/architecture.md
+    - Conventions: developpement/conventions.md
+    - Tests: developpement/tests.md
+    - CI/CD: developpement/ci-cd.md
+    - Contribution: developpement/contribution.md
+  - Assets:
+    - assets/index.md
+    - Sprites: assets/sprites.md
+    - Sons: assets/sounds.md
+    - Polices: assets/fonts.md
+  - Référence:
+    - reference/index.md
+    - Glossaire: reference/glossaire.md
+    - FAQ: reference/faq.md
+    - Changelog: reference/changelog.md
+    - Tags: reference/tags.md
