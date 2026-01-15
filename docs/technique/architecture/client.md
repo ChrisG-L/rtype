@@ -50,49 +50,67 @@ flowchart TB
 ### Interface IScene
 
 ```cpp
+// src/client/include/scenes/IScene.hpp
+struct GameContext {
+    std::shared_ptr<graphics::IWindow> window;
+    std::shared_ptr<client::network::UDPClient> udpClient;
+    std::shared_ptr<client::network::TCPClient> tcpClient;
+    std::string sessionToken;
+};
+
 class IScene {
 public:
     virtual ~IScene() = default;
 
-    virtual void onEnter() = 0;
-    virtual void onExit() = 0;
-    virtual void handleEvent(const Event& event) = 0;
-    virtual void update(float dt) = 0;
+    virtual void handleEvent(const events::Event& event) = 0;
+    virtual void update(float deltatime) = 0;
     virtual void render() = 0;
+
+    void setSceneManager(SceneManager* manager) { _sceneManager = manager; }
+    void setContext(const GameContext& ctx) { _context = ctx; }
+
+protected:
+    SceneManager* _sceneManager = nullptr;
+    GameContext _context;
 };
 ```
 
 ### Scene Manager
 
 ```cpp
+// Gère la scène courante et les transitions
 class SceneManager {
-    std::stack<std::unique_ptr<IScene>> scenes_;
+    std::unique_ptr<IScene> _currentScene;
+    std::unique_ptr<IScene> _nextScene;
+    GameContext _context;
 
 public:
-    void push(std::unique_ptr<IScene> scene) {
-        if (!scenes_.empty())
-            scenes_.top()->onExit();
-        scenes_.push(std::move(scene));
-        scenes_.top()->onEnter();
-    }
+    void setContext(const GameContext& ctx) { _context = ctx; }
 
-    void pop() {
-        if (!scenes_.empty()) {
-            scenes_.top()->onExit();
-            scenes_.pop();
-        }
-        if (!scenes_.empty())
-            scenes_.top()->onEnter();
+    template<typename T, typename... Args>
+    void changeScene(Args&&... args) {
+        _nextScene = std::make_unique<T>(std::forward<Args>(args)...);
+        _nextScene->setSceneManager(this);
+        _nextScene->setContext(_context);
     }
 
     void update(float dt) {
-        if (!scenes_.empty())
-            scenes_.top()->update(dt);
+        if (_nextScene) {
+            _currentScene = std::move(_nextScene);
+        }
+        if (_currentScene) {
+            _currentScene->update(dt);
+        }
+    }
+
+    void handleEvent(const events::Event& event) {
+        if (_currentScene)
+            _currentScene->handleEvent(event);
     }
 
     void render() {
-        if (!scenes_.empty())
-            scenes_.top()->render();
+        if (_currentScene)
+            _currentScene->render();
     }
 };
 ```
@@ -198,61 +216,97 @@ public:
 
 ## Plugin System (Graphics)
 
+Les backends graphiques sont chargés **dynamiquement** via `dlopen` (Linux) / `LoadLibrary` (Windows).
+
+### Interface IGraphicPlugin
+
 ```cpp
-// Plugin interface
-class IGraphicsPlugin {
+// src/client/include/graphics/IGraphicPlugin.hpp
+class IGraphicPlugin {
 public:
-    virtual std::unique_ptr<IGraphicsBackend> create() = 0;
-    virtual std::string name() const = 0;
+    virtual ~IGraphicPlugin() = default;
+    virtual const char* getName() const = 0;
+    virtual std::shared_ptr<IWindow> createWindow(Vec2u size, const std::string& name) = 0;
+    virtual std::shared_ptr<IRenderer> createRenderer(std::shared_ptr<IWindow> window) = 0;
 };
 
-// Plugin loader
-class PluginLoader {
-public:
-    template<typename T>
-    std::unique_ptr<T> load(const std::string& name) {
-        auto handle = dlopen(
-            ("lib" + name + ".so").c_str(),
-            RTLD_LAZY
-        );
-
-        auto factory = reinterpret_cast<T*(*)()>(
-            dlsym(handle, "createPlugin")
-        );
-
-        return std::unique_ptr<T>(factory());
-    }
-};
+// Fonctions exportées par chaque plugin
+typedef IGraphicPlugin* (*create_t)();
+typedef void (*destroy_t)(IGraphicPlugin*);
 ```
+
+### DynamicLib (Cross-Platform Loader)
+
+```cpp
+// src/client/include/core/DynamicLib.hpp
+class DynamicLib {
+public:
+    IGraphicPlugin* openGraphicLib(const std::string& libName);
+    void destroyGraphicLib(IGraphicPlugin* graphLib);
+private:
+    LibHandle _handle;  // HMODULE (Win) ou void* (Linux)
+    create_t _create_lib;
+    destroy_t _destroy_lib;
+};
+
+// Utilisation
+#ifdef _WIN32
+    _handle = LoadLibraryA(libName.c_str());
+    _create_lib = (create_t)GetProcAddress(_handle, "create");
+#else
+    _handle = dlopen(libName.c_str(), RTLD_LAZY);
+    _create_lib = (create_t)dlsym(_handle, "create");
+#endif
+```
+
+### Plugins Disponibles
+
+| Plugin | Bibliothèque | Fichier |
+|--------|--------------|---------|
+| SFML | `librtype_sfml.so` | `lib/sfml/src/SFMLPlugin.cpp` |
+| SDL2 | `librtype_sdl2.so` | `lib/sdl2/src/SDL2Plugin.cpp` |
 
 ---
 
 ## Structure des Dossiers
 
 ```
-client/
+src/client/
 ├── main.cpp
-├── engine/
-│   ├── Engine.hpp
-│   ├── SceneManager.hpp
-│   └── Clock.hpp
-├── scenes/
-│   ├── IScene.hpp
-│   ├── MenuScene.hpp
-│   ├── LobbyScene.hpp
-│   ├── GameScene.hpp
-│   └── SettingsScene.hpp
-├── graphics/
-│   ├── IGraphicsBackend.hpp
-│   ├── sdl2/
-│   └── sfml/
-├── network/
-│   ├── TCPClient.hpp
-│   └── UDPClient.hpp
-├── audio/
-│   ├── AudioManager.hpp
-│   └── VoiceChatManager.hpp
-└── ui/
-    ├── Button.hpp
-    └── TextInput.hpp
+├── include/
+│   ├── scenes/
+│   │   ├── IScene.hpp
+│   │   ├── SceneManager.hpp
+│   │   ├── MenuScene.hpp
+│   │   ├── LobbyScene.hpp
+│   │   └── GameScene.hpp
+│   ├── graphics/
+│   │   ├── IWindow.hpp
+│   │   ├── IDrawable.hpp
+│   │   └── IGraphicPlugin.hpp   # Interface plugin
+│   ├── network/
+│   │   ├── TCPClient.hpp
+│   │   └── UDPClient.hpp
+│   ├── audio/
+│   │   ├── AudioManager.hpp
+│   │   ├── VoiceChatManager.hpp
+│   │   └── OpusCodec.hpp
+│   ├── events/
+│   │   └── Event.hpp
+│   └── core/
+│       ├── Engine.hpp
+│       ├── GameLoop.hpp
+│       └── DynamicLib.hpp       # Loader dlopen/LoadLibrary
+├── src/                  # Implémentations
+└── lib/                  # Plugins graphiques (.so/.dll)
+    ├── sfml/
+    │   ├── include/
+    │   │   └── SFMLWindow.hpp
+    │   └── src/
+    │       └── SFMLPlugin.cpp   # Exporte create()/destroy()
+    └── sdl2/
+        ├── include/
+        │   └── SDL2Window.hpp
+        └── src/
+            └── SDL2Plugin.cpp   # Exporte create()/destroy()
 ```

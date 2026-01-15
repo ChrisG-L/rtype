@@ -46,34 +46,38 @@ R-Type est conçu avec une **architecture hexagonale** (ports & adapters) permet
 
 ```mermaid
 graph TB
-    subgraph "Application Layer"
+    subgraph "Client"
         A[Game Loop]
-        B[Input Handler]
+        B[Scene Manager]
+        F[IWindow SFML/SDL2]
     end
 
-    subgraph "Domain Layer"
-        C[Game State]
-        D[ECS Engine]
-        E[Physics]
+    subgraph "Server (Hexagonal)"
+        C[Domain - GameWorld]
+        D[Application - UseCases]
+        G[Infrastructure - UDPServer]
     end
 
-    subgraph "Infrastructure Layer"
-        F[Graphics Backend]
-        G[Network Stack]
-        H[Audio System]
+    subgraph "Network"
+        NET[UDP 4124 - Game]
+        AUTH[TCP 4125 - Auth TLS]
+        VOICE[UDP 4126 - Voice]
     end
 
-    A --> C
-    B --> D
-    C --> D
-    D --> E
-    D --> F
-    C --> G
-    A --> H
+    A --> B
+    B --> F
+    A <--> NET
+    A <--> AUTH
+    A <--> VOICE
+    NET <--> G
+    AUTH <--> G
+    VOICE <--> G
+    G --> D
+    D --> C
 
     style C fill:#7c3aed,color:#fff
-    style D fill:#7c3aed,color:#fff
     style F fill:#f59e0b,color:#000
+    style NET fill:#10b981,color:#fff
 ```
 
 ---
@@ -83,54 +87,60 @@ graph TB
 | Composant | Technologie | Raison |
 |-----------|-------------|--------|
 | **Langage** | C++23 | Performance, modernité |
-| **Build** | CMake 3.20+ | Standard industrie |
+| **Build** | CMake 3.30+, Ninja, vcpkg | Standard industrie |
 | **Réseau** | Boost.ASIO | Asynchrone, cross-platform |
-| **Logging** | spdlog | Rapide, formaté |
-| **Config** | nlohmann/json | Parsing JSON moderne |
-| **Graphiques** | SDL2 / SFML | Flexibilité multi-backend |
+| **Sécurité** | OpenSSL (TLS 1.2+) | Auth TCP sécurisée |
+| **Graphiques** | SDL2 / SFML | Multi-backend (statique) |
+| **Audio** | PortAudio, Opus | Voice chat temps réel |
 
 ---
 
 ## Patterns Utilisés
 
-### Entity Component System (ECS)
+### Architecture Hexagonale (Serveur)
 
-Le cœur du moteur de jeu utilise un ECS pour maximiser les performances :
+Le serveur utilise Ports & Adapters pour isoler le domaine :
 
 ```cpp
-// Entité = ID unique
-using Entity = std::uint64_t;
+// Domain (logique pure)
+namespace domain {
+    class Player { /* Position, Health, etc. */ };
+    class GameRule { /* Collision, Score, etc. */ };
+}
 
-// Composant = données pures
-struct Position { float x, y; };
-struct Velocity { float dx, dy; };
-struct Sprite { TextureId texture; };
+// Ports (interfaces)
+namespace application::ports {
+    class IUserRepository { /* Persist users */ };
+    class ILogger { /* Logging */ };
+}
 
-// Système = logique
-class MovementSystem {
-    void update(Registry& reg, float dt) {
-        for (auto [entity, pos, vel] : reg.view<Position, Velocity>()) {
-            pos.x += vel.dx * dt;
-            pos.y += vel.dy * dt;
-        }
-    }
-};
+// Adapters (implémentations)
+namespace infrastructure::adapters {
+    class MongoUserRepository : IUserRepository { };
+    class UDPServer { /* Réseau UDP */ };
+}
 ```
 
-### Plugin Architecture
+### Plugin Architecture (Graphics)
 
-Les backends graphiques sont chargés dynamiquement :
+Les backends graphiques sont chargés **dynamiquement** via `dlopen`/`LoadLibrary` :
 
 ```cpp
-// Interface abstraite
-class IGraphicsBackend {
+// Interface plugin
+class IGraphicPlugin {
 public:
-    virtual void render(const RenderQueue&) = 0;
-    virtual void present() = 0;
+    virtual const char* getName() const = 0;
+    virtual std::shared_ptr<IWindow> createWindow(Vec2u size, const std::string& name) = 0;
 };
 
-// Chargement dynamique
-auto backend = PluginLoader::load<IGraphicsBackend>("sdl2");
+// Chargement dynamique cross-platform (DynamicLib.cpp)
+#ifdef _WIN32
+    _handle = LoadLibraryA("librtype_sfml.dll");
+    _create_lib = (create_t)GetProcAddress(_handle, "create");
+#else
+    _handle = dlopen("librtype_sfml.so", RTLD_LAZY);
+    _create_lib = (create_t)dlsym(_handle, "create");
+#endif
 ```
 
 ---
@@ -141,19 +151,28 @@ auto backend = PluginLoader::load<IGraphicsBackend>("sdl2");
 src/
 ├── client/
 │   ├── main.cpp
-│   ├── graphics/          # Système graphique
-│   │   ├── IBackend.hpp   # Interface abstraite
-│   │   ├── sdl2/          # Implémentation SDL2
-│   │   └── sfml/          # Implémentation SFML
-│   └── input/
+│   ├── include/
+│   │   ├── scenes/        # IScene, GameScene, MenuScene
+│   │   ├── graphics/      # IWindow, IDrawable
+│   │   ├── network/       # TCPClient, UDPClient
+│   │   ├── audio/         # VoiceChatManager, OpusCodec
+│   │   └── events/        # Event system (KeyPressed, etc.)
+│   ├── src/               # Implémentations
+│   └── lib/               # Backends graphiques
+│       ├── sfml/          # SFMLWindow
+│       └── sdl2/          # SDL2Window
 ├── server/
 │   ├── main.cpp
-│   ├── network/           # Couche réseau
-│   └── game/
+│   ├── include/
+│   │   ├── domain/        # Entités, Value Objects
+│   │   ├── application/   # Use Cases, Ports
+│   │   └── infrastructure/# Adapters réseau
+│   └── infrastructure/
+│       ├── adapters/in/network/  # UDPServer, TCPAuthServer
+│       └── game/          # GameWorld
 ├── common/
-│   ├── ecs/               # Entity Component System
-│   ├── protocol/          # Sérialisation réseau
-│   └── utils/
+│   ├── protocol/          # Protocol.hpp (sérialisation)
+│   └── collision/         # AABB.hpp (hitboxes)
 └── tests/
 ```
 
@@ -166,13 +185,13 @@ src/
 | Métrique | Cible |
 |----------|-------|
 | FPS Client | 60+ stable |
-| Tick Rate Serveur | 60 Hz |
+| Broadcast Serveur | 20 Hz (50ms) |
 | Latence Réseau | < 50ms |
-| Mémoire Client | < 256 MB |
+| Timeout Joueur | 2000ms |
 
 ### Optimisations
 
-- **Data-Oriented Design** : Cache-friendly ECS
-- **Object Pooling** : Réutilisation des entités
-- **Batch Rendering** : Minimisation des draw calls
-- **UDP** : Latence minimale réseau
+- **Client-Side Prediction** : Mouvement fluide malgré la latence
+- **Full State Snapshots** : Robuste à la perte de paquets
+- **UDP Game / TCP Auth** : Latence minimale pour le jeu
+- **Opus VoIP** : Audio compressé 32kbps

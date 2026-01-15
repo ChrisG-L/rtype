@@ -5,220 +5,237 @@ tags:
   - network
 ---
 
-# NetworkClient
+# Network Clients
 
-Client réseau pour la communication avec le serveur.
+Clients réseau pour la communication avec le serveur.
 
-## Synopsis
+## Vue d'Ensemble
 
-```cpp
-#include "client/NetworkClient.hpp"
+Le client utilise deux connexions réseau séparées:
 
-NetworkClient client;
-
-// Connect
-client.connect("localhost", 4242);
-
-// Send
-client.send(LoginPacket{username, passwordHash});
-
-// Receive (polling)
-for (auto& packet : client.poll()) {
-    handlePacket(packet);
-}
-```
+| Client | Port | Protocole | Usage |
+|--------|------|-----------|-------|
+| `TCPClient` | 4125 | TCP + TLS | Authentification, rooms, chat |
+| `UDPClient` | 4124 | UDP | Gameplay temps réel |
 
 ---
 
-## Déclaration
+## UDPClient
+
+Client UDP pour le gameplay temps réel.
+
+### Synopsis
 
 ```cpp
-namespace rtype::client {
+#include "network/UDPClient.hpp"
 
-class NetworkClient {
+using namespace client::network;
+
+UDPClient client;
+client.connect("localhost", 4124);
+
+// Join game with session token
+client.joinGame(sessionToken, roomCode);
+
+// Send input
+client.sendPlayerInput(keys, sequenceNum);
+
+// Poll events
+while (auto event = client.pollEvent()) {
+    // Handle event
+}
+```
+
+### Déclaration
+
+```cpp
+namespace client::network {
+
+class UDPClient {
 public:
-    NetworkClient();
-    ~NetworkClient();
+    // Callbacks
+    using OnConnectedCallback = std::function<void()>;
+    using OnDisconnectedCallback = std::function<void()>;
+    using OnErrorCallback = std::function<void(const std::string&)>;
+    using OnSnapshotCallback = std::function<void(const std::vector<NetworkPlayer>&)>;
+    using OnMissileSpawnedCallback = std::function<void(const NetworkMissile&)>;
+    using OnMissileDestroyedCallback = std::function<void(uint16_t)>;
+    using OnPlayerDiedCallback = std::function<void(uint8_t)>;
+
+    UDPClient();
+    ~UDPClient();
 
     // Connection
     void connect(const std::string& host, uint16_t port);
     void disconnect();
     bool isConnected() const;
-    ConnectionState state() const;
+    bool isConnecting() const;
 
-    // TCP
-    void send(const Packet& packet);
-    std::vector<Packet> poll();
+    // Reconnection info
+    const std::string& getLastHost() const;
+    uint16_t getLastPort() const;
 
-    // UDP
-    void sendUdp(const Packet& packet);
-    void initUdp(uint16_t serverPort);
+    // Game actions
+    void joinGame(const SessionToken& token, const std::string& roomCode);
+    void sendPlayerInput(uint16_t keys, uint16_t sequenceNum);
+    void shootMissile();
 
-    // Callbacks
-    void setOnConnect(std::function<void()> callback);
-    void setOnDisconnect(std::function<void()> callback);
-    void setOnError(std::function<void(const std::string&)> cb);
+    // State access
+    std::optional<uint8_t> getLocalPlayerId() const;
+    std::vector<NetworkPlayer> getPlayers() const;
+    std::vector<NetworkMissile> getMissiles() const;
+    std::vector<NetworkEnemy> getEnemies() const;
+    std::vector<NetworkMissile> getEnemyMissiles() const;
+    bool isLocalPlayerDead() const;
 
-    // Info
-    uint32_t playerId() const;
-    float latency() const;
-    float packetLoss() const;
+    // Event polling
+    std::optional<UDPEvent> pollEvent();
+
+    // Callback setters
+    void setOnConnected(const OnConnectedCallback& callback);
+    void setOnDisconnected(const OnDisconnectedCallback& callback);
+    void setOnError(const OnErrorCallback& callback);
+    void setOnSnapshot(const OnSnapshotCallback& callback);
+    void setOnMissileSpawned(const OnMissileSpawnedCallback& callback);
+    void setOnMissileDestroyed(const OnMissileDestroyedCallback& callback);
+    void setOnPlayerDied(const OnPlayerDiedCallback& callback);
 
 private:
-    void handleTcpData();
-    void handleUdpData();
-    void sendUdpHandshake();
+    // Network
+    boost::asio::io_context _ioContext;
+    udp::socket _socket;
+    std::jthread _ioThread;
+    udp::endpoint _endpoint;
 
-    std::unique_ptr<TcpClient> tcp_;
-    std::unique_ptr<UdpClient> udp_;
-    ConnectionState state_ = ConnectionState::Disconnected;
-    uint32_t playerId_ = 0;
+    // State
+    std::atomic<bool> _connected{false};
+    std::atomic<bool> _connecting{false};
+    std::optional<uint8_t> _localPlayerId;
 
-    std::deque<Packet> incomingPackets_;
-    std::function<void()> onConnect_;
-    std::function<void()> onDisconnect_;
-    std::function<void(const std::string&)> onError_;
+    // Game state
+    std::vector<NetworkPlayer> _players;
+    std::vector<NetworkMissile> _missiles;
+    std::vector<NetworkEnemy> _enemies;
+    std::vector<NetworkMissile> _enemyMissiles;
+
+    // Event queue
+    EventQueue<UDPEvent> _eventQueue;
 };
 
-} // namespace rtype::client
+} // namespace client::network
 ```
 
----
+### Types
 
-## Types
-
-### ConnectionState
+#### NetworkPlayer
 
 ```cpp
-enum class ConnectionState {
-    Disconnected,   // Non connecté
-    Connecting,     // Connexion en cours
-    Connected,      // TCP connecté
-    Authenticated,  // Login réussi
-    UdpReady        // UDP établi
+struct NetworkPlayer {
+    uint8_t id;
+    uint16_t x, y;
+    uint8_t health;
+    bool alive;
+    uint16_t lastAckedInputSeq;  // Pour la réconciliation
+    uint8_t shipSkin;
 };
 ```
 
----
-
-## Méthodes
-
-### `connect()`
+#### NetworkMissile
 
 ```cpp
-void connect(const std::string& host, uint16_t port);
+struct NetworkMissile {
+    uint16_t id;
+    uint8_t owner_id;
+    uint16_t x, y;
+};
 ```
 
-Établit une connexion TCP avec le serveur.
-
-**Paramètres:**
-
-| Nom | Type | Description |
-|-----|------|-------------|
-| `host` | `string` | Adresse du serveur |
-| `port` | `uint16_t` | Port TCP (défaut 4242) |
-
-**États:**
-
-1. `Disconnected` → `Connecting`
-2. Connexion TCP réussie → `Connected`
-3. Callback `onConnect_` appelé
-
-**Exemple:**
+#### NetworkEnemy
 
 ```cpp
-client.setOnConnect([]() {
-    std::cout << "Connected!" << std::endl;
+struct NetworkEnemy {
+    uint16_t id;
+    uint16_t x, y;
+    uint8_t health;
+    uint8_t enemy_type;
+};
+```
+
+### Exemple d'Utilisation
+
+```cpp
+UDPClient udp;
+
+// Set callbacks
+udp.setOnConnected([]() {
+    std::cout << "UDP connected!" << std::endl;
 });
 
-client.setOnError([](const std::string& error) {
-    std::cerr << "Error: " << error << std::endl;
+udp.setOnPlayerDied([](uint8_t playerId) {
+    std::cout << "Player " << (int)playerId << " died!" << std::endl;
 });
 
-client.connect("game.example.com", 4242);
+// Connect
+udp.connect("game.example.com", 4124);
+
+// Wait for connection
+while (udp.isConnecting()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+}
+
+// Join game
+udp.joinGame(sessionToken, "ABC123");
+
+// Game loop
+while (running) {
+    // Send input
+    udp.sendPlayerInput(keys, sequenceNum++);
+
+    // Get state
+    auto players = udp.getPlayers();
+    auto missiles = udp.getMissiles();
+    auto enemies = udp.getEnemies();
+
+    // Render...
+}
 ```
 
 ---
 
-### `send()`
+## TCPClient
+
+Client TCP pour l'authentification et la gestion des rooms.
+
+### Synopsis
 
 ```cpp
-void send(const Packet& packet);
-```
+#include "network/TCPClient.hpp"
 
-Envoie un paquet via TCP.
+using namespace client::network;
 
-**Utilisation:**
+TCPClient client;
+client.connect("localhost", 4125);
 
-```cpp
 // Login
-client.send(LoginPacket{
-    .username = "player1",
-    .passwordHash = hash
-});
+client.login(email, password);
 
-// Chat
-client.send(ChatPacket{
-    .roomId = currentRoom,
-    .message = "Hello!"
-});
+// Create room
+client.createRoom("My Room", 4, false);
 ```
 
----
+### Principales Opérations
 
-### `sendUdp()`
-
-```cpp
-void sendUdp(const Packet& packet);
-```
-
-Envoie un paquet via UDP.
-
-**Note:** Utilisé pour les inputs (faible latence, perte acceptable).
-
-```cpp
-void PlayerController::sendInput(const Input& input) {
-    client.sendUdp(InputPacket{
-        .sequence = input.sequence,
-        .keys = input.keys,
-        .tick = currentTick_
-    });
-}
-```
-
----
-
-### `poll()`
-
-```cpp
-std::vector<Packet> poll();
-```
-
-Récupère les paquets reçus depuis le dernier appel.
-
-**Retour:** Vecteur de paquets (TCP et UDP combinés)
-
-**Exemple:**
-
-```cpp
-void GameScene::update(Engine& engine) {
-    for (auto& packet : engine.network().poll()) {
-        switch (packet.type) {
-            case PacketType::GameSnapshot:
-                handleSnapshot(packet.as<GameSnapshotPacket>());
-                break;
-
-            case PacketType::PlayerJoined:
-                handlePlayerJoined(packet.as<PlayerJoinedPacket>());
-                break;
-
-            case PacketType::Chat:
-                handleChat(packet.as<ChatPacket>());
-                break;
-        }
-    }
-}
-```
+| Méthode | Description |
+|---------|-------------|
+| `connect()` | Connexion TCP + TLS |
+| `login()` | Authentification |
+| `register_()` | Création de compte |
+| `createRoom()` | Créer une room |
+| `joinRoomByCode()` | Rejoindre par code |
+| `leaveRoom()` | Quitter la room |
+| `setReady()` | Marquer prêt |
+| `startGame()` | Lancer la partie |
+| `sendChatMessage()` | Envoyer un message |
 
 ---
 
@@ -227,85 +244,79 @@ void GameScene::update(Engine& engine) {
 ```mermaid
 sequenceDiagram
     participant Client
-    participant NC as NetworkClient
+    participant TCP as TCPClient
+    participant UDP as UDPClient
     participant Server
 
-    Client->>NC: connect("host", 4242)
-    NC->>Server: TCP Connect
-    Server-->>NC: Accept
-    NC-->>Client: onConnect()
+    Client->>TCP: connect("host", 4125)
+    TCP->>Server: TLS Handshake
+    Server-->>TCP: Connected
 
-    Client->>NC: send(LoginPacket)
-    NC->>Server: LoginPacket
-    Server-->>NC: LoginAckPacket
-    NC-->>Client: state = Authenticated
+    Client->>TCP: login(email, password)
+    TCP->>Server: Login
+    Server-->>TCP: LoginAck + SessionToken
 
-    Client->>NC: initUdp(4243)
-    NC->>Server: UdpHandshake
-    Server-->>NC: UdpHandshakeAck
-    NC-->>Client: state = UdpReady
+    Client->>TCP: joinRoomByCode("ABC123")
+    TCP->>Server: JoinRoomByCode
+    Server-->>TCP: JoinRoomAck
+
+    Client->>UDP: connect("host", 4124)
+    UDP->>Server: HeartBeat
+    Server-->>UDP: HeartBeatAck
+
+    Client->>UDP: joinGame(token, roomCode)
+    UDP->>Server: JoinGame
+    Server-->>UDP: JoinGameAck + PlayerId
+
+    loop Game Loop
+        Client->>UDP: sendPlayerInput(keys, seq)
+        Server-->>UDP: Snapshot
+    end
 ```
 
 ---
 
-## Gestion de la Latence
+## Event Queue
+
+Le UDPClient utilise une queue thread-safe pour les événements:
 
 ```cpp
-class NetworkClient {
-    std::chrono::steady_clock::time_point pingTime_;
-    float latency_ = 0.0f;
-
-    void sendPing() {
-        pingTime_ = std::chrono::steady_clock::now();
-        send(PingPacket{});
-    }
-
-    void handlePong() {
-        auto now = std::chrono::steady_clock::now();
-        latency_ = std::chrono::duration<float, std::milli>(
-            now - pingTime_
-        ).count();
-    }
-
-public:
-    float latency() const { return latency_; }
+// Types d'événements
+enum class UDPEventType {
+    Connected,
+    Disconnected,
+    PlayerJoined,
+    PlayerLeft,
+    PlayerDied,
+    MissileSpawned,
+    MissileDestroyed,
+    Snapshot
 };
+
+// Polling dans le thread principal
+while (auto event = udpClient.pollEvent()) {
+    switch (event->type) {
+        case UDPEventType::PlayerJoined:
+            handlePlayerJoined(event->playerId);
+            break;
+        case UDPEventType::Snapshot:
+            handleSnapshot(event->players);
+            break;
+        // ...
+    }
+}
 ```
 
 ---
 
-## Buffer de Réception
+## Thread Safety
 
-```cpp
-class NetworkClient {
-    std::deque<Packet> incomingPackets_;
-    std::mutex packetMutex_;
+| Méthode | Thread-Safe |
+|---------|-------------|
+| `connect()` | Oui |
+| `isConnected()` | Oui (atomic) |
+| `sendPlayerInput()` | Oui |
+| `getPlayers()` | Oui (mutex) |
+| `pollEvent()` | Oui |
 
-    void onPacketReceived(Packet packet) {
-        std::lock_guard lock(packetMutex_);
-        incomingPackets_.push_back(std::move(packet));
-    }
-
-public:
-    std::vector<Packet> poll() {
-        std::lock_guard lock(packetMutex_);
-        std::vector<Packet> result(
-            std::make_move_iterator(incomingPackets_.begin()),
-            std::make_move_iterator(incomingPackets_.end())
-        );
-        incomingPackets_.clear();
-        return result;
-    }
-};
-```
-
----
-
-## Statistiques Réseau
-
-| Métrique | Méthode | Description |
-|----------|---------|-------------|
-| Latence | `latency()` | RTT en ms |
-| Packet Loss | `packetLoss()` | % paquets perdus |
-| Bytes Sent | `bytesSent()` | Total envoyé |
-| Bytes Received | `bytesReceived()` | Total reçu |
+Le UDPClient exécute son IO sur un thread séparé (`std::jthread`). Toutes les méthodes publiques sont thread-safe.

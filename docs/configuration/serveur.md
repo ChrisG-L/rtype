@@ -11,47 +11,46 @@ tags:
 ```bash
 # .env
 
-# Réseau
-RTYPE_PORT=4242
-RTYPE_VOICE_PORT=4243
-RTYPE_MAX_CONNECTIONS=100
-
-# Game
-RTYPE_MAX_PLAYERS=4
-RTYPE_TICK_RATE=60
-RTYPE_TIMEOUT_MS=5000
-
 # MongoDB
-MONGO_URI=mongodb://localhost:27017
-MONGO_DB_NAME=rtype
+MONGODB_URI=mongodb://localhost:8089
+MONGODB_DB=rtype
 
-# Logging
-RTYPE_LOG_LEVEL=info
-RTYPE_LOG_FILE=logs/server.log
-
-# Sécurité
-RTYPE_JWT_SECRET=your-secret-key
+# TLS (optionnel, défauts ci-dessous)
+TLS_CERT_FILE=certs/server.crt
+TLS_KEY_FILE=certs/server.key
 ```
 
----
+!!! note "Ports fixes"
+    Les ports réseau sont définis dans le code et ne sont pas configurables via `.env` :
 
-## Options Réseau
-
-| Variable | Description | Défaut |
-|----------|-------------|--------|
-| `RTYPE_PORT` | Port principal | 4242 |
-| `RTYPE_VOICE_PORT` | Port voice | 4243 |
-| `RTYPE_MAX_CONNECTIONS` | Connexions max | 100 |
+    - **TCP 4125** : Authentification TLS, rooms, chat
+    - **UDP 4124** : Gameplay temps réel (snapshots 20 Hz)
+    - **UDP 4126** : Chat vocal Opus
 
 ---
 
-## Options Gameplay
+## Variables d'Environnement
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
-| `RTYPE_MAX_PLAYERS` | Joueurs/room | 4 |
-| `RTYPE_TICK_RATE` | Ticks/sec | 60 |
-| `RTYPE_TIMEOUT_MS` | Timeout (ms) | 5000 |
+| `MONGODB_URI` | URI de connexion MongoDB | `mongodb://localhost:8089` |
+| `MONGODB_DB` | Nom de la base de données | `rtype` |
+| `TLS_CERT_FILE` | Chemin certificat TLS | `certs/server.crt` |
+| `TLS_KEY_FILE` | Chemin clé privée TLS | `certs/server.key` |
+
+---
+
+## Constantes Gameplay
+
+Ces valeurs sont définies dans le code source :
+
+| Constante | Valeur | Fichier |
+|-----------|--------|---------|
+| `MAX_PLAYERS` | 4 | `Protocol.hpp` |
+| `MAX_ROOM_PLAYERS` | 6 | `Protocol.hpp` |
+| `BROADCAST_INTERVAL_MS` | 50 ms (20 Hz) | `UDPServer.cpp` |
+| `CLIENT_TIMEOUT_MS` | 2000 ms | `TCPAuthServer.cpp` |
+| `PLAYER_TIMEOUT_MS` | 2000 ms | `UDPServer.cpp` |
 
 ---
 
@@ -62,44 +61,74 @@ erDiagram
     Users {
         ObjectId _id
         string username
+        string email
         string password_hash
     }
-    Settings {
+    UserSettings {
         ObjectId _id
-        ObjectId user_id
-        json keybindings
-        string color_mode
+        string email
+        string colorBlindMode
+        uint16 gameSpeedPercent
+        uint8[] keyBindings
+        uint8 shipSkin
+        uint8 voiceMode
+        uint8 vadThreshold
+        uint8 micGain
+        uint8 voiceVolume
+        string audioInputDevice
+        string audioOutputDevice
     }
-    ChatHistory {
+    ChatMessages {
         ObjectId _id
-        ObjectId room_id
+        string roomCode
+        string displayName
         string message
+        uint32 timestamp
     }
 
-    Users ||--o{ Settings : has
-    Users ||--o{ ChatHistory : sends
+    Users ||--o| UserSettings : has
+    Users ||--o{ ChatMessages : sends
 ```
 
 ---
 
-## Arguments CLI
+## Lancement
+
+Le serveur ne prend pas d'arguments CLI. Toute la configuration se fait via `.env` :
 
 ```bash
-./r-type_server [OPTIONS]
-  -p, --port <PORT>     Port d'écoute
-  -c, --config <FILE>   Fichier config
-  -v, --verbose         Mode debug
-  --max-players <N>     Joueurs max
+# Copier et éditer le fichier d'exemple
+cp .env.example .env
+
+# Lancer le serveur
+./rtype_server
 ```
 
 ---
 
 ## Logs
 
+Le serveur utilise **spdlog** avec interface TUI intégrée.
+
 | Niveau | Description |
 |--------|-------------|
 | `trace` | Très détaillé |
-| `debug` | Debug |
-| `info` | Général |
+| `debug` | Debug réseau |
+| `info` | Événements généraux |
 | `warn` | Avertissements |
 | `error` | Erreurs |
+
+---
+
+## TLS / Certificats
+
+Générer des certificats de développement :
+
+```bash
+./scripts/generate_dev_certs.sh
+```
+
+Cela crée le dossier `certs/` avec `server.crt` et `server.key`.
+
+!!! warning "Production"
+    En production, utilisez des certificats signés par une CA reconnue.

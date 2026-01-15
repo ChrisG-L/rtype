@@ -12,11 +12,22 @@ Gestionnaire des salons de jeu.
 ## Synopsis
 
 ```cpp
-#include "server/RoomManager.hpp"
+#include "infrastructure/room/RoomManager.hpp"
 
-RoomManager manager;
-auto roomId = manager.createRoom("My Room");
-manager.joinRoom(roomId, client);
+using namespace infrastructure::room;
+
+RoomManager manager(chatRepository);
+
+// Create room
+auto result = manager.createRoom(
+    hostEmail, hostDisplayName, "My Room", 4, false, 1);
+
+if (result) {
+    std::cout << "Room code: " << result->code << std::endl;
+}
+
+// Join room
+auto joinResult = manager.joinRoomByCode(code, email, displayName, shipSkin);
 ```
 
 ---
@@ -24,65 +35,147 @@ manager.joinRoom(roomId, client);
 ## Déclaration
 
 ```cpp
-namespace rtype::server {
+namespace infrastructure::room {
 
 class RoomManager {
 public:
-    RoomManager(int maxRooms = 10);
-    ~RoomManager();
+    RoomManager() = default;
+    explicit RoomManager(std::shared_ptr<IChatMessageRepository> chatRepo);
+    ~RoomManager() = default;
 
-    // Room lifecycle
-    RoomId createRoom(const std::string& name);
-    void destroyRoom(RoomId id);
+    // ═══════════════════════════════════════════════════════════════
+    // Room Creation
+    // ═══════════════════════════════════════════════════════════════
 
-    // Player management
-    bool joinRoom(RoomId id, ClientSession* client);
-    void leaveRoom(RoomId id, PlayerId playerId);
+    struct CreateResult {
+        std::string code;
+        domain::entities::Room* room;
+    };
 
-    // Queries
-    Room* getRoom(RoomId id);
-    const Room* getRoom(RoomId id) const;
-    std::vector<RoomInfo> listRooms() const;
-    Room* findRoomByPlayer(PlayerId playerId);
+    std::optional<CreateResult> createRoom(
+        const std::string& hostEmail,
+        const std::string& hostDisplayName,
+        const std::string& name,
+        uint8_t maxPlayers,
+        bool isPrivate,
+        uint8_t shipSkin = 1);
 
-    // Tick
-    void tick();
-    void broadcastSnapshots();
+    // ═══════════════════════════════════════════════════════════════
+    // Room Lookup
+    // ═══════════════════════════════════════════════════════════════
+
+    Room* getRoomByCode(const std::string& code);
+    Room* getRoomByPlayerEmail(const std::string& email);
+    bool isPlayerInRoom(const std::string& email) const;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Join/Leave Operations
+    // ═══════════════════════════════════════════════════════════════
+
+    struct JoinResult {
+        domain::entities::Room* room;
+        uint8_t slotId;
+    };
+
+    std::optional<JoinResult> joinRoomByCode(
+        const std::string& code,
+        const std::string& email,
+        const std::string& displayName,
+        uint8_t shipSkin = 1);
+
+    std::string leaveRoom(const std::string& email);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Ready System
+    // ═══════════════════════════════════════════════════════════════
+
+    Room* setReady(const std::string& email, bool ready);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Kick System
+    // ═══════════════════════════════════════════════════════════════
+
+    struct KickResult {
+        std::string roomCode;
+        std::string targetEmail;
+    };
+
+    std::optional<KickResult> kickPlayer(
+        const std::string& hostEmail,
+        const std::string& targetEmail,
+        const std::string& reason);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Room Configuration (Host only)
+    // ═══════════════════════════════════════════════════════════════
+
+    Room* setRoomGameSpeed(const std::string& hostEmail, uint16_t percent);
+    void updatePlayerShipSkin(const std::string& email, uint8_t shipSkin);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Room Browser
+    // ═══════════════════════════════════════════════════════════════
+
+    struct BrowserEntry {
+        std::string code;
+        std::string name;
+        uint8_t currentPlayers;
+        uint8_t maxPlayers;
+    };
+
+    std::vector<BrowserEntry> getPublicRooms() const;
+    std::optional<JoinResult> quickJoin(
+        const std::string& email,
+        const std::string& displayName,
+        uint8_t shipSkin = 1);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Chat System
+    // ═══════════════════════════════════════════════════════════════
+
+    bool sendChatMessage(const std::string& email, const std::string& message);
+    std::vector<ChatMessage> getChatHistory(const std::string& code) const;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Game Start
+    // ═══════════════════════════════════════════════════════════════
+
+    bool tryStartGame(const std::string& hostEmail);
+    Room* getStartingRoom(const std::string& email);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Cleanup
+    // ═══════════════════════════════════════════════════════════════
+
+    void removeRoom(const std::string& code);
+    void cleanupEmptyRooms();
+    size_t getRoomCount() const;
+    std::vector<Room*> getAllRooms();
 
 private:
-    int maxRooms_;
-    RoomId nextRoomId_ = 1;
-    std::unordered_map<RoomId, std::unique_ptr<Room>> rooms_;
-    mutable std::shared_mutex mutex_;
+    mutable std::mutex _mutex;
+    std::shared_ptr<IChatMessageRepository> _chatMessageRepository;
+    std::unordered_map<std::string, std::unique_ptr<Room>> _roomsByCode;
+    std::unordered_map<std::string, std::string> _playerToRoom;
+
+    std::string generateRoomCode();
 };
 
-} // namespace rtype::server
+} // namespace infrastructure::room
 ```
 
 ---
 
-## Types
+## Room Codes
 
-### RoomInfo
-
-```cpp
-struct RoomInfo {
-    RoomId id;
-    std::string name;
-    int playerCount;
-    int maxPlayers;
-    RoomState state;  // Waiting, Playing, Finished
-};
-```
-
-### RoomState
+Les rooms sont identifiées par des **codes alphanumériques** (pas des IDs numériques).
 
 ```cpp
-enum class RoomState {
-    Waiting,   // En attente de joueurs
-    Playing,   // Partie en cours
-    Finished   // Partie terminée
-};
+// Format: 6 caractères alphanumériques
+static constexpr size_t ROOM_CODE_LEN = 6;
+
+// Exemple: "ABC123", "XYZ789"
+std::string code = manager.createRoom(...)->code;
 ```
 
 ---
@@ -92,119 +185,95 @@ enum class RoomState {
 ### `createRoom()`
 
 ```cpp
-RoomId createRoom(const std::string& name);
+std::optional<CreateResult> createRoom(
+    const std::string& hostEmail,
+    const std::string& hostDisplayName,
+    const std::string& name,
+    uint8_t maxPlayers,
+    bool isPrivate,
+    uint8_t shipSkin = 1);
 ```
 
-Crée un nouveau salon.
+Crée un nouveau salon et ajoute l'hôte.
 
 **Paramètres:**
 
 | Nom | Type | Description |
 |-----|------|-------------|
+| `hostEmail` | `string` | Email de l'hôte |
+| `hostDisplayName` | `string` | Nom affiché |
 | `name` | `string` | Nom du salon |
+| `maxPlayers` | `uint8_t` | Max joueurs (2-6) |
+| `isPrivate` | `bool` | Visible dans le browser |
+| `shipSkin` | `uint8_t` | Skin du vaisseau (1-6) |
 
-**Retour:** ID du salon créé
-
-**Exceptions:**
-
-- `std::runtime_error` si le nombre max de salons est atteint
-
-**Exemple:**
-
-```cpp
-try {
-    auto roomId = manager.createRoom("Epic Battle");
-    std::cout << "Room created: " << roomId << std::endl;
-} catch (const std::runtime_error& e) {
-    std::cerr << "Cannot create room: " << e.what() << std::endl;
-}
-```
+**Retour:** `CreateResult` avec code et pointeur room, ou `nullopt`
 
 ---
 
-### `joinRoom()`
+### `joinRoomByCode()`
 
 ```cpp
-bool joinRoom(RoomId id, ClientSession* client);
+std::optional<JoinResult> joinRoomByCode(
+    const std::string& code,
+    const std::string& email,
+    const std::string& displayName,
+    uint8_t shipSkin = 1);
 ```
 
-Ajoute un joueur à un salon.
+Rejoint un salon par son code.
 
-**Paramètres:**
-
-| Nom | Type | Description |
-|-----|------|-------------|
-| `id` | `RoomId` | ID du salon |
-| `client` | `ClientSession*` | Session client |
-
-**Retour:** `true` si le joueur a rejoint, `false` si le salon est plein
-
-**Exemple:**
-
-```cpp
-if (manager.joinRoom(roomId, client)) {
-    client->send(JoinRoomAckPacket{roomId, true});
-} else {
-    client->send(JoinRoomAckPacket{roomId, false, "Room full"});
-}
-```
+**Retour:** `JoinResult` avec room et slotId, ou `nullopt` si:
+- Room inexistante
+- Room pleine
+- Joueur déjà dans une room
 
 ---
 
-### `leaveRoom()`
+### `setReady()`
 
 ```cpp
-void leaveRoom(RoomId id, PlayerId playerId);
+Room* setReady(const std::string& email, bool ready);
 ```
 
-Retire un joueur d'un salon.
+Marque un joueur comme prêt/pas prêt.
 
-**Note:** Si le salon devient vide et que la partie est terminée, il est automatiquement détruit.
+**Retour:** Pointeur vers la room (pour broadcast), ou `nullptr`
 
 ---
 
-### `listRooms()`
+### `tryStartGame()`
 
 ```cpp
-std::vector<RoomInfo> listRooms() const;
+bool tryStartGame(const std::string& hostEmail);
 ```
 
-Liste tous les salons disponibles.
+Tente de lancer la partie (host only).
 
-**Retour:** Vecteur de `RoomInfo`
-
-**Exemple:**
-
-```cpp
-auto rooms = manager.listRooms();
-for (const auto& room : rooms) {
-    std::cout << room.name << " ("
-              << room.playerCount << "/"
-              << room.maxPlayers << ")\n";
-}
-```
+**Conditions:**
+- L'email doit être l'hôte
+- Tous les joueurs sont prêts
+- Au moins 2 joueurs
 
 ---
 
-### `tick()`
+## Callbacks
+
+Le RoomManager utilise des callbacks pour notifier les sessions TCP:
 
 ```cpp
-void tick();
-```
+using RoomUpdateCallback = std::function<void(const RoomUpdate&)>;
+using GameStartingCallback = std::function<void(const GameStarting&)>;
+using PlayerKickedCallback = std::function<void(const PlayerKickedNotification&)>;
+using ChatMessageCallback = std::function<void(const ChatMessagePayload&)>;
 
-Met à jour tous les salons.
+void registerSessionCallbacks(
+    const std::string& email,
+    RoomUpdateCallback onRoomUpdate,
+    GameStartingCallback onGameStarting);
 
-**Note:** Appelé à 60 Hz par la boucle principale.
-
-```cpp
-void RoomManager::tick() {
-    std::shared_lock lock(mutex_);
-    for (auto& [id, room] : rooms_) {
-        if (room->state() == RoomState::Playing) {
-            room->tick();
-        }
-    }
-}
+void broadcastRoomUpdate(Room* room);
+void broadcastGameStarting(Room* room, uint8_t countdown);
 ```
 
 ---
@@ -215,14 +284,18 @@ void RoomManager::tick() {
 stateDiagram-v2
     [*] --> Waiting: createRoom()
 
-    Waiting --> Playing: startGame()
-    Waiting --> [*]: destroyRoom()
+    Waiting --> Waiting: joinRoomByCode()
+    Waiting --> Waiting: setReady()
+    Waiting --> Starting: tryStartGame()
+    Waiting --> [*]: leaveRoom() (empty)
+
+    Starting --> Playing: countdown=0
+    Starting --> Waiting: cancel
 
     Playing --> Finished: gameOver()
-    Playing --> [*]: allPlayersLeft()
 
-    Finished --> Waiting: restartGame()
-    Finished --> [*]: destroyRoom()
+    Finished --> Waiting: restart
+    Finished --> [*]: removeRoom()
 ```
 
 ---
@@ -237,38 +310,36 @@ sequenceDiagram
     participant C2 as Client 2
 
     C1->>RM: createRoom("My Room")
-    RM-->>C1: roomId=1
+    RM-->>C1: code="ABC123"
 
-    C1->>RM: joinRoom(1, client1)
-    RM->>Room: addPlayer(client1)
-    Room-->>RM: success
-    RM-->>C1: joined
+    C2->>RM: getPublicRooms()
+    RM-->>C2: [{code:"ABC123", players:1/4}]
 
-    C2->>RM: listRooms()
-    RM-->>C2: [{id:1, name:"My Room", players:1/4}]
+    C2->>RM: joinRoomByCode("ABC123")
+    RM->>Room: addPlayer(C2)
+    RM-->>C2: JoinResult{room, slot=1}
+    RM->>C1: RoomUpdate (broadcast)
 
-    C2->>RM: joinRoom(1, client2)
-    RM->>Room: addPlayer(client2)
-    Room-->>RM: success
-    RM-->>C2: joined
+    C1->>RM: setReady(true)
+    C2->>RM: setReady(true)
 
-    C1->>RM: startGame(1)
-    RM->>Room: start()
-    Room->>Room: state = Playing
+    C1->>RM: tryStartGame()
+    RM->>Room: setState(Starting)
+    RM-->>C1: GameStarting{countdown=3}
+    RM-->>C2: GameStarting{countdown=3}
 ```
 
 ---
 
 ## Thread Safety
 
-La classe utilise un `shared_mutex` pour permettre des lectures concurrentes.
+La classe utilise un `mutex` pour la synchronisation.
 
-| Méthode | Verrouillage |
-|---------|--------------|
-| `createRoom()` | Exclusif |
-| `destroyRoom()` | Exclusif |
-| `joinRoom()` | Exclusif |
-| `leaveRoom()` | Exclusif |
-| `getRoom()` | Partagé |
-| `listRooms()` | Partagé |
-| `tick()` | Partagé |
+| Méthode | Thread-Safe |
+|---------|-------------|
+| `createRoom()` | Oui |
+| `joinRoomByCode()` | Oui |
+| `leaveRoom()` | Oui |
+| `setReady()` | Oui |
+| `getRoomByCode()` | Oui |
+| `getPublicRooms()` | Oui |

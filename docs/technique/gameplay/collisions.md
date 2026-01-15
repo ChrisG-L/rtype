@@ -182,13 +182,21 @@ Pour R-Type (~50 entités max), **brute force** suffit.
 
 ## Hitboxes
 
-| Entité | Largeur | Hauteur |
-|--------|---------|---------|
-| Player | 64 | 32 |
-| Basic Enemy | 48 | 32 |
-| Zigzag Enemy | 48 | 32 |
-| Follower Enemy | 40 | 40 |
-| Shooter Enemy | 56 | 40 |
-| Boss | 256 | 128 |
-| Player Missile | 16 | 8 |
-| Enemy Missile | 12 | 6 |
+Définies dans `src/common/collision/AABB.hpp` :
+
+| Entité | Largeur | Hauteur | Constante |
+|--------|---------|---------|-----------|
+| Player (Ship) | 64 | 30 | `SHIP_WIDTH`, `SHIP_HEIGHT` |
+| Enemy (default) | 40 | 40 | `ENEMY_WIDTH`, `ENEMY_HEIGHT` |
+| Player Missile | 16 | 8 | `MISSILE_WIDTH`, `MISSILE_HEIGHT` |
+
+```cpp
+namespace collision::Hitboxes {
+    static constexpr float SHIP_WIDTH = 64.0f;
+    static constexpr float SHIP_HEIGHT = 30.0f;
+    static constexpr float MISSILE_WIDTH = 16.0f;
+    static constexpr float MISSILE_HEIGHT = 8.0f;
+    static constexpr float ENEMY_WIDTH = 40.0f;
+    static constexpr float ENEMY_HEIGHT = 40.0f;
+}
+```

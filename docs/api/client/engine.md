@@ -12,11 +12,13 @@ Moteur de jeu principal du client R-Type.
 ## Synopsis
 
 ```cpp
-#include "client/Engine.hpp"
+#include "core/Engine.hpp"
 
-int main(int argc, char* argv[]) {
-    rtype::client::Engine engine;
-    return engine.run(argc, argv);
+int main() {
+    core::Engine engine;
+    engine.initialize(udpClient, tcpClient, graphicsOptions);
+    engine.run();
+    return 0;
 }
 ```
 
@@ -25,260 +27,178 @@ int main(int argc, char* argv[]) {
 ## Déclaration
 
 ```cpp
-namespace rtype::client {
+namespace core {
 
-class Engine {
+class Engine : public IEngine {
 public:
     Engine();
     ~Engine();
 
-    // Non-copyable
-    Engine(const Engine&) = delete;
-    Engine& operator=(const Engine&) = delete;
+    // Initialization
+    void initialize() override;
+    void initialize(
+        std::shared_ptr<client::network::UDPClient> udpClient,
+        std::shared_ptr<client::network::TCPClient> tcpClient,
+        const GraphicsOptions& graphicsOptions
+    );
 
-    // Point d'entrée
-    int run(int argc, char* argv[]);
-
-    // Lifecycle
-    void quit();
-    bool isRunning() const;
-
-    // Accesseurs
-    SceneManager& sceneManager();
-    NetworkClient& network();
-    AudioManager& audio();
-    Renderer& renderer();
-    InputManager& input();
-    const Config& config() const;
-
-    // Window
-    int windowWidth() const;
-    int windowHeight() const;
-    void setFullscreen(bool enabled);
-
-    // Delta time
-    float deltaTime() const;
+    // Game loop
+    void run() override;
 
 private:
-    void initConfig(int argc, char* argv[]);
-    void initWindow();
-    void initRenderer();
-    void initAudio();
-    void gameLoop();
-    void cleanup();
+    std::string buildLibraryName(const std::string& name) const;
 
-    Config config_;
-    std::unique_ptr<Window> window_;
-    std::unique_ptr<Renderer> renderer_;
-    std::unique_ptr<SceneManager> sceneManager_;
-    std::unique_ptr<NetworkClient> network_;
-    std::unique_ptr<AudioManager> audio_;
-    std::unique_ptr<InputManager> input_;
-
-    bool running_ = false;
-    float deltaTime_ = 0.0f;
+    std::unique_ptr<DynamicLib> _dynamicLib;
+    std::shared_ptr<graphics::IWindow> _window;
+    std::unique_ptr<GameLoop> _gameLoop;
+    std::shared_ptr<client::network::UDPClient> _udpClient;
+    std::shared_ptr<client::network::TCPClient> _tcpClient;
+    graphics::IGraphicPlugin* _graphicPlugin;
 };
 
-} // namespace rtype::client
+} // namespace core
 ```
 
 ---
 
 ## Méthodes
 
-### `run()`
+### `initialize()`
 
 ```cpp
-int run(int argc, char* argv[]);
+void initialize();
+void initialize(
+    std::shared_ptr<client::network::UDPClient> udpClient,
+    std::shared_ptr<client::network::TCPClient> tcpClient,
+    const GraphicsOptions& graphicsOptions
+);
 ```
 
-Lance le moteur et entre dans la boucle de jeu.
+Initialise le moteur avec les options graphiques et les clients réseau.
 
-**Paramètres:**
+**Paramètres (version complète):**
 
 | Nom | Type | Description |
 |-----|------|-------------|
-| `argc` | `int` | Nombre d'arguments |
-| `argv` | `char*[]` | Arguments CLI |
+| `udpClient` | `shared_ptr<UDPClient>` | Client UDP pour le gameplay |
+| `tcpClient` | `shared_ptr<TCPClient>` | Client TCP pour l'authentification |
+| `graphicsOptions` | `GraphicsOptions` | Options graphiques |
 
-**Retour:** Code de sortie (0 = succès)
+**Exemple:**
 
-**Arguments CLI supportés:**
+```cpp
+auto udpClient = std::make_shared<client::network::UDPClient>();
+auto tcpClient = std::make_shared<client::network::TCPClient>();
 
-```
---backend <sdl2|sfml>  Backend graphique
---fullscreen           Mode plein écran
---width <N>            Largeur fenêtre
---height <N>           Hauteur fenêtre
---server <host:port>   Serveur par défaut
+GraphicsOptions options;
+options.backend = "sfml";
+options.width = 1920;
+options.height = 1080;
+
+core::Engine engine;
+engine.initialize(udpClient, tcpClient, options);
 ```
 
 ---
 
-### `quit()`
+### `run()`
 
 ```cpp
-void quit();
+void run() override;
 ```
 
-Demande l'arrêt propre du moteur.
+Lance la boucle de jeu principale.
+
+**Note:** Cette méthode bloque jusqu'à la fermeture du jeu.
 
 ---
 
-### `deltaTime()`
+## Architecture
 
-```cpp
-float deltaTime() const;
-```
+L'Engine utilise un système de plugins graphiques dynamiques.
 
-Retourne le temps écoulé depuis la dernière frame en secondes.
+```mermaid
+flowchart TB
+    Engine --> DynamicLib
+    Engine --> GameLoop
+    Engine --> IWindow
+    Engine --> UDPClient
+    Engine --> TCPClient
 
-**Utilisation:**
+    DynamicLib --> SFML[SFML Plugin]
+    DynamicLib --> SDL2[SDL2 Plugin]
 
-```cpp
-void PlayerController::update(Engine& engine) {
-    float dt = engine.deltaTime();
-    position_ += velocity_ * dt;
-}
-```
+    GameLoop --> SceneManager
+    SceneManager --> IScene
 
----
-
-## Boucle de Jeu
-
-```cpp
-void Engine::gameLoop() {
-    using Clock = std::chrono::high_resolution_clock;
-    auto lastFrame = Clock::now();
-
-    while (running_) {
-        // Calculate delta time
-        auto now = Clock::now();
-        deltaTime_ = std::chrono::duration<float>(
-            now - lastFrame
-        ).count();
-        lastFrame = now;
-
-        // Poll window events
-        window_->pollEvents();
-
-        // Update input
-        input_->update();
-
-        // Update network
-        network_->poll();
-
-        // Update current scene
-        if (auto* scene = sceneManager_->current()) {
-            scene->update(*this);
-        }
-
-        // Render
-        renderer_->clear();
-        if (auto* scene = sceneManager_->current()) {
-            scene->render(*renderer_);
-        }
-        renderer_->present();
-
-        // Frame limiting (optional)
-        limitFrameRate();
-    }
-}
+    style Engine fill:#7c3aed,color:#fff
 ```
 
 ---
 
-## Configuration
+## GraphicsOptions
 
 ```cpp
-struct Config {
-    // Display
-    std::string backend = "sdl2";  // sdl2 or sfml
-    int windowWidth = 1920;
-    int windowHeight = 1080;
+struct GraphicsOptions {
+    std::string backend = "sfml";  // "sfml" ou "sdl2"
+    int width = 1920;
+    int height = 1080;
     bool fullscreen = false;
     bool vsync = true;
-
-    // Network
-    std::string serverHost = "localhost";
-    uint16_t serverPort = 4242;
-
-    // Audio
-    float masterVolume = 1.0f;
-    float musicVolume = 0.7f;
-    float sfxVolume = 1.0f;
-    float voiceVolume = 1.0f;
-
-    // Accessibility
-    ColorblindMode colorblindMode = ColorblindMode::None;
 };
 ```
 
 ---
 
-## Diagramme de Séquence
+## Chargement Dynamique
 
-```mermaid
-sequenceDiagram
-    participant Main
-    participant Engine
-    participant Window
-    participant Input
-    participant Network
-    participant Scene
-    participant Renderer
-
-    Main->>Engine: run()
-    Engine->>Engine: initConfig()
-    Engine->>Window: create()
-    Engine->>Renderer: init()
-    Engine->>Engine: push(MenuScene)
-
-    loop Game Loop
-        Engine->>Window: pollEvents()
-        Window-->>Engine: events
-
-        Engine->>Input: update()
-        Engine->>Network: poll()
-        Network-->>Engine: packets
-
-        Engine->>Scene: update(engine)
-        Scene->>Scene: handleInput()
-        Scene->>Scene: handleNetwork()
-
-        Engine->>Renderer: clear()
-        Engine->>Scene: render(renderer)
-        Engine->>Renderer: present()
-    end
-```
-
----
-
-## Factory Pattern (Renderer)
+L'Engine charge le backend graphique dynamiquement:
 
 ```cpp
-std::unique_ptr<Renderer> Engine::createRenderer(
-    const std::string& backend)
-{
-    if (backend == "sdl2") {
-        return std::make_unique<SDL2Renderer>();
-    } else if (backend == "sfml") {
-        return std::make_unique<SFMLRenderer>();
-    }
-    throw std::runtime_error("Unknown backend: " + backend);
+std::string Engine::buildLibraryName(const std::string& name) const {
+    // Linux: librtype_sfml.so
+    // Windows: rtype_sfml.dll
+    // macOS: librtype_sfml.dylib
+    #ifdef _WIN32
+        return name + ".dll";
+    #elif __APPLE__
+        return "lib" + name + ".dylib";
+    #else
+        return "lib" + name + ".so";
+    #endif
 }
 ```
 
 ---
 
-## Thread Safety
+## Composants Associés
 
-Le moteur s'exécute sur un seul thread (thread principal). Les opérations réseau utilisent des callbacks asynchrones mais sont traités dans la boucle principale.
+| Composant | Fichier | Description |
+|-----------|---------|-------------|
+| `GameLoop` | `core/GameLoop.hpp` | Boucle de jeu principale |
+| `IWindow` | `graphics/IWindow.hpp` | Interface fenêtre |
+| `SceneManager` | `scenes/SceneManager.hpp` | Gestionnaire de scènes |
+| `UDPClient` | `network/UDPClient.hpp` | Client UDP |
+| `TCPClient` | `network/TCPClient.hpp` | Client TCP |
 
-| Composant | Thread |
-|-----------|--------|
-| Window | Main |
-| Renderer | Main |
-| SceneManager | Main |
-| NetworkClient | Main (polling) |
-| AudioManager | Main + Audio thread |
+---
+
+## Backends Graphiques
+
+| Backend | Bibliothèque | Fichier |
+|---------|--------------|---------|
+| SFML | `librtype_sfml.so` | `lib/sfml/` |
+| SDL2 | `librtype_sdl2.so` | `lib/sdl2/` |
+
+Chaque backend implémente l'interface `IGraphicPlugin`:
+
+```cpp
+class IGraphicPlugin {
+public:
+    virtual ~IGraphicPlugin() = default;
+    virtual std::shared_ptr<IWindow> createWindow(
+        int width, int height,
+        const std::string& title
+    ) = 0;
+};
+```

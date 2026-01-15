@@ -5,23 +5,30 @@ tags:
   - session
 ---
 
-# ClientSession
+# SessionManager
 
-Représente une session client connectée au serveur.
+Gestionnaire des sessions utilisateur (authentification et liaison TCP/UDP).
 
 ## Synopsis
 
 ```cpp
-#include "server/ClientSession.hpp"
+#include "infrastructure/session/SessionManager.hpp"
 
-// Création lors de la connexion TCP
-auto session = std::make_unique<ClientSession>(
-    nextPlayerId_++,
-    std::move(tcpConnection)
-);
+using namespace infrastructure::session;
 
-// Envoi de paquet
-session->send(WelcomePacket{session->id()});
+SessionManager sessions;
+
+// After TCP login
+auto result = sessions.createSession(email, displayName);
+if (result) {
+    sendToClient(result->token);
+}
+
+// When UDP JoinGame received
+auto validation = sessions.validateToken(token, roomCode);
+if (validation) {
+    // Player authenticated
+}
 ```
 
 ---
@@ -29,69 +36,142 @@ session->send(WelcomePacket{session->id()});
 ## Déclaration
 
 ```cpp
-namespace rtype::server {
+namespace infrastructure::session {
 
-class ClientSession {
+class SessionManager {
 public:
-    ClientSession(PlayerId id, TcpConnection&& tcp);
-    ~ClientSession();
+    // Token validity before UDP connection (5 minutes)
+    static constexpr auto TOKEN_VALIDITY = std::chrono::minutes(5);
 
-    // Identité
-    PlayerId id() const;
-    const std::string& username() const;
-    void setUsername(const std::string& name);
+    // Session timeout for inactivity (30 seconds)
+    static constexpr auto SESSION_TIMEOUT = std::chrono::seconds(30);
 
-    // État
-    SessionState state() const;
-    bool isAuthenticated() const;
-    bool isInRoom() const;
-    RoomId currentRoom() const;
+    SessionManager() = default;
+    ~SessionManager() = default;
 
-    // Réseau TCP
-    void send(const Packet& packet);
-    void disconnect();
-    bool isConnected() const;
+    // ═══════════════════════════════════════════════════════════════
+    // Called by TCPAuthServer after successful login
+    // ═══════════════════════════════════════════════════════════════
 
-    // Réseau UDP
-    void setUdpEndpoint(const UdpEndpoint& endpoint);
-    const UdpEndpoint& udpEndpoint() const;
-    bool hasUdp() const;
+    struct CreateSessionResult {
+        SessionToken token;
+        std::string displayName;
+    };
 
-    // Voice
-    void setVoiceEndpoint(const UdpEndpoint& endpoint);
-    bool hasVoice() const;
+    std::optional<CreateSessionResult> createSession(
+        const std::string& email,
+        const std::string& displayName);
 
-    // Callbacks
-    void onPacket(const Packet& packet);
-    void onDisconnect();
+    // ═══════════════════════════════════════════════════════════════
+    // Called by UDPServer to validate connections
+    // ═══════════════════════════════════════════════════════════════
+
+    struct ValidateResult {
+        std::string email;
+        std::string displayName;
+        uint8_t shipSkin;
+    };
+
+    std::optional<ValidateResult> validateToken(
+        const SessionToken& token,
+        const std::string& roomCode);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Session management
+    // ═══════════════════════════════════════════════════════════════
+
+    void invalidateSession(const std::string& email);
+    bool hasActiveSession(const std::string& email) const;
+    std::optional<std::string> getEmailByToken(const SessionToken& token) const;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Room association
+    // ═══════════════════════════════════════════════════════════════
+
+    void setSessionRoom(const std::string& email, const std::string& roomCode);
+    void clearSessionRoom(const std::string& email);
+    std::optional<std::string> getSessionRoom(const std::string& email) const;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Ship skin
+    // ═══════════════════════════════════════════════════════════════
+
+    void setSessionShipSkin(const std::string& email, uint8_t shipSkin);
+    uint8_t getSessionShipSkin(const std::string& email) const;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Cleanup
+    // ═══════════════════════════════════════════════════════════════
+
+    size_t cleanupExpiredTokens();
+    size_t getActiveSessionCount() const;
 
 private:
-    PlayerId id_;
-    std::string username_;
-    SessionState state_ = SessionState::Connected;
-    RoomId currentRoom_ = 0;
+    mutable std::shared_mutex _mutex;
 
-    TcpConnection tcp_;
-    std::optional<UdpEndpoint> udpEndpoint_;
-    std::optional<UdpEndpoint> voiceEndpoint_;
+    struct Session {
+        SessionToken token;
+        std::string email;
+        std::string displayName;
+        std::string roomCode;
+        uint8_t shipSkin = 1;
+        std::chrono::steady_clock::time_point createdAt;
+        std::chrono::steady_clock::time_point lastActivity;
+        bool udpConnected = false;
+    };
+
+    std::unordered_map<std::string, Session> _sessionsByEmail;
+    std::unordered_map<std::string, std::string> _tokenToEmail;
 };
 
-} // namespace rtype::server
+} // namespace infrastructure::session
 ```
 
 ---
 
-## Types
+## Flux d'Authentification
 
-### SessionState
+```mermaid
+sequenceDiagram
+    participant Client
+    participant TCP as TCPAuthServer
+    participant SM as SessionManager
+    participant UDP as UDPServer
+
+    Client->>TCP: Login(email, password)
+    TCP->>TCP: Validate credentials
+    TCP->>SM: createSession(email, displayName)
+    SM-->>TCP: SessionToken
+    TCP-->>Client: LoginAck + Token
+
+    Note over Client: Client stores token
+
+    Client->>TCP: JoinRoomByCode(code)
+    TCP->>SM: setSessionRoom(email, code)
+    TCP-->>Client: JoinRoomAck
+
+    Client->>UDP: JoinGame(token, roomCode)
+    UDP->>SM: validateToken(token, roomCode)
+    SM-->>UDP: ValidateResult{email, displayName, shipSkin}
+    UDP->>UDP: addPlayer()
+    UDP-->>Client: JoinGameAck + PlayerId
+```
+
+---
+
+## SessionToken
+
+Token de 32 bytes (256 bits) généré cryptographiquement.
 
 ```cpp
-enum class SessionState {
-    Connected,      // TCP connecté
-    Authenticated,  // Login réussi
-    InLobby,        // Dans le lobby
-    InRoom,         // Dans un salon
-    Playing         // En jeu
+struct SessionToken {
+    uint8_t bytes[TOKEN_SIZE];  // TOKEN_SIZE = 32
+
+    std::string toHex() const;
+    static std::optional<SessionToken> fromHex(const std::string& hex);
+
+    void to_bytes(uint8_t* buf) const;
+    static std::optional<SessionToken> from_bytes(const void* buf, size_t len);
 };
 ```
 
@@ -99,92 +179,47 @@ enum class SessionState {
 
 ## Méthodes
 
-### `send()`
+### `createSession()`
 
 ```cpp
-void send(const Packet& packet);
+std::optional<CreateSessionResult> createSession(
+    const std::string& email,
+    const std::string& displayName);
 ```
 
-Envoie un paquet TCP au client.
+Crée une nouvelle session après authentification TCP.
 
-**Paramètres:**
+**Retour:** Token et displayName, ou `nullopt` si session déjà active
 
-| Nom | Type | Description |
-|-----|------|-------------|
-| `packet` | `Packet` | Paquet à envoyer |
-
-**Exemple:**
-
-```cpp
-// Envoyer un message de chat
-session->send(ChatMessagePacket{
-    .senderId = 0,  // Server
-    .message = "Welcome to R-Type!"
-});
-```
+**Note:** Le token est valide pendant 5 minutes pour la connexion UDP.
 
 ---
 
-### `setUdpEndpoint()`
+### `validateToken()`
 
 ```cpp
-void setUdpEndpoint(const UdpEndpoint& endpoint);
+std::optional<ValidateResult> validateToken(
+    const SessionToken& token,
+    const std::string& roomCode);
 ```
 
-Associe un endpoint UDP au client.
+Valide un token UDP et vérifie la room.
 
-**Note:** Appelé après réception du premier paquet UDP du client.
+**Conditions de validation:**
+- Token existe et non expiré
+- Room code correspond à la session
 
-```cpp
-void UdpServer::onPacket(const UdpEndpoint& sender,
-                          const Packet& packet)
-{
-    if (packet.type == PacketType::UdpHandshake) {
-        auto* session = findSessionById(packet.playerId);
-        if (session) {
-            session->setUdpEndpoint(sender);
-        }
-    }
-}
-```
+**Retour:** Email, displayName et shipSkin, ou `nullopt`
 
 ---
 
-### `onPacket()`
+### `invalidateSession()`
 
 ```cpp
-void onPacket(const Packet& packet);
+void invalidateSession(const std::string& email);
 ```
 
-Traite un paquet reçu du client.
-
-**Exemple d'implémentation:**
-
-```cpp
-void ClientSession::onPacket(const Packet& packet) {
-    switch (packet.type) {
-        case PacketType::Login:
-            handleLogin(packet.as<LoginPacket>());
-            break;
-
-        case PacketType::JoinRoom:
-            handleJoinRoom(packet.as<JoinRoomPacket>());
-            break;
-
-        case PacketType::Chat:
-            handleChat(packet.as<ChatPacket>());
-            break;
-
-        case PacketType::Input:
-            handleInput(packet.as<InputPacket>());
-            break;
-
-        default:
-            // Unknown packet type
-            break;
-    }
-}
-```
+Invalide la session (déconnexion ou timeout).
 
 ---
 
@@ -192,102 +227,44 @@ void ClientSession::onPacket(const Packet& packet) {
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Connected: TCP Connect
+    [*] --> Created: createSession()
 
-    Connected --> Authenticated: Login OK
-    Connected --> [*]: Disconnect
+    Created --> UDPConnected: validateToken()
+    Created --> Expired: TOKEN_VALIDITY (5min)
+    Created --> Invalidated: invalidateSession()
 
-    Authenticated --> InLobby: Enter Lobby
-    Authenticated --> [*]: Disconnect
+    UDPConnected --> Active: Playing
+    UDPConnected --> Invalidated: disconnect
 
-    InLobby --> InRoom: Join Room
-    InLobby --> [*]: Disconnect
+    Active --> Inactive: No activity
+    Inactive --> Active: Activity
+    Inactive --> TimedOut: SESSION_TIMEOUT (30s)
 
-    InRoom --> Playing: Game Start
-    InRoom --> InLobby: Leave Room
-    InRoom --> [*]: Disconnect
-
-    Playing --> InRoom: Game End
-    Playing --> [*]: Disconnect
+    Expired --> [*]
+    Invalidated --> [*]
+    TimedOut --> [*]
 ```
 
 ---
 
-## Diagramme de Séquence
+## Timeouts
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant TCP as TcpServer
-    participant Session as ClientSession
-    participant RM as RoomManager
-
-    Client->>TCP: connect()
-    TCP->>Session: new ClientSession()
-    Session-->>Client: Connected
-
-    Client->>Session: LoginPacket
-    Session->>Session: authenticate()
-    Session-->>Client: LoginAckPacket
-
-    Client->>Session: JoinRoomPacket
-    Session->>RM: joinRoom(roomId, this)
-    RM-->>Session: success
-    Session-->>Client: JoinRoomAckPacket
-
-    Note over Client,Session: UDP Handshake
-
-    Client->>Session: UdpHandshakePacket
-    Session->>Session: setUdpEndpoint()
-    Session-->>Client: UdpHandshakeAckPacket
-
-    loop Game Loop
-        Client->>Session: InputPacket (UDP)
-        Session->>RM: processInput()
-    end
-```
-
----
-
-## Gestion des Timeouts
-
-```cpp
-class ClientSession {
-    static constexpr auto TCP_TIMEOUT = std::chrono::seconds(30);
-    static constexpr auto UDP_TIMEOUT = std::chrono::seconds(5);
-
-    std::chrono::steady_clock::time_point lastTcpActivity_;
-    std::chrono::steady_clock::time_point lastUdpActivity_;
-
-public:
-    void updateTcpActivity() {
-        lastTcpActivity_ = std::chrono::steady_clock::now();
-    }
-
-    void updateUdpActivity() {
-        lastUdpActivity_ = std::chrono::steady_clock::now();
-    }
-
-    bool isTcpTimedOut() const {
-        return std::chrono::steady_clock::now() - lastTcpActivity_
-               > TCP_TIMEOUT;
-    }
-
-    bool isUdpTimedOut() const {
-        if (!hasUdp()) return false;
-        return std::chrono::steady_clock::now() - lastUdpActivity_
-               > UDP_TIMEOUT;
-    }
-};
-```
+| Timeout | Durée | Description |
+|---------|-------|-------------|
+| `TOKEN_VALIDITY` | 5 minutes | Temps pour connecter UDP après login |
+| `SESSION_TIMEOUT` | 30 secondes | Inactivité avant déconnexion |
 
 ---
 
 ## Thread Safety
 
-| Méthode | Thread-Safe |
-|---------|-------------|
-| `send()` | Oui (buffer interne) |
-| `onPacket()` | Non (appelé depuis thread réseau) |
-| `state()` | Oui (atomic) |
-| `setUdpEndpoint()` | Non |
+La classe utilise un `shared_mutex` pour permettre des lectures concurrentes.
+
+| Méthode | Verrouillage |
+|---------|--------------|
+| `createSession()` | Exclusif |
+| `validateToken()` | Exclusif |
+| `invalidateSession()` | Exclusif |
+| `hasActiveSession()` | Partagé |
+| `getEmailByToken()` | Partagé |
+| `getActiveSessionCount()` | Partagé |

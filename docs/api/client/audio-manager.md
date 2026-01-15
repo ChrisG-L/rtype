@@ -5,233 +5,169 @@ tags:
   - audio
 ---
 
-# AudioManager
+# Audio
 
-Gestionnaire audio pour les effets sonores, la musique et le voice chat.
+Système audio pour les effets sonores, la musique et le chat vocal.
 
-## Synopsis
+## Vue d'Ensemble
 
-```cpp
-#include "client/AudioManager.hpp"
+Le système audio est composé de deux classes principales:
 
-AudioManager audio;
-
-// Load sounds
-audio.loadSound("shoot", "assets/sounds/shoot.wav");
-audio.loadMusic("theme", "assets/music/theme.ogg");
-
-// Play
-audio.playSound("shoot");
-audio.playMusic("theme", true);  // loop
-
-// Voice chat
-audio.initVoice("localhost", 4244);
-audio.setVoiceMode(VoiceMode::PushToTalk);
-```
+| Classe | Fichier | Usage |
+|--------|---------|-------|
+| `AudioManager` | `audio/AudioManager.hpp` | Musique et effets sonores |
+| `VoiceChatManager` | `audio/VoiceChatManager.hpp` | Chat vocal |
 
 ---
 
-## Déclaration
+## AudioManager
+
+Gestionnaire audio pour les effets sonores et la musique (singleton).
+
+### Synopsis
 
 ```cpp
-namespace rtype::client {
+#include "audio/AudioManager.hpp"
+
+auto& audio = audio::AudioManager::getInstance();
+audio.init();
+
+// Load and play
+audio.loadMusic("bgm", "assets/audio/background.ogg");
+audio.loadSound("shoot", "assets/audio/shoot.wav");
+
+audio.playMusic("bgm");
+audio.playSound("shoot");
+```
+
+### Déclaration
+
+```cpp
+namespace audio {
 
 class AudioManager {
 public:
-    AudioManager();
-    ~AudioManager();
+    static AudioManager& getInstance();
 
-    // Initialization
-    void init();
+    // Lifecycle
+    bool init();
     void shutdown();
-
-    // Sound effects
-    void loadSound(const std::string& name, const std::string& path);
-    void playSound(const std::string& name);
-    void stopSound(const std::string& name);
+    bool isInitialized() const;
 
     // Music
-    void loadMusic(const std::string& name, const std::string& path);
-    void playMusic(const std::string& name, bool loop = true);
+    bool loadMusic(const std::string& key, const std::string& filepath);
+    void playMusic(const std::string& key, int loops = -1);
     void stopMusic();
     void pauseMusic();
     void resumeMusic();
     bool isMusicPlaying() const;
 
-    // Volume control
-    void setMasterVolume(float volume);
-    void setMusicVolume(float volume);
-    void setSfxVolume(float volume);
-    void setVoiceVolume(float volume);
-    float masterVolume() const;
-    float musicVolume() const;
-    float sfxVolume() const;
-    float voiceVolume() const;
+    // Sound effects
+    bool loadSound(const std::string& key, const std::string& filepath);
+    int playSound(const std::string& key, int loops = 0);
 
-    // Voice chat
-    void initVoice(const std::string& host, uint16_t port);
-    void shutdownVoice();
-    void setVoiceMode(VoiceMode mode);
-    void setPushToTalkKey(KeyCode key);
-    bool isVoiceActive() const;
+    // Volume (0-100)
+    void setMusicVolume(int volume);
+    void setSoundVolume(int volume);
+    void setMasterVolume(int volume);
+    int getMusicVolume() const;
+    int getSoundVolume() const;
+
+    // Mute
     void setMuted(bool muted);
-    void setDeafened(bool deafened);
+    bool isMuted() const;
 
-    // Voice update (call each frame)
-    void updateVoice();
+    // Cleanup
+    void unloadAll();
 
 private:
-    std::unordered_map<std::string, Sound> sounds_;
-    std::unique_ptr<Music> currentMusic_;
-    std::unique_ptr<VoiceChat> voiceChat_;
+    AudioManager() = default;
+    ~AudioManager();
 
-    float masterVolume_ = 1.0f;
-    float musicVolume_ = 0.7f;
-    float sfxVolume_ = 1.0f;
-    float voiceVolume_ = 1.0f;
+    bool _initialized = false;
+    bool _muted = false;
+    int _musicVolume = 70;   // 0-100
+    int _soundVolume = 80;   // 0-100
+    int _masterVolume = 100; // 0-100
+
+    std::unordered_map<std::string, Mix_Music*> _music;
+    std::unordered_map<std::string, Mix_Chunk*> _sounds;
 };
 
-} // namespace rtype::client
+} // namespace audio
+```
+
+### Volumes
+
+Les volumes sont des entiers de **0 à 100** (pas des floats).
+
+```cpp
+audio.setMasterVolume(100);  // 100%
+audio.setMusicVolume(70);    // 70%
+audio.setSoundVolume(80);    // 80%
+
+// Volume effectif = master * category / 100
+int effectiveMusic = _masterVolume * _musicVolume / 100;
 ```
 
 ---
 
-## Types
+## VoiceChatManager
 
-### VoiceMode
+Gestionnaire de chat vocal (singleton séparé).
+
+### Synopsis
+
+```cpp
+#include "audio/VoiceChatManager.hpp"
+
+auto& voice = VoiceChatManager::getInstance();
+voice.init();
+voice.connect("localhost", 4126);
+voice.joinVoiceChannel(sessionToken, roomCode);
+
+// Push-to-Talk
+if (keyPressed) voice.startTalking();
+if (keyReleased) voice.stopTalking();
+```
+
+### Configuration Voice
+
+| Paramètre | Valeur | Description |
+|-----------|--------|-------------|
+| Port | **4126** | Port UDP voice |
+| Codec | Opus | Codec audio VoIP |
+| Sample Rate | 48000 Hz | Fréquence d'échantillonnage |
+| Frame Size | 960 samples | 20ms @ 48kHz |
+| Bitrate | 32 kbps | Qualité/bande passante |
+| Channels | 1 (mono) | Suffisant pour la voix |
+
+### Modes Voice
 
 ```cpp
 enum class VoiceMode {
-    PushToTalk,         // PTT - touche maintenue
-    VoiceActivation,    // VAD - détection automatique
-    Disabled            // Désactivé
+    PushToTalk,      // PTT - touche maintenue
+    VoiceActivity,   // VAD - détection automatique
+    Disabled         // Désactivé
 };
+
+voice.setVoiceMode(VoiceMode::PushToTalk);
+voice.setVADThreshold(0.02f);  // Sensibilité VAD
 ```
 
----
-
-## Méthodes
-
-### `playSound()`
+### Périphériques Audio
 
 ```cpp
-void playSound(const std::string& name);
-```
+// Lister les périphériques
+auto inputs = voice.getInputDevices();
+auto outputs = voice.getOutputDevices();
 
-Joue un effet sonore.
+// Sélectionner un périphérique
+voice.setPreferredInputDevice("Microphone USB");
+voice.setPreferredOutputDevice("Casque Gaming");
 
-**Paramètres:**
-
-| Nom | Type | Description |
-|-----|------|-------------|
-| `name` | `string` | Nom du son chargé |
-
-**Note:** Les sons peuvent être joués simultanément.
-
-```cpp
-// Tir
-void PlayerController::shoot() {
-    audio.playSound("shoot");
-    // ...
-}
-
-// Explosion
-void Enemy::onDestroy() {
-    audio.playSound("explosion");
-}
-```
-
----
-
-### `playMusic()`
-
-```cpp
-void playMusic(const std::string& name, bool loop = true);
-```
-
-Joue une musique.
-
-**Note:** Une seule musique peut jouer à la fois. Appeler cette méthode arrête la musique précédente.
-
-```cpp
-void MenuScene::onEnter(Engine& engine) {
-    engine.audio().playMusic("menu_theme", true);
-}
-
-void GameScene::onEnter(Engine& engine) {
-    engine.audio().playMusic("game_theme", true);
-}
-```
-
----
-
-### `setMasterVolume()`
-
-```cpp
-void setMasterVolume(float volume);
-```
-
-Définit le volume principal (affecte tous les sons).
-
-**Paramètres:**
-
-| Nom | Type | Plage | Description |
-|-----|------|-------|-------------|
-| `volume` | `float` | 0.0 - 1.0 | Volume principal |
-
-**Calcul du volume final:**
-
-```cpp
-float finalVolume = masterVolume_ * categoryVolume_ * soundVolume_;
-```
-
----
-
-### `initVoice()`
-
-```cpp
-void initVoice(const std::string& host, uint16_t port);
-```
-
-Initialise le chat vocal.
-
-**Paramètres:**
-
-| Nom | Type | Description |
-|-----|------|-------------|
-| `host` | `string` | Adresse serveur |
-| `port` | `uint16_t` | Port voice (4244) |
-
-**Exemple:**
-
-```cpp
-void LobbyScene::onJoinRoom(Engine& engine) {
-    engine.audio().initVoice(serverHost, 4244);
-    engine.audio().setVoiceMode(VoiceMode::PushToTalk);
-    engine.audio().setPushToTalkKey(KeyCode::V);
-}
-```
-
----
-
-### `updateVoice()`
-
-```cpp
-void updateVoice();
-```
-
-Met à jour le système de voice chat.
-
-**Note:** Doit être appelé à chaque frame.
-
-```cpp
-void Engine::gameLoop() {
-    while (running_) {
-        // ...
-        audio_->updateVoice();
-        // ...
-    }
-}
+// Appliquer et réinitialiser
+voice.applyAudioDevices(inputName, outputName);
 ```
 
 ---
@@ -240,10 +176,9 @@ void Engine::gameLoop() {
 
 ```mermaid
 flowchart TB
-    subgraph AudioManager
-        SFX[Sound Effects]
-        Music[Music Player]
-        Voice[VoiceChat]
+    subgraph Client
+        AM[AudioManager]
+        VM[VoiceChatManager]
     end
 
     subgraph Backend
@@ -252,81 +187,90 @@ flowchart TB
         Opus[Opus Codec]
     end
 
-    SFX --> SDL
-    Music --> SDL
-    Voice --> PA
-    Voice --> Opus
+    subgraph Server
+        VS[VoiceUDPServer<br/>Port 4126]
+    end
 
-    style AudioManager fill:#7c3aed,color:#fff
+    AM --> SDL
+    VM --> PA
+    VM --> Opus
+    VM <--> VS
+
+    style AM fill:#7c3aed,color:#fff
+    style VM fill:#ea580c,color:#fff
 ```
 
 ---
 
-## Effets Sonores Disponibles
-
-| Nom | Fichier | Description |
-|-----|---------|-------------|
-| `shoot` | shoot.wav | Tir joueur |
-| `explosion` | explosion.wav | Explosion |
-| `hit` | hit.wav | Impact |
-| `powerup` | powerup.wav | Bonus |
-| `menu_select` | select.wav | Sélection menu |
-| `menu_confirm` | confirm.wav | Confirmation |
-
----
-
-## Musiques Disponibles
-
-| Nom | Fichier | Durée |
-|-----|---------|-------|
-| `menu_theme` | menu.ogg | 2:30 |
-| `game_theme` | game.ogg | 4:00 |
-| `boss_theme` | boss.ogg | 3:00 |
-| `victory` | victory.ogg | 0:30 |
-| `gameover` | gameover.ogg | 0:15 |
-
----
-
-## Diagramme Voice Chat
+## Flux Voice Chat
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant AM as AudioManager
-    participant VC as VoiceChat
-    participant Server
+    participant Voice as VoiceChatManager
+    participant PA as PortAudio
+    participant Opus
+    participant Server as VoiceUDPServer
 
-    User->>AM: initVoice(host, port)
-    AM->>VC: init()
-    VC->>VC: initPortAudio()
-    VC->>VC: initOpusEncoder()
-    VC->>Server: connect(port)
+    User->>Voice: init()
+    Voice->>PA: Pa_Initialize()
+    Voice->>Opus: opus_encoder_create()
 
-    loop Voice Active
-        VC->>VC: captureAudio()
-        VC->>VC: encodeOpus()
-        VC->>Server: sendVoicePacket()
+    User->>Voice: connect("host", 4126)
+    Voice->>Server: UDP connect
 
-        Server->>VC: receiveVoicePacket()
-        VC->>VC: decodeOpus()
-        VC->>VC: playAudio()
+    User->>Voice: joinVoiceChannel(token, room)
+    Voice->>Server: VoiceJoin
+    Server-->>Voice: VoiceJoinAck
+
+    loop Push-to-Talk Active
+        PA->>Voice: Audio samples
+        Voice->>Opus: Encode
+        Opus-->>Voice: Opus frame
+        Voice->>Server: VoiceFrame
+
+        Server->>Voice: VoiceFrame (autres joueurs)
+        Voice->>Opus: Decode
+        Opus-->>Voice: PCM samples
+        Voice->>PA: Play audio
     end
 ```
 
 ---
 
-## Configuration
+## Fichiers Audio
 
-```json
-{
-  "audio": {
-    "master": 1.0,
-    "music": 0.7,
-    "sfx": 1.0,
-    "voice": 1.0,
-    "voiceMode": "push_to_talk",
-    "pttKey": "V",
-    "vadThreshold": 0.02
-  }
-}
+### Formats Supportés
+
+| Format | Extension | Usage |
+|--------|-----------|-------|
+| OGG Vorbis | `.ogg` | Musique |
+| WAV | `.wav` | Effets sonores |
+| FLAC | `.flac` | Musique HQ |
+| MP3 | `.mp3` | Musique |
+
+### Assets Audio
+
+Les fichiers audio sont dans `assets/audio/`:
+
 ```
+assets/audio/
+├── music/
+│   ├── menu.ogg
+│   └── game.ogg
+└── sfx/
+    ├── shoot.wav
+    ├── explosion.wav
+    └── hit.wav
+```
+
+---
+
+## Thread Safety
+
+| Classe | Thread Model |
+|--------|--------------|
+| `AudioManager` | Main thread only |
+| `VoiceChatManager` | Internal audio thread |
+
+Le `VoiceChatManager` utilise un thread PortAudio pour la capture et la lecture audio. Les appels aux méthodes publiques sont thread-safe.

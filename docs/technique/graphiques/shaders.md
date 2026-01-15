@@ -237,56 +237,67 @@ void main() {
 
 ---
 
-## Intégration SDL2/SFML
+## Support par Backend
 
-### Avec SDL2 + OpenGL
+!!! warning "SFML uniquement"
+    Les shaders post-processing ne sont supportés que par le backend **SFML**.
+    Le backend SDL2 utilise une approche différente (voir ci-dessous).
+
+### SFML : Shaders GLSL
 
 ```cpp
-class SDL2PostProcessor : public PostProcessor {
-    SDL_GLContext glContext_;
+class SFMLWindow : public IWindow {
+    sf::Shader _colorblindShader;
+    sf::RenderTexture _renderTexture;
+    std::string _activeShader;
 
 public:
-    void init(SDL_Window* window) {
-        glContext_ = SDL_GL_CreateContext(window);
-
-        // Load shaders
-        loadShader("bloom", "shaders/bloom.vert", "shaders/bloom.frag");
-        loadShader("colorblind", "shaders/colorblind.vert",
-                   "shaders/colorblind.frag");
-
-        PostProcessor::init(1920, 1080);
+    bool loadShader(const std::string& key,
+                    const std::string& vertPath,
+                    const std::string& fragPath) override {
+        return _shaders[key].loadFromFile(vertPath, fragPath);
     }
+
+    void setPostProcessShader(const std::string& key) override {
+        _activeShader = key;
+    }
+
+    void beginFrame() override {
+        _renderTexture.clear();
+        // Render to texture instead of window
+    }
+
+    void endFrame() override {
+        // Apply shader and draw to window
+        sf::Sprite sprite(_renderTexture.getTexture());
+        _window.draw(sprite, &_shaders[_activeShader]);
+    }
+
+    bool supportsShaders() const override { return true; }
 };
 ```
 
-### Avec SFML
+### SDL2 : Pas de Shaders
+
+SDL2 **ne supporte pas les shaders** dans cette implémentation.
 
 ```cpp
-class SFMLPostProcessor {
-    sf::Shader colorblindShader_;
-    sf::RenderTexture renderTexture_;
-
-public:
-    void init() {
-        renderTexture_.create(1920, 1080);
-
-        colorblindShader_.loadFromFile(
-            "shaders/colorblind.frag",
-            sf::Shader::Fragment
-        );
-    }
-
-    void setColorblindMode(ColorblindMode mode) {
-        colorblindShader_.setUniform("colorblindMode",
-                                     static_cast<int>(mode));
-    }
-
-    void apply(sf::RenderTarget& target) {
-        sf::Sprite sprite(renderTexture_.getTexture());
-        target.draw(sprite, &colorblindShader_);
-    }
+class SDL2Window : public IWindow {
+    bool loadShader(...) override { return false; }
+    void setPostProcessShader(...) override { /* no-op */ }
+    bool supportsShaders() const override { return false; }
 };
 ```
+
+Pour le mode daltonien, SDL2 utilise `AccessibilityConfig` qui fournit des **palettes de couleurs alternatives** au lieu de transformer l'image :
+
+```cpp
+// Le code de rendu utilise les couleurs de AccessibilityConfig
+auto color = AccessibilityConfig::getInstance().getPlayerColor();
+window.drawRect(x, y, w, h, {color.r, color.g, color.b, color.a});
+```
+
+Voir [Accessibilité](../../configuration/accessibilite.md) pour plus de détails.
 
 ---
 

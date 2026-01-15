@@ -13,9 +13,9 @@ R-Type utilise 3 protocoles de communication.
 
 | Protocole | Port | Usage |
 |-----------|------|-------|
-| **TCP** | 4242 | Auth, rooms, chat |
-| **UDP** | 4242 | Game sync |
-| **Voice** | 4243 | Audio temps réel |
+| **TCP** | 4125 | Auth (TLS), rooms, chat |
+| **UDP** | 4124 | Game sync |
+| **Voice** | 4126 | Audio temps réel |
 
 ```mermaid
 flowchart LR
@@ -31,9 +31,9 @@ flowchart LR
         S3[Voice Server]
     end
 
-    C1 <-->|TCP 4242| S1
-    C2 <-->|UDP 4242| S2
-    C3 <-->|UDP 4243| S3
+    C1 <-->|TCP 4125| S1
+    C2 <-->|UDP 4124| S2
+    C3 <-->|UDP 4126| S3
 
     style S1 fill:#3b82f6,color:#fff
     style S2 fill:#10b981,color:#fff
@@ -84,23 +84,39 @@ Pour l'**audio** avec codec Opus.
 
 ---
 
-## Format Commun
+## Format des Headers
 
-Tous les paquets partagent un header commun :
+### Header TCP (7 bytes)
 
 ```
-┌─────────┬──────┬─────────┬──────┬─────────┐
-│ Magic   │ Type │ Seq     │ Size │ Data    │
-│ 2 bytes │ 1 B  │ 4 bytes │ 2 B  │ ...     │
-└─────────┴──────┴─────────┴──────┴─────────┘
+┌───────────────┬──────────┬─────────────┐
+│ isAuthenticated│ Type     │ PayloadSize │
+│ 1 byte        │ 2 bytes  │ 4 bytes     │
+└───────────────┴──────────┴─────────────┘
 ```
 
 ```cpp
-struct PacketHeader {
-    uint16_t magic = 0x5254;  // "RT"
-    uint8_t type;
-    uint32_t sequence;
-    uint16_t size;
+struct Header {
+    uint8_t isAuthenticated;  // 0 ou 1
+    uint16_t type;            // Network byte order
+    uint32_t payload_size;    // Network byte order
+};
+```
+
+### Header UDP (12 bytes)
+
+```
+┌──────────┬─────────┬────────────┬─────────┐
+│ Type     │ Seq     │ Timestamp  │ Data    │
+│ 2 bytes  │ 2 bytes │ 8 bytes    │ ...     │
+└──────────┴─────────┴────────────┴─────────┘
+```
+
+```cpp
+struct UDPHeader {
+    uint16_t type;          // MessageType (network order)
+    uint16_t sequence_num;  // Numéro de séquence
+    uint64_t timestamp;     // Millisecondes depuis epoch
 };
 ```
 
@@ -121,16 +137,16 @@ sequenceDiagram
     C->>S: JOIN_ROOM
     S->>C: ROOM_INFO
 
-    Note over C,S: Phase Game (UDP)
-    loop 60 Hz
-        C->>S: INPUT
-        S->>C: STATE
+    Note over C,S: Phase Game (UDP 4124)
+    loop 20 Hz (Snapshot)
+        C->>S: PlayerInput
+        S->>C: Snapshot
     end
 
-    Note over C,S: Voice (UDP 4243)
+    Note over C,S: Voice (UDP 4126)
     loop Continu
-        C->>S: VOICE_DATA
-        S->>C: VOICE_DATA (autres joueurs)
+        C->>S: VoiceFrame
+        S->>C: VoiceFrame (autres joueurs)
     end
 ```
 

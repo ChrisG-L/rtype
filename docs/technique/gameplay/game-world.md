@@ -58,12 +58,14 @@ classDiagram
 
 ## Tick System
 
-Le serveur fonctionne à **60 ticks/seconde** (16.67ms par tick).
+Le serveur broadcast les snapshots à **20 Hz** (50ms par tick).
 
 ```cpp
+// Dans UDPServer.cpp
+static constexpr int BROADCAST_INTERVAL_MS = 50;  // 20 Hz
+
 class GameWorld {
-    static constexpr float TICK_RATE = 60.0f;
-    static constexpr float TICK_DURATION = 1.0f / TICK_RATE;
+    static constexpr float TICK_DURATION = 0.05f;  // 50ms
 
 public:
     void tick() {
@@ -211,9 +213,10 @@ GameSnapshot GameWorld::getSnapshot() const {
 
 | Constante | Valeur | Description |
 |-----------|--------|-------------|
-| `TICK_RATE` | 60 Hz | Mises à jour/seconde |
+| `BROADCAST_INTERVAL_MS` | 50 | Broadcast 20 Hz |
 | `WORLD_WIDTH` | 1920 | Largeur monde |
 | `WORLD_HEIGHT` | 1080 | Hauteur monde |
-| `PLAYER_SPEED` | 300 | Pixels/seconde |
+| `PLAYER_SPEED` | 200 | Pixels/seconde |
 | `MISSILE_SPEED` | 600 | Pixels/seconde |
 | `MAX_PLAYERS` | 4 | Joueurs max |
+| `PLAYER_TIMEOUT_MS` | 2000 | Timeout déconnexion |

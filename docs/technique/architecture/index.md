@@ -57,9 +57,8 @@ flowchart TB
 | Principe | Application |
 |----------|-------------|
 | **Hexagonal** | Serveur (Ports & Adapters) |
-| **Plugin** | Client (backends graphiques) |
+| **Plugin** | Client (backends graphiques via dlopen) |
 | **DDD** | Domain-Driven Design serveur |
-| **ECS** | Entity Component System (optionnel) |
 
 ---
 
@@ -68,10 +67,9 @@ flowchart TB
 | Composant | Technologie |
 |-----------|-------------|
 | Langage | C++23 |
-| Build | CMake 3.20+ |
+| Build | CMake 3.30+, Ninja, vcpkg |
 | Réseau | Boost.ASIO |
-| Logging | spdlog |
-| JSON | nlohmann/json |
-| Graphiques | SDL2 / SFML |
+| Sécurité | OpenSSL (TLS 1.2+) |
+| Graphiques | SDL2 / SFML (multi-backend) |
 | Audio | PortAudio, Opus |
 | BDD | MongoDB |

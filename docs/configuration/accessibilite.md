@@ -6,84 +6,126 @@ tags:
 
 # Accessibilité
 
+## Stockage
+
+Les paramètres d'accessibilité sont stockés **côté serveur** (MongoDB) et synchronisés à la connexion.
+
+| Paramètre | Champ MongoDB | Type |
+|-----------|---------------|------|
+| Mode couleur | `colorBlindMode` | string (16 chars) |
+| Keybindings | `keyBindings` | uint8[14] |
+| Ship skin | `shipSkin` | uint8 (1-6) |
+| Game speed | `gameSpeedPercent` | uint16 (50-200) |
+
+---
+
 ## Modes Daltonien (5 modes)
 
-| Mode | Type | Description |
+| Mode | Enum | Description |
 |------|------|-------------|
-| `normal` | Standard | Couleurs d'origine |
-| `protanopia` | Rouge | Sans cônes rouges |
-| `deuteranopia` | Vert | Sans cônes verts |
-| `tritanopia` | Bleu | Sans cônes bleus |
-| `achromatopsia` | Mono | Nuances de gris |
+| `none` | 0 | Couleurs d'origine |
+| `protanopia` | 1 | Déficience rouge |
+| `deuteranopia` | 2 | Déficience vert |
+| `tritanopia` | 3 | Déficience bleu |
+| `highcontrast` | 4 | Contraste élevé |
 
-### Configuration
+Source : `AccessibilityConfig.hpp`
 
-```json
-{
-  "accessibility": {
-    "color_mode": "deuteranopia"
-  }
-}
+### Implémentation selon le Backend
+
+!!! warning "Différence SFML / SDL2"
+    L'implémentation du mode daltonien **diffère selon le backend graphique**.
+
+#### SFML : Shaders Post-Processing (vraie simulation)
+
+SFML applique un **shader GLSL** qui transforme **toute l'image** via des matrices de daltonisme :
+
+```cpp
+// Activation du shader
+_window->setPostProcessShader("colorblind");
+_window->setShaderUniform("colorBlindMode", static_cast<int>(mode));
+
+// Le shader applique une transformation matricielle sur chaque pixel
+// Ex: mat3 DEUTERANOPIA transforme RGB pour simuler la vision
 ```
 
-### Implémentation
+Les shaders sont dans `assets/shaders/colorblind.frag`.
 
-Filtres appliqués via **shaders post-processing** :
+#### SDL2 : Palette de Couleurs (approximation)
 
-```glsl
-vec3 applyColorBlindFilter(vec3 color, int mode) {
-    mat3 filter;
-    if (mode == PROTANOPIA) {
-        filter = mat3(
-            0.567, 0.433, 0.0,
-            0.558, 0.442, 0.0,
-            0.0,   0.242, 0.758
-        );
-    }
-    return filter * color;
-}
+SDL2 **ne supporte pas les shaders**. À la place, `AccessibilityConfig` fournit des **couleurs distinctives** pour chaque élément du jeu :
+
+```cpp
+// AccessibilityConfig.cpp - Palette pour protanopia/deuteranopia
+case ColorBlindMode::Deuteranopia:
+    _playerColor        = {100, 100, 255, 255};  // Bleu
+    _enemyColor         = {180, 100, 255, 255};  // Violet
+    _playerMissileColor = {100, 255, 255, 255};  // Cyan
+    _enemyMissileColor  = {255, 150, 255, 255};  // Rose
+    break;
 ```
+
+#### Comparaison
+
+| Backend | Méthode | Scope | Qualité |
+|---------|---------|-------|---------|
+| **SFML** | Shader post-processing | Toute l'image | Simulation fidèle |
+| **SDL2** | Palette `AccessibilityConfig` | Éléments UI/HUD | Couleurs distinctes |
 
 ---
 
-## Rebinding (7 touches)
+## Rebinding (7 actions)
 
-Actions personnalisables :
+| Action | Enum | Touches par défaut |
+|--------|------|-------------------|
+| Haut | `MoveUp` | Z / ↑ |
+| Bas | `MoveDown` | S / ↓ |
+| Gauche | `MoveLeft` | Q / ← |
+| Droite | `MoveRight` | D / → |
+| Tir | `Shoot` | Space |
+| Pause | `Pause` | Escape |
+| Push-to-Talk | `PushToTalk` | V |
 
-1. Haut
-2. Bas
-3. Gauche
-4. Droite
-5. Tir
-6. Pause
-7. Voice Chat
+### Stockage
 
-### Configuration
+Chaque action a 2 touches (primaire + secondaire).
+Format MongoDB : tableau de 14 bytes (7 actions × 2 touches).
 
-**In-Game** : Options → Contrôles
-
-**Fichier** `config/controls.json` :
-```json
-{
-  "keyboard": {
-    "move_up": "W",
-    "move_down": "S",
-    "move_left": "A",
-    "move_right": "D",
-    "shoot": "Space",
-    "pause": "Escape",
-    "voice_chat": "V"
-  }
-}
+```cpp
+// AccessibilityConfig.hpp
+std::array<std::array<events::Key, 2>, 7> _keyBindings;
 ```
+
+### Modification
+
+**In-Game** : Menu Options → Contrôles
 
 ---
 
-## Taille de Police
+## Ship Skins (6 variantes)
 
-| Taille | Échelle |
-|--------|---------|
-| `small` | 80% |
-| `medium` | 100% |
-| `large` | 125% |
-| `xlarge` | 150% |
+| Skin ID | Fichier |
+|---------|---------|
+| 1 | `Ship1.png` |
+| 2 | `Ship2.png` |
+| 3 | `Ship3.png` |
+| 4 | `Ship4.png` |
+| 5 | `Ship5.png` |
+| 6 | `Ship6.png` |
+
+Modifiable dans **Options → Personnalisation**.
+
+---
+
+## Vitesse de Jeu
+
+Pour l'accessibilité cognitive, la vitesse du jeu peut être ajustée.
+
+| Valeur | Multiplicateur |
+|--------|----------------|
+| 50 | 0.5× (lent) |
+| 100 | 1.0× (normal) |
+| 150 | 1.5× (rapide) |
+| 200 | 2.0× (max) |
+
+Configurable par le **host** de la room avant le lancement de la partie.

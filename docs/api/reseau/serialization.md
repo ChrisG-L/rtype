@@ -5,291 +5,211 @@ tags:
   - serialization
 ---
 
-# Serialization
+# Sérialisation
 
-Utilitaires de sérialisation binaire.
+Pattern de sérialisation binaire du protocole R-Type.
 
 ## Synopsis
 
 ```cpp
-#include "network/Serializer.hpp"
+#include "Protocol.hpp"
 
-// Writing
-Serializer writer;
-writer.write<uint32_t>(playerId);
-writer.write<float>(position.x);
-writer.writeString(username);
-auto bytes = writer.data();
+// Écriture
+PlayerState state{1, 100, 200, 100, 1, 42, 1};
+uint8_t buffer[PlayerState::WIRE_SIZE];
+state.to_bytes(buffer);
 
-// Reading
-Serializer reader(bytes);
-uint32_t id = reader.read<uint32_t>();
-float x = reader.read<float>();
-std::string name = reader.readString();
+// Lecture
+auto parsed = PlayerState::from_bytes(buffer, sizeof(buffer));
+if (parsed) {
+    // Utiliser *parsed
+}
 ```
 
 ---
 
-## Déclaration
+## Pattern de Sérialisation
+
+Chaque structure du protocole implémente deux méthodes statiques:
 
 ```cpp
-namespace rtype::network {
+struct ExampleMessage {
+    uint16_t value;
+    static constexpr size_t WIRE_SIZE = 2;
 
-class Serializer {
-public:
-    // Constructors
-    Serializer();
-    explicit Serializer(const std::vector<uint8_t>& data);
-    explicit Serializer(std::vector<uint8_t>&& data);
+    void to_bytes(uint8_t* buf) const {
+        uint16_t net_value = swap16(value);  // Host → Network (big-endian)
+        std::memcpy(buf, &net_value, 2);
+    }
 
-    // Writing
-    template<typename T>
-    void write(T value);
+    static std::optional<ExampleMessage> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
 
-    void writeBytes(const void* data, size_t size);
-    void writeString(const std::string& str);
-    void writeFixedString(const char* str, size_t maxLen);
+        uint16_t net_value;
+        std::memcpy(&net_value, buf, 2);
 
-    // Reading
-    template<typename T>
-    T read();
-
-    void readBytes(void* dest, size_t size);
-    std::string readString();
-    void readFixedString(char* dest, size_t maxLen);
-
-    // Access
-    const std::vector<uint8_t>& data() const;
-    std::vector<uint8_t>&& moveData();
-    size_t size() const;
-    size_t remaining() const;
-
-    // Position
-    size_t position() const;
-    void seek(size_t pos);
-    void reset();
-
-    // Validation
-    bool hasRemaining(size_t bytes) const;
-
-private:
-    std::vector<uint8_t> buffer_;
-    size_t readPos_ = 0;
+        ExampleMessage msg;
+        msg.value = swap16(net_value);  // Network → Host
+        return msg;
+    }
 };
-
-} // namespace rtype::network
 ```
 
 ---
 
-## Types Supportés
+## Byte Order
+
+Le protocole utilise **big-endian** (network byte order) pour tous les types multi-octets.
+
+### Fonctions de Conversion
+
+```cpp
+// Protocol.hpp
+inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
+inline uint32_t swap32(uint32_t v) { return __builtin_bswap32(v); }
+inline uint64_t swap64(uint64_t v) { return __builtin_bswap64(v); }
+```
+
+### Types et Tailles
 
 | Type | Taille | Endianness |
 |------|--------|------------|
 | `uint8_t` | 1 byte | - |
 | `int8_t` | 1 byte | - |
-| `uint16_t` | 2 bytes | Little-endian |
-| `int16_t` | 2 bytes | Little-endian |
-| `uint32_t` | 4 bytes | Little-endian |
-| `int32_t` | 4 bytes | Little-endian |
-| `uint64_t` | 8 bytes | Little-endian |
+| `uint16_t` | 2 bytes | Big-endian |
+| `int16_t` | 2 bytes | Big-endian |
+| `uint32_t` | 4 bytes | Big-endian |
+| `uint64_t` | 8 bytes | Big-endian |
 | `float` | 4 bytes | IEEE 754 |
-| `double` | 8 bytes | IEEE 754 |
 | `bool` | 1 byte | 0/1 |
 
 ---
 
-## Méthodes
+## Exemples de Structures
 
-### `write<T>()`
-
-```cpp
-template<typename T>
-void write(T value);
-```
-
-Écrit une valeur dans le buffer.
-
-**Exemple:**
-
-```cpp
-Serializer s;
-s.write<uint32_t>(42);
-s.write<float>(3.14f);
-s.write<bool>(true);
-```
-
-**Implémentation:**
-
-```cpp
-template<typename T>
-void Serializer::write(T value) {
-    static_assert(std::is_trivially_copyable_v<T>,
-                  "Type must be trivially copyable");
-
-    const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&value);
-    buffer_.insert(buffer_.end(), bytes, bytes + sizeof(T));
-}
-
-// Spécialisation pour garantir little-endian
-template<>
-void Serializer::write<uint32_t>(uint32_t value) {
-    buffer_.push_back(value & 0xFF);
-    buffer_.push_back((value >> 8) & 0xFF);
-    buffer_.push_back((value >> 16) & 0xFF);
-    buffer_.push_back((value >> 24) & 0xFF);
-}
-```
-
----
-
-### `read<T>()`
-
-```cpp
-template<typename T>
-T read();
-```
-
-Lit une valeur depuis le buffer.
-
-**Exceptions:** `std::runtime_error` si pas assez de données
-
-**Exemple:**
-
-```cpp
-Serializer s(receivedData);
-uint32_t id = s.read<uint32_t>();
-float x = s.read<float>();
-bool active = s.read<bool>();
-```
-
-**Implémentation:**
-
-```cpp
-template<typename T>
-T Serializer::read() {
-    if (!hasRemaining(sizeof(T))) {
-        throw std::runtime_error("Buffer underflow");
-    }
-
-    T value;
-    std::memcpy(&value, buffer_.data() + readPos_, sizeof(T));
-    readPos_ += sizeof(T);
-    return value;
-}
-
-// Spécialisation little-endian
-template<>
-uint32_t Serializer::read<uint32_t>() {
-    if (!hasRemaining(4)) throw std::runtime_error("Underflow");
-
-    uint32_t value = buffer_[readPos_] |
-                    (buffer_[readPos_ + 1] << 8) |
-                    (buffer_[readPos_ + 2] << 16) |
-                    (buffer_[readPos_ + 3] << 24);
-    readPos_ += 4;
-    return value;
-}
-```
-
----
-
-### `writeString()`
-
-```cpp
-void writeString(const std::string& str);
-```
-
-Écrit une string avec préfixe de longueur.
-
-**Format:** `[length:uint16][chars:N]`
-
-```cpp
-void Serializer::writeString(const std::string& str) {
-    write<uint16_t>(static_cast<uint16_t>(str.size()));
-    writeBytes(str.data(), str.size());
-}
-
-std::string Serializer::readString() {
-    uint16_t len = read<uint16_t>();
-    if (!hasRemaining(len)) {
-        throw std::runtime_error("Buffer underflow");
-    }
-    std::string result(
-        reinterpret_cast<const char*>(buffer_.data() + readPos_),
-        len
-    );
-    readPos_ += len;
-    return result;
-}
-```
-
----
-
-### `writeFixedString()`
-
-```cpp
-void writeFixedString(const char* str, size_t maxLen);
-```
-
-Écrit une string de taille fixe (paddée avec zeros).
-
-**Exemple:**
-
-```cpp
-char username[32] = "player1";
-s.writeFixedString(username, 32);  // Toujours 32 bytes
-```
-
-```cpp
-void Serializer::writeFixedString(const char* str, size_t maxLen) {
-    size_t len = std::min(std::strlen(str), maxLen - 1);
-    writeBytes(str, len);
-    // Padding
-    for (size_t i = len; i < maxLen; i++) {
-        write<uint8_t>(0);
-    }
-}
-```
-
----
-
-## Exemple: Sérialisation de Structure
+### PlayerState (9 bytes)
 
 ```cpp
 struct PlayerState {
-    uint32_t id;
-    float x, y;
+    uint8_t id;
+    uint16_t x, y;
     uint8_t health;
-    bool alive;
+    uint8_t alive;
+    uint16_t lastAckedInputSeq;
+    uint8_t shipSkin;
 
-    void serialize(Serializer& s) const {
-        s.write(id);
-        s.write(x);
-        s.write(y);
-        s.write(health);
-        s.write(alive);
+    static constexpr size_t WIRE_SIZE = 9;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = id;
+        uint16_t net_x = swap16(x);
+        uint16_t net_y = swap16(y);
+        std::memcpy(buf + 1, &net_x, 2);
+        std::memcpy(buf + 3, &net_y, 2);
+        buf[5] = health;
+        buf[6] = alive;
+        uint16_t net_seq = swap16(lastAckedInputSeq);
+        std::memcpy(buf + 7, &net_seq, 2);
+        // shipSkin may be in extended format
     }
 
-    void deserialize(Serializer& s) {
-        id = s.read<uint32_t>();
-        x = s.read<float>();
-        y = s.read<float>();
-        health = s.read<uint8_t>();
-        alive = s.read<bool>();
+    static std::optional<PlayerState> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+
+        PlayerState state;
+        state.id = ptr[0];
+
+        uint16_t net_x, net_y;
+        std::memcpy(&net_x, ptr + 1, 2);
+        std::memcpy(&net_y, ptr + 3, 2);
+        state.x = swap16(net_x);
+        state.y = swap16(net_y);
+
+        state.health = ptr[5];
+        state.alive = ptr[6];
+
+        uint16_t net_seq;
+        std::memcpy(&net_seq, ptr + 7, 2);
+        state.lastAckedInputSeq = swap16(net_seq);
+
+        return state;
     }
 };
+```
 
-// Usage
-PlayerState player{42, 100.5f, 200.0f, 100, true};
+### UDPHeader (12 bytes)
 
-Serializer writer;
-player.serialize(writer);
-auto bytes = writer.data();  // 14 bytes
+```cpp
+struct UDPHeader {
+    uint16_t type;
+    uint16_t sequence_num;
+    uint64_t timestamp;
 
-Serializer reader(bytes);
-PlayerState loaded;
-loaded.deserialize(reader);
+    static constexpr size_t WIRE_SIZE = 12;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        uint16_t net_type = swap16(type);
+        uint16_t net_seq = swap16(sequence_num);
+        uint64_t net_ts = swap64(timestamp);
+
+        std::memcpy(ptr, &net_type, 2);
+        std::memcpy(ptr + 2, &net_seq, 2);
+        std::memcpy(ptr + 4, &net_ts, 8);
+    }
+
+    static std::optional<UDPHeader> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+
+        UDPHeader header;
+        uint16_t net_type, net_seq;
+        uint64_t net_ts;
+
+        std::memcpy(&net_type, ptr, 2);
+        std::memcpy(&net_seq, ptr + 2, 2);
+        std::memcpy(&net_ts, ptr + 4, 8);
+
+        header.type = swap16(net_type);
+        header.sequence_num = swap16(net_seq);
+        header.timestamp = swap64(net_ts);
+
+        return header;
+    }
+};
+```
+
+---
+
+## Fixed-Size Strings
+
+Pour les chaînes de taille fixe (room codes, noms):
+
+```cpp
+// Écriture
+char roomCode[ROOM_CODE_LEN] = "ABC123";
+std::memcpy(buf + offset, roomCode, ROOM_CODE_LEN);
+
+// Lecture
+char roomCode[ROOM_CODE_LEN];
+std::memcpy(roomCode, ptr + offset, ROOM_CODE_LEN);
+```
+
+---
+
+## Validation
+
+Toujours valider la taille du buffer avant de parser:
+
+```cpp
+static std::optional<T> from_bytes(const void* buf, size_t len) {
+    // Validation obligatoire
+    if (buf == nullptr || len < WIRE_SIZE) {
+        return std::nullopt;
+    }
+    // Parsing...
+}
 ```
 
 ---
@@ -298,40 +218,54 @@ loaded.deserialize(reader);
 
 ```mermaid
 flowchart LR
-    subgraph Writing
-        A[C++ Object] --> B[Serializer.write]
-        B --> C[Binary Buffer]
+    subgraph Envoi
+        A[Struct C++] --> B[to_bytes]
+        B --> C[Buffer binaire]
+        C --> D[swap pour big-endian]
+        D --> E[Envoi réseau]
     end
 
-    subgraph Network
-        C --> D[Send]
-        D --> E[Receive]
-        E --> F[Binary Buffer]
-    end
-
-    subgraph Reading
-        F --> G[Serializer.read]
-        G --> H[C++ Object]
+    subgraph Réception
+        F[Réception réseau] --> G[Buffer binaire]
+        G --> H[from_bytes]
+        H --> I[swap pour host order]
+        I --> J[Struct C++]
     end
 ```
 
 ---
 
-## Performance Tips
+## Constantes de Taille
+
+| Structure | WIRE_SIZE |
+|-----------|-----------|
+| `UDPHeader` | 12 |
+| `SessionToken` | 32 |
+| `PlayerState` | 9 |
+| `MissileState` | 7 |
+| `EnemyState` | 8 |
+| `JoinGame` | 39 |
+| `VoiceFrame` (header) | 5 |
+
+---
+
+## Bonnes Pratiques
 
 ```cpp
-// Pré-allouer le buffer si la taille est connue
-Serializer s;
-s.data().reserve(expectedSize);
+// 1. Toujours utiliser memcpy pour éviter les problèmes d'alignement
+uint16_t value;
+std::memcpy(&value, ptr, 2);  // OK
+// uint16_t value = *reinterpret_cast<uint16_t*>(ptr);  // Dangereux!
 
-// Éviter les copies inutiles
-auto bytes = writer.moveData();  // std::move
-
-// Réutiliser les serializers
-Serializer reusable;
-for (auto& entity : entities) {
-    reusable.reset();
-    entity.serialize(reusable);
-    send(reusable.data());
+// 2. Retourner std::optional pour gérer les erreurs de parsing
+auto result = Message::from_bytes(buf, len);
+if (!result) {
+    // Erreur de parsing
+    return;
 }
+auto& msg = *result;
+
+// 3. Utiliser les constantes WIRE_SIZE
+uint8_t buffer[PlayerState::WIRE_SIZE];
+state.to_bytes(buffer);
 ```

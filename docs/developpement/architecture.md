@@ -184,7 +184,7 @@ class SDL2Renderer : public IRenderer { /* ... */ };
 class SFMLRenderer : public IRenderer { /* ... */ };
 
 // Factory
-auto renderer = createRenderer("sdl2");  // ou "sfml"
+auto renderer = createRenderer("sfml");  // ou "sdl2"
 ```
 
 ---
@@ -240,25 +240,25 @@ MongoDB
 
 ---
 
-## ADR-008: Tick Rate 60 Hz
+## ADR-008: Tick Rate 20 Hz
 
 ### Contexte
 
-Fréquence de mise à jour du serveur.
+Fréquence de broadcast des snapshots serveur.
 
 ### Décision
 
-60 ticks par seconde (16.67ms par tick).
+20 broadcasts par seconde (50ms par snapshot).
 
 ### Justification
 
 | Tick Rate | Latence | CPU | Use Case |
 |-----------|---------|-----|----------|
-| 20 Hz | 50ms | Faible | MMO |
-| 60 Hz | 16ms | Moyen | Action |
+| 20 Hz | 50ms | Faible | Action (R-Type) |
+| 60 Hz | 16ms | Moyen | FPS casual |
 | 128 Hz | 8ms | Élevé | FPS compétitif |
 
-R-Type est un jeu d'action mais pas compétitif, 60 Hz offre un bon équilibre.
+R-Type est un shoot'em up horizontal où la précision frame-perfect n'est pas critique. 20 Hz (BROADCAST_INTERVAL_MS = 50ms) offre un excellent équilibre entre fluidité et bande passante.
 
 ---
 
@@ -273,4 +273,4 @@ R-Type est un jeu d'action mais pas compétitif, 60 Hz offre un bon équilibre.
 | Graphics | Abstraction | Portabilité |
 | Voice | Opus + PortAudio | Qualité |
 | Database | MongoDB | Flexibilité |
-| Tick rate | 60 Hz | Balance |
+| Tick rate | 20 Hz | Balance latence/bande passante |

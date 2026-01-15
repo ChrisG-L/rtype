@@ -218,7 +218,7 @@ public:
     SDL2Window(unsigned width, unsigned height, const std::string& title);
 
     // Utilise SDL_Renderer pour le rendu
-    // Shaders non supportés (supportsShaders() = false)
+    // Shaders NON supportés (supportsShaders() = false)
 
 private:
     SDL_Window* _window;
@@ -227,6 +227,11 @@ private:
     std::map<std::string, TTF_Font*> _fonts;
 };
 ```
+
+!!! info "Mode Daltonien sans Shaders"
+    SDL2 ne pouvant pas utiliser de shaders, le mode daltonien est géré via
+    `AccessibilityConfig` qui fournit des **palettes de couleurs alternatives**.
+    Voir [Accessibilité](../../configuration/accessibilite.md).
 
 ---
 
@@ -277,8 +282,9 @@ window->beginFrame();
 window->endFrame();  // Applique le shader
 ```
 
-!!! note "Support SDL2"
-    Le backend SDL2 ne supporte pas les shaders. `supportsShaders()` retourne `false`.
+!!! warning "Support SDL2"
+    Le backend SDL2 **ne supporte pas les shaders**. `supportsShaders()` retourne `false`.
+    Pour le mode daltonien, SDL2 utilise `AccessibilityConfig` avec des palettes de couleurs.
 
 ---
 

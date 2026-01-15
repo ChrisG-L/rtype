@@ -7,80 +7,134 @@ tags:
 
 # Protocole TCP
 
-Utilisé pour les opérations **fiables** : authentification, rooms, chat.
+Utilisé pour les opérations **fiables** : authentification TLS, rooms, chat.
 
 ## Port
 
-`4242/TCP`
+`4125/TCP` (TLS 1.2+)
 
 ---
 
-## Types de Paquets
-
-| ID | Type | Direction | Description |
-|----|------|-----------|-------------|
-| `0x01` | `AUTH_REQUEST` | C→S | Demande connexion |
-| `0x02` | `AUTH_RESPONSE` | S→C | Résultat auth |
-| `0x03` | `CREATE_ROOM` | C→S | Créer room |
-| `0x04` | `JOIN_ROOM` | C→S | Rejoindre room |
-| `0x05` | `LEAVE_ROOM` | C→S | Quitter room |
-| `0x06` | `ROOM_LIST` | S→C | Liste rooms |
-| `0x07` | `ROOM_INFO` | S→C | Info room |
-| `0x10` | `CHAT_MESSAGE` | C↔S | Message texte |
-| `0x11` | `PLAYER_LIST` | S→C | Liste joueurs |
-| `0x20` | `GAME_START` | S→C | Partie lance |
-| `0xFF` | `ERROR` | S→C | Erreur |
-
----
-
-## Structures
-
-### AUTH_REQUEST
+## Header TCP (7 bytes)
 
 ```cpp
-struct AuthRequest {
+struct Header {
+    uint8_t  isAuthenticated;  // 1 byte - 0 ou 1
+    uint16_t type;             // 2 bytes (network byte order)
+    uint32_t payload_size;     // 4 bytes (network byte order)
+};
+```
+
+---
+
+## Types de Messages
+
+### Authentification
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `Login` | `0x0100` | C→S | Demande connexion |
+| `LoginAck` | `0x0101` | S→C | Résultat + SessionToken |
+| `Register` | `0x0102` | C→S | Création compte |
+| `RegisterAck` | `0x0103` | S→C | Résultat inscription |
+
+### Gestion des Rooms
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `CreateRoom` | `0x0200` | C→S | Créer une room |
+| `CreateRoomAck` | `0x0201` | S→C | Room créée + code |
+| `JoinRoomByCode` | `0x0210` | C→S | Rejoindre par code |
+| `JoinRoomAck` | `0x0211` | S→C | Accès accordé |
+| `JoinRoomNack` | `0x0212` | S→C | Accès refusé |
+| `LeaveRoom` | `0x0220` | C→S | Quitter room |
+| `SetReady` | `0x0230` | C→S | Prêt à jouer |
+| `StartGame` | `0x0240` | C→S | Lancer partie (host) |
+| `RoomUpdate` | `0x0250` | S→C | État room (broadcast) |
+| `GameStarting` | `0x0251` | S→C | Countdown démarrage |
+
+### Room Browser & Quick Join
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `BrowsePublicRooms` | `0x0270` | C→S | Liste rooms publiques |
+| `BrowsePublicRoomsAck` | `0x0271` | S→C | Liste des rooms |
+| `QuickJoin` | `0x0272` | C→S | Rejoindre auto |
+| `QuickJoinAck` | `0x0273` | S→C | Room trouvée |
+| `QuickJoinNack` | `0x0274` | S→C | Aucune room |
+
+### User Settings
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `GetUserSettings` | `0x0280` | C→S | Récupérer settings |
+| `GetUserSettingsAck` | `0x0281` | S→C | Settings utilisateur |
+| `SaveUserSettings` | `0x0282` | C→S | Sauvegarder settings |
+| `SaveUserSettingsAck` | `0x0283` | S→C | Confirmation |
+
+### Chat
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `SendChatMessage` | `0x0290` | C→S | Envoyer message |
+| `SendChatMessageAck` | `0x0291` | S→C | Confirmation |
+| `ChatMessageBroadcast` | `0x0292` | S→C | Broadcast message |
+| `ChatHistory` | `0x0293` | S→C | Historique (on join) |
+
+---
+
+## Structures Clés
+
+### LoginMessage
+
+```cpp
+struct LoginMessage {
     char username[32];
-    char password_hash[64];
+    char password[64];
 };
 ```
 
-### AUTH_RESPONSE
+### AuthResponseWithToken (succès login)
 
 ```cpp
-struct AuthResponse {
-    uint8_t success;      // 0 = fail, 1 = success
-    uint32_t player_id;   // Si success
-    char error_msg[128];  // Si fail
+struct AuthResponseWithToken {
+    bool success;                    // 1 byte
+    char error_code[32];             // 32 bytes
+    char message[128];               // 128 bytes
+    SessionToken token;              // 32 bytes - Pour auth UDP
 };
 ```
 
-### CREATE_ROOM
+### SessionToken
 
 ```cpp
-struct CreateRoom {
-    char room_name[32];
-    uint8_t max_players;  // 1-4
-    uint8_t is_private;
+// 32 bytes (256 bits) - Généré avec CSPRNG
+struct SessionToken {
+    uint8_t bytes[32];
 };
 ```
 
-### JOIN_ROOM
+### RoomPlayerState
 
 ```cpp
-struct JoinRoom {
-    uint32_t room_id;
-    char password[32];  // Si room privée
+struct RoomPlayerState {
+    uint8_t slotId;              // 0-5
+    uint8_t occupied;            // 0 = vide, 1 = occupé
+    char displayName[32];
+    char email[255];
+    uint8_t isReady;
+    uint8_t isHost;
+    uint8_t shipSkin;            // 1-6
 };
 ```
 
-### CHAT_MESSAGE
+### CreateRoomRequest
 
 ```cpp
-struct ChatMessage {
-    uint32_t sender_id;
-    uint32_t room_id;
-    uint64_t timestamp;
-    char message[256];
+struct CreateRoomRequest {
+    char name[32];
+    uint8_t maxPlayers;  // 2-6
+    uint8_t isPrivate;   // 0 = public, 1 = private
 };
 ```
 
@@ -91,16 +145,19 @@ struct ChatMessage {
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant S as Server
+    participant S as Server (TLS)
     participant DB as MongoDB
 
-    C->>S: AUTH_REQUEST (user, pass)
+    C->>S: TLS Handshake
+    S->>C: Certificate
+    C->>S: Login (username, password)
     S->>DB: Verify credentials
     DB->>S: User data
     alt Success
-        S->>C: AUTH_RESPONSE (success, player_id)
+        S->>C: LoginAck (success, SessionToken)
+        Note over C: Garde le token pour UDP
     else Failure
-        S->>C: AUTH_RESPONSE (fail, error)
+        S->>C: LoginAck (fail, error_code)
     end
 ```
 
@@ -113,94 +170,52 @@ sequenceDiagram
     participant C as Client
     participant S as Server
 
-    C->>S: ROOM_LIST
-    S->>C: ROOM_LIST (rooms[])
+    C->>S: CreateRoom (name, maxPlayers)
+    S->>C: CreateRoomAck (roomCode)
+    Note over C: Partage le code aux amis
 
-    C->>S: JOIN_ROOM (room_id)
-    alt Room exists & not full
-        S->>C: ROOM_INFO (players, state)
-        S-->>Others: PLAYER_LIST (updated)
-    else Error
-        S->>C: ERROR (reason)
-    end
+    participant C2 as Client 2
+    C2->>S: JoinRoomByCode (roomCode)
+    S->>C2: JoinRoomAck (slotId, players[])
+    S->>C: RoomUpdate (players[])
+
+    C->>S: SetReady (true)
+    S->>C: RoomUpdate
+    S->>C2: RoomUpdate
+
+    C->>S: StartGame
+    S->>C: GameStarting (countdown=3)
+    S->>C2: GameStarting (countdown=3)
+    Note over C,C2: Transition vers UDP
 ```
 
 ---
 
-## Implémentation
+## TLS Configuration
 
-### Serveur (Boost.ASIO)
+| Paramètre | Valeur |
+|-----------|--------|
+| Version minimale | TLS 1.2 |
+| Cipher suites | ECDHE + AES-GCM / ChaCha20-Poly1305 |
+| Certificat | `certs/server.crt` |
+| Clé privée | `certs/server.key` |
 
-```cpp
-class TCPServer {
-    boost::asio::io_context& io_;
-    tcp::acceptor acceptor_;
-    std::map<uint32_t, std::shared_ptr<Session>> sessions_;
-
-public:
-    TCPServer(boost::asio::io_context& io, uint16_t port)
-        : io_(io)
-        , acceptor_(io, tcp::endpoint(tcp::v4(), port))
-    {
-        accept();
-    }
-
-private:
-    void accept() {
-        acceptor_.async_accept([this](auto ec, tcp::socket socket) {
-            if (!ec) {
-                auto session = std::make_shared<Session>(
-                    std::move(socket));
-                sessions_[session->id()] = session;
-                session->start();
-            }
-            accept();
-        });
-    }
-};
-```
-
-### Client
-
-```cpp
-class TCPClient {
-    boost::asio::io_context& io_;
-    tcp::socket socket_;
-
-public:
-    void connect(const std::string& host, uint16_t port) {
-        tcp::resolver resolver(io_);
-        auto endpoints = resolver.resolve(host, std::to_string(port));
-        boost::asio::connect(socket_, endpoints);
-    }
-
-    void send(const Packet& packet) {
-        auto buffer = packet.serialize();
-        boost::asio::write(socket_, boost::asio::buffer(buffer));
-    }
-
-    Packet receive() {
-        PacketHeader header;
-        boost::asio::read(socket_,
-            boost::asio::buffer(&header, sizeof(header)));
-
-        std::vector<uint8_t> data(header.size);
-        boost::asio::read(socket_, boost::asio::buffer(data));
-
-        return Packet::deserialize(header, data);
-    }
-};
+```bash
+# Générer les certificats de dev
+./scripts/generate_dev_certs.sh
 ```
 
 ---
 
-## Codes d'Erreur
+## Constantes
 
-| Code | Description |
-|------|-------------|
-| `0x01` | Auth failed |
-| `0x02` | Room not found |
-| `0x03` | Room full |
-| `0x04` | Already in room |
-| `0x05` | Not in room |
-| `0x06` | Permission denied |
+| Constante | Valeur | Description |
+|-----------|--------|-------------|
+| `MAX_USERNAME_LEN` | 32 | Taille max username |
+| `MAX_PASSWORD_LEN` | 64 | Taille max password |
+| `MAX_EMAIL_LEN` | 255 | Taille max email |
+| `TOKEN_SIZE` | 32 | Taille SessionToken |
+| `ROOM_NAME_LEN` | 32 | Taille nom de room |
+| `ROOM_CODE_LEN` | 6 | Taille code d'invitation |
+| `MAX_ROOM_PLAYERS` | 6 | Joueurs max par room |
+| `CLIENT_TIMEOUT_MS` | 2000 | Timeout déconnexion |

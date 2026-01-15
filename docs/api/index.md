@@ -12,39 +12,50 @@ Documentation complète des classes et interfaces du projet R-Type.
 
 ```mermaid
 flowchart TB
-    subgraph Server API
-        App[Application]
+    subgraph Server["Serveur (infrastructure::)"]
+        Bootstrap[GameBootstrap]
         RM[RoomManager]
         GW[GameWorld]
-        CS[ClientSession]
+        SM[SessionManager]
+        TCP[TCPAuthServer]
+        UDP[UDPServer]
+        Voice[VoiceUDPServer]
     end
 
-    subgraph Client API
-        Engine[Engine]
-        SM[SceneManager]
-        NC[NetworkClient]
-        AM[AudioManager]
+    subgraph Client["Client"]
+        Engine[core::Engine]
+        SceneMgr[SceneManager]
+        UDPClient[UDPClient]
+        TCPClient[TCPClient]
+        Audio[AudioManager]
+        VoiceChat[VoiceChatManager]
     end
 
-    subgraph Network API
-        Protocol[Protocol]
-        Packet[Packet]
-        Serializer[Serializer]
+    subgraph Network["Réseau (protocol::)"]
+        Protocol[Protocol.hpp]
+        Messages[MessageType]
+        Structures[to_bytes/from_bytes]
     end
 
-    App --> RM
-    RM --> GW
-    RM --> CS
+    Bootstrap --> TCP
+    Bootstrap --> UDP
+    Bootstrap --> Voice
+    TCP --> SM
+    TCP --> RM
+    UDP --> SM
+    UDP --> GW
+    Voice --> SM
 
-    Engine --> SM
-    Engine --> NC
-    Engine --> AM
+    Engine --> SceneMgr
+    Engine --> UDPClient
+    Engine --> TCPClient
+    Engine --> Audio
 
-    NC --> Protocol
-    Protocol --> Packet
-    Packet --> Serializer
+    UDPClient --> Protocol
+    TCPClient --> Protocol
+    UDP --> Protocol
 
-    style App fill:#7c3aed,color:#fff
+    style Bootstrap fill:#7c3aed,color:#fff
     style Engine fill:#7c3aed,color:#fff
     style Protocol fill:#7c3aed,color:#fff
 ```
@@ -55,35 +66,46 @@ flowchart TB
 
 ### Serveur
 
-Classes principales du serveur autoritatif.
+Classes principales du serveur autoritatif (architecture hexagonale).
 
-| Classe | Description |
-|--------|-------------|
-| `Application` | Point d'entrée serveur |
-| `RoomManager` | Gestion des salons |
-| `ClientSession` | Session client TCP/UDP |
-| `GameWorld` | Simulation de jeu |
+| Classe | Namespace | Description |
+|--------|-----------|-------------|
+| [`GameBootstrap`](serveur/application.md) | `infrastructure::bootstrap` | Orchestrateur serveur |
+| [`RoomManager`](serveur/room-manager.md) | `infrastructure::room` | Gestion des salons |
+| [`SessionManager`](serveur/client-session.md) | `infrastructure::session` | Sessions TCP/UDP |
+| [`GameWorld`](serveur/game-world.md) | `infrastructure::game` | Simulation de jeu |
 
 ### Client
 
-Classes principales du client graphique.
+Classes principales du client graphique (multi-backend SFML/SDL2).
 
-| Classe | Description |
-|--------|-------------|
-| `Engine` | Moteur de jeu |
-| `SceneManager` | Gestionnaire de scènes |
-| `NetworkClient` | Client réseau |
-| `AudioManager` | Gestionnaire audio |
+| Classe | Namespace | Description |
+|--------|-----------|-------------|
+| [`Engine`](client/engine.md) | `core` | Moteur de jeu |
+| [`SceneManager`](client/scene-manager.md) | - | Gestionnaire de scènes |
+| [`UDPClient`](client/network-client.md#udpclient) | `client::network` | Client game UDP |
+| [`TCPClient`](client/network-client.md#tcpclient) | `client::network` | Client auth TCP+TLS |
+| [`AudioManager`](client/audio-manager.md#audiomanager) | `audio` | Musique et SFX |
+| [`VoiceChatManager`](client/audio-manager.md#voicechatmanager) | - | Chat vocal Opus |
 
 ### Réseau
 
-Classes du protocole réseau.
+Protocole binaire et sérialisation.
 
-| Classe | Description |
-|--------|-------------|
-| `Protocol` | Définitions protocole |
-| `Packet` | Gestion paquets |
-| `Serializer` | Sérialisation binaire |
+| Fichier | Description |
+|---------|-------------|
+| [`Protocol.hpp`](reseau/protocol.md) | Types, ports, structures |
+| [`Serialization`](reseau/serialization.md) | to_bytes/from_bytes (big-endian) |
+
+---
+
+## Ports Réseau
+
+| Port | Protocole | Description |
+|------|-----------|-------------|
+| **4125** | TCP + TLS | Authentification, rooms, chat |
+| **4124** | UDP | Game loop (20Hz) |
+| **4126** | UDP | Voice chat (Opus) |
 
 ---
 
@@ -95,17 +117,58 @@ Classes du protocole réseau.
 |------|------------|---------|
 | Classes | PascalCase | `GameWorld` |
 | Méthodes | camelCase | `processInput()` |
-| Membres | trailing_ | `players_` |
+| Membres privés | `_prefix` | `_players` |
 | Constantes | UPPER_SNAKE | `MAX_PLAYERS` |
 
-### Types Standards
+### Types Protocole
 
 ```cpp
-// Types utilisés dans l'API
-using PlayerId = uint32_t;
-using EntityId = uint32_t;
-using RoomId = uint32_t;
-using Tick = uint32_t;
+// Types du protocole réseau (Protocol.hpp)
+using SessionToken = std::array<uint8_t, 32>;  // Token 256-bit
+
+// Pas de typedef pour les IDs - types natifs utilisés directement
+uint8_t player_id;      // 0-255, assigné par UDPServer
+uint16_t missile_id;    // ID missile
+uint16_t enemy_id;      // ID ennemi
+uint16_t sequence_num;  // Numéro de séquence paquet
+```
+
+### Sérialisation
+
+```cpp
+// Pattern to_bytes / from_bytes (big-endian)
+void to_bytes(uint8_t* buf) const;
+static std::optional<T> from_bytes(const void* buf, size_t len);
+
+// Fonctions de swap endianness
+uint16_t swap16(uint16_t v);  // Host <-> Network
+uint32_t swap32(uint32_t v);
+uint64_t swap64(uint64_t v);
+```
+
+---
+
+## Architecture Hexagonale (Serveur)
+
+```
+src/server/
+├── include/
+│   ├── domain/              # Logique métier (entités, value objects)
+│   │   ├── entities/        # Player, User, Room
+│   │   ├── value_objects/   # Position, Health, PlayerId
+│   │   └── exceptions/      # DomainException
+│   │
+│   ├── application/         # Cas d'utilisation, ports
+│   │   ├── use_cases/       # Login, Register
+│   │   └── ports/out/       # IUserRepository, ILogger
+│   │
+│   └── infrastructure/      # Adaptateurs, réseau
+│       ├── adapters/in/     # UDPServer, TCPAuthServer
+│       ├── adapters/out/    # MongoDB, SpdLog
+│       ├── game/            # GameWorld
+│       ├── room/            # RoomManager
+│       ├── session/         # SessionManager
+│       └── bootstrap/       # GameBootstrap
 ```
 
 ---
@@ -114,15 +177,15 @@ using Tick = uint32_t;
 
 <div class="grid-cards">
   <div class="card">
-    <h3><a href="serveur/">🖥️ Serveur</a></h3>
-    <p>API serveur autoritatif</p>
+    <h3><a href="serveur/">Serveur</a></h3>
+    <p>API serveur autoritatif (GameBootstrap, RoomManager, SessionManager, GameWorld)</p>
   </div>
   <div class="card">
-    <h3><a href="client/">🎮 Client</a></h3>
-    <p>API client graphique</p>
+    <h3><a href="client/">Client</a></h3>
+    <p>API client graphique (Engine, SceneManager, UDPClient, TCPClient, Audio)</p>
   </div>
   <div class="card">
-    <h3><a href="reseau/">🌐 Réseau</a></h3>
-    <p>API protocole réseau</p>
+    <h3><a href="reseau/">Réseau</a></h3>
+    <p>Protocole binaire UDP/TCP (MessageType, structures, sérialisation)</p>
   </div>
 </div>

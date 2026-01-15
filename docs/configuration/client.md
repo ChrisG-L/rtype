@@ -9,72 +9,85 @@ tags:
 ## Arguments CLI
 
 ```bash
-./r-type_client [OPTIONS]
-  -h, --host <HOST>     Serveur (127.0.0.1)
-  -p, --port <PORT>     Port (4242)
-  --name <NAME>         Pseudo
-  --backend <BACKEND>   sdl2 | sfml
-  -f, --fullscreen      Plein écran
-  -v, --verbose         Mode debug
+./rtype_client [OPTIONS]
+  --graphics=<name>       Backend graphique (sfml, sdl2)
+  --graphics-path=<path>  Chemin vers un plugin graphique custom
+  -h, --help              Afficher l'aide
+```
+
+### Exemples
+
+```bash
+# Backend SFML (défaut)
+./rtype_client
+
+# Backend SDL2
+./rtype_client --graphics=sdl2
+
+# Plugin personnalisé
+./rtype_client --graphics-path=./my_plugin.so
 ```
 
 ---
 
-## Fichier config/client.json
+## Connexion Serveur
 
-```json
-{
-  "network": {
-    "default_host": "127.0.0.1",
-    "default_port": 4242
-  },
-  "graphics": {
-    "backend": "sdl2",
-    "resolution": { "width": 1920, "height": 1080 },
-    "fullscreen": false,
-    "vsync": true,
-    "fps_limit": 144
-  },
-  "audio": {
-    "master_volume": 80,
-    "music_volume": 60,
-    "sfx_volume": 100,
-    "voice_volume": 100
-  }
-}
-```
+Le client se connecte automatiquement à `127.0.0.1` sur les ports :
+
+| Service | Port | Protocole |
+|---------|------|-----------|
+| Auth | 4125 | TCP/TLS |
+| Game | 4124 | UDP |
+| Voice | 4126 | UDP |
+
+!!! note "Configuration réseau"
+    L'adresse du serveur est actuellement codée en dur (`Boot.cpp`).
+    Pour se connecter à un autre serveur, il faut modifier le code source.
 
 ---
 
 ## Backends Graphiques
 
-| Backend | Description |
-|---------|-------------|
-| `sdl2` | Défaut, performant |
-| `sfml` | Alternative, haut niveau |
+Le client utilise un système de plugins pour le rendu graphique.
 
-```bash
-./r-type_client --backend sfml
-# ou
-RTYPE_BACKEND=sfml ./r-type_client
-```
+| Backend | Bibliothèque | Description |
+|---------|--------------|-------------|
+| `sfml` | `librtype_sfml.so` | Défaut, simple et portable |
+| `sdl2` | `librtype_sdl2.so` | Alternative performante |
 
----
-
-## Résolutions
-
-| Résolution | Ratio |
-|------------|-------|
-| 1920x1080 | 16:9 (recommandé) |
-| 2560x1440 | 16:9 |
-| 1280x720 | 16:9 |
+Les plugins sont cherchés dans :
+1. Le dossier courant
+2. `./lib/`
+3. Le chemin système
 
 ---
 
-## Variables d'Environnement
+## Paramètres Utilisateur
 
-| Variable | Description |
-|----------|-------------|
-| `RTYPE_BACKEND` | Backend graphique |
-| `RTYPE_LOG_LEVEL` | Niveau de log |
-| `RTYPE_CONFIG_DIR` | Dossier config |
+Les paramètres sont stockés **côté serveur** (MongoDB) et synchronisés à la connexion.
+
+### Accessibles in-game
+
+| Paramètre | Description | Stockage |
+|-----------|-------------|----------|
+| Keybindings | 7 actions × 2 touches | MongoDB |
+| Ship skin | Skin vaisseau (1-6) | MongoDB |
+| Color mode | Mode daltonien | MongoDB |
+| Voice settings | PTT/VAD, seuil, gain | MongoDB |
+| Audio devices | Micro/speakers préférés | MongoDB |
+
+### Modification
+
+Tous les paramètres se modifient via le menu **Options** in-game.
+Ils sont sauvegardés automatiquement sur le serveur.
+
+---
+
+## Résolution
+
+La fenêtre utilise une résolution fixe définie dans le backend graphique.
+
+| Backend | Résolution | Mode |
+|---------|------------|------|
+| SFML | 1920×1080 | Fenêtré |
+| SDL2 | 1920×1080 | Fenêtré |

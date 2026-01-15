@@ -59,16 +59,16 @@ graph TB
 
 <div class="grid-cards">
   <div class="card">
-    <div class="card-icon">🎮</div>
-    <h3><a href="sdl2/">SDL2</a></h3>
-    <p>Backend par défaut. Léger, rapide, contrôle bas niveau.</p>
+    <div class="card-icon">✨</div>
+    <h3><a href="sfml/">SFML</a></h3>
+    <p>Backend par défaut. API haut niveau, supporte les shaders.</p>
     <span class="badge badge-primary">Recommandé</span>
   </div>
 
   <div class="card">
-    <div class="card-icon">✨</div>
-    <h3><a href="sfml/">SFML</a></h3>
-    <p>API haut niveau, orientée objet, idéal pour prototypage.</p>
+    <div class="card-icon">🎮</div>
+    <h3><a href="sdl2/">SDL2</a></h3>
+    <p>Alternative légère. Pas de shaders, palette de couleurs pour accessibilité.</p>
     <span class="badge badge-secondary">Alternative</span>
   </div>
 </div>
@@ -93,12 +93,14 @@ graph TB
 ### Au Runtime
 
 ```bash
-# Via argument CLI
-./r-type_client --backend=sdl2
-./r-type_client --backend=sfml
+# SFML (par défaut)
+./rtype_client
 
-# Via variable d'environnement
-RTYPE_BACKEND=sfml ./r-type_client
+# SDL2 (alternative)
+./rtype_client --graphics=sdl2
+
+# Plugin custom
+./rtype_client --graphics-path=./mon_plugin.so
 ```
 
 ### Dans la Configuration
@@ -106,7 +108,7 @@ RTYPE_BACKEND=sfml ./r-type_client
 ```json
 {
   "graphics": {
-    "backend": "sdl2"
+    "backend": "sfml"
   }
 }
 ```
@@ -176,13 +178,13 @@ sequenceDiagram
 ```cpp
 // Usage
 auto backend = PluginLoader::load<IGraphicsBackend>(
-    config.graphics.backend  // "sdl2" ou "sfml"
+    config.graphics.backend  // "sfml" ou "sdl2"
 );
 
 if (!backend) {
     spdlog::error("Failed to load backend: {}", config.graphics.backend);
-    // Fallback
-    backend = PluginLoader::load<IGraphicsBackend>("sdl2");
+    // Fallback sur SFML (défaut)
+    backend = PluginLoader::load<IGraphicsBackend>("sfml");
 }
 ```
 

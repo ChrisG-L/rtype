@@ -11,7 +11,7 @@ Communication audio temps réel avec **Opus** codec.
 
 ## Port
 
-`4243/UDP`
+`4126/UDP`
 
 ---
 
@@ -25,26 +25,47 @@ Communication audio temps réel avec **Opus** codec.
 
 ---
 
-## Types de Paquets
+## Types de Messages
 
-| ID | Type | Direction | Description |
-|----|------|-----------|-------------|
-| `0x01` | `VOICE_DATA` | C↔S | Données audio |
-| `0x02` | `VOICE_MUTE` | C→S | Joueur se mute |
-| `0x03` | `VOICE_UNMUTE` | C→S | Joueur se unmute |
-| `0x04` | `VOICE_LEVEL` | S→C | Niveau audio |
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `VoiceJoin` | `0x0300` | C→S | Rejoindre voice channel |
+| `VoiceJoinAck` | `0x0301` | S→C | Confirmation |
+| `VoiceLeave` | `0x0302` | C→S | Quitter voice |
+| `VoiceFrame` | `0x0303` | Both | Audio Opus encodé |
+| `VoiceMute` | `0x0304` | Both | Mute/unmute |
 
 ---
 
-## Structure VOICE_DATA
+## Structures
+
+### VoiceJoin (38 bytes)
 
 ```cpp
-struct VoiceDataPacket {
-    uint32_t sender_id;
-    uint32_t sequence;
-    uint64_t timestamp;
-    uint16_t opus_length;
-    uint8_t opus_data[];  // Variable length
+struct VoiceJoin {
+    SessionToken token;      // 32 bytes - Réutilise l'auth TCP
+    char roomCode[6];        // 6 bytes
+};
+```
+
+### VoiceFrame (5-485 bytes)
+
+```cpp
+struct VoiceFrame {
+    uint8_t  speaker_id;    // 1 byte - Qui parle
+    uint16_t sequence;      // 2 bytes - Détection perte paquets
+    uint16_t opus_len;      // 2 bytes - Taille données Opus
+    uint8_t  opus_data[480]; // Max 480 bytes Opus
+    // Header: 5 bytes, Total max: 485 bytes
+};
+```
+
+### VoiceMute (2 bytes)
+
+```cpp
+struct VoiceMute {
+    uint8_t player_id;  // 1 byte
+    uint8_t muted;      // 1 byte - 0 = unmuted, 1 = muted
 };
 ```
 
@@ -54,11 +75,11 @@ struct VoiceDataPacket {
 
 | Paramètre | Valeur | Description |
 |-----------|--------|-------------|
-| **Sample Rate** | 48000 Hz | Qualité studio |
+| **Sample Rate** | 48000 Hz | Standard Opus |
 | **Channels** | 1 (mono) | Voix uniquement |
 | **Frame Size** | 960 samples | 20ms à 48kHz |
-| **Bitrate** | 24000 bps | Qualité/BP |
-| **Complexity** | 5 | Équilibré |
+| **Bitrate** | 32000 bps | Qualité VoIP |
+| **Max Frame Size** | 480 bytes | Taille max encodée |
 
 ---
 
@@ -110,7 +131,7 @@ public:
         decoder_ = opus_decoder_create(48000, 1, &error);
 
         opus_encoder_ctl(encoder_,
-            OPUS_SET_BITRATE(24000));
+            OPUS_SET_BITRATE(32000));
 
         // Init PortAudio
         Pa_Initialize();

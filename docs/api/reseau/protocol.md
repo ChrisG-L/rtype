@@ -12,294 +12,361 @@ Définitions du protocole réseau R-Type.
 ## Synopsis
 
 ```cpp
-#include "network/Protocol.hpp"
+#include "Protocol.hpp"
 
-using namespace rtype::network;
-
-// Check packet type
-if (packet.type == PacketType::Login) {
-    auto login = packet.as<LoginPacket>();
+// Check message type
+if (header.type == static_cast<uint16_t>(MessageType::Login)) {
+    auto login = LoginRequest::from_bytes(payload, len);
 }
 ```
+
+---
+
+## Ports
+
+| Service | Port | Protocole | Description |
+|---------|------|-----------|-------------|
+| Auth | 4125 | TCP + TLS | Authentification et gestion de rooms |
+| Game | 4124 | UDP | Gameplay temps réel |
+| Voice | 4126 | UDP | Chat vocal |
 
 ---
 
 ## Constantes
 
 ```cpp
-namespace rtype::network {
+// Protocol.hpp
 
-struct Protocol {
-    // Ports
-    static constexpr uint16_t TCP_PORT = 4242;
-    static constexpr uint16_t UDP_PORT = 4243;
-    static constexpr uint16_t VOICE_PORT = 4244;
+// Buffer
+static constexpr std::size_t BUFFER_SIZE = 4096;
 
-    // Magic number ("RTYP")
-    static constexpr uint32_t MAGIC = 0x52545950;
+// Limits
+static constexpr uint8_t MAX_PLAYERS = 4;
+static constexpr uint8_t MAX_MISSILES = 32;
+static constexpr uint8_t MAX_ENEMIES = 16;
+static constexpr uint8_t MAX_ENEMY_MISSILES = 32;
 
-    // Limits
-    static constexpr size_t MAX_PACKET_SIZE = 1400;
-    static constexpr size_t MAX_PLAYERS = 4;
-    static constexpr size_t MAX_USERNAME = 32;
-    static constexpr size_t MAX_ROOM_NAME = 64;
-    static constexpr size_t MAX_CHAT_MESSAGE = 256;
+// Room system
+static constexpr size_t ROOM_NAME_LEN = 32;
+static constexpr size_t ROOM_CODE_LEN = 6;
+static constexpr uint8_t MAX_ROOM_PLAYERS = 6;
+static constexpr uint8_t MIN_ROOM_PLAYERS = 2;
 
-    // Timing
-    static constexpr int TICK_RATE = 60;
-    static constexpr float TICK_DURATION = 1.0f / TICK_RATE;
-};
+// Session token (256 bits)
+static constexpr size_t TOKEN_SIZE = 32;
 
-} // namespace rtype::network
+// Voice
+static constexpr uint16_t VOICE_UDP_PORT = 4126;
 ```
 
 ---
 
-## Types de Paquets
+## Types de Messages
 
-### PacketType
-
-```cpp
-enum class PacketType : uint8_t {
-    // === TCP Packets (0x00 - 0x7F) ===
-
-    // Authentication
-    Login           = 0x01,
-    LoginAck        = 0x02,
-    Logout          = 0x03,
-
-    // Room Management
-    CreateRoom      = 0x10,
-    CreateRoomAck   = 0x11,
-    JoinRoom        = 0x12,
-    JoinRoomAck     = 0x13,
-    LeaveRoom       = 0x14,
-    ListRooms       = 0x15,
-    RoomList        = 0x16,
-
-    // Room Events
-    PlayerJoined    = 0x20,
-    PlayerLeft      = 0x21,
-    GameStart       = 0x22,
-    GameEnd         = 0x23,
-
-    // Chat
-    Chat            = 0x30,
-
-    // === UDP Packets (0x80 - 0xFF) ===
-
-    // Handshake
-    UdpHandshake    = 0x80,
-    UdpHandshakeAck = 0x81,
-
-    // Game State
-    Input           = 0x90,
-    GameSnapshot    = 0x91,
-
-    // Events
-    PlayerDied      = 0xA0,
-    EnemySpawn      = 0xA1,
-    EnemyDied       = 0xA2,
-    MissileSpawn    = 0xA3,
-
-    // Voice
-    VoiceData       = 0xF0,
-};
-```
-
----
-
-## Paquets TCP
-
-### LoginPacket
+### MessageType
 
 ```cpp
-struct LoginPacket {
-    static constexpr PacketType TYPE = PacketType::Login;
+enum class MessageType: uint16_t {
+    // === UDP Messages ===
+    HeartBeat           = 0x0001,
+    HeartBeatAck        = 0x0002,
 
-    char username[32];
-    char passwordHash[64];
+    // UDP Session authentication
+    JoinGame            = 0x0010,
+    JoinGameAck         = 0x0011,
+    JoinGameNack        = 0x0012,
 
-    void serialize(Serializer& s) const {
-        s.writeFixedString(username, 32);
-        s.writeFixedString(passwordHash, 64);
-    }
+    // UDP Game messages
+    Snapshot            = 0x0040,
+    PlayerInput         = 0x0061,
+    PlayerJoin          = 0x0070,
+    PlayerLeave         = 0x0071,
+    ShootMissile        = 0x0080,
+    MissileSpawned      = 0x0081,
+    MissileDestroyed    = 0x0082,
+    EnemyDestroyed      = 0x0091,
+    PlayerDamaged       = 0x00A0,
+    PlayerDied          = 0x00A1,
 
-    void deserialize(Serializer& s) {
-        s.readFixedString(username, 32);
-        s.readFixedString(passwordHash, 64);
-    }
-};
-```
+    // === TCP Messages ===
 
-### LoginAckPacket
+    // Authentication (0x01xx)
+    Login               = 0x0100,
+    LoginAck            = 0x0101,
+    Register            = 0x0102,
+    RegisterAck         = 0x0103,
 
-```cpp
-struct LoginAckPacket {
-    static constexpr PacketType TYPE = PacketType::LoginAck;
+    // Room Management (0x02xx)
+    CreateRoom          = 0x0200,
+    CreateRoomAck       = 0x0201,
+    JoinRoomByCode      = 0x0210,
+    JoinRoomAck         = 0x0211,
+    JoinRoomNack        = 0x0212,
+    LeaveRoom           = 0x0220,
+    LeaveRoomAck        = 0x0221,
+    SetReady            = 0x0230,
+    SetReadyAck         = 0x0231,
+    StartGame           = 0x0240,
+    StartGameAck        = 0x0241,
+    StartGameNack       = 0x0242,
 
-    bool success;
-    uint32_t playerId;
-    char errorMessage[64];
-};
-```
+    // Room Notifications
+    RoomUpdate          = 0x0250,
+    GameStarting        = 0x0251,
+    SetRoomConfig       = 0x0252,
+    SetRoomConfigAck    = 0x0253,
 
-### JoinRoomPacket
+    // Kick System (0x026x)
+    KickPlayer          = 0x0260,
+    KickPlayerAck       = 0x0261,
+    PlayerKicked        = 0x0262,
 
-```cpp
-struct JoinRoomPacket {
-    static constexpr PacketType TYPE = PacketType::JoinRoom;
+    // Room Browser (0x027x)
+    BrowsePublicRooms   = 0x0270,
+    BrowsePublicRoomsAck = 0x0271,
+    QuickJoin           = 0x0272,
+    QuickJoinAck        = 0x0273,
+    QuickJoinNack       = 0x0274,
 
-    uint32_t roomId;
-};
-```
+    // User Settings (0x028x)
+    GetUserSettings     = 0x0280,
+    GetUserSettingsAck  = 0x0281,
+    SaveUserSettings    = 0x0282,
+    SaveUserSettingsAck = 0x0283,
 
-### RoomListPacket
+    // Chat System (0x029x)
+    SendChatMessage     = 0x0290,
+    SendChatMessageAck  = 0x0291,
+    ChatMessageBroadcast = 0x0292,
+    ChatHistory         = 0x0293,
 
-```cpp
-struct RoomListPacket {
-    static constexpr PacketType TYPE = PacketType::RoomList;
-
-    struct RoomInfo {
-        uint32_t id;
-        char name[64];
-        uint8_t playerCount;
-        uint8_t maxPlayers;
-        uint8_t state;  // 0=Waiting, 1=Playing
-    };
-
-    uint8_t roomCount;
-    RoomInfo rooms[10];
-};
-```
-
-### ChatPacket
-
-```cpp
-struct ChatPacket {
-    static constexpr PacketType TYPE = PacketType::Chat;
-
-    uint32_t senderId;
-    uint32_t roomId;
-    char message[256];
-    uint64_t timestamp;
+    // Voice Chat (0x030x)
+    VoiceJoin           = 0x0300,
+    VoiceJoinAck        = 0x0301,
+    VoiceLeave          = 0x0302,
+    VoiceFrame          = 0x0303,
+    VoiceMute           = 0x0304,
 };
 ```
 
 ---
 
-## Paquets UDP
-
-### InputPacket
+## Header UDP
 
 ```cpp
-struct InputPacket {
-    static constexpr PacketType TYPE = PacketType::Input;
+struct UDPHeader {
+    uint16_t type;          // MessageType
+    uint16_t sequence_num;  // Numéro de séquence
+    uint64_t timestamp;     // Millisecondes depuis epoch
 
-    uint32_t playerId;
-    uint32_t sequence;
-    uint32_t tick;
-    uint8_t keys;  // Bitmask KEY_UP|DOWN|LEFT|RIGHT|SHOOT
-};
+    static constexpr size_t WIRE_SIZE = 12;
 
-// Key bitmask
-constexpr uint8_t KEY_UP    = 0x01;
-constexpr uint8_t KEY_DOWN  = 0x02;
-constexpr uint8_t KEY_LEFT  = 0x04;
-constexpr uint8_t KEY_RIGHT = 0x08;
-constexpr uint8_t KEY_SHOOT = 0x10;
-```
-
-### GameSnapshotPacket
-
-```cpp
-struct GameSnapshotPacket {
-    static constexpr PacketType TYPE = PacketType::GameSnapshot;
-
-    uint32_t tick;
-
-    // Players
-    uint8_t playerCount;
-    struct PlayerState {
-        uint32_t id;
-        uint16_t x, y;
-        uint8_t health;
-        uint8_t alive;
-        uint32_t lastAckedInput;
-    } players[4];
-
-    // Enemies
-    uint8_t enemyCount;
-    struct EnemyState {
-        uint32_t id;
-        uint8_t type;
-        uint16_t x, y;
-        uint8_t health;
-    } enemies[50];
-
-    // Missiles
-    uint8_t missileCount;
-    struct MissileState {
-        uint32_t id;
-        uint16_t x, y;
-        uint8_t isEnemy;
-    } missiles[100];
+    void to_bytes(void* buf) const;
+    static std::optional<UDPHeader> from_bytes(const void* buf, size_t len);
 };
 ```
 
-### VoiceDataPacket
+**Format binaire (12 bytes, big-endian):**
+
+| Offset | Taille | Champ |
+|--------|--------|-------|
+| 0 | 2 | type |
+| 2 | 2 | sequence_num |
+| 4 | 8 | timestamp |
+
+---
+
+## Input Keys
 
 ```cpp
-struct VoiceDataPacket {
-    static constexpr PacketType TYPE = PacketType::VoiceData;
+namespace InputKeys {
+    constexpr uint16_t UP    = 0x0001;
+    constexpr uint16_t DOWN  = 0x0002;
+    constexpr uint16_t LEFT  = 0x0004;
+    constexpr uint16_t RIGHT = 0x0008;
+    constexpr uint16_t SHOOT = 0x0010;
+}
+```
 
-    uint32_t playerId;
-    uint32_t sequence;
-    uint16_t dataLength;
-    uint8_t data[960];  // Opus encoded frame
+---
+
+## Structures Principales
+
+### SessionToken
+
+Token d'authentification pour la session UDP (32 bytes).
+
+```cpp
+struct SessionToken {
+    uint8_t bytes[TOKEN_SIZE];  // 32 bytes
+
+    std::string toHex() const;
+    static std::optional<SessionToken> fromHex(const std::string& hex);
+
+    void to_bytes(uint8_t* buf) const;
+    static std::optional<SessionToken> from_bytes(const void* buf, size_t len);
+};
+```
+
+### PlayerState
+
+État d'un joueur dans le snapshot (9 bytes).
+
+```cpp
+struct PlayerState {
+    uint8_t id;
+    uint16_t x, y;
+    uint8_t health;
+    uint8_t alive;
+    uint16_t lastAckedInputSeq;
+    uint8_t shipSkin;
+
+    static constexpr size_t WIRE_SIZE = 9;
+};
+```
+
+### MissileState
+
+État d'un missile (7 bytes).
+
+```cpp
+struct MissileState {
+    uint16_t id;
+    uint8_t owner_id;
+    uint16_t x, y;
+
+    static constexpr size_t WIRE_SIZE = 7;
+};
+```
+
+### EnemyState
+
+État d'un ennemi (8 bytes).
+
+```cpp
+struct EnemyState {
+    uint16_t id;
+    uint16_t x, y;
+    uint8_t health;
+    uint8_t enemy_type;
+
+    static constexpr size_t WIRE_SIZE = 8;
+};
+```
+
+### GameSnapshot
+
+Snapshot complet du jeu (taille variable).
+
+```cpp
+struct GameSnapshot {
+    uint8_t player_count;
+    PlayerState players[MAX_PLAYERS];
+
+    uint8_t missile_count;
+    MissileState missiles[MAX_MISSILES];
+
+    uint8_t enemy_count;
+    EnemyState enemies[MAX_ENEMIES];
+
+    uint8_t enemy_missile_count;
+    MissileState enemy_missiles[MAX_ENEMY_MISSILES];
+};
+```
+
+### VoiceFrame
+
+Frame audio encodé Opus (5-485 bytes).
+
+```cpp
+struct VoiceFrame {
+    uint8_t speaker_id;
+    uint16_t sequence;
+    uint16_t opus_len;
+    uint8_t opus_data[480];
+
+    static constexpr size_t HEADER_SIZE = 5;
+    static constexpr size_t MAX_OPUS_SIZE = 480;
 };
 ```
 
 ---
 
-## Diagramme des Paquets
+## Sérialisation
+
+Toutes les structures utilisent **big-endian** (network byte order).
+
+```cpp
+// Fonctions de conversion
+inline uint16_t swap16(uint16_t v) { return __builtin_bswap16(v); }
+inline uint32_t swap32(uint32_t v) { return __builtin_bswap32(v); }
+inline uint64_t swap64(uint64_t v) { return __builtin_bswap64(v); }
+
+// Pattern de sérialisation
+void to_bytes(uint8_t* buf) const {
+    uint16_t net_x = swap16(x);  // Host → Network
+    std::memcpy(buf, &net_x, 2);
+}
+
+static std::optional<T> from_bytes(const void* buf, size_t len) {
+    uint16_t net_x;
+    std::memcpy(&net_x, buf, 2);
+    x = swap16(net_x);  // Network → Host
+}
+```
+
+---
+
+## Diagramme des Messages
 
 ```mermaid
-flowchart LR
-    subgraph TCP
-        Login[Login/Ack]
-        Room[Room Management]
-        Chat[Chat]
+flowchart TB
+    subgraph "TCP (Port 4125 + TLS)"
+        Auth[Authentication<br/>Login/Register]
+        Room[Room Management<br/>Create/Join/Leave]
+        Chat[Chat System<br/>Messages]
+        Settings[User Settings]
     end
 
-    subgraph UDP
-        Input[Input]
-        Snapshot[GameSnapshot]
-        Events[Game Events]
+    subgraph "UDP (Port 4124)"
+        Session[Session Auth<br/>JoinGame]
+        Input[Player Input]
+        Snapshot[Game Snapshot]
+        Events[Game Events<br/>Missiles/Enemies]
     end
 
-    subgraph Voice
-        VData[VoiceData]
+    subgraph "Voice UDP (Port 4126)"
+        VJoin[Voice Join/Leave]
+        VFrame[Voice Frames]
     end
 
-    Client --> TCP --> Server
-    Client --> UDP --> Server
-    Client --> Voice --> Server
+    Client --> Auth
+    Client --> Session
+    Client --> VJoin
 
-    style TCP fill:#059669,color:#fff
-    style UDP fill:#7c3aed,color:#fff
-    style Voice fill:#ea580c,color:#fff
+    style Auth fill:#059669,color:#fff
+    style Room fill:#059669,color:#fff
+    style Chat fill:#059669,color:#fff
+    style Settings fill:#059669,color:#fff
+    style Session fill:#7c3aed,color:#fff
+    style Input fill:#7c3aed,color:#fff
+    style Snapshot fill:#7c3aed,color:#fff
+    style Events fill:#7c3aed,color:#fff
+    style VJoin fill:#ea580c,color:#fff
+    style VFrame fill:#ea580c,color:#fff
 ```
 
 ---
 
-## Taille des Paquets
+## Tailles des Messages
 
-| Paquet | Taille (bytes) |
-|--------|----------------|
-| LoginPacket | 96 |
-| JoinRoomPacket | 4 |
-| ChatPacket | 276 |
-| InputPacket | 13 |
-| GameSnapshotPacket | ~800-1200 |
-| VoiceDataPacket | ~970 |
+| Message | Taille (bytes) |
+|---------|----------------|
+| UDPHeader | 12 |
+| SessionToken | 32 |
+| PlayerState | 9 |
+| MissileState | 7 |
+| EnemyState | 8 |
+| PlayerInput | 4 |
+| VoiceFrame | 5-485 |
+| GameSnapshot | Variable (~200-500) |

@@ -6,46 +6,40 @@ tags:
 
 # Configuration Audio
 
-## Volumes
+## Stockage
 
-```mermaid
-flowchart TB
-    M[Master 80%] --> V1[Music 60%]
-    M --> V2[SFX 100%]
-    M --> V3[Voice 100%]
-```
+Les paramètres audio sont stockés **côté serveur** (MongoDB) et synchronisés à chaque connexion.
 
-| Volume | Description | Défaut |
-|--------|-------------|--------|
-| `master_volume` | Global | 80 |
-| `music_volume` | Musique | 60 |
-| `sfx_volume` | Effets | 100 |
-| `voice_volume` | Voice chat | 100 |
+| Paramètre | Champ MongoDB | Type | Plage |
+|-----------|---------------|------|-------|
+| Volume voice | `voiceVolume` | uint8 | 0-100 |
+| Gain micro | `micGain` | uint8 | 0-200 (×0.01) |
+| Mode voice | `voiceMode` | uint8 | 0=PTT, 1=VAD |
+| Seuil VAD | `vadThreshold` | uint8 | 0-100 (×0.01) |
+| Périphérique entrée | `audioInputDevice` | string | 64 chars max |
+| Périphérique sortie | `audioOutputDevice` | string | 64 chars max |
 
 ---
 
-## Périphériques
+## Périphériques Audio
 
-### Lister les périphériques
+### Sélection
+
+Les périphériques se configurent dans **Options > Audio** in-game.
+
+- Chaîne vide (`""`) = sélection automatique
+- Nom du périphérique = sélection explicite
+
+### Lister les périphériques (debug)
 
 ```bash
-# Linux
-aplay -l        # Sortie
-arecord -l      # Entrée
-```
+# Linux (ALSA)
+aplay -l        # Sorties
+arecord -l      # Entrées
 
-### Configuration
-
-```json
-{
-  "audio": {
-    "output_device": "default",
-    "voice": {
-      "input_device": "default",
-      "output_device": "default"
-    }
-  }
-}
+# Linux (PulseAudio)
+pactl list sources short   # Entrées
+pactl list sinks short     # Sorties
 ```
 
 ---
@@ -54,45 +48,64 @@ arecord -l      # Entrée
 
 ### Modes
 
-| Mode | Description |
-|------|-------------|
-| `ptt` | Push-to-Talk (défaut) |
-| `vad` | Voice Activity Detection |
+| Mode | Valeur | Description |
+|------|--------|-------------|
+| Push-to-Talk | 0 | Maintenir une touche pour parler |
+| Voice Activity | 1 | Détection automatique de la voix |
 
 ### Seuil VAD
 
-| Valeur | Sensibilité |
-|--------|-------------|
-| 0.01 | Très haute |
-| 0.02 | Haute (défaut) |
-| 0.05 | Moyenne |
-| 0.1 | Basse |
+| Valeur stockée | Valeur réelle | Sensibilité |
+|----------------|---------------|-------------|
+| 1 | 0.01 | Très haute |
+| 2 | 0.02 | Haute (défaut) |
+| 5 | 0.05 | Moyenne |
+| 10 | 0.10 | Basse |
 
-### Configuration complète
+### Gain Microphone
 
-```json
-{
-  "audio": {
-    "master_volume": 80,
-    "music_volume": 60,
-    "sfx_volume": 100,
-    "voice_volume": 100,
-    "voice": {
-      "mode": "ptt",
-      "ptt_key": "V",
-      "vad_threshold": 0.02
-    }
-  }
-}
-```
+| Valeur stockée | Valeur réelle | Effet |
+|----------------|---------------|-------|
+| 50 | 0.5× | Atténuation |
+| 100 | 1.0× | Normal (défaut) |
+| 150 | 1.5× | Amplification |
+| 200 | 2.0× | Maximum |
 
 ---
 
 ## Codec Opus
 
-| Paramètre | Valeur |
-|-----------|--------|
-| Bitrate | 24 kbps |
-| Sample Rate | 48 kHz |
-| Frame Size | 20 ms |
-| Channels | 1 (mono) |
+Paramètres définis dans `OpusCodec.hpp` :
+
+| Paramètre | Valeur | Constante |
+|-----------|--------|-----------|
+| Bitrate | **32 kbps** | `BITRATE = 32000` |
+| Sample Rate | 48 kHz | `SAMPLE_RATE = 48000` |
+| Frame Size | 960 samples (20 ms) | `FRAME_SIZE = 960` |
+| Channels | 1 (mono) | `CHANNELS = 1` |
+| Max Packet | 480 bytes | `MAX_PACKET_SIZE = 480` |
+
+---
+
+## Architecture Voice
+
+```mermaid
+flowchart LR
+    subgraph Client
+        M[Microphone] --> PA[PortAudio]
+        PA --> E[Opus Encoder]
+        E --> UDP[UDP 4126]
+    end
+
+    subgraph Server
+        UDP --> R[VoiceUDPServer]
+        R --> B[Relay to Room]
+    end
+
+    subgraph "Other Clients"
+        B --> D[Opus Decoder]
+        D --> S[Speakers]
+    end
+```
+
+Le serveur ne décode pas l'audio — il relaye les paquets Opus aux autres membres de la room.

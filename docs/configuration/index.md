@@ -28,16 +28,29 @@ Personnalisez R-Type : serveur, client, accessibilité et audio.
 
 ---
 
-## Fichiers
+## Configuration
+
+La configuration du serveur se fait via **variables d'environnement** (fichier `.env`).
+Les paramètres utilisateur sont stockés en **base MongoDB** et synchronisés à la connexion.
 
 ```
 r-type/
-├── .env                  # Variables serveur
-├── config/
-│   ├── server.json       # Config serveur
-│   ├── client.json       # Config client
-│   └── controls.json     # Contrôles
+├── .env                  # Variables serveur (MongoDB, TLS)
+├── .env.example          # Exemple de configuration
+└── certs/                # Certificats TLS
+    ├── server.crt
+    └── server.key
 ```
+
+---
+
+## Ports Réseau
+
+| Service | Port | Protocole | Description |
+|---------|------|-----------|-------------|
+| Auth | 4125 | TCP/TLS | Authentification, rooms, chat |
+| Game | 4124 | UDP | Gameplay temps réel |
+| Voice | 4126 | UDP | Chat vocal Opus |
 
 ---
 
@@ -46,8 +59,8 @@ r-type/
 ```mermaid
 flowchart TB
     A[1. Variables env] --> B[2. Arguments CLI]
-    B --> C[3. Fichiers JSON]
-    C --> D[4. Défauts]
+    B --> C[3. Base MongoDB]
+    C --> D[4. Défauts code]
 
     style A fill:#f59e0b,color:#000
 ```

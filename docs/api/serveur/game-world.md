@@ -12,15 +12,24 @@ Simulation du monde de jeu côté serveur.
 ## Synopsis
 
 ```cpp
-#include "server/GameWorld.hpp"
+#include "infrastructure/game/GameWorld.hpp"
 
-GameWorld world;
-world.addPlayer(playerId, spawnPosition);
+using namespace infrastructure::game;
+
+GameWorld world(io_context);
+
+// Add player
+auto playerId = world.addPlayer(endpoint);
 
 // Game loop
 while (running) {
-    world.processInput(playerId, input);
-    world.tick();
+    world.applyPlayerInput(playerId, keys, sequence);
+    world.updatePlayers(deltaTime);
+    world.updateMissiles(deltaTime);
+    world.updateEnemies(deltaTime);
+    world.updateWaveSpawning(deltaTime);
+    world.checkCollisions();
+
     auto snapshot = world.getSnapshot();
     broadcast(snapshot);
 }
@@ -31,184 +40,241 @@ while (running) {
 ## Déclaration
 
 ```cpp
-namespace rtype::server {
+namespace infrastructure::game {
 
 class GameWorld {
 public:
-    static constexpr float TICK_RATE = 60.0f;
-    static constexpr float TICK_DURATION = 1.0f / TICK_RATE;
-    static constexpr float WORLD_WIDTH = 1920.0f;
-    static constexpr float WORLD_HEIGHT = 1080.0f;
+    explicit GameWorld(boost::asio::io_context& io_ctx);
 
-    GameWorld();
-    ~GameWorld();
+    // Strand for thread-safe operations
+    boost::asio::strand<boost::asio::io_context::executor_type>& getStrand();
 
-    // Player management
-    void addPlayer(PlayerId id, Vector2f position);
-    void removePlayer(PlayerId id);
-    Player* getPlayer(PlayerId id);
-    const std::vector<Player>& players() const;
+    // ═══════════════════════════════════════════════════════════════
+    // Game Speed Configuration
+    // ═══════════════════════════════════════════════════════════════
 
-    // Input processing
-    void queueInput(PlayerId playerId, const Input& input);
-    void processInput(PlayerId playerId, const Input& input);
+    void setGameSpeedPercent(uint16_t percent);  // 50-200
+    uint16_t getGameSpeedPercent() const;
+    float getGameSpeedMultiplier() const;
 
-    // Simulation
-    void tick();
-    Tick currentTick() const;
+    // ═══════════════════════════════════════════════════════════════
+    // Player Management
+    // ═══════════════════════════════════════════════════════════════
 
+    std::optional<uint8_t> addPlayer(const udp::endpoint& endpoint);
+    void removePlayer(uint8_t playerId);
+    void removePlayerByEndpoint(const udp::endpoint& endpoint);
+    void setPlayerSkin(uint8_t playerId, uint8_t skinId);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Server-Authoritative Movement
+    // ═══════════════════════════════════════════════════════════════
+
+    void applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum);
+    uint16_t getPlayerLastInputSeq(uint8_t playerId) const;
+    void updatePlayers(float deltaTime);
+
+    // ═══════════════════════════════════════════════════════════════
+    // Player Queries
+    // ═══════════════════════════════════════════════════════════════
+
+    std::optional<uint8_t> getPlayerIdByEndpoint(const udp::endpoint& endpoint);
+    std::optional<udp::endpoint> getEndpointByPlayerId(uint8_t playerId) const;
+    std::vector<udp::endpoint> getAllEndpoints() const;
+    size_t getPlayerCount() const;
+    bool isPlayerAlive(uint8_t playerId) const;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Missiles
+    // ═══════════════════════════════════════════════════════════════
+
+    uint16_t spawnMissile(uint8_t playerId);
+    void updateMissiles(float deltaTime);
+    std::vector<uint16_t> getDestroyedMissiles();
+    std::optional<Missile> getMissile(uint16_t missileId) const;
+
+    // ═══════════════════════════════════════════════════════════════
+    // Enemies & Waves
+    // ═══════════════════════════════════════════════════════════════
+
+    void updateWaveSpawning(float deltaTime);
+    void updateEnemies(float deltaTime);
+    std::vector<uint16_t> getDestroyedEnemies();
+
+    // ═══════════════════════════════════════════════════════════════
+    // Collisions & Damage
+    // ═══════════════════════════════════════════════════════════════
+
+    void checkCollisions();
+    std::vector<std::pair<uint8_t, uint8_t>> getPlayerDamageEvents();
+    std::vector<uint8_t> getDeadPlayers();
+
+    // ═══════════════════════════════════════════════════════════════
     // State
+    // ═══════════════════════════════════════════════════════════════
+
     GameSnapshot getSnapshot() const;
-    GameState state() const;
-    void setState(GameState state);
-
-    // Queries
-    Player* findNearestPlayer(float x, float y);
-    std::vector<Entity*> getEntitiesInRadius(Vector2f center, float r);
-
-    // Spawning
-    void spawnEnemy(EnemyType type);
-    void spawnMissile(PlayerId owner, Vector2f pos, Vector2f vel);
-    void spawnEnemyMissile(Vector2f pos, Vector2f vel);
-
-    // Events
-    void setVictory();
-    void setGameOver();
+    void updatePlayerActivity(uint8_t playerId);
+    std::vector<uint8_t> checkPlayerTimeouts(std::chrono::milliseconds timeout);
 
 private:
-    void processInputs();
-    void updatePhysics();
-    void updateEnemies();
-    void checkCollisions();
-    void cleanup();
+    boost::asio::strand<boost::asio::io_context::executor_type> _strand;
 
-    Tick currentTick_ = 0;
-    GameState state_ = GameState::Playing;
+    // Game speed
+    uint16_t _gameSpeedPercent = 100;
+    float _gameSpeedMultiplier = 1.0f;
 
-    std::vector<Player> players_;
-    std::vector<Enemy> enemies_;
-    std::vector<Missile> playerMissiles_;
-    std::vector<Missile> enemyMissiles_;
+    // Players
+    std::unordered_map<uint8_t, ConnectedPlayer> _players;
+    std::unordered_map<uint8_t, uint16_t> _playerInputs;
+    std::unordered_map<uint8_t, uint16_t> _playerLastInputSeq;
 
-    WaveManager waveManager_;
-    EntityIdGenerator idGenerator_;
+    // Missiles
+    std::unordered_map<uint16_t, Missile> _missiles;
+    std::unordered_map<uint16_t, Missile> _enemyMissiles;
+    std::vector<uint16_t> _destroyedMissiles;
+
+    // Enemies
+    std::unordered_map<uint16_t, Enemy> _enemies;
+    std::vector<uint16_t> _destroyedEnemies;
+    std::vector<SpawnEntry> _spawnQueue;
+
+    // Wave system
+    float _waveTimer = 0.0f;
+    float _currentWaveInterval;
+    uint16_t _waveNumber = 0;
 };
 
-} // namespace rtype::server
+} // namespace infrastructure::game
 ```
 
 ---
 
 ## Types
 
-### GameState
+### ConnectedPlayer
 
 ```cpp
-enum class GameState {
-    Playing,    // Partie en cours
-    Victory,    // Victoire (boss vaincu)
-    GameOver    // Défaite (tous morts)
+struct ConnectedPlayer {
+    uint8_t id;
+    uint16_t x, y;
+    uint8_t health;
+    bool alive;
+    udp::endpoint endpoint;
+    std::chrono::steady_clock::time_point lastActivity;
+    uint8_t shipSkin = 1;  // 1-6
 };
 ```
 
-### GameSnapshot
+### Missile
 
 ```cpp
-struct GameSnapshot {
-    Tick tick;
+struct Missile {
+    uint16_t id;
+    uint8_t owner_id;
+    float x, y;
+    float velocityX;
 
-    // Players (max 4)
-    uint8_t playerCount;
-    PlayerState players[4];
-
-    // Enemies (max 50)
-    uint8_t enemyCount;
-    EnemyState enemies[50];
-
-    // Missiles (max 100)
-    uint8_t missileCount;
-    MissileState missiles[100];
+    static constexpr float SPEED = 600.0f;
+    static constexpr float WIDTH = 16.0f;
+    static constexpr float HEIGHT = 8.0f;
 };
+```
+
+### EnemyType
+
+```cpp
+enum class EnemyType : uint8_t {
+    Basic = 0,    // HP: 30, Speed: 120
+    Tracker = 1,  // HP: 25, Speed: 100, suit les joueurs
+    Zigzag = 2,   // HP: 20, Speed: 140, mouvement en zigzag
+    Fast = 3,     // HP: 15, Speed: 220, rapide
+    Bomber = 4    // HP: 50, Speed: 80, tir fréquent
+};
+```
+
+---
+
+## Constantes
+
+```cpp
+// Screen
+static constexpr float SCREEN_WIDTH = 1920.0f;
+static constexpr float SCREEN_HEIGHT = 1080.0f;
+
+// Player
+static constexpr uint8_t DEFAULT_HEALTH = 100;
+static constexpr float PLAYER_MOVE_SPEED = 200.0f;
+static constexpr float PLAYER_SHIP_WIDTH = 64.0f;
+static constexpr float PLAYER_SHIP_HEIGHT = 30.0f;
+
+// Missiles
+static constexpr float MISSILE_SPAWN_OFFSET_X = 64.0f;
+static constexpr float MISSILE_SPAWN_OFFSET_Y = 15.0f;
+
+// Waves
+static constexpr float WAVE_INTERVAL_MIN = 6.0f;
+static constexpr float WAVE_INTERVAL_MAX = 12.0f;
+static constexpr uint8_t ENEMIES_PER_WAVE_MIN = 2;
+static constexpr uint8_t ENEMIES_PER_WAVE_MAX = 6;
+
+// Damage
+static constexpr uint8_t ENEMY_DAMAGE = 15;
+static constexpr uint8_t PLAYER_DAMAGE = 20;
 ```
 
 ---
 
 ## Méthodes
 
-### `tick()`
+### `applyPlayerInput()`
 
 ```cpp
-void tick();
+void applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum);
 ```
 
-Avance la simulation d'un tick (1/60 seconde).
+Applique les touches pressées pour un joueur.
 
-**Ordre d'exécution:**
-
-1. `processInputs()` - Traite les inputs en attente
-2. `updatePhysics()` - Met à jour positions
-3. `updateEnemies()` - IA des ennemis
-4. `checkCollisions()` - Détection collisions
-5. `cleanup()` - Supprime entités mortes
-
+**Keys bitfield:**
 ```cpp
-void GameWorld::tick() {
-    processInputs();
-    updatePhysics();
-    updateEnemies();
-    checkCollisions();
-    cleanup();
-    currentTick_++;
+namespace InputKeys {
+    constexpr uint16_t UP    = 0x0001;
+    constexpr uint16_t DOWN  = 0x0002;
+    constexpr uint16_t LEFT  = 0x0004;
+    constexpr uint16_t RIGHT = 0x0008;
+    constexpr uint16_t SHOOT = 0x0010;
 }
 ```
 
 ---
 
-### `processInput()`
+### `updatePlayers()`
 
 ```cpp
-void processInput(PlayerId playerId, const Input& input);
+void updatePlayers(float deltaTime);
 ```
 
-Applique un input joueur immédiatement.
-
-**Paramètres:**
-
-| Nom | Type | Description |
-|-----|------|-------------|
-| `playerId` | `PlayerId` | ID du joueur |
-| `input` | `Input` | Input à appliquer |
-
-**Exemple:**
+Met à jour les positions des joueurs selon leurs inputs.
 
 ```cpp
-void GameWorld::processInput(PlayerId id, const Input& input) {
-    auto* player = getPlayer(id);
-    if (!player || !player->isAlive()) return;
+// Implémentation simplifiée
+void GameWorld::updatePlayers(float deltaTime) {
+    float speed = PLAYER_MOVE_SPEED * _gameSpeedMultiplier;
 
-    const float SPEED = 300.0f;
+    for (auto& [id, player] : _players) {
+        if (!player.alive) continue;
 
-    if (input.keys & KEY_UP)
-        player->y -= SPEED * TICK_DURATION;
-    if (input.keys & KEY_DOWN)
-        player->y += SPEED * TICK_DURATION;
-    if (input.keys & KEY_LEFT)
-        player->x -= SPEED * TICK_DURATION;
-    if (input.keys & KEY_RIGHT)
-        player->x += SPEED * TICK_DURATION;
+        uint16_t keys = _playerInputs[id];
 
-    // Clamp bounds
-    player->x = std::clamp(player->x, 0.0f, WORLD_WIDTH);
-    player->y = std::clamp(player->y, 0.0f, WORLD_HEIGHT);
+        if (keys & InputKeys::UP)    player.y -= speed * deltaTime;
+        if (keys & InputKeys::DOWN)  player.y += speed * deltaTime;
+        if (keys & InputKeys::LEFT)  player.x -= speed * deltaTime;
+        if (keys & InputKeys::RIGHT) player.x += speed * deltaTime;
 
-    // Shooting
-    if ((input.keys & KEY_SHOOT) && player->canShoot()) {
-        spawnMissile(id, {player->x + 64, player->y + 16},
-                    {600.0f, 0.0f});
-        player->shoot();
+        // Clamp to screen
+        player.x = std::clamp(player.x, 0.0f, SCREEN_WIDTH - PLAYER_SHIP_WIDTH);
+        player.y = std::clamp(player.y, 0.0f, SCREEN_HEIGHT - PLAYER_SHIP_HEIGHT);
     }
-
-    player->lastAckedInput = input.sequence;
 }
 ```
 
@@ -220,55 +286,9 @@ void GameWorld::processInput(PlayerId id, const Input& input) {
 GameSnapshot getSnapshot() const;
 ```
 
-Génère un snapshot de l'état actuel.
+Génère un snapshot de l'état actuel pour broadcast.
 
-**Retour:** `GameSnapshot` contenant l'état complet du jeu
-
-**Note:** Le snapshot est envoyé aux clients à chaque tick.
-
----
-
-### `checkCollisions()`
-
-```cpp
-void checkCollisions();
-```
-
-Vérifie toutes les collisions.
-
-**Types de collisions:**
-
-- Missiles joueurs vs Ennemis
-- Missiles ennemis vs Joueurs
-- Ennemis vs Joueurs (contact)
-
-```cpp
-void GameWorld::checkCollisions() {
-    // Player missiles vs enemies
-    for (auto& missile : playerMissiles_) {
-        if (!missile.isAlive()) continue;
-
-        for (auto& enemy : enemies_) {
-            if (!enemy.isAlive()) continue;
-
-            if (missile.getAABB().intersects(enemy.getAABB())) {
-                enemy.takeDamage(missile.damage());
-                missile.destroy();
-
-                if (!enemy.isAlive()) {
-                    // Score event
-                    onEnemyKilled(enemy);
-                }
-                break;
-            }
-        }
-    }
-
-    // Enemy missiles vs players
-    // Enemies vs players (contact)
-    // ...
-}
-```
+**Note:** Le snapshot est envoyé aux clients à ~20 Hz.
 
 ---
 
@@ -276,53 +296,52 @@ void GameWorld::checkCollisions() {
 
 ```mermaid
 flowchart TB
-    Start[tick()] --> Inputs[processInputs]
-    Inputs --> Physics[updatePhysics]
-    Physics --> AI[updateEnemies]
-    AI --> Collision[checkCollisions]
-    Collision --> Cleanup[cleanup]
-    Cleanup --> Increment[currentTick_++]
-    Increment --> End[return]
+    Start[Update Tick] --> Input[applyPlayerInput]
+    Input --> Players[updatePlayers]
+    Players --> Missiles[updateMissiles]
+    Missiles --> Enemies[updateEnemies]
+    Enemies --> Waves[updateWaveSpawning]
+    Waves --> Collision[checkCollisions]
+    Collision --> Snapshot[getSnapshot]
+    Snapshot --> Broadcast[broadcast]
 
     style Start fill:#7c3aed,color:#fff
-    style End fill:#7c3aed,color:#fff
+    style Broadcast fill:#7c3aed,color:#fff
 ```
 
 ---
 
-## Wave Manager Integration
+## Game Speed
+
+La vitesse de jeu peut être configurée entre 50% et 200%:
 
 ```cpp
-class GameWorld {
-    WaveManager waveManager_;
+world.setGameSpeedPercent(150);  // 1.5x speed
 
-    void updateEnemies() {
-        // Update AI
-        for (auto& enemy : enemies_) {
-            enemy.updateAI(*this);
-        }
-
-        // Wave progression
-        waveManager_.update(*this, TICK_DURATION);
-    }
-};
+// Affects:
+// - Player movement speed
+// - Missile speed
+// - Enemy movement speed
+// - Wave spawn intervals
 ```
-
----
-
-## Constantes
-
-| Constante | Valeur | Description |
-|-----------|--------|-------------|
-| `TICK_RATE` | 60.0 | Ticks par seconde |
-| `TICK_DURATION` | 0.0167 | Durée d'un tick (s) |
-| `WORLD_WIDTH` | 1920.0 | Largeur monde (px) |
-| `WORLD_HEIGHT` | 1080.0 | Hauteur monde (px) |
-| `MAX_PLAYERS` | 4 | Joueurs maximum |
-| `MAX_ENEMIES` | 50 | Ennemis maximum |
 
 ---
 
 ## Thread Safety
 
-`GameWorld` n'est **PAS** thread-safe. Il est conçu pour être utilisé depuis un seul thread (le thread de simulation de la room).
+GameWorld utilise un **strand** Boost.ASIO pour sérialiser les opérations.
+
+```cpp
+// Toutes les opérations doivent passer par le strand
+boost::asio::post(world.getStrand(), [&world, playerId, keys, seq]() {
+    world.applyPlayerInput(playerId, keys, seq);
+});
+```
+
+| Composant | Thread Model |
+|-----------|--------------|
+| Player updates | Strand |
+| Missile updates | Strand |
+| Enemy updates | Strand |
+| Collisions | Strand |
+| Snapshots | Strand (lecture) |
