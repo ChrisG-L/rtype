@@ -65,7 +65,13 @@ Sortie attendue :
 
 ### Configuration du Serveur
 
-Le serveur utilise un fichier `.env` pour la configuration :
+Le serveur utilise un fichier `.env` pour la configuration. Copiez d'abord le fichier exemple :
+
+```bash
+cp .env.example .env
+```
+
+Puis éditez `.env` selon vos besoins :
 
 ```bash
 # Ports
@@ -122,8 +128,9 @@ Ou avec le script :
 |--------|--------|
 | ++arrow-up++ ++arrow-down++ ++arrow-left++ ++arrow-right++ | Déplacement |
 | ++space++ | Tir |
-| ++escape++ | Menu pause |
-| ++f11++ | Plein écran |
+| ++v++ | Voice Chat (Push-to-Talk) |
+| ++t++ | Ouvrir le chat |
+| ++escape++ | Fermer le chat |
 
 ---
 

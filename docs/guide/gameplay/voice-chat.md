@@ -76,19 +76,21 @@ Parlez librement, détection automatique.
 
 ## Configuration
 
-```json
-{
-  "audio": {
-    "voice": {
-      "mode": "ptt",
-      "ptt_key": "V",
-      "vad_threshold": 0.02,
-      "input_device": "default",
-      "output_device": "default"
-    }
-  }
-}
-```
+Les paramètres audio sont configurables via le menu **Paramètres** du jeu (section Audio).
+
+### Paramètres disponibles
+
+| Paramètre | Description | Valeur par défaut |
+|-----------|-------------|-------------------|
+| **Mode vocal** | PTT ou VAD | Push-to-Talk |
+| **Touche PTT** | Touche pour parler | ++v++ |
+| **Seuil VAD** | Sensibilité de détection | 0.02 |
+| **Périphérique d'entrée** | Microphone | Défaut système |
+| **Périphérique de sortie** | Haut-parleurs/Casque | Défaut système |
+| **Gain micro** | Volume d'entrée (0.0-2.0) | 1.0 |
+
+!!! info "Persistance des paramètres"
+    Les préférences audio (périphériques sélectionnés) sont sauvegardées dans votre compte utilisateur (MongoDB côté serveur).
 
 ### Seuil VAD
 

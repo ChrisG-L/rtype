@@ -38,27 +38,32 @@ flowchart LR
 
 5 types avec comportements uniques :
 
-| Ennemi | Comportement | Danger |
-|--------|--------------|--------|
-| **Basique** | Ligne droite | ⭐ |
-| **Zigzag** | Mouvement erratique | ⭐⭐ |
-| **Suiveur** | Vous traque | ⭐⭐⭐ |
-| **Tireur** | Projectiles | ⭐⭐⭐⭐ |
-| **Boss** | Fin de niveau | ⭐⭐⭐⭐⭐ |
+| Ennemi | Comportement | PV | Danger |
+|--------|--------------|-----|--------|
+| **Basic** | Mouvement sinusoïdal | 30 | ⭐ |
+| **Tracker** | Suit le joueur en Y | 25 | ⭐⭐ |
+| **Zigzag** | Zigzag vertical rapide | 20 | ⭐⭐ |
+| **Fast** | Très rapide, petite oscillation | 15 | ⭐⭐⭐ |
+| **Bomber** | Lent mais tire 2 missiles | 50 | ⭐⭐⭐⭐ |
 
 ---
 
 ## Système de Vagues
 
+Les ennemis apparaissent progressivement selon le numéro de vague :
+
 ```mermaid
 flowchart TB
-    W1[Vague 1<br/>Basiques] --> W2[Vague 2<br/>+ Zigzags]
-    W2 --> W3[Vague 3<br/>+ Suiveurs]
-    W3 --> W4[Vague 4<br/>+ Tireurs]
-    W4 --> BOSS[BOSS]
+    W1[Vague 1<br/>Basic] --> W2[Vague 2<br/>+ Tracker]
+    W2 --> W3[Vague 3<br/>+ Zigzag]
+    W3 --> W4[Vague 4<br/>+ Fast]
+    W4 --> W5[Vague 5+<br/>+ Bomber]
 
-    style BOSS fill:#dc2626,color:#fff
+    style W5 fill:#dc2626,color:#fff
 ```
+
+!!! info "Difficulté progressive"
+    Le nombre d'ennemis par vague augmente au fil du temps. Les types les plus dangereux n'apparaissent qu'après plusieurs vagues.
 
 ---
 
