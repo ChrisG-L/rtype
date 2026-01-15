@@ -217,6 +217,7 @@ nav:
     - Conventions: developpement/conventions.md
     - Tests: developpement/tests.md
     - CI/CD: developpement/ci-cd.md
+    - VPS: developpement/vps.md
     - Contribution: developpement/contribution.md
   - Assets:
     - assets/index.md
