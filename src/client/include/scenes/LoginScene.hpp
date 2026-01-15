@@ -12,6 +12,7 @@
 #include "ui/Button.hpp"
 #include "ui/TextInput.hpp"
 #include "ui/StarfieldBackground.hpp"
+#include "config/ServerConfigManager.hpp"
 #include "../utils/Vecs.hpp"
 #include <memory>
 #include <vector>
@@ -37,10 +38,19 @@ private:
     void setupTCPCallbacks();
     void processTCPEvents();
 
+    // Server config UI
+    void initServerConfigUI();
+    void showServerConfigUI();
+    void hideServerConfigUI();
+    void applyServerConfig();
+    void renderServerConfigUI();
+
     bool _assetsLoaded = false;
     bool _uiInitialized = false;
     bool _isRegisterMode = false;
     bool _callbacksSetup = false;
+    bool _showingConfigUI = false;
+    bool _configUIInitialized = false;
 
     // UI Components
     std::unique_ptr<ui::TextInput> _usernameInput;
@@ -49,6 +59,16 @@ private:
     std::unique_ptr<ui::TextInput> _confirmPasswordInput;
     std::unique_ptr<ui::Button> _submitButton;
     std::unique_ptr<ui::Button> _switchModeButton;
+    std::unique_ptr<ui::Button> _serverConfigButton;
+
+    // Server config UI components
+    std::unique_ptr<ui::TextInput> _hostInput;
+    std::unique_ptr<ui::TextInput> _tcpPortInput;
+    std::unique_ptr<ui::TextInput> _udpPortInput;
+    std::unique_ptr<ui::Button> _connectButton;
+    std::unique_ptr<ui::Button> _cancelButton;
+    std::unique_ptr<ui::Button> _franceButton;
+    std::unique_ptr<ui::Button> _localButton;
 
     std::string _statusMessage;
     rgba _statusColor{255, 100, 100, 255};

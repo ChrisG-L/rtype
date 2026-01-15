@@ -330,7 +330,7 @@ private:
     VoiceMode _voiceMode{VoiceMode::PushToTalk};
     float _vadThreshold{0.05f};  // 5% default (higher to avoid keyboard noise)
     float _micGain{1.0f};
-    int _playbackVolume{80};
+    int _playbackVolume{100};
 
     uint8_t _localPlayerId{0};
     uint16_t _sequenceNum{0};

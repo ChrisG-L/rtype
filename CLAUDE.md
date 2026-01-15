@@ -90,9 +90,52 @@ rtype/
 ./artifacts/server/linux/rtype_server  # Server (UDP 4124)
 ./artifacts/client/linux/rtype_client  # Client
 
+# Connect to VPS server
+./artifacts/client/linux/rtype_client --server=51.254.137.175
+
 # Clean build
 rm -rf build*/ artifacts/
 ```
+
+## Client Server Configuration
+
+The client supports configurable server addresses with persistence.
+
+### Command Line
+
+```bash
+# Connect to specific server
+./rtype_client --server=51.254.137.175       # Uses default ports (4125/4124)
+./rtype_client --server=myserver.com:4125    # Custom port (UDP = TCP - 1)
+```
+
+### In-App Configuration
+
+- Press **S** during connection screen to open server config
+- Click **SERVER** button on login screen (bottom left)
+- Auto-shows after 3 failed connection attempts
+- Quick connect buttons: **FRANCE** (51.254.137.175) / **LOCAL** (127.0.0.1)
+- Config is saved to `~/.config/rtype/rtype_client.json` (Linux) or `%APPDATA%/RType/rtype_client.json` (Windows)
+
+### Config File Format
+
+```json
+{
+    "host": "51.254.137.175",
+    "tcpPort": 4125,
+    "udpPort": 4124,
+    "voicePort": 4126
+}
+```
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `src/client/include/config/ServerConfigManager.hpp` | Singleton for server config |
+| `src/client/src/config/ServerConfigManager.cpp` | JSON persistence, cross-platform |
+| `src/client/src/scenes/ConnectionScene.cpp` | Config UI when connection fails |
+| `src/client/src/scenes/LoginScene.cpp` | SERVER button + config UI on login |
 
 ## Network Protocol
 

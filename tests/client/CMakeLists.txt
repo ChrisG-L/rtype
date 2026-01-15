@@ -15,6 +15,9 @@ set(TEST_SOURCES
     utils/VecsTest.cpp
     utils/SignalTest.cpp
 
+    # Tests Config
+    config/ServerConfigManagerTest.cpp
+
     # Tests Accessibility
     accessibility/AccessibilityConfigTest.cpp
 
@@ -28,6 +31,8 @@ set(TEST_SOURCES
 # Sources du client nécessaires pour les tests
 set(CLIENT_SOURCES_FOR_TESTS
     ${CMAKE_SOURCE_DIR}/src/client/src/accessibility/AccessibilityConfig.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/config/ServerConfigManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/core/Logger.cpp
 )
 
 # Créer l'exécutable de tests
@@ -51,6 +56,9 @@ target_include_directories(client_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client
     ${CMAKE_SOURCE_DIR}/src/client/include
 )
+
+# Trouver spdlog pour le Logger
+find_package(spdlog CONFIG REQUIRED)
 
 # Trouver Opus et PortAudio pour les tests audio
 find_package(Opus CONFIG REQUIRED)
@@ -76,6 +84,7 @@ endif()
 target_link_libraries(client_tests PRIVATE
     GTest::gtest
     GTest::gtest_main
+    spdlog::spdlog
     Opus::opus
     ${PORTAUDIO_TARGET}
 )
