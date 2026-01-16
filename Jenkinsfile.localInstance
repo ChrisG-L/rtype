@@ -305,7 +305,7 @@ pipeline {
                         // Appeler le service de déploiement local
                         def deployResponse = sh(
                             script: """
-                                curl -s -f -X POST http://127.0.0.1:8080/deploy \
+                                curl -s -f -X POST http://127.0.0.1:8081/deploy \
                                     -H 'Content-Type: application/json' \
                                     -d '{"source": "${serverBinary}"}'
                             """,
@@ -316,7 +316,7 @@ pipeline {
 
                         // Vérifier le statut
                         def statusResponse = sh(
-                            script: "curl -s http://127.0.0.1:8080/status",
+                            script: "curl -s http://127.0.0.1:8081/status",
                             returnStdout: true
                         ).trim()
 

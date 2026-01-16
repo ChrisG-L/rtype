@@ -30,7 +30,7 @@ import urllib.error
 # =============================================================================
 
 LISTEN_HOST = "127.0.0.1"  # Localhost uniquement - sécurité par design
-DEFAULT_PORT = 8080
+DEFAULT_PORT = 8081
 
 SERVER_BINARY_PATH = "/opt/rtype/server/rtype_server"
 SERVER_SERVICE_NAME = "rtype-server"

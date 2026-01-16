@@ -8,7 +8,7 @@ Type=simple
 User=root
 Group=root
 
-ExecStart=/usr/bin/python3 /opt/rtype/scripts/deploy-service.py --port 8080
+ExecStart=/usr/bin/python3 /opt/rtype/scripts/deploy-service.py --port 8081
 
 Restart=always
 RestartSec=5
