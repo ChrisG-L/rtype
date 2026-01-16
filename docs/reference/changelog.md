@@ -19,12 +19,18 @@ et ce projet adhère au [Versionnement Sémantique](https://semver.org/lang/fr/)
 - Documentation complète avec MkDocs Material
 - Support multi-backend graphique (SDL2/SFML)
 - Architecture plugin pour les backends
+- Affichage du rang global en temps réel pendant la partie
+- Affichage du meilleur score personnel avec indicateur "NEW!"
+- Mise à jour périodique du rang (toutes les 10 secondes)
+- Tests unitaires pour le formatage du score et les couleurs du rang
 
 ### Changed
 - Refactoring de la couche graphique avec abstraction
+- Calcul du rang utilise maintenant l'agrégation MongoDB pour joueurs uniques
 
 ### Fixed
 - Correction des fuites mémoire dans le système ECS
+- Fix du calcul de rang qui comptait les scores au lieu des joueurs uniques
 
 ---
 

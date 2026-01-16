@@ -307,6 +307,46 @@ namespace Hitboxes {
 
 ---
 
+## Affichage du Rang en Jeu
+
+Pendant la partie, le rang global et le meilleur score personnel sont affiches dans le HUD.
+
+### Fonctionnalites
+
+| Element | Description |
+|---------|-------------|
+| Rang global | Position actuelle (#1, #2, etc.) |
+| Meilleur score | Record personnel a battre |
+| Mise a jour | Toutes les 10 secondes |
+| Indicateur NEW! | Affiche quand le score depasse le record |
+
+### Couleurs du Rang
+
+| Position | Couleur |
+|----------|---------|
+| #1 | Or (255, 215, 0) |
+| #2 | Argent (192, 192, 192) |
+| #3 | Bronze (205, 127, 50) |
+| Top 10 | Bleu clair (100, 200, 255) |
+| Top 50 | Vert (100, 255, 150) |
+| Autres | Gris (200, 200, 200) |
+
+### Format du Score
+
+| Seuil | Format | Exemple |
+|-------|--------|---------|
+| < 1000 | Brut | BEST: 850 |
+| >= 1000 | K | BEST: 32.6K |
+| >= 1000000 | M | BEST: 1.2M |
+
+### Comportement Live
+
+- Le meilleur score suit le score actuel quand il est depasse
+- Le texte devient vert avec "NEW!" quand un nouveau record est etabli
+- Exemple : `BEST: 17.3K NEW!`
+
+---
+
 ## References Code
 
 | Fichier | Description |
@@ -315,3 +355,4 @@ namespace Hitboxes {
 | `GameWorld.cpp` | Logique serveur |
 | `AABB.hpp` | Systeme de collision |
 | `GameScene.cpp` | Rendu et HUD |
+| `MongoDBLeaderboardRepository.cpp` | Calcul du rang unique par joueur |

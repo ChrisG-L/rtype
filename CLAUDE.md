@@ -759,6 +759,50 @@ while (auto event = tcpClient.pollEvent()) {
 }
 ```
 
+### Real-Time Rank Display (GameScene)
+
+During gameplay, the player's global rank and personal best score are displayed in the HUD.
+
+**Features:**
+- **Global rank badge** - Shows current position (e.g., "RANK #42")
+- **Personal best score** - Target to beat (e.g., "BEST: 32.6K")
+- **Real-time updates** - Rank refreshed every 10 seconds
+- **Visual feedback** - Best score turns green when current score exceeds it
+
+**Rank Colors:**
+| Position | Color |
+|----------|-------|
+| #1 | Gold (255, 215, 0) |
+| #2 | Silver (192, 192, 192) |
+| #3 | Bronze (205, 127, 50) |
+| Top 10 | Light Blue (100, 200, 255) |
+| Top 50 | Green (100, 255, 150) |
+| Others | Gray (200, 200, 200) |
+
+**Score Formatting:**
+- `< 1000` → Raw number (e.g., "BEST: 850")
+- `≥ 1000` → K format (e.g., "BEST: 32.6K")
+- `≥ 1000000` → M format (e.g., "BEST: 1.2M")
+
+**Implementation:**
+```cpp
+// GameScene requests rank and stats at start
+_context.tcpClient->sendGetLeaderboard({.period = 0, .limit = 1});
+_context.tcpClient->sendGetPlayerStats();  // For bestScore
+
+// Periodic update every 10 seconds
+if (_rankUpdateTimer >= RANK_UPDATE_INTERVAL) {
+    _context.tcpClient->sendGetLeaderboard({.period = 0, .limit = 1});
+    _rankUpdateTimer = 0.0f;
+}
+```
+
+**Key Files:**
+| File | Description |
+|------|-------------|
+| `src/client/include/scenes/GameScene.hpp` | Rank state variables |
+| `src/client/src/scenes/GameScene.cpp` | `renderGlobalRank()` function |
+
 ## Assets
 
 | Asset | Path | Size |

@@ -238,16 +238,39 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
 
         uint32_t playerScore = static_cast<uint32_t>(getInt64Safe(result->view()["score"]));
 
-        // Count how many scores are higher
-        bsoncxx::builder::basic::document countFilter;
-        countFilter.append(kvp("score", make_document(kvp("$gt", static_cast<int64_t>(playerScore)))));
+        // Count how many UNIQUE PLAYERS have a higher best score
+        // Use aggregation to group by email and get max score per player
+        using bsoncxx::builder::basic::make_array;
+        mongocxx::pipeline pipe;
+
+        // Match period filter if needed
         if (period != LeaderboardPeriod::AllTime) {
             int64_t startTs = getPeriodStartTimestamp(period);
-            countFilter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
+            pipe.match(make_document(kvp("timestamp", make_document(kvp("$gte", startTs)))));
         }
 
-        auto count = _leaderboardCollection->count_documents(countFilter.view());
-        return static_cast<uint32_t>(count) + 1;
+        // Group by email and get max score per player
+        pipe.group(make_document(
+            kvp("_id", "$email"),
+            kvp("maxScore", make_document(kvp("$max", "$score")))
+        ));
+
+        // Filter to only players with higher score than ours
+        pipe.match(make_document(
+            kvp("maxScore", make_document(kvp("$gt", static_cast<int64_t>(playerScore))))
+        ));
+
+        // Count the results
+        pipe.count("count");
+
+        auto cursor = _leaderboardCollection->aggregate(pipe);
+        uint32_t count = 0;
+        for (auto&& doc : cursor) {
+            count = static_cast<uint32_t>(getInt64Safe(doc["count"]));
+            break;
+        }
+
+        return count + 1;  // Rank = number of players ahead + 1
     } catch (const std::exception& e) {
         auto logger = server::logging::Logger::getGameLogger();
         logger->error("getPlayerRank failed for {}: {}", email, e.what());

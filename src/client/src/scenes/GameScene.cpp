@@ -372,14 +372,32 @@ void GameScene::update(float deltatime)
         initVoiceChat();
     }
 
-    // Request global rank from leaderboard (once at start)
-    if (!_globalRankRequested && _context.tcpClient && _context.tcpClient->isConnected()) {
+    // Request global rank and player stats (once at start)
+    if (_context.tcpClient && _context.tcpClient->isConnected()) {
+        if (!_globalRankRequested) {
+            GetLeaderboardRequest req;
+            req.period = 0;  // All-time
+            req.limit = 1;   // We only need our rank, not the full list
+            _context.tcpClient->sendGetLeaderboard(req);
+            _globalRankRequested = true;
+            client::logging::Logger::getSceneLogger()->debug("Requested global rank from leaderboard");
+        }
+        if (!_playerStatsRequested) {
+            _context.tcpClient->sendGetPlayerStats();
+            _playerStatsRequested = true;
+            client::logging::Logger::getSceneLogger()->debug("Requested player stats for best score");
+        }
+    }
+
+    // Periodic rank update (every 10 seconds) to show real-time rank changes
+    _rankUpdateTimer += deltatime;
+    if (_rankUpdateTimer >= RANK_UPDATE_INTERVAL && _context.tcpClient && _context.tcpClient->isConnected()) {
         GetLeaderboardRequest req;
         req.period = 0;  // All-time
-        req.limit = 1;   // We only need our rank, not the full list
+        req.limit = 1;   // We only need our rank
         _context.tcpClient->sendGetLeaderboard(req);
-        _globalRankRequested = true;
-        client::logging::Logger::getSceneLogger()->debug("Requested global rank from leaderboard");
+        _rankUpdateTimer = 0.0f;
+        client::logging::Logger::getSceneLogger()->trace("Periodic rank update requested");
     }
 
     // Update voice chat (process incoming audio)
@@ -695,9 +713,22 @@ void GameScene::renderGlobalRank()
     float rankX = SCREEN_WIDTH - 280.0f;
     float rankY = 98.0f;
 
-    // Background for rank badge
-    _context.window->drawRect(rankX - 10.0f, rankY - 3.0f, 135.0f, 28.0f, {20, 20, 40, 180});
+    // Get current player score for comparison
+    uint32_t currentScore = 0;
+    auto localId = _context.udpClient->getLocalPlayerId();
+    if (localId) {
+        for (const auto& player : _context.udpClient->getPlayers()) {
+            if (player.id == *localId) {
+                currentScore = player.score;
+                break;
+            }
+        }
+    }
 
+    // Background for rank badge (larger to include best score + "NEW!" indicator)
+    _context.window->drawRect(rankX - 10.0f, rankY - 3.0f, 165.0f, 50.0f, {20, 20, 40, 180});
+
+    // Display global rank
     if (_globalRank == 0) {
         // Not ranked or loading
         if (!_globalRankRequested) {
@@ -726,6 +757,47 @@ void GameScene::renderGlobalRank()
 
         _context.window->drawText(FONT_KEY, rankText, rankX, rankY, 18, rankColor);
     }
+
+    // Display best score below rank
+    float bestY = rankY + 24.0f;
+    if (_bestScore > 0 || currentScore > 0) {
+        // Use current score if it beats the saved best score (live update)
+        uint32_t displayBest = (currentScore > _bestScore) ? currentScore : _bestScore;
+        bool isNewRecord = currentScore > _bestScore && _bestScore > 0;
+
+        // Format best score (e.g., "BEST: 32.6K" or "BEST: 1.2M")
+        std::string bestText;
+        if (displayBest >= 1000000) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "BEST: %.1fM", displayBest / 1000000.0f);
+            bestText = buf;
+        } else if (displayBest >= 1000) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "BEST: %.1fK", displayBest / 1000.0f);
+            bestText = buf;
+        } else {
+            bestText = "BEST: " + std::to_string(displayBest);
+        }
+
+        // Add "NEW!" indicator when beating your record
+        if (isNewRecord) {
+            bestText += " NEW!";
+        }
+
+        // Color: green if current score beats best, otherwise cyan
+        rgba bestColor;
+        if (isNewRecord) {
+            bestColor = {100, 255, 100, 255};  // Green - new record!
+        } else {
+            bestColor = {100, 200, 255, 255};  // Cyan - target to beat
+        }
+
+        _context.window->drawText(FONT_KEY, bestText, rankX, bestY, 14, bestColor);
+    } else if (_playerStatsRequested) {
+        _context.window->drawText(FONT_KEY, "BEST: ---", rankX, bestY, 14, {150, 150, 150, 255});
+    } else {
+        _context.window->drawText(FONT_KEY, "BEST: ...", rankX, bestY, 14, {150, 150, 150, 255});
+    }
 }
 
 void GameScene::renderTeamScoreboard()
@@ -744,7 +816,7 @@ void GameScene::renderTeamScoreboard()
     // Position: right side, below the rank badge (moved left to avoid overflow)
     float boardWidth = 210.0f;
     float boardX = SCREEN_WIDTH - boardWidth - 15.0f;  // 15px margin from right edge
-    float boardY = 135.0f;  // Below rank badge (which ends ~130px)
+    float boardY = 158.0f;  // Below rank badge (which ends ~155px with best score)
     float rowHeight = 22.0f;
     float boardHeight = 28.0f + sortedPlayers.size() * rowHeight;
 
@@ -1814,6 +1886,11 @@ void GameScene::processTCPEvents()
                 _globalRank = event.response.yourRank;
                 client::logging::Logger::getSceneLogger()->info("Global rank received: {}",
                     _globalRank > 0 ? std::to_string(_globalRank) : "Unranked");
+            }
+            else if constexpr (std::is_same_v<T, client::network::PlayerStatsDataEvent>) {
+                // Received player stats - extract best score
+                _bestScore = event.stats.bestScore;
+                client::logging::Logger::getSceneLogger()->info("Best score received: {}", _bestScore);
             }
             // Ignore other TCP events during gameplay
         }, *eventOpt);

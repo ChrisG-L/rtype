@@ -200,9 +200,13 @@ private:
     // Player names for team scoreboard (slotId -> displayName)
     std::unordered_map<uint8_t, std::string> _playerNames;
 
-    // Global rank (fetched from leaderboard at start)
-    uint32_t _globalRank = 0;         // 0 = not ranked yet or loading
-    bool _globalRankRequested = false;
-    void renderGlobalRank();          // Display rank badge in HUD
+    // Global rank and best score (fetched from leaderboard, updated periodically)
+    uint32_t _globalRank = 0;           // Current rank (0 = not ranked)
+    uint32_t _bestScore = 0;            // Personal best score to beat
+    float _rankUpdateTimer = 0.0f;      // Timer for periodic rank updates
+    bool _globalRankRequested = false;  // True once we request rank for the first time
+    bool _playerStatsRequested = false; // True once we request player stats for bestScore
+    static constexpr float RANK_UPDATE_INTERVAL = 10.0f;  // Update every 10 seconds
+    void renderGlobalRank();            // Display rank badge and best score in HUD
 };
 #endif /* !GAMESCENE_HPP_ */
