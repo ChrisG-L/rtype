@@ -12,6 +12,7 @@
 #include "events/Event.hpp"
 #include "utils/Vecs.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
+#include "network/TCPClient.hpp"  // For leaderboard requests
 #include "Protocol.hpp"  // For InputKeys
 #include <variant>
 #include <algorithm>
@@ -371,6 +372,16 @@ void GameScene::update(float deltatime)
         initVoiceChat();
     }
 
+    // Request global rank from leaderboard (once at start)
+    if (!_globalRankRequested && _context.tcpClient && _context.tcpClient->isConnected()) {
+        GetLeaderboardRequest req;
+        req.period = 0;  // All-time
+        req.limit = 1;   // We only need our rank, not the full list
+        _context.tcpClient->sendGetLeaderboard(req);
+        _globalRankRequested = true;
+        client::logging::Logger::getSceneLogger()->debug("Requested global rank from leaderboard");
+    }
+
     // Update voice chat (process incoming audio)
     audio::VoiceChatManager::getInstance().update();
 
@@ -678,6 +689,45 @@ void GameScene::renderScoreHUD()
     }
 }
 
+void GameScene::renderGlobalRank()
+{
+    // Position: below the score HUD (score ends at ~95px)
+    float rankX = SCREEN_WIDTH - 280.0f;
+    float rankY = 98.0f;
+
+    // Background for rank badge
+    _context.window->drawRect(rankX - 10.0f, rankY - 3.0f, 135.0f, 28.0f, {20, 20, 40, 180});
+
+    if (_globalRank == 0) {
+        // Not ranked or loading
+        if (!_globalRankRequested) {
+            _context.window->drawText(FONT_KEY, "RANK: ...", rankX, rankY, 16, {150, 150, 150, 255});
+        } else {
+            _context.window->drawText(FONT_KEY, "RANK: ---", rankX, rankY, 16, {150, 150, 150, 255});
+        }
+    } else {
+        // Display rank with color based on position
+        std::string rankText = "RANK #" + std::to_string(_globalRank);
+
+        rgba rankColor;
+        if (_globalRank == 1) {
+            rankColor = {255, 215, 0, 255};    // Gold for #1
+        } else if (_globalRank == 2) {
+            rankColor = {192, 192, 192, 255};  // Silver for #2
+        } else if (_globalRank == 3) {
+            rankColor = {205, 127, 50, 255};   // Bronze for #3
+        } else if (_globalRank <= 10) {
+            rankColor = {100, 200, 255, 255};  // Light blue for top 10
+        } else if (_globalRank <= 50) {
+            rankColor = {100, 255, 150, 255};  // Green for top 50
+        } else {
+            rankColor = {200, 200, 200, 255};  // Gray for others
+        }
+
+        _context.window->drawText(FONT_KEY, rankText, rankX, rankY, 18, rankColor);
+    }
+}
+
 void GameScene::renderTeamScoreboard()
 {
     auto localId = _context.udpClient->getLocalPlayerId();
@@ -691,10 +741,10 @@ void GameScene::renderTeamScoreboard()
     std::sort(sortedPlayers.begin(), sortedPlayers.end(),
               [](const auto& a, const auto& b) { return a.score > b.score; });
 
-    // Position: right side, below the score HUD (moved left to avoid overflow)
+    // Position: right side, below the rank badge (moved left to avoid overflow)
     float boardWidth = 210.0f;
     float boardX = SCREEN_WIDTH - boardWidth - 15.0f;  // 15px margin from right edge
-    float boardY = 110.0f;  // Below score HUD (which ends ~95px)
+    float boardY = 135.0f;  // Below rank badge (which ends ~130px)
     float rowHeight = 22.0f;
     float boardHeight = 28.0f + sortedPlayers.size() * rowHeight;
 
@@ -1178,6 +1228,7 @@ void GameScene::render()
     renderHUD();
     renderSpeedIndicator(); // Speed upgrade level (Phase 3)
     renderScoreHUD();
+    renderGlobalRank();     // Global rank badge (top-right, below score)
     renderTeamScoreboard(); // All players' scores in real-time (multiplayer)
     renderWeaponHUD();     // Weapon indicator (Gameplay Phase 2)
     renderChargeGauge();   // Wave Cannon charge gauge (Phase 3)
@@ -1757,6 +1808,12 @@ void GameScene::processTCPEvents()
                     event.reason.empty() ? "No reason given" : event.reason);
                 _wasKicked = true;
                 _kickReason = event.reason;
+            }
+            else if constexpr (std::is_same_v<T, client::network::LeaderboardDataEvent>) {
+                // Received leaderboard data - extract our global rank
+                _globalRank = event.response.yourRank;
+                client::logging::Logger::getSceneLogger()->info("Global rank received: {}",
+                    _globalRank > 0 ? std::to_string(_globalRank) : "Unranked");
             }
             // Ignore other TCP events during gameplay
         }, *eventOpt);

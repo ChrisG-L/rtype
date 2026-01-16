@@ -199,5 +199,10 @@ private:
 
     // Player names for team scoreboard (slotId -> displayName)
     std::unordered_map<uint8_t, std::string> _playerNames;
+
+    // Global rank (fetched from leaderboard at start)
+    uint32_t _globalRank = 0;         // 0 = not ranked yet or loading
+    bool _globalRankRequested = false;
+    void renderGlobalRank();          // Display rank badge in HUD
 };
 #endif /* !GAMESCENE_HPP_ */
