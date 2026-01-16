@@ -243,28 +243,24 @@ pipeline {
             }
         }
 
-        stage('🧪 Run Tests') {
+        stage('🧪 Run Linux Test') {
             // Tests uniquement sur Linux (Windows = cross-compile, non exécutable)
-            stages {
-                stage('🐧 Linux Tests') {
-                    steps {
-                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                            script {
-                                echo '🧪 Exécution des tests sur Linux...'
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    script {
+                        echo '🧪 Exécution des tests sur Linux...'
 
-                                def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                // Lancer les tests dans le workspace Linux
-                                def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
+                        // Lancer les tests dans le workspace Linux
+                        def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
 
-                                echo "[LINUX] Job créé: ${jobId}"
+                        echo "[LINUX] Job créé: ${jobId}"
 
-                                // Attendre la fin des tests
-                                api.waitForJob(jobId, 10, 7200)
+                        // Attendre la fin des tests
+                        api.waitForJob(jobId, 10, 7200)
 
-                                echo "✅ [LINUX] Tests exécutés avec succès"
-                            }
-                        }
+                        echo "✅ [LINUX] Tests exécutés avec succès"
                     }
                 }
             }
