@@ -75,6 +75,21 @@ private:
     };
     Tab _currentTab = Tab::Leaderboard;
 
+    // Sorting for leaderboard columns
+    enum class SortColumn {
+        Rank,
+        Score,
+        Wave,
+        Kills,
+        Time
+    };
+    SortColumn _sortColumn = SortColumn::Rank;
+    bool _sortAscending = true;  // true = ascending (for Rank default), false = descending
+
+    // Sort handlers
+    void onColumnHeaderClick(SortColumn column);
+    void sortLeaderboard();
+
     // Leaderboard data
     struct LeaderboardEntryData {
         uint32_t rank;

@@ -128,6 +128,37 @@ void LeaderboardScene::handleEvent(const events::Event& event) {
         }
     }
 
+    // Handle clicks on column headers for sorting (only in leaderboard tab)
+    if (_currentTab == Tab::Leaderboard && std::holds_alternative<events::MouseButtonPressed>(event)) {
+        auto& mouseEvt = std::get<events::MouseButtonPressed>(event);
+        if (mouseEvt.button == events::MouseButton::Left) {
+            float mx = static_cast<float>(mouseEvt.x);
+            float my = static_cast<float>(mouseEvt.y);
+            float headerY = CONTENT_START_Y;
+
+            // Check if click is in header row (Y range)
+            if (my >= headerY && my <= headerY + 25) {
+                // Check column hit boxes
+                // SCORE column: MARGIN_X + 400, width ~100
+                if (mx >= MARGIN_X + 400 && mx < MARGIN_X + 500) {
+                    onColumnHeaderClick(SortColumn::Score);
+                }
+                // WAVE column: MARGIN_X + 580, width ~80
+                else if (mx >= MARGIN_X + 580 && mx < MARGIN_X + 660) {
+                    onColumnHeaderClick(SortColumn::Wave);
+                }
+                // KILLS column: MARGIN_X + 700, width ~80
+                else if (mx >= MARGIN_X + 700 && mx < MARGIN_X + 780) {
+                    onColumnHeaderClick(SortColumn::Kills);
+                }
+                // TIME column: MARGIN_X + 820, width ~100
+                else if (mx >= MARGIN_X + 820 && mx < MARGIN_X + 920) {
+                    onColumnHeaderClick(SortColumn::Time);
+                }
+            }
+        }
+    }
+
     // Tab buttons
     _leaderboardTabBtn->handleEvent(event);
     _statsTabBtn->handleEvent(event);
@@ -275,15 +306,37 @@ void LeaderboardScene::renderLeaderboardTab() {
         return;
     }
 
-    // Column headers
+    // Column headers (clickable for sorting)
     float headerY = CONTENT_START_Y;
     rgba headerColor{200, 200, 200, 255};
-    _context.window->drawText(FONT_KEY, "RANK", MARGIN_X, headerY, 16, headerColor);
-    _context.window->drawText(FONT_KEY, "PLAYER", MARGIN_X + 100, headerY, 16, headerColor);
-    _context.window->drawText(FONT_KEY, "SCORE", MARGIN_X + 400, headerY, 16, headerColor);
-    _context.window->drawText(FONT_KEY, "WAVE", MARGIN_X + 580, headerY, 16, headerColor);
-    _context.window->drawText(FONT_KEY, "KILLS", MARGIN_X + 700, headerY, 16, headerColor);
-    _context.window->drawText(FONT_KEY, "TIME", MARGIN_X + 820, headerY, 16, headerColor);
+    rgba headerActiveColor{255, 215, 0, 255};  // Gold for active sort column
+
+    // Helper to get sort indicator
+    auto getSortIndicator = [this](SortColumn col) -> std::string {
+        if (_sortColumn != col) return "";
+        return _sortAscending ? " ^" : " v";
+    };
+
+    // Helper to get header color (active = gold)
+    auto getHeaderColor = [&](SortColumn col) -> rgba {
+        return (_sortColumn == col) ? headerActiveColor : headerColor;
+    };
+
+    // Draw clickable column headers with sort indicators
+    _context.window->drawText(FONT_KEY, "RANK", MARGIN_X, headerY, 16, headerColor);  // Rank not sortable (always by rank from server)
+    _context.window->drawText(FONT_KEY, "PLAYER", MARGIN_X + 100, headerY, 16, headerColor);  // Player not sortable
+
+    std::string scoreText = "SCORE" + getSortIndicator(SortColumn::Score);
+    _context.window->drawText(FONT_KEY, scoreText, MARGIN_X + 400, headerY, 16, getHeaderColor(SortColumn::Score));
+
+    std::string waveText = "WAVE" + getSortIndicator(SortColumn::Wave);
+    _context.window->drawText(FONT_KEY, waveText, MARGIN_X + 580, headerY, 16, getHeaderColor(SortColumn::Wave));
+
+    std::string killsText = "KILLS" + getSortIndicator(SortColumn::Kills);
+    _context.window->drawText(FONT_KEY, killsText, MARGIN_X + 700, headerY, 16, getHeaderColor(SortColumn::Kills));
+
+    std::string timeText = "TIME" + getSortIndicator(SortColumn::Time);
+    _context.window->drawText(FONT_KEY, timeText, MARGIN_X + 820, headerY, 16, getHeaderColor(SortColumn::Time));
 
     // Separator line
     _context.window->drawRect(MARGIN_X, headerY + 30, SCREEN_WIDTH - 2 * MARGIN_X, 2, {100, 100, 100, 255});
@@ -688,4 +741,46 @@ rgba LeaderboardScene::getAchievementColor(uint8_t type, bool unlocked) const {
         rgba{255, 215, 0, 255}     // WeaponMaster - Legendary (gold)
     };
     return type < ACHIEVEMENT_COUNT ? colors[type] : rgba{255, 255, 255, 255};
+}
+
+void LeaderboardScene::onColumnHeaderClick(SortColumn column) {
+    if (_sortColumn == column) {
+        // Toggle direction if clicking same column
+        _sortAscending = !_sortAscending;
+    } else {
+        // New column - set default direction
+        _sortColumn = column;
+        // Rank default ascending, others default descending (highest first)
+        _sortAscending = (column == SortColumn::Rank);
+    }
+    sortLeaderboard();
+}
+
+void LeaderboardScene::sortLeaderboard() {
+    if (_leaderboardEntries.empty()) return;
+
+    std::sort(_leaderboardEntries.begin(), _leaderboardEntries.end(),
+        [this](const LeaderboardEntryData& a, const LeaderboardEntryData& b) {
+            bool less = false;
+            switch (_sortColumn) {
+                case SortColumn::Rank:
+                    less = a.rank < b.rank;
+                    break;
+                case SortColumn::Score:
+                    less = a.score < b.score;
+                    break;
+                case SortColumn::Wave:
+                    less = a.wave < b.wave;
+                    break;
+                case SortColumn::Kills:
+                    less = a.kills < b.kills;
+                    break;
+                case SortColumn::Time:
+                    less = a.duration < b.duration;
+                    break;
+            }
+            return _sortAscending ? less : !less;
+        });
+
+    _scrollOffset = 0;  // Reset scroll when sorting
 }
