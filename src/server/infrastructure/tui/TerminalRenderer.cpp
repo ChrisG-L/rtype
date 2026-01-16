@@ -18,6 +18,7 @@
     #include <sys/ioctl.h>
     #include <unistd.h>
     #include <poll.h>
+    #include <fcntl.h>
 #endif
 
 namespace infrastructure::tui {
@@ -46,6 +47,17 @@ TerminalRenderer::Size TerminalRenderer::getTerminalSize() {
     return {24, 80};  // Default fallback
 #else
     struct winsize w;
+    // Use /dev/tty instead of STDOUT_FILENO to get terminal size even when
+    // stdout is redirected (e.g., piped to tee in tmux wrapper)
+    int fd = open("/dev/tty", O_RDONLY);
+    if (fd != -1) {
+        if (ioctl(fd, TIOCGWINSZ, &w) == 0) {
+            close(fd);
+            return {static_cast<uint16_t>(w.ws_row), static_cast<uint16_t>(w.ws_col)};
+        }
+        close(fd);
+    }
+    // Fallback: try STDOUT_FILENO (works when stdout is a TTY)
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
         return {static_cast<uint16_t>(w.ws_row), static_cast<uint16_t>(w.ws_col)};
     }
