@@ -95,6 +95,16 @@ target_link_libraries(client_tests PRIVATE
     ${PORTAUDIO_TARGET}
 )
 
+# MinGW: options de liaison pour éviter les conflits de définitions multiples
+if(MINGW)
+    target_link_options(client_tests PRIVATE
+        -static-libgcc
+        -static-libstdc++
+        -Wl,--allow-multiple-definition
+    )
+    message(STATUS "[Tests] MinGW link options enabled for client_tests")
+endif()
+
 # Enregistrer les tests avec CTest (sauf en cross-compilation)
 if(NOT CMAKE_CROSSCOMPILING)
     include(GoogleTest)
