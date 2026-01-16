@@ -37,6 +37,7 @@ set(TEST_SOURCES
     application/services/LeaderboardDataTest.cpp
     application/services/WeaponLevelsTest.cpp
     application/services/RankDisplayTest.cpp
+    application/services/LeaderboardSortTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests

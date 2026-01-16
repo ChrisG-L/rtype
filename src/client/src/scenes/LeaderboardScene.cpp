@@ -594,6 +594,10 @@ void LeaderboardScene::requestLeaderboard(uint8_t period) {
     _leaderboardEntries.clear();
     _scrollOffset = 0;
 
+    // Reset sort to default (by rank, ascending)
+    _sortColumn = SortColumn::Rank;
+    _sortAscending = true;
+
     GetLeaderboardRequest req;
     req.period = period;
     req.limit = MAX_ENTRIES;
@@ -750,7 +754,7 @@ void LeaderboardScene::onColumnHeaderClick(SortColumn column) {
     } else {
         // New column - set default direction
         _sortColumn = column;
-        // Rank default ascending, others default descending (highest first)
+        // Rank default ascending (#1 first), others default descending (highest first)
         _sortAscending = (column == SortColumn::Rank);
     }
     sortLeaderboard();

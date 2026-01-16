@@ -23,6 +23,7 @@ et ce projet adhère au [Versionnement Sémantique](https://semver.org/lang/fr/)
 - Affichage du meilleur score personnel avec indicateur "NEW!"
 - Mise à jour périodique du rang (toutes les 10 secondes)
 - Tests unitaires pour le formatage du score et les couleurs du rang
+- Tri par colonnes cliquables dans le leaderboard (Score, Wave, Kills, Time)
 
 ### Changed
 - Refactoring de la couche graphique avec abstraction

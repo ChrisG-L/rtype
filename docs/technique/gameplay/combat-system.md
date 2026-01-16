@@ -347,6 +347,37 @@ Pendant la partie, le rang global et le meilleur score personnel sont affiches d
 
 ---
 
+## Leaderboard - Tri par Colonnes
+
+Le leaderboard permet de trier les entrees par differentes colonnes.
+
+### Colonnes Triables
+
+| Colonne | Description | Direction par defaut |
+|---------|-------------|---------------------|
+| SCORE | Score total | Descendant (plus haut d'abord) |
+| WAVE | Vague atteinte | Descendant |
+| KILLS | Nombre de kills | Descendant |
+| TIME | Duree de la partie | Descendant |
+
+### Comportement
+
+- Cliquer sur une colonne trie par cette colonne
+- Cliquer a nouveau inverse l'ordre (ascendant <-> descendant)
+- La colonne active est affichee en or avec un indicateur (`^` ou `v`)
+- Changer de periode (ALL TIME/WEEKLY/MONTHLY) reset le tri a RANK ascendant
+
+### Indicateurs Visuels
+
+| Indicateur | Signification |
+|------------|---------------|
+| `^` | Tri ascendant (plus petit d'abord) |
+| `v` | Tri descendant (plus grand d'abord) |
+| Couleur or | Colonne de tri active |
+| Couleur grise | Colonne inactive |
+
+---
+
 ## References Code
 
 | Fichier | Description |
@@ -356,3 +387,4 @@ Pendant la partie, le rang global et le meilleur score personnel sont affiches d
 | `AABB.hpp` | Systeme de collision |
 | `GameScene.cpp` | Rendu et HUD |
 | `MongoDBLeaderboardRepository.cpp` | Calcul du rang unique par joueur |
+| `LeaderboardScene.cpp` | Affichage et tri du leaderboard |
