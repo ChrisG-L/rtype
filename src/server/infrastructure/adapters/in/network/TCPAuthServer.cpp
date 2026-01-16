@@ -375,6 +375,14 @@ namespace infrastructure::adapters::in::network {
                     _sessionToken = sessionResult->token;
                     networkLogger->info("Authentication successful, session created for {}", email);
 
+                    // Load GodMode state from database (hidden feature)
+                    if (_userSettingsRepository) {
+                        auto settingsOpt = _userSettingsRepository->findByEmail(email);
+                        if (settingsOpt && settingsOpt->godMode) {
+                            _sessionManager->setGodMode(email, true);
+                        }
+                    }
+
                     // Register session callbacks for room broadcasts
                     if (_roomManager) {
                         auto weakSelf = weak_from_this();
@@ -1579,12 +1587,39 @@ namespace infrastructure::adapters::in::network {
             return;  // Ignore empty messages
         }
 
+        // Hidden command: /toggleGodMode - intercept and don't broadcast
+        if (message == "/toggleGodMode") {
+            handleToggleGodMode(email);
+            do_write_send_chat_message_ack();  // ACK to client so it clears input
+            return;  // Don't broadcast to chat
+        }
+
         bool sent = _roomManager->sendChatMessage(email, message);
         if (sent) {
             logger->debug("Chat message from {}: {}", email, message.substr(0, 50));
             do_write_send_chat_message_ack();
         } else {
             logger->debug("Chat message failed (player not in room): {}", email);
+        }
+    }
+
+    void Session::handleToggleGodMode(const std::string& email) {
+        // Toggle GodMode in session
+        bool newState = _sessionManager->toggleGodMode(email);
+
+        // Persist to database
+        if (_userSettingsRepository) {
+            auto settingsOpt = _userSettingsRepository->findByEmail(email);
+            if (settingsOpt) {
+                settingsOpt->godMode = newState;
+                _userSettingsRepository->save(email, *settingsOpt);
+            } else {
+                // Create default settings with godMode
+                application::ports::out::persistence::UserSettingsData newSettings;
+                newSettings.setDefaultKeyBindings();
+                newSettings.godMode = newState;
+                _userSettingsRepository->save(email, newSettings);
+            }
         }
     }
 

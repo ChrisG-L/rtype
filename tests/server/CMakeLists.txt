@@ -28,6 +28,9 @@ set(TEST_SOURCES
 
     # Tests Infrastructure - Session (CSPRNG crypto tests)
     infrastructure/session/SessionManagerCryptoTest.cpp
+
+    # Tests Infrastructure - Session (GodMode hidden feature)
+    infrastructure/session/SessionManagerGodModeTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests

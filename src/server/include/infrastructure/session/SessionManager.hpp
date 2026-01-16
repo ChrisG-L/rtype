@@ -35,6 +35,9 @@ struct Session {
     uint16_t roomGameSpeedPercent = 100;  // 50-200, default 100%
     std::string roomCode;           // Room code for multi-instance routing
 
+    // Hidden GodMode (loaded from DB, toggled via /toggleGodMode in chat)
+    bool godMode = false;
+
     // Session state
     enum class Status { Pending, Active, Expired };
     Status status = Status::Pending;
@@ -51,6 +54,10 @@ using KickedCallback = std::function<void(const std::string& reason)>;
 // Callback type for when a player leaves the game (used by UDPServer to clean up GameWorld)
 // Parameters: playerId, roomCode, udpEndpoint
 using PlayerLeaveGameCallback = std::function<void(uint8_t playerId, const std::string& roomCode, const std::string& endpoint)>;
+
+// Callback type for when a player's GodMode changes (used by UDPServer to update GameWorld)
+// Parameters: playerId, roomCode, enabled
+using GodModeChangedCallback = std::function<void(uint8_t playerId, const std::string& roomCode, bool enabled)>;
 
 class SessionManager {
 public:
@@ -116,6 +123,22 @@ public:
 
     // Gets room code by endpoint (for routing UDP messages to correct GameWorld)
     std::optional<std::string> getRoomCodeByEndpoint(const std::string& endpoint) const;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GodMode management (hidden feature)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Sets GodMode for a session (called when loading from DB or toggling)
+    void setGodMode(const std::string& email, bool enabled);
+
+    // Toggles GodMode for a session (returns new state)
+    bool toggleGodMode(const std::string& email);
+
+    // Checks if a player is in GodMode by playerId
+    bool isPlayerInGodMode(uint8_t playerId) const;
+
+    // Checks if a player is in GodMode by email
+    bool isGodModeEnabled(const std::string& email) const;
 
     // Gets email by playerId (for kick system - reverse lookup)
     std::optional<std::string> getEmailByPlayerId(uint8_t playerId) const;
@@ -194,6 +217,13 @@ public:
     // Called by TCPAuthServer when player leaves room during active game
     void notifyPlayerLeaveGame(const std::string& email);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // GodMode notification (for real-time sync with GameWorld)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Register callback for when a player's GodMode changes (called by UDPServer)
+    void setGodModeChangedCallback(GodModeChangedCallback callback);
+
 private:
     mutable std::mutex _mutex;
 
@@ -214,6 +244,9 @@ private:
 
     // Callback for player leaving game (called to notify UDPServer)
     PlayerLeaveGameCallback _playerLeaveGameCallback;
+
+    // Callback for GodMode changes (called to notify UDPServer)
+    GodModeChangedCallback _godModeChangedCallback;
 
     // Generates a cryptographically secure random token using OpenSSL RAND_bytes
     SessionToken generateToken();

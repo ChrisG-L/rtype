@@ -42,6 +42,7 @@ namespace infrastructure::game {
         bool hasForce = false;         // Has Force Pod?
         uint8_t forceLevel = 0;        // Force Pod level (0-2)
         bool hasBits = false;          // Has Bit Devices? (2 orbiting satellites)
+        bool godMode = false;          // Hidden: player is invincible (no HP loss)
     };
 
     struct Missile {
@@ -546,6 +547,7 @@ namespace infrastructure::game {
         void removePlayer(uint8_t playerId);
         void removePlayerByEndpoint(const udp::endpoint& endpoint);
         void setPlayerSkin(uint8_t playerId, uint8_t skinId);
+        void setPlayerGodMode(uint8_t playerId, bool enabled);
 
         // ═══════════════════════════════════════════════════════════════════
         // Server-Authoritative Movement
