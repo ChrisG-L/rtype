@@ -10,7 +10,7 @@ pipeline {
 
     // Options globales pour le pipeline
     options {
-        timeout(time: 2, unit: 'HOURS')
+        timeout(time: 3, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 

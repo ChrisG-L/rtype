@@ -56,6 +56,14 @@ Ces valeurs sont définies dans le code source :
 
 ## MongoDB
 
+### Lancement avec Docker
+
+```bash
+docker run -d --name rtype-mongodb -p 8089:27017 -v rtype_data:/data/db --restart unless-stopped mongo:latest
+```
+
+### Schéma
+
 ```mermaid
 erDiagram
     Users {

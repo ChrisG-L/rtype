@@ -15,9 +15,14 @@ Implémentation de la persistance avec MongoDB.
 
 ```bash
 # .env
-MONGO_URI=mongodb://localhost:27017
-MONGO_DATABASE=rtype
-MONGO_POOL_SIZE=10
+MONGODB_URI=mongodb://localhost:8089
+MONGODB_DB=rtype
+```
+
+### Lancement avec Docker
+
+```bash
+docker run -d --name rtype-mongodb -p 8089:27017 -v rtype_data:/data/db --restart unless-stopped mongo:latest
 ```
 
 ### Structure Base de Données
