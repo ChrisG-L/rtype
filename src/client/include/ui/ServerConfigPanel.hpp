@@ -103,6 +103,7 @@ private:
     std::unique_ptr<TextInput> _hostInput;
     std::unique_ptr<TextInput> _tcpPortInput;
     std::unique_ptr<TextInput> _udpPortInput;
+    std::unique_ptr<TextInput> _voicePortInput;
     std::unique_ptr<Button> _franceButton;
     std::unique_ptr<Button> _localButton;
     std::unique_ptr<Button> _connectButton;
@@ -114,7 +115,7 @@ private:
 
     // Layout constants
     static constexpr float PANEL_WIDTH = 450.0f;
-    static constexpr float PANEL_HEIGHT = 420.0f;
+    static constexpr float PANEL_HEIGHT = 480.0f;
     static constexpr float CONTENT_MARGIN = 30.0f;
     static constexpr float INPUT_HEIGHT = 40.0f;
     static constexpr float LABEL_HEIGHT = 25.0f;

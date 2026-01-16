@@ -160,12 +160,6 @@ void ConnectionScene::attemptReconnection()
 {
     _retryCount++;
 
-    // After several failed attempts, show server config UI
-    if (_retryCount >= MAX_RETRIES_BEFORE_CONFIG && !_showingConfigUI) {
-        showServerConfigUI();
-        return;
-    }
-
     // Get server config
     auto& serverConfig = config::ServerConfigManager::getInstance();
 

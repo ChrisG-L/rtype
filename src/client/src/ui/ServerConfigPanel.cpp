@@ -44,9 +44,9 @@ void ServerConfigPanel::initUI()
     _hostInput->setText(serverConfig.getHost());
     _hostInput->setMaxLength(63);
 
-    // Port inputs row
+    // Port inputs row (3 ports: TCP, UDP, Voice)
     float portsY = inputStartY + LABEL_HEIGHT + INPUT_HEIGHT + 40.0f;
-    float portInputWidth = (inputWidth - 20.0f) / 2.0f;
+    float portInputWidth = (inputWidth - 40.0f) / 3.0f;  // 3 ports with 2 gaps of 20px
 
     // TCP Port input
     _tcpPortInput = std::make_unique<TextInput>(
@@ -67,6 +67,16 @@ void ServerConfigPanel::initUI()
     );
     _udpPortInput->setText(std::to_string(serverConfig.getUdpPort()));
     _udpPortInput->setMaxLength(5);
+
+    // Voice Port input
+    _voicePortInput = std::make_unique<TextInput>(
+        Vec2f{contentX + (portInputWidth + 20.0f) * 2, portsY + LABEL_HEIGHT},
+        Vec2f{portInputWidth, INPUT_HEIGHT},
+        "Port Voice",
+        _fontKey
+    );
+    _voicePortInput->setText(std::to_string(serverConfig.getVoicePort()));
+    _voicePortInput->setMaxLength(5);
 
     // Quick connect buttons row (FRANCE / LOCAL)
     float quickBtnY = portsY + LABEL_HEIGHT + INPUT_HEIGHT + 25.0f;
@@ -137,6 +147,7 @@ void ServerConfigPanel::refreshFromConfig()
     if (_hostInput) _hostInput->setText(serverConfig.getHost());
     if (_tcpPortInput) _tcpPortInput->setText(std::to_string(serverConfig.getTcpPort()));
     if (_udpPortInput) _udpPortInput->setText(std::to_string(serverConfig.getUdpPort()));
+    if (_voicePortInput) _voicePortInput->setText(std::to_string(serverConfig.getVoicePort()));
 }
 
 void ServerConfigPanel::applyConfig()
@@ -146,6 +157,7 @@ void ServerConfigPanel::applyConfig()
     std::string host = _hostInput ? _hostInput->getText() : "127.0.0.1";
     std::string tcpPortStr = _tcpPortInput ? _tcpPortInput->getText() : "4125";
     std::string udpPortStr = _udpPortInput ? _udpPortInput->getText() : "4124";
+    std::string voicePortStr = _voicePortInput ? _voicePortInput->getText() : "4126";
 
     // Validate and apply host
     if (!host.empty()) {
@@ -165,6 +177,14 @@ void ServerConfigPanel::applyConfig()
         int udpPort = std::stoi(udpPortStr);
         if (udpPort > 0 && udpPort <= 65535) {
             serverConfig.setUdpPort(static_cast<uint16_t>(udpPort));
+        }
+    } catch (...) {}
+
+    // Validate and apply Voice port
+    try {
+        int voicePort = std::stoi(voicePortStr);
+        if (voicePort > 0 && voicePort <= 65535) {
+            serverConfig.setVoicePort(static_cast<uint16_t>(voicePort));
         }
     } catch (...) {}
 
@@ -191,6 +211,7 @@ bool ServerConfigPanel::handleEvent(const events::Event& event)
     if (_hostInput) _hostInput->handleEvent(event);
     if (_tcpPortInput) _tcpPortInput->handleEvent(event);
     if (_udpPortInput) _udpPortInput->handleEvent(event);
+    if (_voicePortInput) _voicePortInput->handleEvent(event);
     if (_franceButton) _franceButton->handleEvent(event);
     if (_localButton) _localButton->handleEvent(event);
     if (_connectButton) _connectButton->handleEvent(event);
@@ -213,10 +234,15 @@ bool ServerConfigPanel::handleEvent(const events::Event& event)
                     mx <= _udpPortInput->getPos().x + _udpPortInput->getSize().x &&
                     my >= _udpPortInput->getPos().y &&
                     my <= _udpPortInput->getPos().y + _udpPortInput->getSize().y;
+        bool inVoice = _voicePortInput && mx >= _voicePortInput->getPos().x &&
+                      mx <= _voicePortInput->getPos().x + _voicePortInput->getSize().x &&
+                      my >= _voicePortInput->getPos().y &&
+                      my <= _voicePortInput->getPos().y + _voicePortInput->getSize().y;
 
         if (_hostInput) _hostInput->setFocused(inHost);
         if (_tcpPortInput) _tcpPortInput->setFocused(inTcp);
         if (_udpPortInput) _udpPortInput->setFocused(inUdp);
+        if (_voicePortInput) _voicePortInput->setFocused(inVoice);
     }
 
     // Handle Escape key to cancel
@@ -235,6 +261,7 @@ void ServerConfigPanel::update(float deltaTime)
     if (_hostInput) _hostInput->update(deltaTime);
     if (_tcpPortInput) _tcpPortInput->update(deltaTime);
     if (_udpPortInput) _udpPortInput->update(deltaTime);
+    if (_voicePortInput) _voicePortInput->update(deltaTime);
     if (_franceButton) _franceButton->update(deltaTime);
     if (_localButton) _localButton->update(deltaTime);
     if (_connectButton) _connectButton->update(deltaTime);
@@ -267,7 +294,7 @@ void ServerConfigPanel::render(graphics::IWindow& window)
     float contentX = panelX + CONTENT_MARGIN;
     float inputWidth = PANEL_WIDTH - CONTENT_MARGIN * 2;
     float inputStartY = panelY + 70.0f;
-    float portInputWidth = (inputWidth - 20.0f) / 2.0f;
+    float portInputWidth = (inputWidth - 40.0f) / 3.0f;  // 3 ports with 2 gaps of 20px
 
     // Host label
     window.drawText(_fontKey, "Adresse du serveur:",
@@ -287,9 +314,14 @@ void ServerConfigPanel::render(graphics::IWindow& window)
     window.drawText(_fontKey, "Port UDP:",
         contentX + portInputWidth + 20.0f, portsY, 18, {180, 180, 200, 255});
 
+    // Voice port label
+    window.drawText(_fontKey, "Port Voice:",
+        contentX + (portInputWidth + 20.0f) * 2, portsY, 18, {180, 180, 200, 255});
+
     // Render port inputs
     if (_tcpPortInput) _tcpPortInput->render(window);
     if (_udpPortInput) _udpPortInput->render(window);
+    if (_voicePortInput) _voicePortInput->render(window);
 
     // Quick connect label
     float quickBtnY = portsY + LABEL_HEIGHT + INPUT_HEIGHT + 25.0f;
