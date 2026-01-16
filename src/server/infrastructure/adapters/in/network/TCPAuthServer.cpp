@@ -24,12 +24,14 @@ namespace infrastructure::adapters::in::network {
         ssl::stream<tcp::socket> socket,
         std::shared_ptr<IUserRepository> userRepository,
         std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
+        std::shared_ptr<ILeaderboardRepository> leaderboardRepository,
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
         std::shared_ptr<RoomManager> roomManager)
     : _socket(std::move(socket)), _isAuthenticated(false),
       _userRepository(userRepository), _userSettingsRepository(userSettingsRepository),
+      _leaderboardRepository(leaderboardRepository),
       _idGenerator(idGenerator), _logger(logger),
       _sessionManager(sessionManager), _roomManager(roomManager),
       _timeoutTimer(_socket.get_executor())
@@ -50,6 +52,13 @@ namespace infrastructure::adapters::in::network {
                 // Unregister session callbacks
                 if (_roomManager) {
                     _roomManager->unregisterSessionCallbacks(email);
+                }
+
+                // Notify UDPServer to save stats BEFORE leaving room
+                // This ensures stats are persisted on any disconnect (timeout, close, etc.)
+                if (_sessionManager) {
+                    _sessionManager->notifyPlayerLeaveGame(email);
+                    logger->debug("Notified UDPServer to save stats for: {}", email);
                 }
 
                 // Remove from room if in one
@@ -316,6 +325,19 @@ namespace infrastructure::adapters::in::network {
                 case MessageType::SendChatMessage:
                     handleSendChatMessage(payload);
                     return;
+                // Leaderboard messages
+                case MessageType::GetLeaderboard:
+                    handleGetLeaderboard(payload);
+                    return;
+                case MessageType::GetPlayerStats:
+                    handleGetPlayerStats();
+                    return;
+                case MessageType::GetGameHistory:
+                    handleGetGameHistory();
+                    return;
+                case MessageType::GetAchievements:
+                    handleGetAchievements();
+                    return;
                 default:
                     break;
             }
@@ -524,6 +546,7 @@ namespace infrastructure::adapters::in::network {
         const std::string& keyFile,
         std::shared_ptr<IUserRepository> userRepository,
         std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
+        std::shared_ptr<ILeaderboardRepository> leaderboardRepository,
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
@@ -534,6 +557,7 @@ namespace infrastructure::adapters::in::network {
         , _keyFile(keyFile)
         , _userRepository(userRepository)
         , _userSettingsRepository(userSettingsRepository)
+        , _leaderboardRepository(leaderboardRepository)
         , _idGenerator(idGenerator)
         , _logger(logger)
         , _sessionManager(sessionManager)
@@ -640,6 +664,7 @@ namespace infrastructure::adapters::in::network {
                             std::move(*sslSocket),
                             _userRepository,
                             _userSettingsRepository,
+                            _leaderboardRepository,
                             _idGenerator,
                             _logger,
                             _sessionManager,
@@ -769,11 +794,15 @@ namespace infrastructure::adapters::in::network {
     void Session::handleLeaveRoom() {
         auto logger = server::logging::Logger::getNetworkLogger();
         std::string email = _user->getEmail().value();
+        logger->info("handleLeaveRoom called for {}", email);
 
         // Notify UDPServer to clean up GameWorld before leaving room
         // This will clear the UDP binding and remove player from game instance
         if (_sessionManager) {
+            logger->info("Calling notifyPlayerLeaveGame for {}", email);
             _sessionManager->notifyPlayerLeaveGame(email);
+        } else {
+            logger->warn("SessionManager is null in handleLeaveRoom!");
         }
 
         // Get room before leaving (for broadcast)
@@ -1681,6 +1710,259 @@ namespace infrastructure::adapters::in::network {
                 if (ec) {
                     auto logger = server::logging::Logger::getNetworkLogger();
                     logger->error("ChatHistory write error: {}", ec.message());
+                }
+            });
+    }
+
+    // ========== LEADERBOARD HANDLERS ==========
+
+    void Session::handleGetLeaderboard(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetLeaderboard: not authenticated");
+            return;
+        }
+
+        if (payload.size() < GetLeaderboardRequest::WIRE_SIZE) {
+            logger->warn("GetLeaderboard: payload too small");
+            return;
+        }
+
+        auto reqOpt = GetLeaderboardRequest::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            logger->warn("GetLeaderboard: invalid request");
+            return;
+        }
+
+        auto period = static_cast<application::ports::out::persistence::LeaderboardPeriod>(reqOpt->period);
+        uint32_t limit = reqOpt->limit > 0 ? reqOpt->limit : 50;
+
+        auto entries = _leaderboardRepository->getLeaderboard(period, limit);
+        uint32_t yourRank = _leaderboardRepository->getPlayerRank(_user->getEmail().value(), period);
+
+        do_write_leaderboard_response(entries, reqOpt->period, yourRank);
+        logger->debug("GetLeaderboard: sent {} entries, yourRank={}", entries.size(), yourRank);
+    }
+
+    void Session::handleGetPlayerStats() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetPlayerStats: not authenticated");
+            return;
+        }
+
+        auto statsOpt = _leaderboardRepository->getPlayerStats(_user->getEmail().value());
+
+        if (statsOpt) {
+            do_write_player_stats_response(*statsOpt);
+            logger->debug("GetPlayerStats: sent stats for {}", _user->getUsername().value());
+        } else {
+            // Send empty stats for new player
+            application::ports::out::persistence::PlayerStats emptyStats;
+            emptyStats.playerName = _user->getUsername().value();
+            do_write_player_stats_response(emptyStats);
+            logger->debug("GetPlayerStats: sent empty stats for new player {}", _user->getUsername().value());
+        }
+    }
+
+    void Session::handleGetGameHistory() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetGameHistory: not authenticated");
+            return;
+        }
+
+        auto entries = _leaderboardRepository->getGameHistory(_user->getEmail().value(), 10);
+        do_write_game_history_response(entries);
+        logger->debug("GetGameHistory: sent {} entries", entries.size());
+    }
+
+    void Session::handleGetAchievements() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetAchievements: not authenticated");
+            return;
+        }
+
+        auto achievements = _leaderboardRepository->getAchievements(_user->getEmail().value());
+        do_write_achievements_response(achievements);
+        logger->debug("GetAchievements: sent {} achievements", achievements.size());
+    }
+
+    // ========== LEADERBOARD RESPONSE WRITERS ==========
+
+    void Session::do_write_leaderboard_response(
+        const std::vector<application::ports::out::persistence::LeaderboardEntry>& entries,
+        uint8_t period,
+        uint32_t yourRank)
+    {
+        // Build wire format response
+        uint8_t entryCount = static_cast<uint8_t>(std::min(entries.size(), size_t(50)));
+
+        // Calculate payload size: header (6 bytes) + entries
+        size_t payloadSize = LeaderboardDataResponse::HEADER_SIZE + entryCount * LeaderboardEntryWire::WIRE_SIZE;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::LeaderboardData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        // Write LeaderboardDataResponse header
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = period;
+        ptr[1] = entryCount;
+        uint32_t netRank = swap32(yourRank);
+        std::memcpy(ptr + 2, &netRank, 4);
+        ptr += LeaderboardDataResponse::HEADER_SIZE;
+
+        // Write each entry
+        for (size_t i = 0; i < entryCount; ++i) {
+            LeaderboardEntryWire wire;
+            wire.rank = entries[i].rank;
+            wire.score = entries[i].score;
+            wire.kills = static_cast<uint16_t>(entries[i].kills);
+            wire.wave = entries[i].wave;
+            wire.duration = entries[i].duration;
+            wire.timestamp = entries[i].timestamp;
+            std::strncpy(wire.playerName, entries[i].playerName.c_str(), PLAYER_NAME_LEN - 1);
+            wire.playerName[PLAYER_NAME_LEN - 1] = '\0';
+            wire.to_bytes(ptr);
+            ptr += LeaderboardEntryWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("LeaderboardData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_player_stats_response(const application::ports::out::persistence::PlayerStats& stats) {
+        PlayerStatsWire wire;
+        std::strncpy(wire.playerName, stats.playerName.c_str(), PLAYER_NAME_LEN - 1);
+        wire.playerName[PLAYER_NAME_LEN - 1] = '\0';
+        wire.totalScore = stats.totalScore;
+        wire.totalKills = stats.totalKills;
+        wire.totalDeaths = stats.totalDeaths;
+        wire.totalPlaytime = stats.totalPlaytime;
+        wire.gamesPlayed = stats.gamesPlayed;
+        wire.bestScore = stats.bestScore;
+        wire.bestWave = stats.bestWave;
+        wire.bestCombo = stats.bestCombo;
+        wire.bestKillStreak = stats.bestKillStreak;
+        wire.bossKills = stats.bossKills;
+        wire.standardKills = stats.standardKills;
+        wire.spreadKills = stats.spreadKills;
+        wire.laserKills = stats.laserKills;
+        wire.missileKills = stats.missileKills;
+        wire.achievements = stats.achievements;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::PlayerStatsData),
+            .payload_size = static_cast<uint32_t>(PlayerStatsWire::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + PlayerStatsWire::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        wire.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("PlayerStatsData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_game_history_response(
+        const std::vector<application::ports::out::persistence::GameHistoryEntry>& entries)
+    {
+        // Format: count (1 byte) + entries
+        uint8_t count = static_cast<uint8_t>(std::min(entries.size(), size_t(10)));
+        size_t payloadSize = 1 + count * GameHistoryEntryWire::WIRE_SIZE;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::GameHistoryData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        *ptr++ = count;
+
+        for (size_t i = 0; i < count; ++i) {
+            GameHistoryEntryWire wire;
+            wire.score = entries[i].score;
+            wire.wave = entries[i].wave;
+            wire.kills = entries[i].kills;
+            wire.deaths = entries[i].deaths;
+            wire.duration = entries[i].duration;
+            wire.timestamp = entries[i].timestamp;
+            wire.weaponUsed = entries[i].weaponUsed;
+            wire.bossDefeated = entries[i].bossDefeated ? 1 : 0;
+            wire.to_bytes(ptr);
+            ptr += GameHistoryEntryWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("GameHistoryData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_achievements_response(
+        const std::vector<application::ports::out::persistence::AchievementRecord>& achievements)
+    {
+        // Build bitfield from unlocked achievements (unlockedAt > 0 means unlocked)
+        uint32_t bitfield = 0;
+        for (const auto& ach : achievements) {
+            if (ach.unlockedAt > 0) {
+                bitfield |= (1u << static_cast<uint8_t>(ach.type));
+            }
+        }
+
+        // Simple format: just send the bitfield for now
+        size_t payloadSize = 4; // just bitfield
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::AchievementsData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint32_t netBitfield = swap32(bitfield);
+        std::memcpy(buf->data() + Header::WIRE_SIZE, &netBitfield, 4);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("AchievementsData write error: {}", ec.message());
                 }
             });
     }

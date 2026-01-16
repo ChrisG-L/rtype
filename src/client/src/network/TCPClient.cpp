@@ -682,6 +682,59 @@ namespace client::network
                     logger->debug("Chat message sent successfully");
                     // No event needed - just confirmation
                 }
+                // Leaderboard System (Phase 3)
+                else if (head.type == static_cast<uint16_t>(MessageType::LeaderboardData)) {
+                    auto respOpt = LeaderboardDataResponse::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (respOpt) {
+                        logger->debug("Received leaderboard data: {} entries, yourRank={}", respOpt->count, respOpt->yourRank);
+                        // Parse entries from the payload
+                        LeaderboardDataEvent evt;
+                        evt.response = *respOpt;
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE + LeaderboardDataResponse::HEADER_SIZE;
+                        for (uint8_t i = 0; i < respOpt->count; ++i) {
+                            auto entryOpt = LeaderboardEntryWire::from_bytes(ptr, LeaderboardEntryWire::WIRE_SIZE);
+                            if (entryOpt) {
+                                evt.entries.push_back(*entryOpt);
+                            }
+                            ptr += LeaderboardEntryWire::WIRE_SIZE;
+                        }
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::PlayerStatsData)) {
+                    auto statsOpt = PlayerStatsWire::from_bytes(
+                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    if (statsOpt) {
+                        logger->debug("Received player stats for {}", statsOpt->playerName);
+                        _eventQueue.push(PlayerStatsDataEvent{*statsOpt});
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::AchievementsData)) {
+                    if (head.payload_size >= 4) {
+                        uint32_t netBitfield;
+                        std::memcpy(&netBitfield, _accumulator.data() + Header::WIRE_SIZE, 4);
+                        uint32_t bitfield = swap32(netBitfield);
+                        logger->debug("Received achievements bitfield: 0x{:08X}", bitfield);
+                        _eventQueue.push(AchievementsDataEvent{bitfield});
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::GameHistoryData)) {
+                    if (head.payload_size >= 1) {
+                        uint8_t count = _accumulator[Header::WIRE_SIZE];
+                        GameHistoryDataEvent evt;
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE + 1;
+                        for (uint8_t i = 0; i < count && (1 + i * GameHistoryEntryWire::WIRE_SIZE) <= head.payload_size; ++i) {
+                            auto entryOpt = GameHistoryEntryWire::from_bytes(ptr, GameHistoryEntryWire::WIRE_SIZE);
+                            if (entryOpt) {
+                                evt.entries.push_back(*entryOpt);
+                            }
+                            ptr += GameHistoryEntryWire::WIRE_SIZE;
+                        }
+                        logger->debug("Received {} game history entries", evt.entries.size());
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
 
                 _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
             }
@@ -1243,6 +1296,111 @@ namespace client::network
             [buf](const boost::system::error_code &error, std::size_t) {
                 if (error) {
                     client::logging::Logger::getNetworkLogger()->error("SendChatMessage write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Leaderboard System (Phase 3)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::sendGetLeaderboard(const GetLeaderboardRequest& req) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::GetLeaderboard),
+            .payload_size = static_cast<uint32_t>(GetLeaderboardRequest::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + GetLeaderboardRequest::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("GetLeaderboard write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::sendGetPlayerStats() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::GetPlayerStats),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("GetPlayerStats write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::sendGetAchievements() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::GetAchievements),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("GetAchievements write error: {}", error.message());
+                }
+            }
+        );
+    }
+
+    void TCPClient::sendGetGameHistory() {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(MessageType::GetGameHistory),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("GetGameHistory write error: {}", error.message());
                 }
             }
         );

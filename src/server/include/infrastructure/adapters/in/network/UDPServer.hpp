@@ -16,12 +16,14 @@
 #include "infrastructure/game/GameInstanceManager.hpp"
 #include "infrastructure/session/SessionManager.hpp"
 #include "infrastructure/network/NetworkStats.hpp"
+#include "application/ports/out/persistence/ILeaderboardRepository.hpp"
 #include <memory>
 
 
 namespace infrastructure::adapters::in::network {
     using boost::asio::ip::udp;
     using infrastructure::session::SessionManager;
+    using application::ports::out::persistence::ILeaderboardRepository;
 
     class UDPServer {
         private:
@@ -45,9 +47,11 @@ namespace infrastructure::adapters::in::network {
             udp::endpoint _remote_endpoint;
             game::GameInstanceManager _instanceManager;
             std::shared_ptr<SessionManager> _sessionManager;
+            std::shared_ptr<ILeaderboardRepository> _leaderboardRepository;
             boost::asio::steady_timer _broadcastTimer;
             std::shared_ptr<infrastructure::network::NetworkStats> _networkStats;
             boost::asio::steady_timer _statsTimer;
+            boost::asio::steady_timer _autoSaveTimer;  // Auto-save player stats every 1s
 
             char _readBuffer[BUFFER_SIZE];
 
@@ -63,7 +67,7 @@ namespace infrastructure::adapters::in::network {
             void broadcastMissileDestroyed(uint16_t missileId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastEnemyDestroyed(uint16_t enemyId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, const std::shared_ptr<game::GameWorld>& gameWorld);
-            void broadcastPlayerDied(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld);
+            void broadcastPlayerDied(uint8_t playerId, const std::string& roomCode, const std::shared_ptr<game::GameWorld>& gameWorld);
             // R-Type Authentic (Phase 3) broadcasts
             void broadcastWaveCannonFired(uint16_t waveCannonId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastPowerUpSpawned(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld);
@@ -72,6 +76,8 @@ namespace infrastructure::adapters::in::network {
             void broadcastForceStateUpdate(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void scheduleBroadcast();
             void scheduleStatsUpdate();
+            void scheduleAutoSave();  // Periodic stats auto-save
+            void autoSaveAllPlayerStats();  // Save all active players' stats
             void updateAndBroadcastRoom(const std::string& roomCode, const std::shared_ptr<game::GameWorld>& gameWorld, float deltaTime);
 
             void do_read();
@@ -81,10 +87,26 @@ namespace infrastructure::adapters::in::network {
             std::string endpointToString(const udp::endpoint& ep) const;
 
             // Called when a player leaves the game via TCP (leaveRoom)
-            void handlePlayerLeaveGame(uint8_t playerId, const std::string& roomCode, const std::string& endpoint);
+            void handlePlayerLeaveGame(uint8_t playerId, const std::string& roomCode, const std::string& endpoint,
+                                       const std::string& email, const std::string& displayName);
+
+            // Save player stats to leaderboard repository
+            void savePlayerStats(uint8_t playerId, const std::string& email, const std::string& displayName,
+                                 const std::shared_ptr<game::GameWorld>& gameWorld);
+
+            // Save stats for a specific player on death (incremental save)
+            void savePlayerStatsOnDeath(uint8_t playerId, const std::string& roomCode,
+                                        const std::shared_ptr<game::GameWorld>& gameWorld);
+
+            // Check and unlock achievements based on player stats
+            void checkAndUnlockAchievements(const std::string& email,
+                                            const game::PlayerScore& scoreData,
+                                            uint16_t wave);
 
         public:
-            UDPServer(boost::asio::io_context& io_ctx, std::shared_ptr<SessionManager> sessionManager);
+            UDPServer(boost::asio::io_context& io_ctx,
+                      std::shared_ptr<SessionManager> sessionManager,
+                      std::shared_ptr<ILeaderboardRepository> leaderboardRepository);
             void start();
             void run();
             void stop();

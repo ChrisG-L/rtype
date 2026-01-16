@@ -31,6 +31,10 @@ set(TEST_SOURCES
 
     # Tests Infrastructure - Session (GodMode hidden feature)
     infrastructure/session/SessionManagerGodModeTest.cpp
+
+    # Tests Application - Services (Leaderboard & Achievements)
+    application/services/AchievementCheckerTest.cpp
+    application/services/LeaderboardDataTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests
@@ -62,6 +66,16 @@ set(SERVER_SOURCES
 
     # Infrastructure - Session (for CSPRNG tests)
     ${CMAKE_SOURCE_DIR}/src/server/infrastructure/session/SessionManager.cpp
+
+    # Infrastructure - Logging (required by SessionManager)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/logging/Logger.cpp
+
+    # Infrastructure - TUI (required by Logger)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/tui/TUISink.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/tui/LogBuffer.cpp
+
+    # Application - Services (Leaderboard & Achievements)
+    ${CMAKE_SOURCE_DIR}/src/server/application/services/AchievementChecker.cpp
 )
 
 # Créer l'exécutable de tests
@@ -97,6 +111,8 @@ target_link_libraries(server_tests PRIVATE
     GTest::gtest_main
     OpenSSL::SSL
     OpenSSL::Crypto
+    spdlog::spdlog
+    fmt::fmt
 )
 
 # Bibliothèques Windows pour Boost.Asio (tests UDP)

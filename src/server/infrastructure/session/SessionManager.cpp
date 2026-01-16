@@ -6,6 +6,7 @@
 */
 
 #include "infrastructure/session/SessionManager.hpp"
+#include "infrastructure/logging/Logger.hpp"
 #include <algorithm>
 #include <stdexcept>
 #include <openssl/rand.h>
@@ -545,9 +546,11 @@ void SessionManager::setPlayerLeaveGameCallback(PlayerLeaveGameCallback callback
 }
 
 void SessionManager::notifyPlayerLeaveGame(const std::string& email) {
+    auto logger = server::logging::Logger::getNetworkLogger();
     uint8_t playerId = 0;
     std::string roomCode;
     std::string endpoint;
+    std::string displayName;
     PlayerLeaveGameCallback callback;
 
     {
@@ -555,6 +558,7 @@ void SessionManager::notifyPlayerLeaveGame(const std::string& email) {
 
         auto sessionIt = _sessionsByEmail.find(email);
         if (sessionIt == _sessionsByEmail.end()) {
+            logger->debug("notifyPlayerLeaveGame: session not found for {}", email);
             return;
         }
 
@@ -562,14 +566,20 @@ void SessionManager::notifyPlayerLeaveGame(const std::string& email) {
 
         // Only notify if player is bound to UDP (in a game)
         if (!session.udpBound || !session.playerId.has_value()) {
+            logger->debug("notifyPlayerLeaveGame: {} not in game (udpBound={}, hasPlayerId={})",
+                         email, session.udpBound, session.playerId.has_value());
             return;
         }
 
-        // Capture data before clearing
+        // Capture data before clearing (including email and displayName for stats saving)
         playerId = *session.playerId;
         roomCode = session.roomCode;
         endpoint = session.udpEndpoint;
+        displayName = session.displayName;
         callback = _playerLeaveGameCallback;
+
+        logger->info("notifyPlayerLeaveGame: {} leaving game (playerId={}, room={}, endpoint={})",
+                    email, static_cast<int>(playerId), roomCode, endpoint);
 
         // Clear UDP binding
         _endpointToEmail.erase(session.udpEndpoint);
@@ -580,8 +590,12 @@ void SessionManager::notifyPlayerLeaveGame(const std::string& email) {
     }
 
     // Call callback outside lock to avoid deadlocks
+    // Pass email and displayName so UDPServer can save stats without looking up by endpoint
     if (callback && !roomCode.empty()) {
-        callback(playerId, roomCode, endpoint);
+        logger->debug("notifyPlayerLeaveGame: calling callback for playerId={}, email={}", static_cast<int>(playerId), email);
+        callback(playerId, roomCode, endpoint, email, displayName);
+    } else {
+        logger->warn("notifyPlayerLeaveGame: no callback or empty roomCode for {}", email);
     }
 }
 
@@ -655,6 +669,29 @@ bool SessionManager::isGodModeEnabled(const std::string& email) const {
         return sessionIt->second.godMode;
     }
     return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Stats persistence (for leaderboard)
+// ═══════════════════════════════════════════════════════════════════
+
+void SessionManager::setSavePlayerStatsCallback(SavePlayerStatsCallback callback) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _savePlayerStatsCallback = std::move(callback);
+}
+
+void SessionManager::savePlayerStats(const PlayerGameStats& stats) {
+    SavePlayerStatsCallback callback;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        callback = _savePlayerStatsCallback;
+    }
+
+    // Call callback outside lock to avoid deadlocks
+    if (callback) {
+        callback(stats);
+    }
 }
 
 } // namespace infrastructure::session

@@ -465,16 +465,32 @@ void GameScene::update(float deltatime)
 
     // R-Type Authentic (Phase 3): Wave Cannon charge system
     // Hold fire to charge, release to fire charged beam OR tap for normal shot
+    // AUTO-FIRE: Before charge starts (< CHARGE_TIME_LV1), holding fire = continuous shooting
     if (shootPressed) {
         if (!_isCharging) {
-            // Start charging
+            // Start charging and fire immediately if cooldown allows
             _isCharging = true;
             _chargeTimer = 0.0f;
             _clientChargeLevel = 0;
             _context.udpClient->startCharging();
+
+            // Fire immediately on first press
+            if (_shootCooldown <= 0.0f) {
+                _context.udpClient->shootMissile();
+                _shootCooldown = SHOOT_COOLDOWN_TIME;
+                audio::AudioManager::getInstance().playSound("shoot");
+            }
         } else {
             // Continue charging
             _chargeTimer += adjustedDeltaTime;
+
+            // AUTO-FIRE: While holding and before charge level 1, keep firing (rapid fire mode)
+            // This allows continuous shooting with weapons like Laser when holding the button
+            if (_chargeTimer < WaveCannon::CHARGE_TIME_LV1 && _shootCooldown <= 0.0f) {
+                _context.udpClient->shootMissile();
+                _shootCooldown = SHOOT_COOLDOWN_TIME;
+                audio::AudioManager::getInstance().playSound("shoot");
+            }
 
             // Update charge level based on time (client-side prediction for UI)
             if (_chargeTimer >= WaveCannon::CHARGE_TIME_LV3) {
@@ -488,19 +504,14 @@ void GameScene::update(float deltatime)
     } else {
         // Fire button released
         if (_isCharging) {
-            if (_chargeTimer < QUICK_TAP_THRESHOLD && _shootCooldown <= 0.0f) {
-                // Quick tap = normal shot (no charge)
-                _context.udpClient->shootMissile();
-                _shootCooldown = SHOOT_COOLDOWN_TIME;
-                audio::AudioManager::getInstance().playSound("shoot");
-                client::logging::Logger::getSceneLogger()->debug("Quick shot fired!");
-            } else if (_clientChargeLevel > 0) {
-                // Charged shot = Wave Cannon
+            if (_clientChargeLevel > 0) {
+                // Charged shot = Wave Cannon (only if we actually charged)
                 _context.udpClient->releaseCharge();
                 _shootCooldown = SHOOT_COOLDOWN_TIME * 2.0f;  // Longer cooldown for Wave Cannon
                 audio::AudioManager::getInstance().playSound("shoot");  // TODO: different sound for Wave Cannon
                 client::logging::Logger::getSceneLogger()->debug("Wave Cannon fired! Level: {}", _clientChargeLevel);
             }
+            // Note: Normal shots are now handled in the holding phase (auto-fire)
             _isCharging = false;
             _chargeTimer = 0.0f;
             _clientChargeLevel = 0;

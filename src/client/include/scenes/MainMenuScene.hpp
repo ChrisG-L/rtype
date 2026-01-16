@@ -35,6 +35,7 @@ private:
     void onJoinRoomClick();
     void onBrowseRoomsClick();
     void onQuickJoinClick();
+    void onLeaderboardClick();
     void onSettingsClick();
     void onQuitClick();
 
@@ -70,6 +71,7 @@ private:
     std::unique_ptr<ui::Button> _joinRoomButton;
     std::unique_ptr<ui::Button> _browseRoomsButton;
     std::unique_ptr<ui::Button> _quickJoinButton;
+    std::unique_ptr<ui::Button> _leaderboardButton;
     std::unique_ptr<ui::Button> _settingsButton;
     std::unique_ptr<ui::Button> _quitButton;
 
