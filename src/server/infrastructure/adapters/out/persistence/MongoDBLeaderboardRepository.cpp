@@ -161,25 +161,31 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
 {
     std::vector<LeaderboardEntry> entries;
 
-    // Build filter based on period
-    bsoncxx::builder::basic::document filter;
-    if (period != LeaderboardPeriod::AllTime) {
-        int64_t startTs = getPeriodStartTimestamp(period);
-        filter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
-    }
+    try {
+        // Build filter based on period
+        bsoncxx::builder::basic::document filter;
+        if (period != LeaderboardPeriod::AllTime) {
+            int64_t startTs = getPeriodStartTimestamp(period);
+            filter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
+        }
 
-    // Sort by score descending, limit results
-    mongocxx::options::find opts;
-    opts.sort(make_document(kvp("score", -1)));
-    opts.limit(static_cast<int64_t>(limit));
+        // Sort by score descending, limit results
+        mongocxx::options::find opts;
+        opts.sort(make_document(kvp("score", -1)));
+        opts.limit(static_cast<int64_t>(limit));
 
-    auto cursor = _leaderboardCollection->find(filter.view(), opts);
+        auto cursor = _leaderboardCollection->find(filter.view(), opts);
 
-    uint32_t rank = 1;
-    for (auto&& doc : cursor) {
-        LeaderboardEntry entry = documentToLeaderboardEntry(doc);
-        entry.rank = rank++;
-        entries.push_back(entry);
+        uint32_t rank = 1;
+        for (auto&& doc : cursor) {
+            LeaderboardEntry entry = documentToLeaderboardEntry(doc);
+            entry.rank = rank++;
+            entries.push_back(entry);
+        }
+    } catch (const std::exception& e) {
+        auto logger = server::logging::Logger::getGameLogger();
+        logger->error("getLeaderboard failed: {}", e.what());
+        // Return empty list on error
     }
 
     return entries;
@@ -188,33 +194,39 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
 uint32_t MongoDBLeaderboardRepository::getPlayerRank(
     const std::string& email, LeaderboardPeriod period)
 {
-    // Get player's best score for this period
-    bsoncxx::builder::basic::document filter;
-    filter.append(kvp("email", email));
-    if (period != LeaderboardPeriod::AllTime) {
-        int64_t startTs = getPeriodStartTimestamp(period);
-        filter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
+    try {
+        // Get player's best score for this period
+        bsoncxx::builder::basic::document filter;
+        filter.append(kvp("email", email));
+        if (period != LeaderboardPeriod::AllTime) {
+            int64_t startTs = getPeriodStartTimestamp(period);
+            filter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
+        }
+
+        mongocxx::options::find opts;
+        opts.sort(make_document(kvp("score", -1)));
+        opts.limit(1);
+
+        auto result = _leaderboardCollection->find_one(filter.view(), opts);
+        if (!result) return 0;
+
+        uint32_t playerScore = static_cast<uint32_t>(getInt64Safe(result->view()["score"]));
+
+        // Count how many scores are higher
+        bsoncxx::builder::basic::document countFilter;
+        countFilter.append(kvp("score", make_document(kvp("$gt", static_cast<int64_t>(playerScore)))));
+        if (period != LeaderboardPeriod::AllTime) {
+            int64_t startTs = getPeriodStartTimestamp(period);
+            countFilter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
+        }
+
+        auto count = _leaderboardCollection->count_documents(countFilter.view());
+        return static_cast<uint32_t>(count) + 1;
+    } catch (const std::exception& e) {
+        auto logger = server::logging::Logger::getGameLogger();
+        logger->error("getPlayerRank failed for {}: {}", email, e.what());
+        return 0;  // Return 0 (unranked) on error
     }
-
-    mongocxx::options::find opts;
-    opts.sort(make_document(kvp("score", -1)));
-    opts.limit(1);
-
-    auto result = _leaderboardCollection->find_one(filter.view(), opts);
-    if (!result) return 0;
-
-    uint32_t playerScore = static_cast<uint32_t>(getInt64Safe(result->view()["score"]));
-
-    // Count how many scores are higher
-    bsoncxx::builder::basic::document countFilter;
-    countFilter.append(kvp("score", make_document(kvp("$gt", static_cast<int64_t>(playerScore)))));
-    if (period != LeaderboardPeriod::AllTime) {
-        int64_t startTs = getPeriodStartTimestamp(period);
-        countFilter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
-    }
-
-    auto count = _leaderboardCollection->count_documents(countFilter.view());
-    return static_cast<uint32_t>(count) + 1;
 }
 
 bool MongoDBLeaderboardRepository::submitScore(
