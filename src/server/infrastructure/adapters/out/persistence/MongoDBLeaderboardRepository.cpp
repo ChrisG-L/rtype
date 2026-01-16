@@ -162,23 +162,49 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
     std::vector<LeaderboardEntry> entries;
 
     try {
-        // Build filter based on period
-        bsoncxx::builder::basic::document filter;
+        // Use aggregation pipeline to get best score per player
+        mongocxx::pipeline pipeline;
+
+        // Stage 1: Filter by period if needed
         if (period != LeaderboardPeriod::AllTime) {
             int64_t startTs = getPeriodStartTimestamp(period);
-            filter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
+            pipeline.match(make_document(kvp("timestamp", make_document(kvp("$gte", startTs)))));
         }
 
-        // Sort by score descending, limit results
-        mongocxx::options::find opts;
-        opts.sort(make_document(kvp("score", -1)));
-        opts.limit(static_cast<int64_t>(limit));
+        // Stage 2: Sort by score descending (to get best score first per player)
+        pipeline.sort(make_document(kvp("score", -1)));
 
-        auto cursor = _leaderboardCollection->find(filter.view(), opts);
+        // Stage 3: Group by email, keeping the first (best) document for each player
+        pipeline.group(make_document(
+            kvp("_id", "$email"),
+            kvp("playerName", make_document(kvp("$first", "$playerName"))),
+            kvp("score", make_document(kvp("$max", "$score"))),
+            kvp("wave", make_document(kvp("$first", "$wave"))),
+            kvp("kills", make_document(kvp("$first", "$kills"))),
+            kvp("deaths", make_document(kvp("$first", "$deaths"))),
+            kvp("duration", make_document(kvp("$first", "$duration"))),
+            kvp("timestamp", make_document(kvp("$first", "$timestamp")))
+        ));
+
+        // Stage 4: Sort again by score (group may have reordered)
+        pipeline.sort(make_document(kvp("score", -1)));
+
+        // Stage 5: Limit results
+        pipeline.limit(static_cast<int32_t>(limit));
+
+        auto cursor = _leaderboardCollection->aggregate(pipeline);
 
         uint32_t rank = 1;
         for (auto&& doc : cursor) {
-            LeaderboardEntry entry = documentToLeaderboardEntry(doc);
+            LeaderboardEntry entry;
+            if (doc["_id"]) entry.odId = std::string(doc["_id"].get_string().value);
+            if (doc["playerName"]) entry.playerName = std::string(doc["playerName"].get_string().value);
+            if (doc["score"]) entry.score = static_cast<uint32_t>(getInt64Safe(doc["score"]));
+            if (doc["wave"]) entry.wave = static_cast<uint16_t>(getInt32Safe(doc["wave"]));
+            if (doc["kills"]) entry.kills = static_cast<uint16_t>(getInt32Safe(doc["kills"]));
+            if (doc["deaths"]) entry.deaths = static_cast<uint8_t>(getInt32Safe(doc["deaths"]));
+            if (doc["duration"]) entry.duration = static_cast<uint32_t>(getInt64Safe(doc["duration"]));
+            if (doc["timestamp"]) entry.timestamp = getInt64Safe(doc["timestamp"]);
             entry.rank = rank++;
             entries.push_back(entry);
         }
