@@ -33,6 +33,11 @@ public:
     GameScene(uint16_t roomGameSpeedPercent,
               const std::vector<client::network::ChatMessageInfo>& initialChatMessages);
 
+    // Constructor with chat history and player names (for team scoreboard)
+    GameScene(uint16_t roomGameSpeedPercent,
+              const std::vector<client::network::ChatMessageInfo>& initialChatMessages,
+              const std::unordered_map<uint8_t, std::string>& playerNames);
+
     ~GameScene() override = default;
 
     void handleEvent(const events::Event& event) override;
@@ -53,6 +58,7 @@ private:
     void renderChatOverlay();
     void renderVoiceIndicator();
     void renderScoreHUD();  // Score, combo, wave info (Gameplay Phase 2)
+    void renderTeamScoreboard();  // All players' scores in real-time (multiplayer)
     void renderWeaponHUD(); // Current weapon indicator (Gameplay Phase 2)
     void renderBoss();      // Boss sprite (Gameplay Phase 2)
     void renderBossHealthBar();  // Boss HP bar (Gameplay Phase 2)
@@ -190,5 +196,8 @@ private:
 
     // Controls HUD visibility (toggle with H key by default)
     bool _showControlsHUD = true;       // Show controls help by default
+
+    // Player names for team scoreboard (slotId -> displayName)
+    std::unordered_map<uint8_t, std::string> _playerNames;
 };
 #endif /* !GAMESCENE_HPP_ */

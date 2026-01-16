@@ -38,7 +38,9 @@ namespace infrastructure::game {
         uint8_t chargeLevel = 0;       // 0-3 charge level
         bool isCharging = false;       // Currently charging?
         uint8_t speedLevel = 0;        // Speed upgrade level (0-3)
-        uint8_t weaponLevel = 0;       // Weapon upgrade level (0-3)
+        // Weapon levels per weapon type (0-3 each)
+        // Index: 0=Standard, 1=Spread, 2=Laser, 3=Missile
+        std::array<uint8_t, 4> weaponLevels = {0, 0, 0, 0};
         bool hasForce = false;         // Has Force Pod?
         uint8_t forceLevel = 0;        // Force Pod level (0-2)
         bool hasBits = false;          // Has Bit Devices? (2 orbiting satellites)

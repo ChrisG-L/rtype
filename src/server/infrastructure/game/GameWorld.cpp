@@ -231,7 +231,8 @@ namespace infrastructure::game {
                 .currentWeapon = static_cast<uint8_t>(player.currentWeapon),
                 .chargeLevel = player.chargeLevel,
                 .speedLevel = player.speedLevel,
-                .weaponLevel = player.weaponLevel,
+                // Send the level of the current weapon (for client display)
+                .weaponLevel = player.weaponLevels[static_cast<size_t>(player.currentWeapon)],
                 .hasForce = static_cast<uint8_t>(player.hasForce ? 1 : 0),
                 .shieldTimer = 0  // Reserved field (R-Type has no shield)
             };
@@ -1727,7 +1728,8 @@ namespace infrastructure::game {
 
         ConnectedPlayer& player = it->second;
         WeaponType weapon = player.currentWeapon;
-        uint8_t level = player.weaponLevel;
+        // Use the level of the current weapon (not a global level)
+        uint8_t level = player.weaponLevels[static_cast<size_t>(weapon)];
 
         // Set cooldown for this weapon (affected by weapon level)
         player.shootCooldown = Missile::getCooldown(weapon, level);
@@ -2210,10 +2212,17 @@ namespace infrastructure::game {
                 }
                 break;
 
-            case PowerUpType::WeaponCrystal:
-                player.weaponLevel = std::min(static_cast<uint8_t>(3),
-                                              static_cast<uint8_t>(player.weaponLevel + 1));
+            case PowerUpType::WeaponCrystal: {
+                // Upgrade only the current weapon (not all weapons)
+                size_t weaponIdx = static_cast<size_t>(player.currentWeapon);
+                if (weaponIdx < player.weaponLevels.size()) {
+                    player.weaponLevels[weaponIdx] = std::min(
+                        static_cast<uint8_t>(3),
+                        static_cast<uint8_t>(player.weaponLevels[weaponIdx] + 1)
+                    );
+                }
                 break;
+            }
 
             case PowerUpType::ForcePod:
                 giveForceToPlayer(playerId);
@@ -2531,7 +2540,8 @@ namespace infrastructure::game {
         }
 
         WeaponType weapon = playerIt->second.currentWeapon;
-        uint8_t level = playerIt->second.weaponLevel;
+        // Use the level of the current weapon (not a global level)
+        uint8_t level = playerIt->second.weaponLevels[static_cast<size_t>(weapon)];
 
         // Spawn position (from Force Pod, front side)
         float spawnX = force.x + ForcePod::WIDTH;
@@ -2778,7 +2788,8 @@ namespace infrastructure::game {
         if (playerIt == _players.end() || !playerIt->second.alive) return spawnedIds;
 
         WeaponType weapon = playerIt->second.currentWeapon;
-        uint8_t level = playerIt->second.weaponLevel;
+        // Use the level of the current weapon (not a global level)
+        uint8_t level = playerIt->second.weaponLevels[static_cast<size_t>(weapon)];
 
         for (auto& bit : bitsIt->second) {
             if (!bit.isAttached || bit.shootCooldown > 0.0f) continue;

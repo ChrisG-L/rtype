@@ -200,7 +200,7 @@ struct PlayerState {
     uint8_t currentWeapon;  // WeaponType enum
     uint8_t chargeLevel;    // Wave Cannon charge (0-3)
     uint8_t speedLevel;     // Speed upgrade level (0-3)
-    uint8_t weaponLevel;    // Weapon upgrade level (0-3)
+    uint8_t weaponLevel;    // Current weapon's upgrade level (0-3, each weapon has independent levels)
     uint8_t hasForce;       // Has Force Pod (0 or 1)
     uint8_t shieldTimer;    // Reserved (always 0, R-Type authentic has no shield)
 };

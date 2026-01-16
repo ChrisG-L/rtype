@@ -44,6 +44,26 @@ GameScene::GameScene(uint16_t roomGameSpeedPercent,
     }
 }
 
+GameScene::GameScene(uint16_t roomGameSpeedPercent,
+                     const std::vector<client::network::ChatMessageInfo>& initialChatMessages,
+                     const std::unordered_map<uint8_t, std::string>& playerNames)
+    : _roomGameSpeedMultiplier(static_cast<float>(std::clamp(roomGameSpeedPercent, static_cast<uint16_t>(50), static_cast<uint16_t>(200))) / 100.0f),
+      _playerNames(playerNames)
+{
+    client::logging::Logger::getSceneLogger()->debug("GameScene created with room game speed {}%, {} lobby messages, {} player names",
+        roomGameSpeedPercent, initialChatMessages.size(), playerNames.size());
+
+    // Initialize chat display messages from lobby history
+    for (const auto& msg : initialChatMessages) {
+        ChatDisplayMessage displayMsg;
+        displayMsg.displayName = msg.displayName;
+        displayMsg.message = msg.message;
+        displayMsg.displayTime = 0.0f;
+        displayMsg.expired = true;
+        _chatDisplayMessages.push_back(std::move(displayMsg));
+    }
+}
+
 void GameScene::loadAssets()
 {
     if (_assetsLoaded || !_context.window) return;
@@ -658,6 +678,99 @@ void GameScene::renderScoreHUD()
     }
 }
 
+void GameScene::renderTeamScoreboard()
+{
+    auto localId = _context.udpClient->getLocalPlayerId();
+    auto players = _context.udpClient->getPlayers();
+
+    // Only show if more than 1 player
+    if (players.size() <= 1) return;
+
+    // Sort players by score (descending)
+    std::vector<client::network::NetworkPlayer> sortedPlayers(players.begin(), players.end());
+    std::sort(sortedPlayers.begin(), sortedPlayers.end(),
+              [](const auto& a, const auto& b) { return a.score > b.score; });
+
+    // Position: right side, below the score HUD (moved left to avoid overflow)
+    float boardWidth = 210.0f;
+    float boardX = SCREEN_WIDTH - boardWidth - 15.0f;  // 15px margin from right edge
+    float boardY = 110.0f;  // Below score HUD (which ends ~95px)
+    float rowHeight = 22.0f;
+    float boardHeight = 28.0f + sortedPlayers.size() * rowHeight;
+
+    // Background
+    _context.window->drawRect(boardX - 5.0f, boardY - 5.0f, boardWidth, boardHeight, {20, 20, 40, 200});
+
+    // Header
+    _context.window->drawText(FONT_KEY, "TEAM SCORES", boardX, boardY, 12, {200, 200, 200, 255});
+
+    // Player rows
+    float rowY = boardY + 20.0f;
+    int rank = 1;
+    for (const auto& player : sortedPlayers) {
+        bool isLocal = localId && player.id == *localId;
+
+        // Rank color (gold, silver, bronze, white)
+        rgba rankColor;
+        if (rank == 1) {
+            rankColor = {255, 215, 0, 255};   // Gold
+        } else if (rank == 2) {
+            rankColor = {192, 192, 192, 255}; // Silver
+        } else if (rank == 3) {
+            rankColor = {205, 127, 50, 255};  // Bronze
+        } else {
+            rankColor = {150, 150, 150, 255}; // Gray
+        }
+
+        // Get player name from stored names map, fallback to "P#"
+        std::string playerName;
+        if (isLocal) {
+            playerName = "YOU";
+        } else {
+            auto it = _playerNames.find(player.id);
+            if (it != _playerNames.end() && !it->second.empty()) {
+                // Truncate long names to 10 chars
+                playerName = it->second.substr(0, 10);
+            } else {
+                playerName = "P" + std::to_string(player.id);
+            }
+        }
+        rgba nameColor = isLocal ? rgba{100, 255, 100, 255} : rgba{255, 255, 255, 255};
+
+        // Rank
+        std::string rankStr = std::to_string(rank) + ".";
+        _context.window->drawText(FONT_KEY, rankStr, boardX, rowY, 11, rankColor);
+
+        // Name
+        _context.window->drawText(FONT_KEY, playerName, boardX + 18.0f, rowY, 11, nameColor);
+
+        // Score (right-aligned area)
+        std::string scoreStr = std::to_string(player.score);
+        _context.window->drawText(FONT_KEY, scoreStr, boardX + 95.0f, rowY, 11, {255, 255, 255, 255});
+
+        // Combo multiplier (only if > 1.0x)
+        if (player.combo > 10) {
+            float comboVal = static_cast<float>(player.combo) / 10.0f;
+            char comboBuf[16];
+            std::snprintf(comboBuf, sizeof(comboBuf), "x%.1f", comboVal);
+
+            // Color based on combo
+            rgba comboColor;
+            if (player.combo >= 25) {
+                comboColor = {255, 100, 100, 255};  // Red (2.5x+)
+            } else if (player.combo >= 20) {
+                comboColor = {255, 200, 50, 255};   // Gold (2.0x+)
+            } else {
+                comboColor = {100, 255, 100, 255};  // Green
+            }
+            _context.window->drawText(FONT_KEY, comboBuf, boardX + 160.0f, rowY, 11, comboColor);
+        }
+
+        rowY += rowHeight;
+        ++rank;
+    }
+}
+
 void GameScene::renderWeaponHUD()
 {
     auto localId = _context.udpClient->getLocalPlayerId();
@@ -1011,9 +1124,9 @@ void GameScene::renderVoiceIndicator()
     auto& voiceMgr = audio::VoiceChatManager::getInstance();
     if (!voiceMgr.isConnected()) return;
 
-    // Position: left side, below the wave indicator to avoid score HUD overlap
+    // Position: left side, below weapon HUD (which ends at ~140px)
     float indicatorX = 20.0f;
-    float indicatorY = 100.0f;
+    float indicatorY = 145.0f;
 
     // Show muted indicator
     if (voiceMgr.isMuted()) {
@@ -1065,6 +1178,7 @@ void GameScene::render()
     renderHUD();
     renderSpeedIndicator(); // Speed upgrade level (Phase 3)
     renderScoreHUD();
+    renderTeamScoreboard(); // All players' scores in real-time (multiplayer)
     renderWeaponHUD();     // Weapon indicator (Gameplay Phase 2)
     renderChargeGauge();   // Wave Cannon charge gauge (Phase 3)
     renderBossHealthBar(); // Boss HP bar at top (Gameplay Phase 2)

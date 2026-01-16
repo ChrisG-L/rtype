@@ -35,6 +35,7 @@ set(TEST_SOURCES
     # Tests Application - Services (Leaderboard & Achievements)
     application/services/AchievementCheckerTest.cpp
     application/services/LeaderboardDataTest.cpp
+    application/services/WeaponLevelsTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests
