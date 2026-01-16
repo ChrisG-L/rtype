@@ -30,22 +30,23 @@ flowchart TB
 
 ## Rejoindre une Partie
 
-Le client se connecte actuellement à `127.0.0.1` par défaut. Pour rejoindre un serveur distant, vous devez modifier le code source :
+Utilisez l'option `--server` pour vous connecter à un serveur distant :
 
-1. Éditez `src/client/src/boot/Boot.cpp` lignes 82-83 :
-```cpp
-tcpClient->connect("<IP_SERVEUR>", 4125);
-udpClient->connect("<IP_SERVEUR>", 4124);
+```bash
+# Via le script (RECOMMANDÉ - support voice chat sur Linux/PipeWire)
+./scripts/run-client.sh --server=<IP_SERVEUR>
+
+# Exemple avec le serveur France
+./scripts/run-client.sh --server=51.254.137.175
 ```
 
-2. Recompilez le client :
-```bash
-./scripts/compile.sh --client --no-launch
-```
+!!! tip "Pourquoi utiliser le script ?"
+    Le script `run-client.sh` détecte automatiquement PipeWire et utilise `pw-jack` pour activer le support du voice chat. Sans ce wrapper, l'audio vocal peut ne pas fonctionner sur les systèmes Linux modernes.
 
-3. Lancez le client :
+Alternative (binaire direct - voice chat peut ne pas fonctionner) :
+
 ```bash
-./artifacts/client/linux/rtype_client
+./artifacts/client/linux/rtype_client --server=<IP_SERVEUR>
 ```
 
 ---
