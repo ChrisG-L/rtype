@@ -24,26 +24,23 @@ def notifyDiscord(Map params) {
 
     def timestamp = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
 
-    def payload = """
-    {
-        "embeds": [{
-            "title": "${title}",
-            "description": "${message}",
-            "color": ${color},
-            "timestamp": "${timestamp}",
-            "footer": {
-                "text": "Jenkins CI/CD"
-            }
-        }]
-    }
-    """
+    // Échapper les caractères spéciaux pour JSON
+    def safeTitle = title.replaceAll('"', '\\\\"')
+    def safeMessage = message.replaceAll('"', '\\\\"')
+
+    def payload = """{"embeds":[{"title":"${safeTitle}","description":"${safeMessage}","color":${color},"timestamp":"${timestamp}","footer":{"text":"Jenkins CI/CD"}}]}"""
 
     try {
-        sh(script: """
-            curl -s -X POST '${env.DISCORD_WEBHOOK_URL}' \
+        // Écrire le payload dans un fichier temporaire pour éviter les problèmes d'échappement
+        writeFile file: 'discord_payload.json', text: payload
+
+        // Utiliser la variable shell $DISCORD_WEBHOOK_URL (pas d'interpolation Groovy)
+        sh(script: '''
+            curl -s -X POST "$DISCORD_WEBHOOK_URL" \
                 -H 'Content-Type: application/json' \
-                -d '${payload.replaceAll("'", "'\\\\''").replaceAll('\n', ' ')}'
-        """, returnStatus: true)
+                -d @discord_payload.json
+            rm -f discord_payload.json
+        ''', returnStatus: true)
         echo "✅ Notification Discord envoyée: ${title}"
     } catch (Exception e) {
         echo "⚠️ Erreur notification Discord: ${e.message}"
