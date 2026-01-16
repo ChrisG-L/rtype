@@ -57,6 +57,10 @@ tests/
 │
 ├── client/
 │   ├── main.cpp
+│   ├── config/
+│   │   └── ServerConfigManagerTest.cpp
+│   ├── ui/
+│   │   └── ServerConfigPanelTest.cpp
 │   ├── utils/
 │   │   ├── SignalTest.cpp
 │   │   └── VecsTest.cpp

@@ -33,7 +33,8 @@ rtype/
 │   │   │       └── logging/             # Logger
 │   │   ├── domain/                      # Domain implementations
 │   │   ├── application/                 # Application implementations
-│   │   └── infrastructure/              # Infrastructure implementations
+│   │   ├── infrastructure/              # Infrastructure implementations
+│   │   └── scripts/                     # VPS deployment (systemd, wrapper)
 │   │
 │   ├── client/                          # Client implementation
 │   │   ├── include/
@@ -45,6 +46,8 @@ rtype/
 │   │   │   ├── events/                  # Event system (KeyPressed, etc.)
 │   │   │   ├── core/                    # Engine, GameLoop, Logger
 │   │   │   ├── boot/                    # Boot
+│   │   │   ├── config/                  # ServerConfigManager
+│   │   │   ├── ui/                      # ServerConfigPanel
 │   │   │   └── utils/                   # Vecs (Vec2u, Vec2f)
 │   │   ├── src/                         # Implementations
 │   │   └── lib/                         # Graphics backends
@@ -640,6 +643,9 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 | **TCPAuthServer** | `src/server/infrastructure/adapters/in/network/TCPAuthServer.cpp` |
 | **TCPClient** | `src/client/src/network/TCPClient.cpp` |
 | **SessionManager** | `src/server/infrastructure/session/SessionManager.cpp` |
+| **ServerConfigManager** | `src/client/src/config/ServerConfigManager.cpp` |
+| **Server wrapper** | `src/server/scripts/server-wrapper.py` |
+| **Systemd service** | `src/server/scripts/rtype_server.service` |
 
 ## TLS Security
 
