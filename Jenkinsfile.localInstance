@@ -269,6 +269,68 @@ pipeline {
                 }
             }
         }
+
+        stage('🚀 Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    script {
+                        echo '🚀 Déploiement automatique sur le serveur de production...'
+
+                        // Attendre que les artifacts soient récupérés
+                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                        // Télécharger l'artifact serveur Linux localement
+                        def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_LINUX}"
+                        def serverBinary = "${artifactPath}/server/linux/rtype_server"
+
+                        // Vérifier que le binaire existe
+                        if (!fileExists(serverBinary)) {
+                            // Télécharger les artifacts si pas encore fait
+                            api.downloadArtifacts(
+                                env.BUILDER_HOST,
+                                env.WORKSPACE_ID_LINUX,
+                                artifactPath
+                            )
+                        }
+
+                        if (!fileExists(serverBinary)) {
+                            error("❌ Binaire serveur non trouvé: ${serverBinary}")
+                        }
+
+                        echo "📦 Binaire trouvé: ${serverBinary}"
+
+                        // Appeler le service de déploiement local
+                        def deployResponse = sh(
+                            script: """
+                                curl -s -f -X POST http://127.0.0.1:8081/deploy \
+                                    -H 'Content-Type: application/json' \
+                                    -d '{"source": "${serverBinary}"}'
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        echo "Réponse du déploiement: ${deployResponse}"
+
+                        // Vérifier le statut
+                        def statusResponse = sh(
+                            script: "curl -s http://127.0.0.1:8081/status",
+                            returnStdout: true
+                        ).trim()
+
+                        def status = readJSON(text: statusResponse)
+
+                        if (status.active) {
+                            echo "✅ Serveur déployé et actif (PID: ${status.pid})"
+                        } else {
+                            error("❌ Le serveur n'est pas actif après déploiement")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     post {

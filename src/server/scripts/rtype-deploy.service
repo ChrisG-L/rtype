@@ -1,0 +1,22 @@
+[Unit]
+Description=R-Type Deploy Service
+Documentation=https://github.com/your-repo/rtype
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+ExecStart=/usr/bin/python3 /opt/rtype/scripts/deploy-service.py --port 8081
+
+Restart=always
+RestartSec=5
+
+# Logging vers journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rtype-deploy
+
+[Install]
+WantedBy=multi-user.target
