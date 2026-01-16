@@ -423,20 +423,7 @@ namespace client::network
                             _isReady = false;
                         }
 
-                        // Extract player list from ack (fixes race condition with RoomUpdate)
-                        std::vector<RoomPlayerInfo> players;
-                        for (uint8_t i = 0; i < ackOpt->playerCount; ++i) {
-                            const auto& ps = ackOpt->players[i];
-                            players.push_back(RoomPlayerInfo{
-                                ps.slotId,
-                                std::string(ps.displayName),
-                                std::string(ps.email),
-                                ps.isReady != 0,
-                                ps.isHost != 0,
-                                ps.shipSkin
-                            });
-                        }
-
+                        auto players = extractPlayerList(*ackOpt);
                         logger->info("Joined room '{}' (code: {}, slot: {}, players: {})",
                                     name, code, ackOpt->slotId, players.size());
                         _eventQueue.push(TCPRoomJoinedEvent{
@@ -579,20 +566,7 @@ namespace client::network
                             _isReady = false;
                         }
 
-                        // Extract player list from ack (fixes race condition with RoomUpdate)
-                        std::vector<RoomPlayerInfo> players;
-                        for (uint8_t i = 0; i < ackOpt->playerCount; ++i) {
-                            const auto& ps = ackOpt->players[i];
-                            players.push_back(RoomPlayerInfo{
-                                ps.slotId,
-                                std::string(ps.displayName),
-                                std::string(ps.email),
-                                ps.isReady != 0,
-                                ps.isHost != 0,
-                                ps.shipSkin
-                            });
-                        }
-
+                        auto players = extractPlayerList(*ackOpt);
                         logger->info("Quick joined room '{}' (code: {}, slot: {}, players: {})",
                                     name, code, ackOpt->slotId, players.size());
                         _eventQueue.push(TCPRoomJoinedEvent{
@@ -910,6 +884,79 @@ namespace client::network
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // Generic message sending (reduces code duplication)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::sendMessageNoPayload(MessageType type, const char* logName) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(type),
+            .payload_size = 0
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
+        head.to_bytes(buf->data());
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf, logName](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("{} write error: {}", logName, error.message());
+                }
+            }
+        );
+    }
+
+    template<typename T>
+    void TCPClient::sendMessageWithPayload(MessageType type, const T& payload, const char* logName) {
+        if (!_connected.load() || !_isAuthenticated.load()) {
+            return;
+        }
+
+        Header head = {
+            .isAuthenticated = true,
+            .type = static_cast<uint16_t>(type),
+            .payload_size = static_cast<uint32_t>(T::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + T::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        payload.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(*buf),
+            [buf, logName](const boost::system::error_code &error, std::size_t) {
+                if (error) {
+                    client::logging::Logger::getNetworkLogger()->error("{} write error: {}", logName, error.message());
+                }
+            }
+        );
+    }
+
+    std::vector<RoomPlayerInfo> TCPClient::extractPlayerList(const JoinRoomAck& ack) {
+        std::vector<RoomPlayerInfo> players;
+        players.reserve(ack.playerCount);
+        for (uint8_t i = 0; i < ack.playerCount; ++i) {
+            const auto& ps = ack.players[i];
+            players.push_back(RoomPlayerInfo{
+                ps.slotId,
+                std::string(ps.displayName),
+                std::string(ps.email),
+                ps.isReady != 0,
+                ps.isHost != 0,
+                ps.shipSkin
+            });
+        }
+        return players;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // Stored credentials for auto-reconnection
     // ═══════════════════════════════════════════════════════════════════
 
@@ -955,254 +1002,55 @@ namespace client::network
     // ═══════════════════════════════════════════════════════════════════
 
     void TCPClient::createRoom(const std::string& name, uint8_t maxPlayers, bool isPrivate) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
         CreateRoomRequest req;
         std::strncpy(req.name, name.c_str(), ROOM_NAME_LEN - 1);
         req.name[ROOM_NAME_LEN - 1] = '\0';
         req.maxPlayers = maxPlayers;
         req.isPrivate = isPrivate ? 1 : 0;
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::CreateRoom),
-            .payload_size = static_cast<uint32_t>(CreateRoomRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + CreateRoomRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("CreateRoom write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::CreateRoom, req, "CreateRoom");
     }
 
     void TCPClient::joinRoomByCode(const std::string& code) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
         JoinRoomByCodeRequest req;
         std::memcpy(req.roomCode, code.c_str(), std::min(code.size(), ROOM_CODE_LEN));
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::JoinRoomByCode),
-            .payload_size = static_cast<uint32_t>(JoinRoomByCodeRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + JoinRoomByCodeRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("JoinRoomByCode write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::JoinRoomByCode, req, "JoinRoomByCode");
     }
 
     void TCPClient::leaveRoom() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::LeaveRoom),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("LeaveRoom write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::LeaveRoom, "LeaveRoom");
     }
 
     void TCPClient::setReady(bool ready) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
         SetReadyRequest req;
         req.isReady = ready ? 1 : 0;
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::SetReady),
-            .payload_size = static_cast<uint32_t>(SetReadyRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SetReadyRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("SetReady write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::SetReady, req, "SetReady");
     }
 
     void TCPClient::startGame() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::StartGame),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("StartGame write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::StartGame, "StartGame");
     }
 
     void TCPClient::kickPlayer(const std::string& email, const std::string& reason) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
         KickPlayerRequest req;
         std::strncpy(req.email, email.c_str(), MAX_EMAIL_LEN - 1);
         req.email[MAX_EMAIL_LEN - 1] = '\0';
         std::strncpy(req.reason, reason.c_str(), MAX_ERROR_MSG_LEN - 1);
         req.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::KickPlayer),
-            .payload_size = static_cast<uint32_t>(KickPlayerRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + KickPlayerRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("KickPlayer write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::KickPlayer, req, "KickPlayer");
     }
 
     void TCPClient::setRoomConfig(uint16_t gameSpeedPercent) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
         SetRoomConfigRequest req;
         req.gameSpeedPercent = gameSpeedPercent;
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::SetRoomConfig),
-            .payload_size = static_cast<uint32_t>(SetRoomConfigRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SetRoomConfigRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("SetRoomConfig write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::SetRoomConfig, req, "SetRoomConfig");
     }
 
     void TCPClient::browsePublicRooms() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::BrowsePublicRooms),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("BrowsePublicRooms write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::BrowsePublicRooms, "BrowsePublicRooms");
     }
 
     void TCPClient::quickJoin() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::QuickJoin),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("QuickJoin write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::QuickJoin, "QuickJoin");
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1210,57 +1058,13 @@ namespace client::network
     // ═══════════════════════════════════════════════════════════════════
 
     void TCPClient::requestUserSettings() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::GetUserSettings),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("GetUserSettings write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::GetUserSettings, "GetUserSettings");
     }
 
     void TCPClient::saveUserSettings(const UserSettingsPayload& settings) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
         SaveUserSettingsRequest req;
         req.settings = settings;
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::SaveUserSettings),
-            .payload_size = static_cast<uint32_t>(SaveUserSettingsRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SaveUserSettingsRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("SaveUserSettings write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::SaveUserSettings, req, "SaveUserSettings");
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1268,10 +1072,6 @@ namespace client::network
     // ═══════════════════════════════════════════════════════════════════
 
     void TCPClient::sendChatMessage(const std::string& message) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
         if (message.empty() || message.length() > CHAT_MESSAGE_LEN - 1) {
             return;
         }
@@ -1279,26 +1079,7 @@ namespace client::network
         SendChatMessageRequest req;
         std::strncpy(req.message, message.c_str(), CHAT_MESSAGE_LEN);
         req.message[CHAT_MESSAGE_LEN - 1] = '\0';
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::SendChatMessage),
-            .payload_size = static_cast<uint32_t>(SendChatMessageRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + SendChatMessageRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("SendChatMessage write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::SendChatMessage, req, "SendChatMessage");
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1306,104 +1087,19 @@ namespace client::network
     // ═══════════════════════════════════════════════════════════════════
 
     void TCPClient::sendGetLeaderboard(const GetLeaderboardRequest& req) {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::GetLeaderboard),
-            .payload_size = static_cast<uint32_t>(GetLeaderboardRequest::WIRE_SIZE)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + GetLeaderboardRequest::WIRE_SIZE);
-        head.to_bytes(buf->data());
-        req.to_bytes(buf->data() + Header::WIRE_SIZE);
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("GetLeaderboard write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageWithPayload(MessageType::GetLeaderboard, req, "GetLeaderboard");
     }
 
     void TCPClient::sendGetPlayerStats() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::GetPlayerStats),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("GetPlayerStats write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::GetPlayerStats, "GetPlayerStats");
     }
 
     void TCPClient::sendGetAchievements() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::GetAchievements),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("GetAchievements write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::GetAchievements, "GetAchievements");
     }
 
     void TCPClient::sendGetGameHistory() {
-        if (!_connected.load() || !_isAuthenticated.load()) {
-            return;
-        }
-
-        Header head = {
-            .isAuthenticated = true,
-            .type = static_cast<uint16_t>(MessageType::GetGameHistory),
-            .payload_size = 0
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE);
-        head.to_bytes(buf->data());
-
-        boost::asio::async_write(
-            _socket,
-            boost::asio::buffer(*buf),
-            [buf](const boost::system::error_code &error, std::size_t) {
-                if (error) {
-                    client::logging::Logger::getNetworkLogger()->error("GetGameHistory write error: {}", error.message());
-                }
-            }
-        );
+        sendMessageNoPayload(MessageType::GetGameHistory, "GetGameHistory");
     }
 
     // ═══════════════════════════════════════════════════════════════════

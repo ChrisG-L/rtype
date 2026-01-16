@@ -74,6 +74,11 @@ namespace infrastructure::adapters::in::network {
             void broadcastPowerUpCollected(uint16_t powerUpId, uint8_t playerId, uint8_t powerUpType, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastPowerUpExpired(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld);
             void broadcastForceStateUpdate(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld);
+
+            // Generic broadcast method to reduce code duplication
+            template<typename T>
+            void broadcastToRoom(MessageType type, const T& payload, const std::shared_ptr<game::GameWorld>& gameWorld);
+
             void scheduleBroadcast();
             void scheduleStatsUpdate();
             void scheduleAutoSave();  // Periodic stats auto-save

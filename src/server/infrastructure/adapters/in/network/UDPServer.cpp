@@ -19,6 +19,32 @@
 namespace infrastructure::adapters::in::network {
 
     static constexpr int BROADCAST_INTERVAL_MS = 50;
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Generic broadcast method implementation (reduces code duplication)
+    // ════════════════════════════════════════════════════════════════════════
+    template<typename T>
+    void UDPServer::broadcastToRoom(MessageType type, const T& payload,
+                                     const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + T::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(type),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+        payload.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
+    }
+
     static constexpr int PLAYER_TIMEOUT_MS = 2000;
     static constexpr int AUTO_SAVE_INTERVAL_MS = 1000;  // Auto-save every 1 second
 
@@ -120,24 +146,8 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerJoin::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerJoin),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PlayerJoin pj{.player_id = playerId};
-        pj.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        // Broadcast to all players in the same game instance
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PlayerJoin, pj, gameWorld);
 
         server::logging::Logger::getNetworkLogger()->info(
             "Player {} joined from {}:{}",
@@ -147,23 +157,8 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::sendPlayerLeave(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerLeave::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerLeave),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PlayerLeave pl{.player_id = playerId};
-        pl.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PlayerLeave, pl, gameWorld);
 
         server::logging::Logger::getNetworkLogger()->info("Player {} left", static_cast<int>(playerId));
     }
@@ -403,88 +398,33 @@ namespace infrastructure::adapters::in::network {
         if (!missileOpt) return;
 
         const auto& m = *missileOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + MissileSpawned::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::MissileSpawned),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         MissileSpawned ms{
             .missile_id = missileId,
             .owner_id = ownerId,
             .x = static_cast<uint16_t>(m.x),
             .y = static_cast<uint16_t>(m.y)
         };
-        ms.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::MissileSpawned, ms, gameWorld);
     }
 
     void UDPServer::broadcastMissileDestroyed(uint16_t missileId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + MissileDestroyed::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::MissileDestroyed),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         MissileDestroyed md{.missile_id = missileId};
-        md.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::MissileDestroyed, md, gameWorld);
     }
 
     void UDPServer::broadcastEnemyDestroyed(uint16_t enemyId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + EnemyDestroyed::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::EnemyDestroyed),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         EnemyDestroyed ed{.enemy_id = enemyId};
-        ed.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::EnemyDestroyed, ed, gameWorld);
     }
 
     void UDPServer::broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDamaged::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerDamaged),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
+        // Get current health from snapshot
         auto snapshot = gameWorld->getSnapshot();
         uint8_t newHealth = 0;
         for (uint8_t i = 0; i < snapshot.player_count; ++i) {
@@ -499,35 +439,15 @@ namespace infrastructure::adapters::in::network {
             .damage = damage,
             .new_health = newHealth
         };
-        pd.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PlayerDamaged, pd, gameWorld);
     }
 
     void UDPServer::broadcastPlayerDied(uint8_t playerId, const std::string& roomCode,
                                           const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDied::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerDied),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PlayerDied pd{.player_id = playerId};
-        pd.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PlayerDied, pd, gameWorld);
 
         // Save player stats on death (incremental save)
         savePlayerStatsOnDeath(playerId, roomCode, gameWorld);
@@ -546,17 +466,6 @@ namespace infrastructure::adapters::in::network {
         if (!wcOpt) return;
 
         const auto& wc = *wcOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + WaveCannonState::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::WaveCannonFired),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         WaveCannonState wcState{
             .id = wc.id,
             .owner_id = wc.owner_id,
@@ -565,12 +474,7 @@ namespace infrastructure::adapters::in::network {
             .charge_level = wc.chargeLevel,
             .width = static_cast<uint8_t>(wc.width)
         };
-        wcState.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::WaveCannonFired, wcState, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Wave Cannon {} fired by player {}",
             waveCannonId, static_cast<int>(wc.owner_id));
@@ -583,17 +487,6 @@ namespace infrastructure::adapters::in::network {
         if (!puOpt) return;
 
         const auto& pu = *puOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpState::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PowerUpSpawned),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PowerUpState puState{
             .id = pu.id,
             .x = static_cast<uint16_t>(pu.x),
@@ -601,12 +494,7 @@ namespace infrastructure::adapters::in::network {
             .type = static_cast<uint8_t>(pu.type),
             .remaining_time = static_cast<uint8_t>(pu.lifetime)
         };
-        puState.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PowerUpSpawned, puState, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Power-up {} spawned (type {})",
             powerUpId, static_cast<int>(pu.type));
@@ -615,27 +503,12 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::broadcastPowerUpCollected(uint16_t powerUpId, uint8_t playerId, uint8_t powerUpType, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpCollected::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PowerUpCollected),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PowerUpCollected pc{
             .powerup_id = powerUpId,
             .player_id = playerId,
             .powerup_type = powerUpType
         };
-        pc.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PowerUpCollected, pc, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Power-up {} collected by player {}",
             powerUpId, static_cast<int>(playerId));
@@ -644,23 +517,8 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::broadcastPowerUpExpired(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpExpired::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PowerUpExpired),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PowerUpExpired pe{.powerup_id = powerUpId};
-        pe.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PowerUpExpired, pe, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Power-up {} expired", powerUpId);
     }
@@ -672,17 +530,6 @@ namespace infrastructure::adapters::in::network {
         if (!forceOpt) return;
 
         const auto& force = *forceOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + ForceState::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::ForceStateUpdate),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         ForceState fs{
             .owner_id = force.ownerId,
             .x = static_cast<uint16_t>(force.x),
@@ -690,12 +537,7 @@ namespace infrastructure::adapters::in::network {
             .is_attached = force.isAttached ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0),
             .level = force.level
         };
-        fs.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::ForceStateUpdate, fs, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Force state updated for player {}",
             static_cast<int>(playerId));

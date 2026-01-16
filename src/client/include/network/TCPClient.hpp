@@ -128,6 +128,15 @@ namespace client::network
         // SSL initialization
         void initSSLContext();
 
+        // Generic message sending (reduces code duplication)
+        void sendMessageNoPayload(MessageType type, const char* logName);
+
+        template<typename T>
+        void sendMessageWithPayload(MessageType type, const T& payload, const char* logName);
+
+        // Helper for extracting player list from JoinRoomAck
+        static std::vector<RoomPlayerInfo> extractPlayerList(const JoinRoomAck& ack);
+
         // Contexte et socket (TLS)
         boost::asio::io_context _ioContext;
         ssl::context _sslContext;
