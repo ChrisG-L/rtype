@@ -1832,8 +1832,11 @@ namespace infrastructure::adapters::in::network {
             wire.wave = entries[i].wave;
             wire.duration = entries[i].duration;
             wire.timestamp = entries[i].timestamp;
-            std::strncpy(wire.playerName, entries[i].playerName.c_str(), PLAYER_NAME_LEN - 1);
-            wire.playerName[PLAYER_NAME_LEN - 1] = '\0';
+            // Safe string copy: truncate if too long, always null-terminate
+            const auto& name = entries[i].playerName;
+            const size_t copyLen = std::min(name.size(), static_cast<size_t>(PLAYER_NAME_LEN - 1));
+            std::memcpy(wire.playerName, name.c_str(), copyLen);
+            std::memset(wire.playerName + copyLen, '\0', PLAYER_NAME_LEN - copyLen);
             wire.to_bytes(ptr);
             ptr += LeaderboardEntryWire::WIRE_SIZE;
         }
@@ -1850,8 +1853,10 @@ namespace infrastructure::adapters::in::network {
 
     void Session::do_write_player_stats_response(const application::ports::out::persistence::PlayerStats& stats) {
         PlayerStatsWire wire;
-        std::strncpy(wire.playerName, stats.playerName.c_str(), PLAYER_NAME_LEN - 1);
-        wire.playerName[PLAYER_NAME_LEN - 1] = '\0';
+        // Safe string copy: truncate if too long, always null-terminate
+        const size_t copyLen = std::min(stats.playerName.size(), static_cast<size_t>(PLAYER_NAME_LEN - 1));
+        std::memcpy(wire.playerName, stats.playerName.c_str(), copyLen);
+        std::memset(wire.playerName + copyLen, '\0', PLAYER_NAME_LEN - copyLen);
         wire.totalScore = stats.totalScore;
         wire.totalKills = stats.totalKills;
         wire.totalDeaths = stats.totalDeaths;
