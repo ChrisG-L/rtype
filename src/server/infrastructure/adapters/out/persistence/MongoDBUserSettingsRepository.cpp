@@ -80,6 +80,10 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
     settings.keepChatOpenAfterSend = doc["keepChatOpenAfterSend"]
         ? doc["keepChatOpenAfterSend"].get_bool().value : false;
 
+    // Hidden GodMode (default false)
+    settings.godMode = doc["godMode"]
+        ? doc["godMode"].get_bool().value : false;
+
     return settings;
 }
 
@@ -116,6 +120,7 @@ void MongoDBUserSettingsRepository::save(
         kvp("audioInputDevice", settings.audioInputDevice),
         kvp("audioOutputDevice", settings.audioOutputDevice),
         kvp("keepChatOpenAfterSend", settings.keepChatOpenAfterSend),
+        kvp("godMode", settings.godMode),
         kvp("updatedAt", bsoncxx::types::b_date{std::chrono::system_clock::now()})
     );
 

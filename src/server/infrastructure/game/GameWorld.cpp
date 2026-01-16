@@ -101,6 +101,13 @@ namespace infrastructure::game {
         }
     }
 
+    void GameWorld::setPlayerGodMode(uint8_t playerId, bool enabled) {
+        auto it = _players.find(playerId);
+        if (it != _players.end()) {
+            it->second.godMode = enabled;
+        }
+    }
+
     void GameWorld::applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum) {
         // Get previous keys to detect weapon switch "just pressed"
         uint16_t prevKeys = 0;
@@ -776,6 +783,13 @@ namespace infrastructure::game {
                 );
 
                 if (missileBox.intersects(playerBox)) {
+                    // GodMode: player is invincible, missile still destroyed
+                    if (player.godMode) {
+                        missileIt = _enemyMissiles.erase(missileIt);
+                        missileDestroyed = true;
+                        break;
+                    }
+
                     // R-Type authentic: no shield, player takes damage directly
                     // Defense comes from Force Pod blocking projectiles
 

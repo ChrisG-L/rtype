@@ -100,6 +100,9 @@ namespace infrastructure::adapters::in::network {
             // Chat handlers
             void handleSendChatMessage(const std::vector<uint8_t>& payload);
 
+            // Hidden command handlers
+            void handleToggleGodMode(const std::string& email);
+
             // Room response writers
             void do_write_create_room_ack(const CreateRoomAck& ack);
             void do_write_join_room_ack(const JoinRoomAck& ack);

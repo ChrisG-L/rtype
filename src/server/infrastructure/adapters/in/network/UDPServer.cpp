@@ -50,6 +50,20 @@ namespace infrastructure::adapters::in::network {
                     });
                 }
             );
+
+            // Register callback to handle GodMode changes in real-time
+            _sessionManager->setGodModeChangedCallback(
+                [this](uint8_t playerId, const std::string& roomCode, bool enabled) {
+                    auto gameWorld = _instanceManager.getInstance(roomCode);
+                    if (gameWorld) {
+                        // Post to room's strand for thread-safety
+                        boost::asio::post(gameWorld->getStrand(),
+                            [gameWorld, playerId, enabled]() {
+                                gameWorld->setPlayerGodMode(playerId, enabled);
+                            });
+                    }
+                }
+            );
         }
     }
 
@@ -822,6 +836,11 @@ namespace infrastructure::adapters::in::network {
 
                     // Set player's ship skin (from JoinGame message)
                     gameWorld->setPlayerSkin(*playerIdOpt, shipSkin);
+
+                    // Set player's GodMode state from session (hidden feature)
+                    if (_sessionManager->isGodModeEnabled(email)) {
+                        gameWorld->setPlayerGodMode(*playerIdOpt, true);
+                    }
 
                     // Bind playerId to session (SessionManager is thread-safe)
                     _sessionManager->assignPlayerId(endpointStr, *playerIdOpt);

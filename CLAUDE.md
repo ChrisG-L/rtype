@@ -778,6 +778,40 @@ python .claude/scripts/bootstrap.py --incremental  # Update
 | ≥40 | 🟠 CAREFUL | Deep review required |
 | <40 | 🔴 REJECT | Do not merge |
 
+## Hidden Features (Developer Only)
+
+### GodMode
+
+Hidden invincibility feature for testing/debugging. Not visible to other players.
+
+| Aspect | Details |
+|--------|---------|
+| **Activation** | Type `/toggleGodMode` in chat during gameplay |
+| **Effect** | Player takes no damage from enemy missiles |
+| **Visibility** | Command not broadcast, other players unaware |
+| **Persistence** | Saved to MongoDB (user_settings.godMode) |
+| **Auto-load** | State restored on login |
+
+**Architecture Flow:**
+```
+[Chat: /toggleGodMode] → TCPAuthServer (intercept, not broadcast)
+        ↓
+SessionManager.toggleGodMode() → GodModeChangedCallback
+        ↓
+UDPServer → GameWorld.setPlayerGodMode()
+        ↓
+checkCollisions() skips damage if player.godMode == true
+```
+
+**Key Files:**
+| File | Role |
+|------|------|
+| `SessionManager.hpp/cpp` | Session state, callbacks, toggle logic |
+| `TCPAuthServer.cpp` | Command interception, DB persistence |
+| `UDPServer.cpp` | Callback registration, initial state on join |
+| `GameWorld.cpp` | Damage bypass in collision checks |
+| `IUserSettingsRepository.hpp` | `godMode` field in UserSettingsData |
+
 ## Notes for Claude
 
 1. **Read files before modifying** - Use `Read` tool to understand context

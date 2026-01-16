@@ -585,4 +585,76 @@ void SessionManager::notifyPlayerLeaveGame(const std::string& email) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// GodMode management
+// ═══════════════════════════════════════════════════════════════════
+
+void SessionManager::setGodMode(const std::string& email, bool enabled) {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto sessionIt = _sessionsByEmail.find(email);
+    if (sessionIt != _sessionsByEmail.end()) {
+        sessionIt->second.godMode = enabled;
+    }
+}
+
+bool SessionManager::toggleGodMode(const std::string& email) {
+    uint8_t playerId = 0;
+    std::string roomCode;
+    bool newState = false;
+    GodModeChangedCallback callback;
+
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        auto sessionIt = _sessionsByEmail.find(email);
+        if (sessionIt == _sessionsByEmail.end()) {
+            return false;
+        }
+
+        sessionIt->second.godMode = !sessionIt->second.godMode;
+        newState = sessionIt->second.godMode;
+
+        // Capture data for callback
+        if (sessionIt->second.playerId.has_value()) {
+            playerId = *sessionIt->second.playerId;
+            roomCode = sessionIt->second.roomCode;
+            callback = _godModeChangedCallback;
+        }
+    }
+
+    // Call callback outside lock to notify GameWorld
+    if (callback && playerId > 0 && !roomCode.empty()) {
+        callback(playerId, roomCode, newState);
+    }
+
+    return newState;
+}
+
+void SessionManager::setGodModeChangedCallback(GodModeChangedCallback callback) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _godModeChangedCallback = std::move(callback);
+}
+
+bool SessionManager::isPlayerInGodMode(uint8_t playerId) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    for (const auto& [email, session] : _sessionsByEmail) {
+        if (session.playerId.has_value() && *session.playerId == playerId) {
+            return session.godMode;
+        }
+    }
+    return false;
+}
+
+bool SessionManager::isGodModeEnabled(const std::string& email) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto sessionIt = _sessionsByEmail.find(email);
+    if (sessionIt != _sessionsByEmail.end()) {
+        return sessionIt->second.godMode;
+    }
+    return false;
+}
+
 } // namespace infrastructure::session
