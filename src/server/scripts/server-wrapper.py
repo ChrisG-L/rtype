@@ -19,6 +19,7 @@ import time
 import json
 import argparse
 import signal
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -35,8 +36,8 @@ DEFAULT_SERVER_PATH = "/opt/rtype/server/rtype_server"
 ERROR_LOG_PATH = "/opt/rtype/logs/server-error.log"
 LOCK_FILE_PATH = "/tmp/rtype-server.lock"
 
-# Discord Webhook
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1461340798434934855/hMKFrXfLmNFyXUcEQH4byY2iC93chpjYHpUWKkqBO3uvxnYxmVfuU_OQ37UajN6c2J8z"
+# Discord Webhook (from environment variable for security)
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
 
 # Couleurs Discord (décimal)
 COLOR_GREEN = 3066993
@@ -50,6 +51,10 @@ COLOR_GRAY = 9807270
 
 def notify_discord(title: str, message: str, color: int = COLOR_GREEN) -> bool:
     """Envoie une notification Discord via webhook."""
+    if not DISCORD_WEBHOOK_URL:
+        log("DISCORD_WEBHOOK_URL non configuré, notification ignorée")
+        return False
+
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     payload = {
