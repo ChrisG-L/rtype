@@ -21,9 +21,9 @@ jobs:
         run: |
           set -e
 
-          JENKINS_BASE="https://jenkins.adrienmarette.ovh"
-          JENKINS_JOB="Rtype-killian/job/BuildBranch"
-          JENKINS_USER="killianpluenet"
+          JENKINS_BASE="http://51.254.137.175:8080"
+          JENKINS_JOB="BuildBranch"
+          JENKINS_USER="admin"
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_ID="${GITHUB_SHA}"
 
