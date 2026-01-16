@@ -419,13 +419,16 @@ void ConnectionScene::render()
     }
 
     // Draw hint
-    if (_mode == core::ConnectionSceneMode::InitialConnection) {
-        std::string hint = _showingConfigUI ?
-            "Configurez l'adresse du serveur" :
-            "Appuyez sur S pour configurer le serveur, Echap pour quitter";
-        _context.window->drawText(FONT_KEY, hint,
-            SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT - 50, 16, {100, 100, 120, 255});
+    std::string hint;
+    if (_showingConfigUI) {
+        hint = "Configurez l'adresse du serveur";
+    } else if (_mode == core::ConnectionSceneMode::InitialConnection) {
+        hint = "Appuyez sur S pour configurer le serveur, Echap pour quitter";
+    } else {
+        hint = "Appuyez sur S pour configurer le serveur";
     }
+    _context.window->drawText(FONT_KEY, hint,
+        SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT - 50, 16, {100, 100, 120, 255});
 
     // Draw server config UI if visible
     if (_showingConfigUI && _configPanel) {
