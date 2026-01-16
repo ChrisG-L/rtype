@@ -2,14 +2,19 @@
 """
 R-Type Deploy Service
 Service de déploiement automatique - écoute uniquement sur localhost.
+Inclut un lock fichier pour éviter les déploiements concurrents.
 
 Usage:
-    python3 deploy-service.py [--port 8080]
+    python3 deploy-service.py [--port 8081]
 
 Endpoints:
-    POST /deploy          - Déploie un nouvel artifact
-    GET  /status          - Statut du serveur
+    GET  /status          - Statut du serveur rtype-server
+    GET  /deploy/status   - Statut du déploiement en cours (lock)
+    GET  /health          - Health check
+    POST /deploy          - Déploie un nouvel artifact (avec lock exclusif)
     POST /restart         - Redémarre le serveur sans déploiement
+    POST /stop            - Arrête le serveur
+    POST /start           - Démarre le serveur
 """
 
 import subprocess
@@ -19,12 +24,15 @@ import shutil
 import tempfile
 import argparse
 import os
+import fcntl
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import urllib.request
 import urllib.error
+from typing import Optional
 
 # =============================================================================
 # Configuration
@@ -37,6 +45,15 @@ SERVER_BINARY_PATH = "/opt/rtype/server/rtype_server"
 SERVER_SERVICE_NAME = "rtype-server"
 BACKUP_DIR = "/opt/rtype/backups"
 MAX_BACKUPS = 5
+
+# Lock fichier pour éviter les déploiements concurrents
+DEPLOY_LOCK_FILE = "/tmp/rtype-deploy.lock"
+
+# État global du déploiement en cours
+_deploy_lock_fd: Optional[int] = None
+_deploy_in_progress: bool = False
+_deploy_started_at: Optional[str] = None
+_deploy_source: Optional[str] = None
 
 # Discord Webhook (from environment variable for security)
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
@@ -130,6 +147,123 @@ def log(message: str, level: str = "INFO"):
     """Log vers stdout (capturé par journald via systemd)."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] [{level}] {message}", flush=True)
+
+# =============================================================================
+# Deploy Lock Management
+# =============================================================================
+
+def acquire_deploy_lock(source: str) -> tuple[bool, str]:
+    """
+    Tente d'acquérir le lock de déploiement.
+    Retourne (True, "") si réussi, (False, "raison") sinon.
+    """
+    global _deploy_lock_fd, _deploy_in_progress, _deploy_started_at, _deploy_source
+
+    try:
+        # Ouvrir ou créer le fichier de lock
+        _deploy_lock_fd = os.open(DEPLOY_LOCK_FILE, os.O_RDWR | os.O_CREAT, 0o644)
+
+        # Tenter d'acquérir un lock exclusif non-bloquant
+        fcntl.flock(_deploy_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        # Lock acquis avec succès
+        _deploy_in_progress = True
+        _deploy_started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        _deploy_source = source
+
+        # Écrire les infos dans le fichier de lock
+        os.ftruncate(_deploy_lock_fd, 0)
+        os.lseek(_deploy_lock_fd, 0, os.SEEK_SET)
+        lock_info = json.dumps({
+            "pid": os.getpid(),
+            "started_at": _deploy_started_at,
+            "source": source[:100]
+        })
+        os.write(_deploy_lock_fd, lock_info.encode())
+
+        log(f"Lock de déploiement acquis pour: {source[:50]}")
+        return True, ""
+
+    except BlockingIOError:
+        # Lock déjà pris par un autre processus
+        if _deploy_lock_fd is not None:
+            os.close(_deploy_lock_fd)
+            _deploy_lock_fd = None
+
+        # Lire les infos du lock existant
+        try:
+            with open(DEPLOY_LOCK_FILE, 'r') as f:
+                existing_lock = json.load(f)
+                reason = (
+                    f"Déploiement déjà en cours depuis {existing_lock.get('started_at', '?')} "
+                    f"(PID: {existing_lock.get('pid', '?')}, source: {existing_lock.get('source', '?')[:30]})"
+                )
+        except Exception:
+            reason = "Déploiement déjà en cours par un autre processus"
+
+        log(f"Lock refusé: {reason}", "WARN")
+        return False, reason
+
+    except Exception as e:
+        if _deploy_lock_fd is not None:
+            os.close(_deploy_lock_fd)
+            _deploy_lock_fd = None
+        log(f"Erreur acquisition lock: {e}", "ERROR")
+        return False, f"Erreur lock: {e}"
+
+
+def release_deploy_lock():
+    """Libère le lock de déploiement."""
+    global _deploy_lock_fd, _deploy_in_progress, _deploy_started_at, _deploy_source
+
+    if _deploy_lock_fd is not None:
+        try:
+            fcntl.flock(_deploy_lock_fd, fcntl.LOCK_UN)
+            os.close(_deploy_lock_fd)
+            log("Lock de déploiement libéré")
+        except Exception as e:
+            log(f"Erreur libération lock: {e}", "WARN")
+        finally:
+            _deploy_lock_fd = None
+            _deploy_in_progress = False
+            _deploy_started_at = None
+            _deploy_source = None
+
+
+def get_deploy_status() -> dict:
+    """Retourne le statut du déploiement en cours."""
+    global _deploy_in_progress, _deploy_started_at, _deploy_source
+
+    # Vérifier si un autre processus a le lock
+    if not _deploy_in_progress:
+        try:
+            with open(DEPLOY_LOCK_FILE, 'r') as f:
+                lock_info = json.load(f)
+                # Vérifier si le processus est toujours actif
+                pid = lock_info.get('pid')
+                if pid:
+                    try:
+                        os.kill(pid, 0)  # Vérifie si le processus existe
+                        return {
+                            "in_progress": True,
+                            "started_at": lock_info.get('started_at'),
+                            "source": lock_info.get('source'),
+                            "pid": pid,
+                            "owner": "other_process"
+                        }
+                    except ProcessLookupError:
+                        pass  # Processus mort, lock stale
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    return {
+        "in_progress": _deploy_in_progress,
+        "started_at": _deploy_started_at,
+        "source": _deploy_source,
+        "pid": os.getpid() if _deploy_in_progress else None,
+        "owner": "this_process" if _deploy_in_progress else None
+    }
+
 
 # =============================================================================
 # Deployment Logic
@@ -311,61 +445,79 @@ def deploy_binary(source_path: str) -> tuple[bool, str]:
 
 def full_deploy(source_path: str) -> dict:
     """
-    Processus de déploiement complet:
-    1. Télécharge/copie le nouveau binaire
-    2. Arrête le serveur
-    3. Remplace le binaire
-    4. Redémarre le serveur
-    5. Vérifie le statut
+    Processus de déploiement complet avec lock exclusif:
+    0. Acquérir le lock (évite les déploiements concurrents)
+    1. Arrête le serveur
+    2. Déploie le binaire (backup + copie)
+    3. Redémarre le serveur
+    4. Vérifie le statut
+    5. Libère le lock
     """
     result = {
         "success": False,
         "steps": [],
-        "error": None
+        "error": None,
+        "locked": False
     }
 
-    log("=== DÉBUT DU DÉPLOIEMENT ===")
-
-    # Étape 1: Arrêter le serveur
-    success, msg = stop_server()
-    result["steps"].append({"step": "stop", "success": success, "message": msg})
-    if not success:
-        result["error"] = f"Stop failed: {msg}"
-        # Continuer quand même, le serveur n'est peut-être pas lancé
-
-    # Étape 2: Déployer le binaire
-    success, msg = deploy_binary(source_path)
-    result["steps"].append({"step": "deploy", "success": success, "message": msg})
-    if not success:
-        result["error"] = f"Deploy failed: {msg}"
-        # Tenter de redémarrer avec l'ancien binaire
-        start_server()
-        notify_deploy_failure(source_path, msg)
+    # Étape 0: Acquérir le lock
+    lock_acquired, lock_error = acquire_deploy_lock(source_path)
+    if not lock_acquired:
+        result["error"] = lock_error
+        result["steps"].append({"step": "lock", "success": False, "message": lock_error})
+        log(f"Déploiement refusé: {lock_error}", "WARN")
         return result
 
-    # Étape 3: Démarrer le serveur
-    success, msg = start_server()
-    result["steps"].append({"step": "start", "success": success, "message": msg})
-    if not success:
-        result["error"] = f"Start failed: {msg}"
-        notify_deploy_failure(source_path, msg)
+    result["locked"] = True
+    result["steps"].append({"step": "lock", "success": True, "message": "Lock acquis"})
+
+    try:
+        log("=== DÉBUT DU DÉPLOIEMENT ===")
+
+        # Étape 1: Arrêter le serveur
+        success, msg = stop_server()
+        result["steps"].append({"step": "stop", "success": success, "message": msg})
+        if not success:
+            result["error"] = f"Stop failed: {msg}"
+            # Continuer quand même, le serveur n'est peut-être pas lancé
+
+        # Étape 2: Déployer le binaire
+        success, msg = deploy_binary(source_path)
+        result["steps"].append({"step": "deploy", "success": success, "message": msg})
+        if not success:
+            result["error"] = f"Deploy failed: {msg}"
+            # Tenter de redémarrer avec l'ancien binaire
+            start_server()
+            notify_deploy_failure(source_path, msg)
+            return result
+
+        # Étape 3: Démarrer le serveur
+        success, msg = start_server()
+        result["steps"].append({"step": "start", "success": success, "message": msg})
+        if not success:
+            result["error"] = f"Start failed: {msg}"
+            notify_deploy_failure(source_path, msg)
+            return result
+
+        # Étape 4: Vérifier le statut
+        time.sleep(2)  # Attendre que le serveur démarre
+        status = get_service_status()
+        result["steps"].append({"step": "verify", "success": status["active"], "status": status})
+
+        if not status["active"]:
+            result["error"] = "Server failed to start after deploy"
+            notify_deploy_failure(source_path, result["error"])
+            return result
+
+        result["success"] = True
+        log("=== DÉPLOIEMENT RÉUSSI ===")
+        notify_deploy_success(source_path)
         return result
 
-    # Étape 4: Vérifier le statut
-    import time
-    time.sleep(2)  # Attendre que le serveur démarre
-    status = get_service_status()
-    result["steps"].append({"step": "verify", "success": status["active"], "status": status})
-
-    if not status["active"]:
-        result["error"] = "Server failed to start after deploy"
-        notify_deploy_failure(source_path, result["error"])
-        return result
-
-    result["success"] = True
-    log("=== DÉPLOIEMENT RÉUSSI ===")
-    notify_deploy_success(source_path)
-    return result
+    finally:
+        # Toujours libérer le lock
+        release_deploy_lock()
+        result["locked"] = False
 
 # =============================================================================
 # HTTP Handler
@@ -392,6 +544,10 @@ class DeployHandler(BaseHTTPRequestHandler):
         if parsed.path == "/status":
             status = get_service_status()
             self.send_json(status)
+        elif parsed.path == "/deploy/status":
+            # Statut du déploiement en cours
+            deploy_status = get_deploy_status()
+            self.send_json(deploy_status)
         elif parsed.path == "/health":
             self.send_json({"status": "ok", "service": "deploy-service"})
         else:
@@ -473,13 +629,15 @@ def main():
     httpd = HTTPServer(server_address, DeployHandler)
 
     log(f"Deploy service démarré sur http://{LISTEN_HOST}:{args.port}")
+    log(f"Lock fichier: {DEPLOY_LOCK_FILE}")
     log("Endpoints disponibles:")
-    log("  GET  /status  - Statut du serveur")
-    log("  GET  /health  - Health check")
-    log("  POST /deploy  - Déployer un artifact {\"source\": \"path_or_url\"}")
-    log("  POST /restart - Redémarrer le serveur")
-    log("  POST /stop    - Arrêter le serveur")
-    log("  POST /start   - Démarrer le serveur")
+    log("  GET  /status        - Statut du serveur rtype-server")
+    log("  GET  /deploy/status - Statut du déploiement en cours (lock)")
+    log("  GET  /health        - Health check")
+    log("  POST /deploy        - Déployer un artifact (avec lock exclusif)")
+    log("  POST /restart       - Redémarrer le serveur")
+    log("  POST /stop          - Arrêter le serveur")
+    log("  POST /start         - Démarrer le serveur")
 
     try:
         httpd.serve_forever()
