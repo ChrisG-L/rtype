@@ -18,7 +18,8 @@ import json
 import shutil
 import tempfile
 import argparse
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -36,6 +37,90 @@ SERVER_BINARY_PATH = "/opt/rtype/server/rtype_server"
 SERVER_SERVICE_NAME = "rtype-server"
 BACKUP_DIR = "/opt/rtype/backups"
 MAX_BACKUPS = 5
+
+# Discord Webhook (from environment variable for security)
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
+
+# Couleurs Discord (décimal)
+COLOR_GREEN = 3066993
+COLOR_RED = 15158332
+COLOR_YELLOW = 16776960
+COLOR_GRAY = 9807270
+
+# =============================================================================
+# Discord Notifications
+# =============================================================================
+
+def notify_discord(title: str, message: str, color: int = COLOR_GREEN) -> bool:
+    """Envoie une notification Discord via webhook."""
+    if not DISCORD_WEBHOOK_URL:
+        log("DISCORD_WEBHOOK_URL non configuré, notification ignorée")
+        return False
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    payload = {
+        "embeds": [{
+            "title": title,
+            "description": message,
+            "color": color,
+            "timestamp": timestamp,
+            "footer": {
+                "text": "Deploy Service - VPS 51.254.137.175"
+            }
+        }]
+    }
+
+    try:
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            DISCORD_WEBHOOK_URL,
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "RType-Deploy/1.0"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            success = response.status in (200, 204)
+            if success:
+                log(f"Notification Discord envoyée: {title}")
+            else:
+                log(f"Discord a répondu avec status {response.status}")
+            return success
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+        log(f"Erreur notification Discord: {e}")
+        return False
+    except Exception as e:
+        log(f"Erreur inattendue notification Discord: {type(e).__name__}: {e}")
+        return False
+
+
+def notify_deploy_success(source: str):
+    """Notification de déploiement réussi."""
+    notify_discord(
+        title="🚀 Déploiement Réussi",
+        message=(
+            f"Un nouveau binaire a été **déployé avec succès**\n\n"
+            f"**Source:** `{source[:50]}{'...' if len(source) > 50 else ''}`\n"
+            f"**Service:** {SERVER_SERVICE_NAME}"
+        ),
+        color=COLOR_GREEN
+    )
+
+
+def notify_deploy_failure(source: str, error: str):
+    """Notification de déploiement échoué."""
+    notify_discord(
+        title="❌ Échec du Déploiement",
+        message=(
+            f"Le déploiement a **échoué**\n\n"
+            f"**Source:** `{source[:50]}{'...' if len(source) > 50 else ''}`\n"
+            f"**Erreur:** {error[:200]}"
+        ),
+        color=COLOR_RED
+    )
 
 # =============================================================================
 # Logging
@@ -255,6 +340,7 @@ def full_deploy(source_path: str) -> dict:
         result["error"] = f"Deploy failed: {msg}"
         # Tenter de redémarrer avec l'ancien binaire
         start_server()
+        notify_deploy_failure(source_path, msg)
         return result
 
     # Étape 3: Démarrer le serveur
@@ -262,6 +348,7 @@ def full_deploy(source_path: str) -> dict:
     result["steps"].append({"step": "start", "success": success, "message": msg})
     if not success:
         result["error"] = f"Start failed: {msg}"
+        notify_deploy_failure(source_path, msg)
         return result
 
     # Étape 4: Vérifier le statut
@@ -272,10 +359,12 @@ def full_deploy(source_path: str) -> dict:
 
     if not status["active"]:
         result["error"] = "Server failed to start after deploy"
+        notify_deploy_failure(source_path, result["error"])
         return result
 
     result["success"] = True
     log("=== DÉPLOIEMENT RÉUSSI ===")
+    notify_deploy_success(source_path)
     return result
 
 # =============================================================================
