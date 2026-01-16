@@ -9,17 +9,24 @@
 #include "scenes/SceneManager.hpp"
 #include "scenes/LoginScene.hpp"
 #include "scenes/MainMenuScene.hpp"
+#include "config/ServerConfigManager.hpp"
 #include <cmath>
 #include <variant>
 
-ConnectionScene::ConnectionScene(core::ConnectionSceneMode mode)
-    : _mode(mode)
+ConnectionScene::ConnectionScene(core::ConnectionSceneMode mode, bool forceReconnect)
+    : _mode(mode), _forceReconnect(forceReconnect)
 {
     _statusMessage = "Initialisation...";
 
     // In Reconnection mode, start waiting for TCP to connect
     if (_mode == core::ConnectionSceneMode::Reconnection) {
         _reloginState = ReloginState::WaitingForTCPConnect;
+    }
+
+    // If force reconnect, we need to disconnect first
+    if (_forceReconnect) {
+        _disconnectPending = true;
+        _statusMessage = "Changement de serveur...";
     }
 }
 
@@ -153,18 +160,19 @@ void ConnectionScene::attemptReconnection()
 {
     _retryCount++;
 
+    // Get server config
+    auto& serverConfig = config::ServerConfigManager::getInstance();
+
     // Attempt TCP reconnection if needed (but not if already connecting)
     if (_context.tcpClient &&
         !_context.tcpClient->isConnected() &&
         !_context.tcpClient->isConnecting()) {
         _connectionState.tcp = core::ConnectionStatus::Connecting;
-        // Use stored connection info, fallback to defaults
-        std::string host = _context.tcpClient->getLastHost();
-        uint16_t port = _context.tcpClient->getLastPort();
-        if (host.empty()) host = "127.0.0.1";
-        if (port == 0) port = 4125;
+        // Use server config
+        std::string host = serverConfig.getHost();
+        uint16_t port = serverConfig.getTcpPort();
         _context.tcpClient->connect(host, port);
-        _statusMessage = "Connexion TCP...";
+        _statusMessage = "Connexion TCP " + host + ":" + std::to_string(port) + "...";
     }
 
     // Attempt UDP reconnection if needed (but not if already connecting)
@@ -172,13 +180,11 @@ void ConnectionScene::attemptReconnection()
         !_context.udpClient->isConnected() &&
         !_context.udpClient->isConnecting()) {
         _connectionState.udp = core::ConnectionStatus::Connecting;
-        // Use stored connection info, fallback to defaults
-        std::string host = _context.udpClient->getLastHost();
-        uint16_t port = _context.udpClient->getLastPort();
-        if (host.empty()) host = "127.0.0.1";
-        if (port == 0) port = 4124;
+        // Use server config
+        std::string host = serverConfig.getHost();
+        uint16_t port = serverConfig.getUdpPort();
         _context.udpClient->connect(host, port);
-        _statusMessage = "Connexion UDP...";
+        _statusMessage = "Connexion UDP " + host + ":" + std::to_string(port) + "...";
     }
 }
 
@@ -189,6 +195,12 @@ bool ConnectionScene::isReconnected() const
 
 void ConnectionScene::handleEvent(const events::Event& event)
 {
+    // Handle server config UI events first
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->handleEvent(event);
+        return;
+    }
+
     // Escape key could show a "Cancel" option or quit
     if (auto* keyPressed = std::get_if<events::KeyPressed>(&event)) {
         if (keyPressed->key == events::Key::Escape) {
@@ -198,12 +210,33 @@ void ConnectionScene::handleEvent(const events::Event& event)
             }
             // In reconnection mode, we could show a confirmation dialog
         }
+        // 'S' key to show server config
+        if (keyPressed->key == events::Key::S && !_showingConfigUI) {
+            showServerConfigUI();
+        }
     }
 }
 
 void ConnectionScene::update(float deltaTime)
 {
     if (!_assetsLoaded) loadAssets();
+
+    // Handle pending disconnect for server change
+    if (_disconnectPending) {
+        _statusMessage = "Deconnexion...";
+        if (_context.tcpClient) {
+            _context.tcpClient->disconnect();
+        }
+        if (_context.udpClient) {
+            _context.udpClient->disconnect();
+        }
+        _disconnectPending = false;
+        _forceReconnect = false;
+        _retryTimer = RETRY_INTERVAL;  // Trigger immediate reconnection
+        _connectionState.tcp = core::ConnectionStatus::Disconnected;
+        _connectionState.udp = core::ConnectionStatus::Disconnected;
+        return;  // Skip this frame, reconnect on next
+    }
 
     // Update starfield animation
     if (_starfield) {
@@ -221,6 +254,11 @@ void ConnectionScene::update(float deltaTime)
     if (_animationTimer >= DOT_ANIMATION_SPEED) {
         _animationTimer = 0.0f;
         _dotCount = (_dotCount + 1) % 4;
+    }
+
+    // Update server config UI if visible
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->update(deltaTime);
     }
 
     // Process network events
@@ -245,6 +283,9 @@ void ConnectionScene::update(float deltaTime)
 
     // Check if fully connected
     if (_connectionState.isFullyConnected()) {
+        // Save server config on successful connection
+        config::ServerConfigManager::getInstance().save();
+
         if (_mode == core::ConnectionSceneMode::InitialConnection) {
             // Go to LoginScene
             if (_sceneManager) {
@@ -263,11 +304,13 @@ void ConnectionScene::update(float deltaTime)
         return;
     }
 
-    // Retry timer
-    _retryTimer += deltaTime;
-    if (_retryTimer >= RETRY_INTERVAL) {
-        _retryTimer = 0.0f;
-        attemptReconnection();
+    // Retry timer (only if not showing config UI)
+    if (!_showingConfigUI) {
+        _retryTimer += deltaTime;
+        if (_retryTimer >= RETRY_INTERVAL) {
+            _retryTimer = 0.0f;
+            attemptReconnection();
+        }
     }
 }
 
@@ -370,8 +413,43 @@ void ConnectionScene::render()
     }
 
     // Draw hint
-    if (_mode == core::ConnectionSceneMode::InitialConnection) {
-        _context.window->drawText(FONT_KEY, "Appuyez sur Echap pour quitter",
-            SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT - 50, 16, {100, 100, 120, 255});
+    std::string hint;
+    if (_showingConfigUI) {
+        hint = "Configurez l'adresse du serveur";
+    } else if (_mode == core::ConnectionSceneMode::InitialConnection) {
+        hint = "Appuyez sur S pour configurer le serveur, Echap pour quitter";
+    } else {
+        hint = "Appuyez sur S pour configurer le serveur";
     }
+    _context.window->drawText(FONT_KEY, hint,
+        SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT - 50, 16, {100, 100, 120, 255});
+
+    // Draw server config UI if visible
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->render(*_context.window);
+    }
+}
+
+void ConnectionScene::showServerConfigUI()
+{
+    if (!_configPanel) {
+        _configPanel = std::make_unique<ui::ServerConfigPanel>(SCREEN_WIDTH, SCREEN_HEIGHT, FONT_KEY);
+        _configPanel->setOnConnect([this]() {
+            hideServerConfigUI();
+            attemptReconnection();
+        });
+        _configPanel->setOnCancel([this]() {
+            hideServerConfigUI();
+        });
+    }
+    _configPanel->refreshFromConfig();
+    _showingConfigUI = true;
+    _statusMessage = "Configuration du serveur";
+}
+
+void ConnectionScene::hideServerConfigUI()
+{
+    _showingConfigUI = false;
+    _retryCount = 0;  // Reset retry count
+    _retryTimer = 0.0f;
 }

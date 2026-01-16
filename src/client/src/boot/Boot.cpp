@@ -7,6 +7,7 @@
 
 #include "boot/Boot.hpp"
 #include "core/Logger.hpp"
+#include "config/ServerConfigManager.hpp"
 #include <cstring>
 #include <iostream>
 
@@ -34,6 +35,37 @@ void Boot::parseArgs(int argc, char* argv[])
         else if (arg.starts_with("--graphics-path=")) {
             _graphicsOptions.path = arg.substr(16);
         }
+        else if (arg.starts_with("--server=")) {
+            parseServerArg(arg.substr(9));
+        }
+    }
+}
+
+void Boot::parseServerArg(const std::string& serverArg)
+{
+    auto& serverConfig = config::ServerConfigManager::getInstance();
+
+    // Format: host:port or just host
+    size_t colonPos = serverArg.rfind(':');
+    if (colonPos != std::string::npos && colonPos > 0) {
+        std::string host = serverArg.substr(0, colonPos);
+        std::string portStr = serverArg.substr(colonPos + 1);
+
+        try {
+            int port = std::stoi(portStr);
+            if (port > 0 && port <= 65535) {
+                serverConfig.setHost(host);
+                serverConfig.setTcpPort(static_cast<uint16_t>(port));
+                // UDP is usually TCP - 1
+                serverConfig.setUdpPort(static_cast<uint16_t>(port - 1));
+            }
+        } catch (...) {
+            // Invalid port, just set host
+            serverConfig.setHost(serverArg);
+        }
+    } else {
+        // Just host, no port
+        serverConfig.setHost(serverArg);
     }
 }
 
@@ -42,15 +74,18 @@ void Boot::printHelp() const
     std::cout << "R-Type Client\n\n"
               << "Usage: rtype_client [OPTIONS]\n\n"
               << "Options:\n"
+              << "  --server=<host[:port]>  Server address (default: 127.0.0.1:4125)\n"
+              << "                          Examples: 51.254.137.175, myserver.com:4125\n"
               << "  --graphics=<name>       Graphics backend name (e.g., sdl2, sfml)\n"
               << "                          Builds lib name: librtype_<name>.so (Linux)\n"
               << "                                           rtype_<name>.dll (Windows)\n"
               << "  --graphics-path=<path>  Full path to a custom graphics plugin\n"
               << "  -h, --help              Show this help message\n\n"
               << "Examples:\n"
-              << "  rtype_client                          # Uses SFML (default)\n"
-              << "  rtype_client --graphics=sdl2          # Uses SDL2 backend\n"
-              << "  rtype_client --graphics-path=./my_plugin.so  # Custom plugin\n";
+              << "  rtype_client                               # Uses localhost (default)\n"
+              << "  rtype_client --server=51.254.137.175       # Connect to VPS\n"
+              << "  rtype_client --server=myserver.com:4125    # Connect with custom port\n"
+              << "  rtype_client --graphics=sdl2               # Uses SDL2 backend\n";
 }
 
 void Boot::core()
@@ -78,9 +113,17 @@ void Boot::core()
         logger->error("TCP error: {}", error);
     });
 
+    // Get server configuration
+    auto& serverConfig = config::ServerConfigManager::getInstance();
+    std::string host = serverConfig.getHost();
+    uint16_t tcpPort = serverConfig.getTcpPort();
+    uint16_t udpPort = serverConfig.getUdpPort();
+
+    logger->info("Connecting to server {}:{} (TCP) / {} (UDP)", host, tcpPort, udpPort);
+
     // Connect to servers at startup
-    tcpClient->connect("127.0.0.1", 4125);
-    udpClient->connect("127.0.0.1", 4124);
+    tcpClient->connect(host, tcpPort);
+    udpClient->connect(host, udpPort);
 
     engine->initialize(udpClient, tcpClient, _graphicsOptions);
     engine->run();

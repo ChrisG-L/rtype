@@ -15,6 +15,12 @@ set(TEST_SOURCES
     utils/VecsTest.cpp
     utils/SignalTest.cpp
 
+    # Tests Config
+    config/ServerConfigManagerTest.cpp
+
+    # Tests UI
+    ui/ServerConfigPanelTest.cpp
+
     # Tests Accessibility
     accessibility/AccessibilityConfigTest.cpp
 
@@ -28,6 +34,11 @@ set(TEST_SOURCES
 # Sources du client nécessaires pour les tests
 set(CLIENT_SOURCES_FOR_TESTS
     ${CMAKE_SOURCE_DIR}/src/client/src/accessibility/AccessibilityConfig.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/config/ServerConfigManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/core/Logger.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/ui/ServerConfigPanel.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/ui/Button.cpp
+    ${CMAKE_SOURCE_DIR}/src/client/src/ui/TextInput.cpp
 )
 
 # Créer l'exécutable de tests
@@ -51,6 +62,9 @@ target_include_directories(client_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client
     ${CMAKE_SOURCE_DIR}/src/client/include
 )
+
+# Trouver spdlog pour le Logger
+find_package(spdlog CONFIG REQUIRED)
 
 # Trouver Opus et PortAudio pour les tests audio
 find_package(Opus CONFIG REQUIRED)
@@ -76,9 +90,20 @@ endif()
 target_link_libraries(client_tests PRIVATE
     GTest::gtest
     GTest::gtest_main
+    spdlog::spdlog
     Opus::opus
     ${PORTAUDIO_TARGET}
 )
+
+# MinGW: options de liaison pour éviter les conflits de définitions multiples
+if(MINGW)
+    target_link_options(client_tests PRIVATE
+        -static-libgcc
+        -static-libstdc++
+        -Wl,--allow-multiple-definition
+    )
+    message(STATUS "[Tests] MinGW link options enabled for client_tests")
+endif()
 
 # Enregistrer les tests avec CTest (sauf en cross-compilation)
 if(NOT CMAKE_CROSSCOMPILING)

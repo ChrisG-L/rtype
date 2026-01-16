@@ -8,6 +8,7 @@
 #include "scenes/LoginScene.hpp"
 #include "scenes/SceneManager.hpp"
 #include "scenes/MainMenuScene.hpp"
+#include "scenes/ConnectionScene.hpp"
 #include "network/NetworkEvents.hpp"
 #include <variant>
 
@@ -158,6 +159,20 @@ void LoginScene::initUI()
         }
     });
 
+    // Server config button (bottom left)
+    constexpr float UBUNTU_OFFSET = 30.0f;
+    _serverConfigButton = std::make_unique<ui::Button>(
+        Vec2f{20, SCREEN_HEIGHT - 70 - UBUNTU_OFFSET},
+        Vec2f{120, 40},
+        "SERVER",
+        FONT_KEY
+    );
+    _serverConfigButton->setOnClick([this]() {
+        showServerConfigUI();
+    });
+    _serverConfigButton->setNormalColor({60, 60, 100, 255});
+    _serverConfigButton->setHoveredColor({80, 80, 130, 255});
+
     _uiInitialized = true;
 }
 
@@ -267,9 +282,40 @@ void LoginScene::showSuccess(const std::string& message)
     _statusDisplayTimer = STATUS_DISPLAY_DURATION;
 }
 
+void LoginScene::showServerConfigUI()
+{
+    if (!_configPanel) {
+        _configPanel = std::make_unique<ui::ServerConfigPanel>(SCREEN_WIDTH, SCREEN_HEIGHT, FONT_KEY);
+        _configPanel->setOnConnect([this]() {
+            hideServerConfigUI();
+            // ConnectionScene will handle disconnect + reconnection with new config
+            if (_sceneManager) {
+                _sceneManager->changeScene(std::make_unique<ConnectionScene>(
+                    core::ConnectionSceneMode::InitialConnection, true));
+            }
+        });
+        _configPanel->setOnCancel([this]() {
+            hideServerConfigUI();
+        });
+    }
+    _configPanel->refreshFromConfig();
+    _showingConfigUI = true;
+}
+
+void LoginScene::hideServerConfigUI()
+{
+    _showingConfigUI = false;
+}
+
 void LoginScene::handleEvent(const events::Event& event)
 {
     if (!_uiInitialized) return;
+
+    // Handle server config UI if showing
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->handleEvent(event);
+        return;
+    }
 
     _usernameInput->handleEvent(event);
     _passwordInput->handleEvent(event);
@@ -281,6 +327,7 @@ void LoginScene::handleEvent(const events::Event& event)
 
     _submitButton->handleEvent(event);
     _switchModeButton->handleEvent(event);
+    _serverConfigButton->handleEvent(event);
 
     // Tab key to switch between inputs
     if (auto* keyPressed = std::get_if<events::KeyPressed>(&event)) {
@@ -338,6 +385,12 @@ void LoginScene::update(float deltaTime)
     }
     _submitButton->update(deltaTime);
     _switchModeButton->update(deltaTime);
+    _serverConfigButton->update(deltaTime);
+
+    // Update server config UI
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->update(deltaTime);
+    }
 
     if (_statusDisplayTimer > 0) {
         _statusDisplayTimer -= deltaTime;
@@ -397,10 +450,19 @@ void LoginScene::render()
         _context.window->drawText(FONT_KEY, _statusMessage, msgX, msgY, 18, _statusColor);
     }
 
-    // Draw connection status
+    // Draw connection status (next to SERVER button)
+    constexpr float UBUNTU_OFFSET = 30.0f;
     std::string connStatus = (_context.tcpClient && _context.tcpClient->isConnected())
         ? "Connected" : "Disconnected";
     rgba connColor = (_context.tcpClient && _context.tcpClient->isConnected())
         ? rgba{100, 255, 100, 255} : rgba{255, 100, 100, 255};
-    _context.window->drawText(FONT_KEY, connStatus, 20, SCREEN_HEIGHT - 40, 14, connColor);
+    _context.window->drawText(FONT_KEY, connStatus, 160, SCREEN_HEIGHT - 58 - UBUNTU_OFFSET, 14, connColor);
+
+    // Draw server config button
+    _serverConfigButton->render(*_context.window);
+
+    // Draw server config UI overlay if showing
+    if (_showingConfigUI && _configPanel) {
+        _configPanel->render(*_context.window);
+    }
 }
