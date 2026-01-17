@@ -33,7 +33,8 @@ rtype/
 │   │   │       └── logging/             # Logger
 │   │   ├── domain/                      # Domain implementations
 │   │   ├── application/                 # Application implementations
-│   │   └── infrastructure/              # Infrastructure implementations
+│   │   ├── infrastructure/              # Infrastructure implementations
+│   │   └── scripts/                     # VPS deployment (systemd, wrapper)
 │   │
 │   ├── client/                          # Client implementation
 │   │   ├── include/
@@ -45,6 +46,8 @@ rtype/
 │   │   │   ├── events/                  # Event system (KeyPressed, etc.)
 │   │   │   ├── core/                    # Engine, GameLoop, Logger
 │   │   │   ├── boot/                    # Boot
+│   │   │   ├── config/                  # ServerConfigManager
+│   │   │   ├── ui/                      # ServerConfigPanel
 │   │   │   └── utils/                   # Vecs (Vec2u, Vec2f)
 │   │   ├── src/                         # Implementations
 │   │   └── lib/                         # Graphics backends
@@ -86,16 +89,21 @@ rtype/
 # Compile
 ./scripts/compile.sh
 
-# Run
+# Run Server
 ./artifacts/server/linux/rtype_server  # Server (UDP 4124)
-./artifacts/client/linux/rtype_client  # Client
 
-# Connect to VPS server
-./artifacts/client/linux/rtype_client --server=51.254.137.175
+# Run Client (RECOMMENDED - uses wrapper script for voice chat support)
+./scripts/run-client.sh                # Handles PipeWire/JACK audio automatically
+./scripts/run-client.sh --server=51.254.137.175  # Connect to VPS
+
+# Run Client (direct binary - voice chat may not work on Linux/PipeWire)
+./artifacts/client/linux/rtype_client  # Only if run-client.sh unavailable
 
 # Clean build
 rm -rf build*/ artifacts/
 ```
+
+> **Note:** On Linux with PipeWire, the `run-client.sh` script wraps the binary with `pw-jack` to enable voice chat support. Always prefer the script over the direct binary.
 
 ## Client Server Configuration
 
@@ -104,9 +112,12 @@ The client supports configurable server addresses with persistence.
 ### Command Line
 
 ```bash
-# Connect to specific server
-./rtype_client --server=51.254.137.175       # Uses default ports (4125/4124)
-./rtype_client --server=myserver.com:4125    # Custom port (UDP = TCP - 1)
+# Connect to specific server (RECOMMENDED - via script)
+./scripts/run-client.sh --server=51.254.137.175       # Uses default ports (4125/4124)
+./scripts/run-client.sh --server=myserver.com:4125    # Custom port (UDP = TCP - 1)
+
+# Direct binary (voice chat may not work on Linux/PipeWire)
+./artifacts/client/linux/rtype_client --server=51.254.137.175
 ```
 
 ### In-App Configuration
@@ -853,6 +864,9 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 ```bash
 ./scripts/compile.sh && ./artifacts/tests/server_tests --gtest_filter="Achievement*:PlayerStats*:Leaderboard*"
 ```
+| **ServerConfigManager** | `src/client/src/config/ServerConfigManager.cpp` |
+| **Server wrapper** | `src/server/scripts/server-wrapper.py` |
+| **Systemd service** | `src/server/scripts/rtype_server.service` |
 
 ## TLS Security
 

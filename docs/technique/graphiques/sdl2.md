@@ -7,19 +7,19 @@ tags:
 
 # Backend SDL2
 
-Implémentation du backend graphique utilisant SDL2.
+Implementation du backend graphique utilisant SDL2.
 
 ## Vue d'Ensemble
 
-**SDL2** (Simple DirectMedia Layer) est une bibliothèque multimédia cross-platform écrite en C. Elle fournit un accès bas niveau au hardware graphique.
+**SDL2** (Simple DirectMedia Layer) est une bibliotheque multimedia cross-platform ecrite en C. Elle fournit un acces bas niveau au hardware graphique.
 
-### Caractéristiques
+### Caracteristiques
 
 | Aspect | Description |
 |--------|-------------|
-| **Langage** | C (wrapper C++ dans notre implémentation) |
-| **Paradigme** | Procédural |
-| **Rendu** | SDL_Renderer (accéléré GPU) |
+| **Langage** | C (wrapper C++ dans notre implementation) |
+| **Paradigme** | Procedural |
+| **Rendu** | SDL_Renderer (accelere GPU) |
 | **Extensions** | SDL2_image, SDL2_ttf, SDL2_mixer |
 
 ---
@@ -28,446 +28,440 @@ Implémentation du backend graphique utilisant SDL2.
 
 ```mermaid
 classDiagram
-    class SDL2Backend {
-        -SDL_Window* window_
-        -SDL_Renderer* renderer_
-        -SDL2Window windowWrapper_
-        +initialize(config) bool
-        +shutdown() void
-        +getWindow() IWindow&
-        +loadTexture(path) ITexture*
-        +clear(color) void
-        +draw(drawable) void
-        +present() void
+    class IWindow {
+        <<interface>>
+        +getSize() Vec2u
+        +isOpen() bool
+        +close() void
+        +pollEvent() Event
+        +drawRect() void
+        +drawSprite() void
+        +loadTexture() bool
+        +loadShader() bool
+        +supportsShaders() bool
     }
 
     class SDL2Window {
-        -SDL_Window* window_
-        +isOpen() bool
-        +close() void
-        +pollEvent(event) bool
+        -SDL_Window* _window
+        -SDL_Renderer* _renderer
+        -bool _isOpen
+        -unordered_map~string,SDL_Texture*~ _textures
+        -unordered_map~string,TTF_Font*~ _fonts
+        +beginFrame() void
+        +endFrame() void
     }
 
-    class SDL2Texture {
-        -SDL_Texture* texture_
-        -Vector2u size_
-        +getSize() Vector2u
-        +getNativeHandle() void*
-    }
-
-    SDL2Backend --> SDL2Window
-    SDL2Backend --> SDL2Texture
+    IWindow <|-- SDL2Window
 ```
 
 ---
 
-## Implémentation
+## Implementation
 
-### SDL2Backend.hpp
+### SDL2Window.hpp
 
 ```cpp
-#pragma once
+/*
+** EPITECH PROJECT, 2025
+** rtype
+** File description:
+** SDL2Window
+*/
 
-#include "graphics/IGraphicsBackend.hpp"
+#ifndef SDL2WINDOW_HPP_
+#define SDL2WINDOW_HPP_
+
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+#include <string>
+#include <unordered_map>
+
+#include "graphics/IWindow.hpp"
+#include "graphics/IDrawable.hpp"
+#include "utils/Vecs.hpp"
+
+class SDL2Window: public graphics::IWindow {
+    public:
+        SDL2Window(Vec2u winSize, const std::string& name);
+        ~SDL2Window();
+
+        Vec2u getSize() const override;
+        bool isOpen() override;
+        void close() override;
+        events::Event pollEvent() override;
+
+        void draw(const graphics::IDrawable& drawable) override;
+        void drawRect(float x, float y, float width, float height, rgba color) override;
+        void drawImg(graphics::IDrawable, float x, float y, float scaleX, float scaleY) override;
+        bool loadTexture(const std::string& key, const std::string& filepath) override;
+        void drawSprite(const std::string& textureKey, float x, float y, float width, float height) override;
+        bool loadFont(const std::string& key, const std::string& filepath) override;
+        void drawText(const std::string& fontKey, const std::string& text, float x, float y, unsigned int size, rgba color) override;
+
+        void* getNativeHandle() override;
+
+        void clear() override;
+        void display() override;
+
+        // Post-processing shader support (stubs - not supported in SDL2)
+        bool loadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) override;
+        void setPostProcessShader(const std::string& key) override;
+        void clearPostProcessShader() override;
+        void setShaderUniform(const std::string& name, int value) override;
+        bool supportsShaders() const override;
+
+        // Frame management
+        void beginFrame() override;
+        void endFrame() override;
+
+        SDL_Renderer* getRenderer() const { return _renderer; }
+
+    private:
+        SDL_Window* _window;
+        SDL_Renderer* _renderer;
+        bool _isOpen;
+        bool _ttfInitialized = false;
+        std::unordered_map<std::string, SDL_Texture*> _textures;
+        std::unordered_map<std::string, TTF_Font*> _fonts;
+};
+
+#endif /* !SDL2WINDOW_HPP_ */
+```
+
+### SDL2Window.cpp (extraits)
+
+```cpp
+/*
+** EPITECH PROJECT, 2025
+** rtype
+** File description:
+** SDL2Window
+*/
+
 #include "SDL2Window.hpp"
+#include "events/Event.hpp"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
+#include <stdexcept>
 
-namespace rtype::graphics::sdl2 {
-
-class SDL2Backend : public IGraphicsBackend {
-public:
-    SDL2Backend() = default;
-    ~SDL2Backend() override;
-
-    // Lifecycle
-    bool initialize(const WindowConfig& config) override;
-    void shutdown() override;
-
-    // Window
-    IWindow& getWindow() override { return window_; }
-
-    // Resources
-    std::unique_ptr<ITexture> loadTexture(
-        const std::filesystem::path& path) override;
-    std::unique_ptr<IFont> loadFont(
-        const std::filesystem::path& path, int size) override;
-
-    // Rendering
-    void clear(Color color) override;
-    void draw(const IDrawable& drawable) override;
-    void drawSprite(
-        const ITexture& texture,
-        const Vector2f& position,
-        const IntRect& sourceRect,
-        float rotation,
-        const Vector2f& scale) override;
-    void drawText(
-        const IFont& font,
-        const std::string& text,
-        const Vector2f& position,
-        Color color) override;
-    void present() override;
-
-    // Info
-    std::string getName() const override { return "SDL2"; }
-
-    // SDL-specific
-    SDL_Renderer* getRenderer() const { return renderer_; }
-
-private:
-    SDL_Window* sdlWindow_ = nullptr;
-    SDL_Renderer* renderer_ = nullptr;
-    SDL2Window window_;
-    bool initialized_ = false;
-};
-
-} // namespace rtype::graphics::sdl2
-```
-
-### SDL2Backend.cpp
-
-```cpp
-#include "SDL2Backend.hpp"
-#include "SDL2Texture.hpp"
-#include "SDL2Font.hpp"
-#include <spdlog/spdlog.h>
-
-namespace rtype::graphics::sdl2 {
-
-SDL2Backend::~SDL2Backend() {
-    if (initialized_) {
-        shutdown();
+static events::Key scancodeToKey(SDL_Scancode scancode)
+{
+    switch (scancode) {
+        case SDL_SCANCODE_A: return events::Key::A;
+        case SDL_SCANCODE_B: return events::Key::B;
+        // ... autres touches
+        case SDL_SCANCODE_SPACE: return events::Key::Space;
+        case SDL_SCANCODE_RETURN: return events::Key::Enter;
+        case SDL_SCANCODE_ESCAPE: return events::Key::Escape;
+        default: return events::Key::Unknown;
     }
 }
 
-bool SDL2Backend::initialize(const WindowConfig& config) {
-    // Initialize SDL2
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) < 0) {
-        spdlog::error("SDL_Init failed: {}", SDL_GetError());
-        return false;
+SDL2Window::SDL2Window(Vec2u winSize, const std::string& name)
+    : _window(nullptr), _renderer(nullptr), _isOpen(true)
+{
+    // Windows: desactiver le DPI scaling pour avoir des pixels 1:1
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "0");
+
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        throw std::runtime_error("Failed to initialize SDL: " + std::string(SDL_GetError()));
     }
 
-    // Initialize SDL2_image
-    int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
-    if (!(IMG_Init(imgFlags) & imgFlags)) {
-        spdlog::error("IMG_Init failed: {}", IMG_GetError());
-        return false;
-    }
-
-    // Initialize SDL2_ttf
-    if (TTF_Init() < 0) {
-        spdlog::error("TTF_Init failed: {}", TTF_GetError());
-        return false;
-    }
-
-    // Create window
-    Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
-    if (config.fullscreen) {
-        windowFlags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-    }
-
-    sdlWindow_ = SDL_CreateWindow(
-        config.title.c_str(),
+    _window = SDL_CreateWindow(
+        name.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        config.width,
-        config.height,
-        windowFlags
+        static_cast<int>(winSize.x),
+        static_cast<int>(winSize.y),
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
 
-    if (!sdlWindow_) {
-        spdlog::error("SDL_CreateWindow failed: {}", SDL_GetError());
-        return false;
+    if (!_window) {
+        SDL_Quit();
+        throw std::runtime_error("Failed to create SDL window: " + std::string(SDL_GetError()));
     }
 
-    // Create renderer
-    Uint32 rendererFlags = SDL_RENDERER_ACCELERATED;
-    if (config.vsync) {
-        rendererFlags |= SDL_RENDERER_PRESENTVSYNC;
+    _renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!_renderer) {
+        SDL_DestroyWindow(_window);
+        SDL_Quit();
+        throw std::runtime_error("Failed to create SDL renderer: " + std::string(SDL_GetError()));
     }
-
-    renderer_ = SDL_CreateRenderer(sdlWindow_, -1, rendererFlags);
-    if (!renderer_) {
-        spdlog::error("SDL_CreateRenderer failed: {}", SDL_GetError());
-        return false;
-    }
-
-    // Setup window wrapper
-    window_.setSDLWindow(sdlWindow_);
-
-    initialized_ = true;
-    spdlog::info("SDL2 backend initialized successfully");
-    return true;
 }
+```
 
-void SDL2Backend::shutdown() {
-    if (renderer_) {
-        SDL_DestroyRenderer(renderer_);
-        renderer_ = nullptr;
-    }
-    if (sdlWindow_) {
-        SDL_DestroyWindow(sdlWindow_);
-        sdlWindow_ = nullptr;
-    }
+### Destructeur avec cleanup RAII
 
-    TTF_Quit();
-    IMG_Quit();
-    SDL_Quit();
-
-    initialized_ = false;
-    spdlog::info("SDL2 backend shutdown");
-}
-
-std::unique_ptr<ITexture> SDL2Backend::loadTexture(
-    const std::filesystem::path& path)
+```cpp
+SDL2Window::~SDL2Window()
 {
-    SDL_Surface* surface = IMG_Load(path.string().c_str());
-    if (!surface) {
-        spdlog::error("Failed to load image {}: {}",
-            path.string(), IMG_GetError());
-        return nullptr;
+    // Cleanup textures
+    for (auto& [key, texture] : _textures) {
+        if (texture) {
+            SDL_DestroyTexture(texture);
+        }
+    }
+    _textures.clear();
+
+    // Cleanup fonts
+    for (auto& [key, font] : _fonts) {
+        if (font) {
+            TTF_CloseFont(font);
+        }
+    }
+    _fonts.clear();
+
+    if (_ttfInitialized) {
+        TTF_Quit();
     }
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(
-        renderer_, surface);
+    if (_renderer) {
+        SDL_DestroyRenderer(_renderer);
+    }
+    if (_window) {
+        SDL_DestroyWindow(_window);
+    }
+    SDL_Quit();
+}
+```
+
+### Gestion des evenements
+
+```cpp
+events::Event SDL2Window::pollEvent()
+{
+    SDL_Event sdlEvent;
+    if (SDL_PollEvent(&sdlEvent)) {
+        switch (sdlEvent.type) {
+            case SDL_QUIT:
+                _isOpen = false;
+                return events::WindowClosed{};
+            case SDL_KEYDOWN:
+                if (sdlEvent.key.repeat == 0)
+                    return events::KeyPressed{scancodeToKey(sdlEvent.key.keysym.scancode)};
+                break;
+            case SDL_KEYUP:
+                return events::KeyReleased{scancodeToKey(sdlEvent.key.keysym.scancode)};
+            case SDL_MOUSEBUTTONDOWN:
+                return events::MouseButtonPressed{
+                    sdlButtonToMouseButton(sdlEvent.button.button),
+                    sdlEvent.button.x,
+                    sdlEvent.button.y
+                };
+            case SDL_MOUSEMOTION:
+                return events::MouseMoved{
+                    sdlEvent.motion.x,
+                    sdlEvent.motion.y
+                };
+            case SDL_TEXTINPUT:
+                if (sdlEvent.text.text[0] != '\0') {
+                    return events::TextEntered{
+                        static_cast<uint32_t>(static_cast<unsigned char>(sdlEvent.text.text[0]))
+                    };
+                }
+                break;
+            default:
+                break;
+        }
+        return pollEvent();  // Continuer a vider la queue
+    }
+    return events::None{};
+}
+```
+
+### Chargement et rendu de textures
+
+```cpp
+bool SDL2Window::loadTexture(const std::string& key, const std::string& filepath)
+{
+    if (_textures.count(key)) {
+        return true;  // Deja charge
+    }
+
+    SDL_Surface* surface = IMG_Load(filepath.c_str());
+    if (!surface) {
+        return false;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
     SDL_FreeSurface(surface);
 
     if (!texture) {
-        spdlog::error("Failed to create texture: {}", SDL_GetError());
-        return nullptr;
+        return false;
     }
 
-    return std::make_unique<SDL2Texture>(texture);
+    _textures[key] = texture;
+    return true;
 }
 
-void SDL2Backend::clear(Color color) {
-    SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
-    SDL_RenderClear(renderer_);
-}
-
-void SDL2Backend::drawSprite(
-    const ITexture& texture,
-    const Vector2f& position,
-    const IntRect& sourceRect,
-    float rotation,
-    const Vector2f& scale)
+void SDL2Window::drawSprite(const std::string& textureKey, float x, float y, float width, float height)
 {
-    auto* sdlTexture = static_cast<SDL_Texture*>(
-        texture.getNativeHandle());
-
-    auto size = texture.getSize();
-
-    SDL_Rect src;
-    if (sourceRect.width > 0 && sourceRect.height > 0) {
-        src = {sourceRect.x, sourceRect.y,
-               sourceRect.width, sourceRect.height};
-    } else {
-        src = {0, 0, static_cast<int>(size.x), static_cast<int>(size.y)};
+    auto it = _textures.find(textureKey);
+    if (it == _textures.end()) {
+        drawRect(x, y, width, height, {255, 0, 255, 255});  // Magenta = texture manquante
+        return;
     }
 
-    SDL_FRect dst = {
-        position.x,
-        position.y,
-        src.w * scale.x,
-        src.h * scale.y
-    };
-
-    if (rotation != 0.f) {
-        SDL_RenderCopyExF(renderer_, sdlTexture, &src, &dst,
-            rotation, nullptr, SDL_FLIP_NONE);
-    } else {
-        SDL_RenderCopyF(renderer_, sdlTexture, &src, &dst);
-    }
+    SDL_FRect destRect = {x, y, width, height};
+    SDL_RenderCopyF(_renderer, it->second, nullptr, &destRect);
 }
-
-void SDL2Backend::present() {
-    SDL_RenderPresent(renderer_);
-}
-
-// Auto-registration
-REGISTER_GRAPHICS_BACKEND("sdl2", SDL2Backend);
-
-} // namespace rtype::graphics::sdl2
 ```
 
----
-
-## SDL2Texture
+### Rendu de texte
 
 ```cpp
-#pragma once
-
-#include "graphics/ITexture.hpp"
-#include <SDL2/SDL.h>
-
-namespace rtype::graphics::sdl2 {
-
-class SDL2Texture : public ITexture {
-public:
-    explicit SDL2Texture(SDL_Texture* texture)
-        : texture_(texture)
-    {
-        int w, h;
-        SDL_QueryTexture(texture_, nullptr, nullptr, &w, &h);
-        size_ = {static_cast<unsigned>(w), static_cast<unsigned>(h)};
-    }
-
-    ~SDL2Texture() override {
-        if (texture_) {
-            SDL_DestroyTexture(texture_);
-        }
-    }
-
-    // Non-copyable
-    SDL2Texture(const SDL2Texture&) = delete;
-    SDL2Texture& operator=(const SDL2Texture&) = delete;
-
-    // Movable
-    SDL2Texture(SDL2Texture&& other) noexcept
-        : texture_(other.texture_), size_(other.size_)
-    {
-        other.texture_ = nullptr;
-    }
-
-    Vector2u getSize() const override { return size_; }
-
-    void* getNativeHandle() const override {
-        return texture_;
-    }
-
-private:
-    SDL_Texture* texture_;
-    Vector2u size_;
-};
-
-} // namespace rtype::graphics::sdl2
-```
-
----
-
-## SDL2Window
-
-```cpp
-#pragma once
-
-#include "graphics/IWindow.hpp"
-#include <SDL2/SDL.h>
-
-namespace rtype::graphics::sdl2 {
-
-class SDL2Window : public IWindow {
-public:
-    void setSDLWindow(SDL_Window* window) { window_ = window; }
-
-    bool isOpen() const override { return open_; }
-
-    void close() override { open_ = false; }
-
-    Vector2u getSize() const override {
-        int w, h;
-        SDL_GetWindowSize(window_, &w, &h);
-        return {static_cast<unsigned>(w), static_cast<unsigned>(h)};
-    }
-
-    void setTitle(const std::string& title) override {
-        SDL_SetWindowTitle(window_, title.c_str());
-    }
-
-    void setFullscreen(bool enabled) override {
-        SDL_SetWindowFullscreen(window_,
-            enabled ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-    }
-
-    bool pollEvent(Event& event) override {
-        SDL_Event sdlEvent;
-        if (!SDL_PollEvent(&sdlEvent)) {
-            return false;
-        }
-
-        switch (sdlEvent.type) {
-            case SDL_QUIT:
-                event.type = EventType::Closed;
-                break;
-            case SDL_WINDOWEVENT:
-                if (sdlEvent.window.event == SDL_WINDOWEVENT_RESIZED) {
-                    event.type = EventType::Resized;
-                    event.size.width = sdlEvent.window.data1;
-                    event.size.height = sdlEvent.window.data2;
-                }
-                break;
-            case SDL_KEYDOWN:
-                event.type = EventType::KeyPressed;
-                event.key.code = mapSDLKey(sdlEvent.key.keysym.sym);
-                break;
-            case SDL_KEYUP:
-                event.type = EventType::KeyReleased;
-                event.key.code = mapSDLKey(sdlEvent.key.keysym.sym);
-                break;
-            default:
-                return pollEvent(event); // Get next event
-        }
+bool SDL2Window::loadFont(const std::string& key, const std::string& filepath)
+{
+    if (_fonts.count(key)) {
         return true;
     }
 
-    bool hasFocus() const override {
-        return SDL_GetWindowFlags(window_) & SDL_WINDOW_INPUT_FOCUS;
+    if (!_ttfInitialized) {
+        if (TTF_Init() < 0) {
+            return false;
+        }
+        _ttfInitialized = true;
     }
 
-private:
-    KeyCode mapSDLKey(SDL_Keycode key);
+    TTF_Font* font = TTF_OpenFont(filepath.c_str(), 16);
+    if (!font) {
+        return false;
+    }
 
-    SDL_Window* window_ = nullptr;
-    bool open_ = true;
-};
+    _fonts[key] = font;
+    return true;
+}
 
-} // namespace rtype::graphics::sdl2
+void SDL2Window::drawText(const std::string& fontKey, const std::string& text, float x, float y, unsigned int size, rgba color)
+{
+    auto it = _fonts.find(fontKey);
+    if (it == _fonts.end()) {
+        return;
+    }
+
+    TTF_SetFontSize(it->second, static_cast<int>(size));
+    SDL_Color sdlColor = {
+        static_cast<Uint8>(color.r),
+        static_cast<Uint8>(color.g),
+        static_cast<Uint8>(color.b),
+        static_cast<Uint8>(color.a)
+    };
+    SDL_Surface* surface = TTF_RenderText_Blended(it->second, text.c_str(), sdlColor);
+    if (!surface) {
+        return;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
+    SDL_FreeSurface(surface);
+    if (!texture) {
+        return;
+    }
+
+    int texW, texH;
+    SDL_QueryTexture(texture, nullptr, nullptr, &texW, &texH);
+    SDL_FRect destRect = {x, y, static_cast<float>(texW), static_cast<float>(texH)};
+    SDL_RenderCopyF(_renderer, texture, nullptr, &destRect);
+    SDL_DestroyTexture(texture);  // Cleanup texture temporaire
+}
 ```
 
 ---
 
-## Spécificités SDL2
+## Post-Processing (non supporte)
 
-### Gestion des Erreurs
+SDL2 ne supporte pas les shaders GLSL. Les methodes sont des stubs :
+
+```cpp
+bool SDL2Window::loadShader(const std::string& /*key*/, const std::string& /*vertexPath*/, const std::string& /*fragmentPath*/)
+{
+    return false;  // Non supporte
+}
+
+void SDL2Window::setPostProcessShader(const std::string& /*key*/)
+{
+    // Stub - non supporte
+}
+
+void SDL2Window::setShaderUniform(const std::string& /*name*/, int /*value*/)
+{
+    // Stub - non supporte
+}
+
+bool SDL2Window::supportsShaders() const
+{
+    return false;  // SDL2 ne supporte pas les shaders
+}
+
+void SDL2Window::beginFrame()
+{
+    clear();
+}
+
+void SDL2Window::endFrame()
+{
+    display();
+}
+```
+
+---
+
+## Accessibilite (modes daltoniens)
+
+Puisque SDL2 ne supporte pas les shaders, les modes daltoniens utilisent des **palettes de couleurs distinctes** au lieu du post-processing :
+
+```cpp
+// Dans AccessibilityConfig.cpp
+case ColorBlindMode::Deuteranopia:
+    _playerColor        = {100, 100, 255, 255};  // Bleu (au lieu de cyan)
+    _enemyColor         = {180, 100, 255, 255};  // Violet (au lieu de rouge)
+    _playerMissileColor = {100, 255, 255, 255};  // Cyan (haut contraste)
+    _enemyMissileColor  = {255, 150, 255, 255};  // Magenta
+    break;
+```
+
+| Backend | Methode | Qualite | Performance |
+|---------|---------|---------|-------------|
+| **SFML** | Shader post-processing | Simulation medicalement precise | 1-2% overhead |
+| **SDL2** | Palette remapping | Distinction visuelle | Negligeable |
+
+---
+
+## Gestion des Erreurs
 
 SDL2 utilise des codes de retour et `SDL_GetError()` :
 
 ```cpp
 if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     throw std::runtime_error(
-        fmt::format("SDL_Init failed: {}", SDL_GetError())
+        "SDL_Init failed: " + std::string(SDL_GetError())
     );
 }
-```
 
-### Hints (Configuration Fine)
-
-```cpp
-// Activer le scaling linéaire
-SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-
-// Forcer le driver OpenGL
-SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
-
-// VSync adaptatif
-SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
-```
-
-### Batch Rendering
-
-SDL2 supporte le batching pour optimiser les draw calls :
-
-```cpp
-// Dans SDL2Backend::initialize()
-SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-
-// Le batching est automatique avec SDL 2.0.10+
+// Verification texture
+SDL_Texture* texture = SDL_CreateTextureFromSurface(_renderer, surface);
+if (!texture) {
+    // Gestion de l'erreur - retourner false ou throw
+}
 ```
 
 ---
 
-## Dépendances vcpkg
+## Hints (Configuration Fine)
+
+```cpp
+// DPI awareness pour Windows
+SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "0");
+
+// Activer le scaling lineaire
+SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+```
+
+---
+
+## Dependances vcpkg
 
 ```json
 {
