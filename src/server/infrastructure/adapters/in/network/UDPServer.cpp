@@ -10,6 +10,7 @@
 #include "Protocol.hpp"
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -210,8 +211,7 @@ namespace infrastructure::adapters::in::network {
         head.to_bytes(buf.data());
 
         JoinGameNack nack;
-        std::strncpy(nack.reason, reason.c_str(), sizeof(nack.reason) - 1);
-        nack.reason[sizeof(nack.reason) - 1] = '\0';
+        std::snprintf(nack.reason, sizeof(nack.reason), "%s", reason.c_str());
         nack.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
         sendTo(endpoint, buf.data(), buf.size());

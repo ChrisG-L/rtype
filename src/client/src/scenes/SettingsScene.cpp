@@ -14,6 +14,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <cstdio>
 
 SettingsScene::SettingsScene()
 {
@@ -613,10 +614,8 @@ void SettingsScene::onApplyClick()
     // Send to server if connected
     if (_context.tcpClient && _context.tcpClient->isConnected() && _context.tcpClient->isAuthenticated()) {
         UserSettingsPayload payload;
-        std::strncpy(payload.colorBlindMode,
-            accessibility::AccessibilityConfig::colorBlindModeToString(_colorBlindMode).c_str(),
-            COLORBLIND_MODE_LEN - 1);
-        payload.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
+        std::snprintf(payload.colorBlindMode, COLORBLIND_MODE_LEN, "%s",
+            accessibility::AccessibilityConfig::colorBlindModeToString(_colorBlindMode).c_str());
         payload.gameSpeedPercent = 100;
 
         for (size_t i = 0; i < ACTION_COUNT; ++i) {
@@ -631,10 +630,8 @@ void SettingsScene::onApplyClick()
         payload.voiceVolume = _voiceVolume;
 
         // Audio device names
-        std::strncpy(payload.audioInputDevice, _selectedInputDevice.c_str(), AUDIO_DEVICE_NAME_LEN - 1);
-        payload.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
-        std::strncpy(payload.audioOutputDevice, _selectedOutputDevice.c_str(), AUDIO_DEVICE_NAME_LEN - 1);
-        payload.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+        std::snprintf(payload.audioInputDevice, AUDIO_DEVICE_NAME_LEN, "%s", _selectedInputDevice.c_str());
+        std::snprintf(payload.audioOutputDevice, AUDIO_DEVICE_NAME_LEN, "%s", _selectedOutputDevice.c_str());
 
         // Chat settings
         payload.keepChatOpenAfterSend = config.getKeepChatOpenAfterSend() ? 1 : 0;

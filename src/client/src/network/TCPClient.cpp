@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <unistd.h>
 #include <openssl/ssl.h>
@@ -752,10 +753,8 @@ namespace client::network
         }
 
         LoginMessage login;
-        std::strncpy(login.username, username.c_str(), sizeof(login.username) - 1);
-        login.username[sizeof(login.username) - 1] = '\0';
-        std::strncpy(login.password, password.c_str(), sizeof(login.password) - 1);
-        login.password[sizeof(login.password) - 1] = '\0';
+        std::snprintf(login.username, sizeof(login.username), "%s", username.c_str());
+        std::snprintf(login.password, sizeof(login.password), "%s", password.c_str());
 
         Header head = {.isAuthenticated = false, .type = static_cast<uint16_t>(MessageType::Login), .payload_size = sizeof(login)};
 
@@ -779,12 +778,9 @@ namespace client::network
 
     void TCPClient::sendRegisterData(const std::string& username, const std::string& email, const std::string& password) {
         RegisterMessage registerUser;
-        std::strncpy(registerUser.username, username.c_str(), sizeof(registerUser.username) - 1);
-        registerUser.username[sizeof(registerUser.username) - 1] = '\0';
-        std::strncpy(registerUser.email, email.c_str(), sizeof(registerUser.email) - 1);
-        registerUser.email[sizeof(registerUser.email) - 1] = '\0';
-        std::strncpy(registerUser.password, password.c_str(), sizeof(registerUser.password) - 1);
-        registerUser.password[sizeof(registerUser.password) - 1] = '\0';
+        std::snprintf(registerUser.username, sizeof(registerUser.username), "%s", username.c_str());
+        std::snprintf(registerUser.email, sizeof(registerUser.email), "%s", email.c_str());
+        std::snprintf(registerUser.password, sizeof(registerUser.password), "%s", password.c_str());
 
         Header head = {.isAuthenticated = false, .type = static_cast<uint16_t>(MessageType::Register), .payload_size = sizeof(registerUser)};
 
@@ -1003,8 +999,7 @@ namespace client::network
 
     void TCPClient::createRoom(const std::string& name, uint8_t maxPlayers, bool isPrivate) {
         CreateRoomRequest req;
-        std::strncpy(req.name, name.c_str(), ROOM_NAME_LEN - 1);
-        req.name[ROOM_NAME_LEN - 1] = '\0';
+        std::snprintf(req.name, ROOM_NAME_LEN, "%s", name.c_str());
         req.maxPlayers = maxPlayers;
         req.isPrivate = isPrivate ? 1 : 0;
         sendMessageWithPayload(MessageType::CreateRoom, req, "CreateRoom");
@@ -1032,10 +1027,8 @@ namespace client::network
 
     void TCPClient::kickPlayer(const std::string& email, const std::string& reason) {
         KickPlayerRequest req;
-        std::strncpy(req.email, email.c_str(), MAX_EMAIL_LEN - 1);
-        req.email[MAX_EMAIL_LEN - 1] = '\0';
-        std::strncpy(req.reason, reason.c_str(), MAX_ERROR_MSG_LEN - 1);
-        req.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+        std::snprintf(req.email, MAX_EMAIL_LEN, "%s", email.c_str());
+        std::snprintf(req.reason, MAX_ERROR_MSG_LEN, "%s", reason.c_str());
         sendMessageWithPayload(MessageType::KickPlayer, req, "KickPlayer");
     }
 
@@ -1077,8 +1070,7 @@ namespace client::network
         }
 
         SendChatMessageRequest req;
-        std::strncpy(req.message, message.c_str(), CHAT_MESSAGE_LEN);
-        req.message[CHAT_MESSAGE_LEN - 1] = '\0';
+        std::snprintf(req.message, CHAT_MESSAGE_LEN, "%s", message.c_str());
         sendMessageWithPayload(MessageType::SendChatMessage, req, "SendChatMessage");
     }
 

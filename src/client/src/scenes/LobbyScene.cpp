@@ -12,6 +12,7 @@
 #include "accessibility/AccessibilityConfig.hpp"
 #include "Protocol.hpp"
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <variant>
 
@@ -977,10 +978,8 @@ void LobbyScene::onShipSkinSelect(uint8_t skinId)
     // Save settings via TCP (like in SettingsScene)
     if (_context.tcpClient && _context.tcpClient->isConnected()) {
         UserSettingsPayload payload;
-        std::strncpy(payload.colorBlindMode,
-            accessibility::AccessibilityConfig::colorBlindModeToString(config.getColorBlindMode()).c_str(),
-            COLORBLIND_MODE_LEN - 1);
-        payload.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
+        std::snprintf(payload.colorBlindMode, COLORBLIND_MODE_LEN, "%s",
+            accessibility::AccessibilityConfig::colorBlindModeToString(config.getColorBlindMode()).c_str());
         payload.gameSpeedPercent = 100;  // Game speed is per-room, not per-player
         payload.shipSkin = skinId;
 
