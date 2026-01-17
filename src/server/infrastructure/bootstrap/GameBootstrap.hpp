@@ -144,7 +144,7 @@ namespace infrastructure::bootstrap {
                 // Start TCP Admin Server on port 4127 for remote administration
                 const char* adminToken = std::getenv("ADMIN_TOKEN");
                 adapters::in::network::TCPAdminServer tcpAdminServer(io_ctx, 4127, serverCLI);
-                if (adminToken && std::strlen(adminToken) > 0) {
+                if (adminToken != nullptr && adminToken[0] != '\0') {
                     tcpAdminServer.setAdminToken(adminToken);
                     tcpAdminServer.start();
                     mainLogger->info("TCP Admin Server started on port 4127");

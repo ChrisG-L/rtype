@@ -28,7 +28,12 @@ TCPAdminServer::TCPAdminServer(asio::io_context& io_ctx,
 }
 
 TCPAdminServer::~TCPAdminServer() {
-    stop();
+    try {
+        stop();
+    } catch (...) {
+        // Suppress all exceptions in destructor to prevent std::terminate
+        // Logging is not safe here as logger may already be destroyed
+    }
 }
 
 void TCPAdminServer::start() {
