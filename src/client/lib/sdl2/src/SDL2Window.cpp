@@ -66,18 +66,6 @@ static events::Key scancodeToKey(SDL_Scancode scancode)
         case SDL_SCANCODE_RCTRL: return events::Key::RCtrl;
         case SDL_SCANCODE_LALT: return events::Key::LAlt;
         case SDL_SCANCODE_RALT: return events::Key::RAlt;
-        case SDL_SCANCODE_F1: return events::Key::F1;
-        case SDL_SCANCODE_F2: return events::Key::F2;
-        case SDL_SCANCODE_F3: return events::Key::F3;
-        case SDL_SCANCODE_F4: return events::Key::F4;
-        case SDL_SCANCODE_F5: return events::Key::F5;
-        case SDL_SCANCODE_F6: return events::Key::F6;
-        case SDL_SCANCODE_F7: return events::Key::F7;
-        case SDL_SCANCODE_F8: return events::Key::F8;
-        case SDL_SCANCODE_F9: return events::Key::F9;
-        case SDL_SCANCODE_F10: return events::Key::F10;
-        case SDL_SCANCODE_F11: return events::Key::F11;
-        case SDL_SCANCODE_F12: return events::Key::F12;
         default: return events::Key::Unknown;
     }
 }
@@ -113,9 +101,6 @@ SDL2Window::SDL2Window(Vec2u winSize, const std::string& name)
         SDL_Quit();
         throw std::runtime_error("Failed to create SDL renderer: " + std::string(SDL_GetError()));
     }
-
-    // Maintenir le logical size 1920x1080 pour le scaling automatique
-    SDL_RenderSetLogicalSize(_renderer, 1920, 1080);
 }
 
 SDL2Window::~SDL2Window()
@@ -371,34 +356,4 @@ void SDL2Window::beginFrame()
 void SDL2Window::endFrame()
 {
     display();
-}
-
-// Fullscreen support implementation
-
-void SDL2Window::setFullscreen(bool enabled)
-{
-    if (enabled) {
-        // Fullscreen desktop (borderless) - prend toute la résolution sans changer le mode vidéo
-        SDL_SetWindowFullscreen(_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-    } else {
-        // Mode fenêtré standard
-        SDL_SetWindowFullscreen(_window, 0);
-        SDL_SetWindowSize(_window, 1920, 1080);
-        SDL_SetWindowPosition(_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    }
-
-    // Maintenir le logical size pour le scaling automatique
-    SDL_RenderSetLogicalSize(_renderer, 1920, 1080);
-
-    _isFullscreen = enabled;
-}
-
-void SDL2Window::toggleFullscreen()
-{
-    setFullscreen(!_isFullscreen);
-}
-
-bool SDL2Window::isFullscreen() const
-{
-    return _isFullscreen;
 }

@@ -51,11 +51,6 @@ class SDL2Window: public graphics::IWindow {
         void beginFrame() override;
         void endFrame() override;
 
-        // Fullscreen support
-        void setFullscreen(bool enabled) override;
-        void toggleFullscreen() override;
-        bool isFullscreen() const override;
-
         SDL_Renderer* getRenderer() const { return _renderer; }
 
     private:
@@ -63,7 +58,6 @@ class SDL2Window: public graphics::IWindow {
         SDL_Renderer* _renderer;
         bool _isOpen;
         bool _ttfInitialized = false;
-        bool _isFullscreen = false;
         std::unordered_map<std::string, SDL_Texture*> _textures;
         std::unordered_map<std::string, TTF_Font*> _fonts;
 };
