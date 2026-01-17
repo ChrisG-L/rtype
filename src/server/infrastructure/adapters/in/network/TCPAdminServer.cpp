@@ -81,7 +81,18 @@ void TCPAdminServer::doAccept() {
         [this](boost::system::error_code ec, tcp::socket socket) {
             if (!ec && _running) {
                 auto logger = server::logging::Logger::getNetworkLogger();
-                auto endpoint = socket.remote_endpoint();
+
+                // Get endpoint safely - client may disconnect between accept and this call
+                boost::system::error_code epEc;
+                auto endpoint = socket.remote_endpoint(epEc);
+                if (epEc) {
+                    logger->warn("TCPAdminServer: Client disconnected before handling: {}", epEc.message());
+                    if (_running) {
+                        doAccept();
+                    }
+                    return;
+                }
+
                 logger->info("TCPAdminServer: New connection from {}:{}",
                          endpoint.address().to_string(), endpoint.port());
 
