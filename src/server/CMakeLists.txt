@@ -26,6 +26,11 @@ add_executable(rtype_server
     domain/entities/User.cpp
     domain/entities/Room.cpp
 
+    # Domain - Services
+    domain/services/GameRule.cpp
+    domain/services/CollisionRule.cpp
+    domain/services/EnemyBehavior.cpp
+
     # Application - Use Cases
     application/use_cases/auth/Login.cpp
     application/use_cases/auth/Register.cpp
@@ -209,4 +214,29 @@ if(MINGW OR WIN32)
     target_link_libraries(rtype_server PRIVATE
         mswsock  # Pour AcceptEx, GetAcceptExSockaddrs, etc.
     )
+endif()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ECS Backend (Optional - Feature Flag for Gradual Migration)
+# Usage: cmake -B build -DUSE_ECS_BACKEND=ON
+# ═══════════════════════════════════════════════════════════════════════════════
+option(USE_ECS_BACKEND "Enable ECS backend for GameWorld (experimental)" OFF)
+
+if(USE_ECS_BACKEND)
+    message(STATUS "ECS Backend: ENABLED")
+
+    # Define the preprocessor macro
+    target_compile_definitions(rtype_server PRIVATE USE_ECS_BACKEND)
+
+    # Add ECS bridge sources
+    target_sources(rtype_server PRIVATE
+        infrastructure/ecs/bridge/DomainBridge.cpp
+    )
+
+    # Add ECS include directories
+    target_include_directories(rtype_server PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/infrastructure/ecs
+    )
+else()
+    message(STATUS "ECS Backend: DISABLED (default)")
 endif()

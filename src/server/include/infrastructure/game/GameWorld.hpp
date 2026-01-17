@@ -18,6 +18,26 @@
 #include <chrono>
 #include <random>
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ECS Integration (Feature Flag)
+// When USE_ECS_BACKEND is defined, GameWorld uses the ECS infrastructure
+// alongside the existing implementation for gradual migration.
+// ═══════════════════════════════════════════════════════════════════════════
+#ifdef USE_ECS_BACKEND
+#include "infrastructure/ecs/core/ECS.hpp"
+#include "infrastructure/ecs/bridge/DomainBridge.hpp"
+#include "infrastructure/ecs/components/PositionComp.hpp"
+#include "infrastructure/ecs/components/VelocityComp.hpp"
+#include "infrastructure/ecs/components/HealthComp.hpp"
+#include "infrastructure/ecs/components/HitboxComp.hpp"
+#include "infrastructure/ecs/components/LifetimeComp.hpp"
+#include "infrastructure/ecs/components/OwnerComp.hpp"
+#include "domain/services/GameRule.hpp"
+#include "domain/services/CollisionRule.hpp"
+#include "domain/services/EnemyBehavior.hpp"
+#include <memory>
+#endif
+
 namespace infrastructure::game {
     using boost::asio::ip::udp;
 
@@ -794,6 +814,25 @@ namespace infrastructure::game {
 
         std::unordered_map<uint8_t, ForcePod> _forcePods;  // Player ID -> Force Pod
         std::unordered_map<uint8_t, std::array<BitDevice, 2>> _bitDevices;  // Player ID -> 2 Bit Devices
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ECS Infrastructure (Feature Flag)
+        // ═══════════════════════════════════════════════════════════════════
+#ifdef USE_ECS_BACKEND
+        // ECS Core
+        ECS::ECS _ecs;
+
+        // Domain Services (stateless, business logic)
+        domain::services::GameRule _gameRule;
+        domain::services::CollisionRule _collisionRule;
+        domain::services::EnemyBehavior _enemyBehavior;
+
+        // Bridge between ECS and Domain
+        std::unique_ptr<ecs::bridge::DomainBridge> _domainBridge;
+
+        // ECS initialization helper
+        void initializeECS();
+#endif
 
         uint8_t findAvailableId() const;
         void spawnEnemy(float y, EnemyType type);

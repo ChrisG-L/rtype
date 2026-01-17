@@ -20,7 +20,33 @@ namespace infrastructure::game {
         , _nextPlayerId(1)
     {
         // RNG initialized in header with std::random_device
+
+#ifdef USE_ECS_BACKEND
+        initializeECS();
+#endif
     }
+
+#ifdef USE_ECS_BACKEND
+    void GameWorld::initializeECS() {
+        // Create the DomainBridge with references to Domain services
+        _domainBridge = std::make_unique<ecs::bridge::DomainBridge>(
+            _gameRule,
+            _collisionRule,
+            _enemyBehavior
+        );
+
+        // Register all ECS components
+        _ecs.registerComponent<ecs::components::PositionComp>();
+        _ecs.registerComponent<ecs::components::VelocityComp>();
+        _ecs.registerComponent<ecs::components::HealthComp>();
+        _ecs.registerComponent<ecs::components::HitboxComp>();
+        _ecs.registerComponent<ecs::components::LifetimeComp>();
+        _ecs.registerComponent<ecs::components::OwnerComp>();
+
+        // ECS is now ready for use
+        // Systems will be registered in Phase 2
+    }
+#endif
 
     void GameWorld::setGameSpeedPercent(uint16_t percent) {
         _gameSpeedPercent = std::clamp(percent, static_cast<uint16_t>(50), static_cast<uint16_t>(200));
