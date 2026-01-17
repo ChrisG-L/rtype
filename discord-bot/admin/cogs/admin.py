@@ -187,32 +187,6 @@ class AdminCog(commands.Cog):
                 embed=AdminEmbeds.error(f"Failed to broadcast: {e}")
             )
 
-    @app_commands.command(name="say", description="Send a message to a specific room")
-    @app_commands.describe(room_code="Room code", message="Message to send")
-    @app_commands.autocomplete(room_code=room_autocomplete)
-    @is_admin_channel()
-    @has_admin_role()
-    async def say(self, interaction: discord.Interaction, room_code: str, message: str):
-        """Send a message to a specific room."""
-        await interaction.response.defer()
-
-        try:
-            result = await self.tcp.say(room_code, message)
-            if not result.success:
-                await interaction.followup.send(
-                    embed=AdminEmbeds.error(result.error or "Failed to send message")
-                )
-                return
-
-            await interaction.followup.send(
-                embed=AdminEmbeds.success(f"Message sent to room {room_code}: {message}")
-            )
-        except Exception as e:
-            logger.error(f"Error sending message: {e}")
-            await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to send message: {e}")
-            )
-
     @app_commands.command(name="cli", description="Execute any CLI command")
     @app_commands.describe(command="Full CLI command to execute")
     @is_admin_channel()
@@ -260,7 +234,6 @@ class AdminCog(commands.Cog):
 
 **Communication**
 `/broadcast <message>` - Send to all players
-`/say <room_code> <message>` - Send to specific room
 
 **User Management**
 `/users` - List all registered users
