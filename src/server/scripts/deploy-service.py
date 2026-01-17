@@ -45,6 +45,9 @@ SERVER_BINARY_PATH = "/opt/rtype/server/rtype_server"
 SERVER_SERVICE_NAME = "rtype-server"
 BACKUP_DIR = "/opt/rtype/backups"
 MAX_BACKUPS = 5
+GIT_REPO_PATH = "/opt/rtype/repo"
+VERSION_HISTORY_PATH = "/opt/rtype/server/version_history.txt"
+VERSION_HISTORY_COUNT = 50
 
 # Lock fichier pour éviter les déploiements concurrents
 DEPLOY_LOCK_FILE = "/tmp/rtype-deploy.lock"
@@ -411,6 +414,57 @@ def restart_server() -> tuple[bool, str]:
     except Exception as e:
         return False, str(e)
 
+def generate_version_history() -> tuple[bool, str]:
+    """
+    Génère le fichier version_history.txt avec les 50 derniers commits.
+    Ce fichier est utilisé par le serveur pour tracker combien de commits
+    de retard ont les clients (système d'auto-update).
+    """
+    repo_path = Path(GIT_REPO_PATH)
+
+    if not repo_path.exists():
+        log(f"Git repo not found: {GIT_REPO_PATH}", "WARN")
+        return False, f"Git repo not found: {GIT_REPO_PATH}"
+
+    try:
+        # Mettre à jour le repo d'abord
+        log("Mise à jour du repo git...")
+        result = subprocess.run(
+            ["git", "fetch", "origin", "main"],
+            cwd=GIT_REPO_PATH,
+            capture_output=True, text=True, timeout=30
+        )
+
+        result = subprocess.run(
+            ["git", "reset", "--hard", "origin/main"],
+            cwd=GIT_REPO_PATH,
+            capture_output=True, text=True, timeout=30
+        )
+
+        # Générer l'historique des versions
+        result = subprocess.run(
+            ["git", "log", "--format=%h", f"-n{VERSION_HISTORY_COUNT}"],
+            cwd=GIT_REPO_PATH,
+            capture_output=True, text=True, timeout=10
+        )
+
+        if result.returncode != 0:
+            return False, f"Git log failed: {result.stderr}"
+
+        # Écrire le fichier
+        with open(VERSION_HISTORY_PATH, 'w') as f:
+            f.write(result.stdout)
+
+        line_count = len(result.stdout.strip().split('\n'))
+        log(f"Version history generated with {line_count} entries: {VERSION_HISTORY_PATH}")
+        return True, f"Generated {line_count} entries"
+
+    except subprocess.TimeoutExpired:
+        return False, "Git command timeout"
+    except Exception as e:
+        return False, f"Error generating version history: {e}"
+
+
 def backup_current_binary() -> tuple[bool, str]:
     """Sauvegarde le binaire actuel."""
     binary_path = Path(SERVER_BINARY_PATH)
@@ -543,6 +597,13 @@ def full_deploy(source_path: str) -> dict:
             start_server()
             notify_deploy_failure(source_path, msg, step="Déploiement binaire")
             return result
+
+        # Étape 2b: Générer version_history.txt (pour le système d'auto-update)
+        success, msg = generate_version_history()
+        result["steps"].append({"step": "version_history", "success": success, "message": msg})
+        if not success:
+            log(f"Warning: Version history generation failed: {msg}", "WARN")
+            # Ne pas échouer le déploiement pour ça, c'est optionnel
 
         # Étape 3: Démarrer le serveur
         success, msg = start_server()

@@ -196,6 +196,108 @@ namespace WaveCannon {
     constexpr float WIDTH_LV3 = 55.0f;          // Wider for more hits
 }
 
+// ============================================================================
+// Version System (Auto-update Option A)
+// ============================================================================
+
+// Git hash length (short hash = 8 chars + null terminator)
+static constexpr size_t GIT_HASH_LEN = 9;
+
+// Maximum number of version history entries to track
+static constexpr size_t MAX_VERSION_HISTORY = 50;
+
+// Version info structure for version checking
+struct VersionInfo {
+    uint8_t major;
+    uint8_t minor;
+    uint8_t patch;
+    uint8_t flags;        // Bit 0: isDev (compiled with version.dev bypass)
+    char gitHash[GIT_HASH_LEN];  // Short git hash (8 chars + null)
+
+    static constexpr size_t WIRE_SIZE = 4 + GIT_HASH_LEN;
+
+    // Check if major versions are compatible
+    bool isCompatibleWith(const VersionInfo& other) const {
+        return major == other.major;
+    }
+
+    // Check if exact same version (for strict mode)
+    bool isExactMatch(const VersionInfo& other) const {
+        return std::strncmp(gitHash, other.gitHash, GIT_HASH_LEN - 1) == 0;
+    }
+
+    bool isDev() const {
+        return (flags & 0x01) != 0;
+    }
+
+    void setDev(bool dev) {
+        if (dev) flags |= 0x01;
+        else flags &= ~0x01;
+    }
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = major;
+        ptr[1] = minor;
+        ptr[2] = patch;
+        ptr[3] = flags;
+        std::memcpy(ptr + 4, gitHash, GIT_HASH_LEN);
+    }
+
+    static std::optional<VersionInfo> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        VersionInfo info;
+        info.major = ptr[0];
+        info.minor = ptr[1];
+        info.patch = ptr[2];
+        info.flags = ptr[3];
+        std::memcpy(info.gitHash, ptr + 4, GIT_HASH_LEN);
+        info.gitHash[GIT_HASH_LEN - 1] = '\0';
+        return info;
+    }
+};
+
+// Version history for tracking how many commits behind
+struct VersionHistory {
+    uint8_t count;                                    // Number of entries (0-50)
+    char hashes[MAX_VERSION_HISTORY][GIT_HASH_LEN];   // Recent hashes (newest first)
+
+    static constexpr size_t WIRE_SIZE = 1 + (MAX_VERSION_HISTORY * GIT_HASH_LEN);
+
+    // Find position of a hash in history (0 = current, 1 = 1 behind, etc.)
+    // Returns -1 if not found (client is too old or on different branch)
+    int findPosition(const char* hash) const {
+        for (uint8_t i = 0; i < count; ++i) {
+            if (std::strncmp(hashes[i], hash, GIT_HASH_LEN - 1) == 0) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    }
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        ptr[0] = count;
+        for (size_t i = 0; i < MAX_VERSION_HISTORY; ++i) {
+            std::memcpy(ptr + 1 + (i * GIT_HASH_LEN), hashes[i], GIT_HASH_LEN);
+        }
+    }
+
+    static std::optional<VersionHistory> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        VersionHistory hist;
+        hist.count = ptr[0];
+        if (hist.count > MAX_VERSION_HISTORY) hist.count = MAX_VERSION_HISTORY;
+        for (size_t i = 0; i < MAX_VERSION_HISTORY; ++i) {
+            std::memcpy(hist.hashes[i], ptr + 1 + (i * GIT_HASH_LEN), GIT_HASH_LEN);
+            hist.hashes[i][GIT_HASH_LEN - 1] = '\0';
+        }
+        return hist;
+    }
+};
+
 // Session token for UDP authentication
 struct SessionToken {
     uint8_t bytes[TOKEN_SIZE];
@@ -461,21 +563,30 @@ struct AuthResponse {
     }
 };
 
-// AuthResponse with session token (sent on successful login)
+// AuthResponse with session token, server version, and version history (sent on successful login)
 struct AuthResponseWithToken {
     bool success;
     char error_code[MAX_ERROR_CODE_LEN];
     char message[MAX_ERROR_MSG_LEN];
-    SessionToken token;  // Only valid if success == true
+    SessionToken token;           // Only valid if success == true
+    VersionInfo serverVersion;    // Server version for client compatibility check
+    VersionHistory versionHistory; // Recent git hashes for tracking commits behind
 
-    static constexpr size_t WIRE_SIZE = 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN + TOKEN_SIZE;
+    static constexpr size_t WIRE_SIZE = 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN + TOKEN_SIZE + VersionInfo::WIRE_SIZE + VersionHistory::WIRE_SIZE;
 
     void to_bytes(void* buf) const {
         auto* ptr = static_cast<uint8_t*>(buf);
-        ptr[0] = success ? 1 : 0;
-        std::memcpy(ptr + 1, error_code, MAX_ERROR_CODE_LEN);
-        std::memcpy(ptr + 1 + MAX_ERROR_CODE_LEN, message, MAX_ERROR_MSG_LEN);
-        token.to_bytes(ptr + 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN);
+        size_t offset = 0;
+        ptr[offset++] = success ? 1 : 0;
+        std::memcpy(ptr + offset, error_code, MAX_ERROR_CODE_LEN);
+        offset += MAX_ERROR_CODE_LEN;
+        std::memcpy(ptr + offset, message, MAX_ERROR_MSG_LEN);
+        offset += MAX_ERROR_MSG_LEN;
+        token.to_bytes(ptr + offset);
+        offset += TOKEN_SIZE;
+        serverVersion.to_bytes(ptr + offset);
+        offset += VersionInfo::WIRE_SIZE;
+        versionHistory.to_bytes(ptr + offset);
     }
 
     static std::optional<AuthResponseWithToken> from_bytes(const void* buf, size_t buf_len) {
@@ -484,15 +595,27 @@ struct AuthResponseWithToken {
         }
         auto* ptr = static_cast<const uint8_t*>(buf);
         AuthResponseWithToken resp;
-        resp.success = (ptr[0] != 0);
-        std::memcpy(resp.error_code, ptr + 1, MAX_ERROR_CODE_LEN);
-        std::memcpy(resp.message, ptr + 1 + MAX_ERROR_CODE_LEN, MAX_ERROR_MSG_LEN);
+        size_t offset = 0;
+        resp.success = (ptr[offset++] != 0);
+        std::memcpy(resp.error_code, ptr + offset, MAX_ERROR_CODE_LEN);
+        offset += MAX_ERROR_CODE_LEN;
+        std::memcpy(resp.message, ptr + offset, MAX_ERROR_MSG_LEN);
+        offset += MAX_ERROR_MSG_LEN;
         resp.error_code[MAX_ERROR_CODE_LEN - 1] = '\0';
         resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
-        auto tokenOpt = SessionToken::from_bytes(
-            ptr + 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN, TOKEN_SIZE);
+        auto tokenOpt = SessionToken::from_bytes(ptr + offset, TOKEN_SIZE);
         if (tokenOpt) {
             resp.token = *tokenOpt;
+        }
+        offset += TOKEN_SIZE;
+        auto versionOpt = VersionInfo::from_bytes(ptr + offset, VersionInfo::WIRE_SIZE);
+        if (versionOpt) {
+            resp.serverVersion = *versionOpt;
+        }
+        offset += VersionInfo::WIRE_SIZE;
+        auto historyOpt = VersionHistory::from_bytes(ptr + offset, VersionHistory::WIRE_SIZE);
+        if (historyOpt) {
+            resp.versionHistory = *historyOpt;
         }
         return resp;
     }

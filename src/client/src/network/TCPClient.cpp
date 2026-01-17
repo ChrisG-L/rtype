@@ -8,6 +8,7 @@
 #include "network/TCPClient.hpp"
 #include "Protocol.hpp"
 #include "core/Logger.hpp"
+#include "core/Version.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -337,8 +338,23 @@ namespace client::network
                                     std::scoped_lock lock(_mutex);
                                     _sessionToken = respOpt->token;
                                 }
+
+                                // Check version compatibility
+                                auto clientVersion = client::core::getClientVersion();
+                                if (!client::core::isVersionCompatible(clientVersion, respOpt->serverVersion)) {
+                                    // Version mismatch - calculate how many commits behind
+                                    int commitsBehind = respOpt->versionHistory.findPosition(clientVersion.gitHash);
+                                    logger->warn("Version mismatch! Client: {} Server: {} ({} commits behind)",
+                                        client::core::formatVersion(clientVersion),
+                                        client::core::formatVersion(respOpt->serverVersion),
+                                        commitsBehind >= 0 ? std::to_string(commitsBehind) : "unknown");
+                                    _eventQueue.push(TCPVersionMismatchEvent{clientVersion, respOpt->serverVersion, commitsBehind});
+                                } else {
+                                    logger->info("Version compatible: {}", client::core::formatVersion(clientVersion));
+                                }
+
                                 logger->info("Authentication successful, token received");
-                                _eventQueue.push(TCPAuthSuccessEvent{});
+                                _eventQueue.push(TCPAuthSuccessEvent{respOpt->serverVersion});
                                 if (_onReceive) {
                                     _onReceive("authenticated");
                                 }
@@ -360,8 +376,10 @@ namespace client::network
                         if (respOpt) {
                             if (respOpt->success) {
                                 _isAuthenticated = true;
-                                logger->info("Authentication successful (no token)");
-                                _eventQueue.push(TCPAuthSuccessEvent{});
+                                logger->info("Authentication successful (no token, old server)");
+                                // Old server without version info - create empty version
+                                VersionInfo emptyVersion{};
+                                _eventQueue.push(TCPAuthSuccessEvent{emptyVersion});
                                 if (_onReceive) {
                                     _onReceive("authenticated");
                                 }

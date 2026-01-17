@@ -10,6 +10,8 @@
 #include "scenes/MainMenuScene.hpp"
 #include "scenes/ConnectionScene.hpp"
 #include "network/NetworkEvents.hpp"
+#include "core/Version.hpp"
+#include "utils/Platform.hpp"
 #include <variant>
 
 LoginScene::LoginScene()
@@ -58,7 +60,14 @@ void LoginScene::processTCPEvents()
                 showError("Disconnected from auth server");
             }
             else if constexpr (std::is_same_v<T, client::network::TCPAuthSuccessEvent>) {
-                // Auth successful - request user settings from server
+                // Auth successful - but don't navigate yet if version popup is showing
+                // (TCPVersionMismatchEvent is processed before TCPAuthSuccessEvent in the same poll loop)
+                if (_showVersionPopup) {
+                    // Version mismatch popup is showing, don't navigate
+                    // User will navigate via the popup buttons
+                    return;
+                }
+                // Request user settings from server
                 if (_context.tcpClient) {
                     _context.tcpClient->requestUserSettings();
                 }
@@ -72,6 +81,14 @@ void LoginScene::processTCPEvents()
             }
             else if constexpr (std::is_same_v<T, client::network::TCPErrorEvent>) {
                 showError(event.message);
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPVersionMismatchEvent>) {
+                // Version mismatch detected - show update popup
+                // This event is always emitted BEFORE TCPAuthSuccessEvent
+                _showVersionPopup = true;
+                _versionPopupClientVersion = client::core::formatVersion(event.clientVersion);
+                _versionPopupServerVersion = client::core::formatVersion(event.serverVersion);
+                _versionPopupCommitsBehind = event.commitsBehind;
             }
         }, *eventOpt);
     }
@@ -311,6 +328,13 @@ void LoginScene::handleEvent(const events::Event& event)
 {
     if (!_uiInitialized) return;
 
+    // Handle version popup if showing
+    if (_showVersionPopup) {
+        if (_versionPopupCloseBtn) _versionPopupCloseBtn->handleEvent(event);
+        if (_versionPopupUpdateBtn) _versionPopupUpdateBtn->handleEvent(event);
+        return;
+    }
+
     // Handle server config UI if showing
     if (_showingConfigUI && _configPanel) {
         _configPanel->handleEvent(event);
@@ -392,6 +416,12 @@ void LoginScene::update(float deltaTime)
         _configPanel->update(deltaTime);
     }
 
+    // Update version popup buttons
+    if (_showVersionPopup) {
+        if (_versionPopupCloseBtn) _versionPopupCloseBtn->update(deltaTime);
+        if (_versionPopupUpdateBtn) _versionPopupUpdateBtn->update(deltaTime);
+    }
+
     if (_statusDisplayTimer > 0) {
         _statusDisplayTimer -= deltaTime;
     }
@@ -465,4 +495,111 @@ void LoginScene::render()
     if (_showingConfigUI && _configPanel) {
         _configPanel->render(*_context.window);
     }
+
+    // Draw version mismatch popup overlay if showing
+    if (_showVersionPopup) {
+        renderVersionPopup();
+    }
 }
+
+void LoginScene::renderVersionPopup()
+{
+    if (!_context.window) return;
+
+    // Semi-transparent overlay
+    _context.window->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, {0, 0, 0, 180});
+
+    // Popup box
+    float popupWidth = 600.0f;
+    float popupHeight = 350.0f;
+    float popupX = (SCREEN_WIDTH - popupWidth) / 2;
+    float popupY = (SCREEN_HEIGHT - popupHeight) / 2;
+
+    // Background
+    _context.window->drawRect(popupX, popupY, popupWidth, popupHeight, {30, 30, 50, 255});
+
+    // Border
+    _context.window->drawRect(popupX, popupY, popupWidth, 3, {255, 150, 50, 255});
+    _context.window->drawRect(popupX, popupY + popupHeight - 3, popupWidth, 3, {255, 150, 50, 255});
+    _context.window->drawRect(popupX, popupY, 3, popupHeight, {255, 150, 50, 255});
+    _context.window->drawRect(popupX + popupWidth - 3, popupY, 3, popupHeight, {255, 150, 50, 255});
+
+    // Title
+    _context.window->drawText(FONT_KEY, "UPDATE REQUIRED",
+        popupX + popupWidth / 2 - 120, popupY + 30, 32, {255, 200, 100, 255});
+
+    // Warning icon (just text for now)
+    _context.window->drawText(FONT_KEY, "!",
+        popupX + popupWidth / 2 - 10, popupY + 80, 48, {255, 150, 50, 255});
+
+    // Message - show how many commits behind
+    std::string behindMsg;
+    if (_versionPopupCommitsBehind > 0) {
+        behindMsg = "You are " + std::to_string(_versionPopupCommitsBehind) + " commit" +
+                   (_versionPopupCommitsBehind > 1 ? "s" : "") + " behind.";
+    } else if (_versionPopupCommitsBehind == 0) {
+        behindMsg = "Version mismatch detected.";
+    } else {
+        behindMsg = "Your version is too old to determine exact difference.";
+    }
+    _context.window->drawText(FONT_KEY, behindMsg,
+        popupX + 50, popupY + 150, 20, {255, 180, 100, 255});
+
+    _context.window->drawText(FONT_KEY, "Your version: " + _versionPopupClientVersion,
+        popupX + 50, popupY + 185, 18, {150, 150, 200, 255});
+
+    _context.window->drawText(FONT_KEY, "Server version: " + _versionPopupServerVersion,
+        popupX + 50, popupY + 215, 18, {150, 200, 150, 255});
+
+    _context.window->drawText(FONT_KEY, "Please download the latest version from Jenkins.",
+        popupX + 50, popupY + 255, 18, {180, 180, 180, 255});
+
+    // Initialize buttons if not done
+    if (!_versionPopupCloseBtn) {
+        _versionPopupCloseBtn = std::make_unique<ui::Button>(
+            Vec2f{popupX + popupWidth / 2 - 180, popupY + popupHeight - 70},
+            Vec2f{150, 45},
+            "CONTINUE",
+            FONT_KEY
+        );
+        _versionPopupCloseBtn->setOnClick([this]() { onVersionPopupClose(); });
+        _versionPopupCloseBtn->setNormalColor({80, 80, 100, 255});
+        _versionPopupCloseBtn->setHoveredColor({100, 100, 130, 255});
+    }
+
+    if (!_versionPopupUpdateBtn) {
+        _versionPopupUpdateBtn = std::make_unique<ui::Button>(
+            Vec2f{popupX + popupWidth / 2 + 30, popupY + popupHeight - 70},
+            Vec2f{150, 45},
+            "JENKINS",
+            FONT_KEY
+        );
+        _versionPopupUpdateBtn->setOnClick([this]() { onVersionPopupUpdate(); });
+        _versionPopupUpdateBtn->setNormalColor({50, 120, 80, 255});
+        _versionPopupUpdateBtn->setHoveredColor({70, 150, 100, 255});
+    }
+
+    _versionPopupCloseBtn->render(*_context.window);
+    _versionPopupUpdateBtn->render(*_context.window);
+}
+
+void LoginScene::onVersionPopupClose()
+{
+    _showVersionPopup = false;
+    // User chose to continue anyway - proceed to main menu
+    if (_context.tcpClient) {
+        _context.tcpClient->requestUserSettings();
+    }
+    if (_sceneManager) {
+        _sceneManager->changeScene(std::make_unique<MainMenuScene>());
+    }
+}
+
+void LoginScene::onVersionPopupUpdate()
+{
+    // Open Jenkins artifacts page (latest successful build)
+    client::utils::openUrlInBrowser(
+        "http://51.254.137.175:8080/job/BuildBranch/job/main/lastSuccessfulBuild/artifact/artifacts/"
+    );
+}
+

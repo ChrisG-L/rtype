@@ -9,6 +9,7 @@
 #include "Protocol.hpp"
 #include "infrastructure/adapters/in/network/protocol/Command.hpp"
 #include "infrastructure/logging/Logger.hpp"
+#include "infrastructure/version/VersionHistoryManager.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -461,6 +462,14 @@ namespace infrastructure::adapters::in::network {
                     std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "");
                     std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Authentication successful");
                     resp.token = sessionResult->token;
+                    // Set server version for client compatibility check
+                    resp.serverVersion.major = RTYPE_VERSION_MAJOR;
+                    resp.serverVersion.minor = RTYPE_VERSION_MINOR;
+                    resp.serverVersion.patch = RTYPE_VERSION_PATCH;
+                    resp.serverVersion.flags = 0;
+                    std::snprintf(resp.serverVersion.gitHash, GIT_HASH_LEN, "%s", RTYPE_GIT_HASH);
+                    // Include version history for tracking commits behind
+                    resp.versionHistory = infrastructure::version::VersionHistoryManager::getInstance().getHistory();
                     do_write_auth_response_with_token(responseType, resp);
                 } else {
                     // User already has an active session

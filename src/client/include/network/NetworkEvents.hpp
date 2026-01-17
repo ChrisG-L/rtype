@@ -23,9 +23,18 @@ namespace client::network
     // TCP-specific events
     struct TCPConnectedEvent {};
     struct TCPDisconnectedEvent {};
-    struct TCPAuthSuccessEvent {};
+    struct TCPAuthSuccessEvent {
+        VersionInfo serverVersion;  // Server version for compatibility check
+    };
     struct TCPAuthFailedEvent { std::string message; };
     struct TCPErrorEvent { std::string message; };
+
+    // Version mismatch event (client needs update)
+    struct TCPVersionMismatchEvent {
+        VersionInfo clientVersion;
+        VersionInfo serverVersion;
+        int commitsBehind;  // Number of commits behind (-1 = unknown/too old, 0+ = exact count)
+    };
 
     // Room-specific events (TCP)
     struct RoomPlayerInfo {
@@ -173,6 +182,7 @@ namespace client::network
         TCPAuthSuccessEvent,
         TCPAuthFailedEvent,
         TCPErrorEvent,
+        TCPVersionMismatchEvent,
         // Room events
         TCPRoomCreatedEvent,
         TCPRoomCreateFailedEvent,

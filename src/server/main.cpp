@@ -9,6 +9,7 @@
 #include "infrastructure/bootstrap/GameBootstrap.hpp"
 #include "infrastructure/logging/Logger.hpp"
 #include "infrastructure/configuration/EnvLoader.hpp"
+#include "infrastructure/version/VersionHistoryManager.hpp"
 
 #ifdef _WIN32
     #include <windows.h>
@@ -29,6 +30,9 @@ int main(void) {
     if (EnvLoader::load(".env")) {
         logger->info("Loaded configuration from .env file");
     }
+
+    // Load version history for auto-update system
+    infrastructure::version::VersionHistoryManager::getInstance().loadFromFile("version_history.txt");
 
     logger->info("R-Type server starting...");
 

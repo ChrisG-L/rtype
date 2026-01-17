@@ -42,11 +42,24 @@ private:
     void showServerConfigUI();
     void hideServerConfigUI();
 
+    // Version popup
+    void renderVersionPopup();
+    void onVersionPopupClose();
+    void onVersionPopupUpdate();
+
     bool _assetsLoaded = false;
     bool _uiInitialized = false;
     bool _isRegisterMode = false;
     bool _callbacksSetup = false;
     bool _showingConfigUI = false;
+
+    // Version mismatch popup
+    bool _showVersionPopup = false;
+    std::string _versionPopupClientVersion;
+    std::string _versionPopupServerVersion;
+    int _versionPopupCommitsBehind = -1;  // -1 = unknown, 0+ = exact count
+    std::unique_ptr<ui::Button> _versionPopupCloseBtn;
+    std::unique_ptr<ui::Button> _versionPopupUpdateBtn;
 
     // UI Components
     std::unique_ptr<ui::TextInput> _usernameInput;

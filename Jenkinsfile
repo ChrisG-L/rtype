@@ -26,6 +26,11 @@ pipeline {
             steps {
                 echo '📥 Récupération du code source...'
                 checkout scm
+
+                // Générer version_history.txt pour le système de version checking
+                echo '📋 Génération de version_history.txt...'
+                sh 'git log --format="%h" -n 50 > version_history.txt'
+                sh 'echo "Version history generated with $(wc -l < version_history.txt) entries"'
             }
         }
 
