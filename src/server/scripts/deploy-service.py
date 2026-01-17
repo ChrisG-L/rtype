@@ -58,35 +58,60 @@ _deploy_source: Optional[str] = None
 # Discord Webhook (from environment variable for security)
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
 
+# GitHub repo pour les liens
+GITHUB_REPO = "https://github.com/Pluenet-Killian/rtype"
+
 # Couleurs Discord (décimal)
 COLOR_GREEN = 3066993
 COLOR_RED = 15158332
 COLOR_YELLOW = 16776960
 COLOR_GRAY = 9807270
 
+# Tracking du temps de déploiement
+_deploy_start_time: Optional[float] = None
+
 # =============================================================================
 # Discord Notifications
 # =============================================================================
 
-def notify_discord(title: str, message: str, color: int = COLOR_GREEN) -> bool:
-    """Envoie une notification Discord via webhook."""
+def format_duration(seconds: float) -> str:
+    """Formate une durée en texte lisible."""
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        minutes = seconds // 60
+        secs = seconds % 60
+        return f"{minutes}m {secs}s"
+    else:
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        return f"{hours}h {minutes}m"
+
+
+def notify_discord(title: str, message: str, color: int = COLOR_GREEN, fields: list = None) -> bool:
+    """Envoie une notification Discord via webhook avec support des fields."""
     if not DISCORD_WEBHOOK_URL:
         log("DISCORD_WEBHOOK_URL non configuré, notification ignorée")
         return False
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    payload = {
-        "embeds": [{
-            "title": title,
-            "description": message,
-            "color": color,
-            "timestamp": timestamp,
-            "footer": {
-                "text": "Deploy Service - VPS 51.254.137.175"
-            }
-        }]
+    embed = {
+        "title": title,
+        "description": message,
+        "color": color,
+        "timestamp": timestamp,
+        "footer": {
+            "text": "Deploy Service - VPS 51.254.137.175"
+        }
     }
+
+    # Ajouter les fields si présents
+    if fields:
+        embed["fields"] = fields
+
+    payload = {"embeds": [embed]}
 
     try:
         data = json.dumps(payload).encode('utf-8')
@@ -114,29 +139,54 @@ def notify_discord(title: str, message: str, color: int = COLOR_GREEN) -> bool:
         return False
 
 
-def notify_deploy_success(source: str):
-    """Notification de déploiement réussi."""
+def notify_deploy_success(source: str, duration: float = None):
+    """Notification de déploiement réussi avec détails."""
+    fields = [
+        {"name": "Service", "value": f"`{SERVER_SERVICE_NAME}`", "inline": True},
+    ]
+
+    if duration:
+        fields.append({"name": "Durée", "value": format_duration(duration), "inline": True})
+
+    # Extraire le nom du fichier de la source
+    source_display = source.split("/")[-1] if "/" in source else source
+    if len(source_display) > 40:
+        source_display = source_display[:37] + "..."
+
+    fields.append({"name": "Source", "value": f"`{source_display}`", "inline": False})
+
     notify_discord(
         title="🚀 Déploiement Réussi",
-        message=(
-            f"Un nouveau binaire a été **déployé avec succès**\n\n"
-            f"**Source:** `{source[:50]}{'...' if len(source) > 50 else ''}`\n"
-            f"**Service:** {SERVER_SERVICE_NAME}"
-        ),
-        color=COLOR_GREEN
+        message="Le nouveau binaire a été **déployé avec succès** et le serveur est en ligne.",
+        color=COLOR_GREEN,
+        fields=fields
     )
 
 
-def notify_deploy_failure(source: str, error: str):
-    """Notification de déploiement échoué."""
+def notify_deploy_failure(source: str, error: str, step: str = None):
+    """Notification de déploiement échoué avec détails."""
+    fields = [
+        {"name": "Service", "value": f"`{SERVER_SERVICE_NAME}`", "inline": True},
+    ]
+
+    if step:
+        fields.append({"name": "Étape", "value": step, "inline": True})
+
+    # Extraire le nom du fichier de la source
+    source_display = source.split("/")[-1] if "/" in source else source
+    if len(source_display) > 40:
+        source_display = source_display[:37] + "..."
+
+    fields.append({"name": "Source", "value": f"`{source_display}`", "inline": False})
+
+    # Formater l'erreur
+    error_display = error[:300] if len(error) > 300 else error
+
     notify_discord(
         title="❌ Échec du Déploiement",
-        message=(
-            f"Le déploiement a **échoué**\n\n"
-            f"**Source:** `{source[:50]}{'...' if len(source) > 50 else ''}`\n"
-            f"**Erreur:** {error[:200]}"
-        ),
-        color=COLOR_RED
+        message=f"Le déploiement a **échoué**\n\n```\n{error_display}\n```",
+        color=COLOR_RED,
+        fields=fields
     )
 
 # =============================================================================
@@ -453,6 +503,9 @@ def full_deploy(source_path: str) -> dict:
     4. Vérifie le statut
     5. Libère le lock
     """
+    global _deploy_start_time
+    _deploy_start_time = time.time()
+
     result = {
         "success": False,
         "steps": [],
@@ -488,7 +541,7 @@ def full_deploy(source_path: str) -> dict:
             result["error"] = f"Deploy failed: {msg}"
             # Tenter de redémarrer avec l'ancien binaire
             start_server()
-            notify_deploy_failure(source_path, msg)
+            notify_deploy_failure(source_path, msg, step="Déploiement binaire")
             return result
 
         # Étape 3: Démarrer le serveur
@@ -496,7 +549,7 @@ def full_deploy(source_path: str) -> dict:
         result["steps"].append({"step": "start", "success": success, "message": msg})
         if not success:
             result["error"] = f"Start failed: {msg}"
-            notify_deploy_failure(source_path, msg)
+            notify_deploy_failure(source_path, msg, step="Démarrage serveur")
             return result
 
         # Étape 4: Vérifier le statut
@@ -506,18 +559,23 @@ def full_deploy(source_path: str) -> dict:
 
         if not status["active"]:
             result["error"] = "Server failed to start after deploy"
-            notify_deploy_failure(source_path, result["error"])
+            notify_deploy_failure(source_path, result["error"], step="Vérification")
             return result
 
+        # Calculer la durée totale
+        duration = time.time() - _deploy_start_time
+
         result["success"] = True
+        result["duration"] = duration
         log("=== DÉPLOIEMENT RÉUSSI ===")
-        notify_deploy_success(source_path)
+        notify_deploy_success(source_path, duration=duration)
         return result
 
     finally:
         # Toujours libérer le lock
         release_deploy_lock()
         result["locked"] = False
+        _deploy_start_time = None
 
 # =============================================================================
 # HTTP Handler

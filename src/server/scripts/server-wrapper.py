@@ -35,9 +35,13 @@ TMUX_SOCKET_PATH = "/tmp/rtype-tmux.sock"  # Socket partagé pour accès multi-u
 DEFAULT_SERVER_PATH = "/opt/rtype/server/rtype_server"
 ERROR_LOG_PATH = "/opt/rtype/logs/server-error.log"
 LOCK_FILE_PATH = "/tmp/rtype-server.lock"
+STATE_FILE_PATH = "/opt/rtype/logs/server-state.json"  # Pour tracking uptime et crashes
 
 # Discord Webhook (from environment variable for security)
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
+
+# GitHub repo pour les liens
+GITHUB_REPO = "https://github.com/Pluenet-Killian/rtype"
 
 # Couleurs Discord (décimal)
 COLOR_GREEN = 3066993
@@ -46,28 +50,157 @@ COLOR_YELLOW = 16776960
 COLOR_GRAY = 9807270
 
 # =============================================================================
+# State Management (uptime & crash tracking)
+# =============================================================================
+
+def load_state() -> dict:
+    """Charge l'état persistant du serveur."""
+    try:
+        state_file = Path(STATE_FILE_PATH)
+        if state_file.exists():
+            with open(state_file, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        log(f"Erreur lecture state: {e}")
+    return {"crashes": [], "last_start": None, "total_uptime_seconds": 0}
+
+
+def save_state(state: dict):
+    """Sauvegarde l'état persistant du serveur."""
+    try:
+        state_file = Path(STATE_FILE_PATH)
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(state_file, 'w') as f:
+            json.dump(state, f, indent=2)
+    except Exception as e:
+        log(f"Erreur sauvegarde state: {e}")
+
+
+def record_start():
+    """Enregistre le démarrage du serveur."""
+    state = load_state()
+    state["last_start"] = datetime.now(timezone.utc).isoformat()
+    save_state(state)
+
+
+def record_stop() -> Optional[str]:
+    """Enregistre l'arrêt et retourne l'uptime formaté."""
+    state = load_state()
+    uptime_str = None
+    if state.get("last_start"):
+        try:
+            start_time = datetime.fromisoformat(state["last_start"])
+            uptime = datetime.now(timezone.utc) - start_time
+            state["total_uptime_seconds"] = state.get("total_uptime_seconds", 0) + uptime.total_seconds()
+            uptime_str = format_duration(uptime.total_seconds())
+        except Exception:
+            pass
+    state["last_start"] = None
+    save_state(state)
+    return uptime_str
+
+
+def record_crash(exit_code: int) -> tuple[Optional[str], Optional[str]]:
+    """Enregistre un crash et retourne (uptime, last_crash_ago)."""
+    state = load_state()
+    uptime_str = None
+    last_crash_ago = None
+
+    # Calculer uptime avant crash
+    if state.get("last_start"):
+        try:
+            start_time = datetime.fromisoformat(state["last_start"])
+            uptime = datetime.now(timezone.utc) - start_time
+            uptime_str = format_duration(uptime.total_seconds())
+        except Exception:
+            pass
+
+    # Trouver le dernier crash
+    if state.get("crashes"):
+        try:
+            last_crash = datetime.fromisoformat(state["crashes"][-1]["timestamp"])
+            ago = datetime.now(timezone.utc) - last_crash
+            last_crash_ago = format_duration(ago.total_seconds())
+        except Exception:
+            pass
+
+    # Enregistrer ce crash
+    state["crashes"].append({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "exit_code": exit_code,
+        "uptime": uptime_str
+    })
+    # Garder seulement les 10 derniers crashes
+    state["crashes"] = state["crashes"][-10:]
+    state["last_start"] = None
+    save_state(state)
+
+    return uptime_str, last_crash_ago
+
+
+def get_last_crash_info() -> Optional[str]:
+    """Retourne le temps depuis le dernier crash."""
+    state = load_state()
+    if state.get("crashes"):
+        try:
+            last_crash = datetime.fromisoformat(state["crashes"][-1]["timestamp"])
+            ago = datetime.now(timezone.utc) - last_crash
+            return format_duration(ago.total_seconds())
+        except Exception:
+            pass
+    return None
+
+
+def format_duration(seconds: float) -> str:
+    """Formate une durée en texte lisible."""
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        minutes = seconds // 60
+        secs = seconds % 60
+        return f"{minutes}m {secs}s"
+    elif seconds < 86400:
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        return f"{hours}h {minutes}m"
+    else:
+        days = seconds // 86400
+        hours = (seconds % 86400) // 3600
+        return f"{days}j {hours}h"
+
+
+# =============================================================================
 # Discord Notifications
 # =============================================================================
 
-def notify_discord(title: str, message: str, color: int = COLOR_GREEN) -> bool:
-    """Envoie une notification Discord via webhook."""
+def notify_discord(title: str, message: str, color: int = COLOR_GREEN, fields: list = None, thumbnail: str = None) -> bool:
+    """Envoie une notification Discord via webhook avec support des fields."""
     if not DISCORD_WEBHOOK_URL:
         log("DISCORD_WEBHOOK_URL non configuré, notification ignorée")
         return False
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    payload = {
-        "embeds": [{
-            "title": title,
-            "description": message,
-            "color": color,
-            "timestamp": timestamp,
-            "footer": {
-                "text": "VPS 51.254.137.175"
-            }
-        }]
+    embed = {
+        "title": title,
+        "description": message,
+        "color": color,
+        "timestamp": timestamp,
+        "footer": {
+            "text": "VPS 51.254.137.175"
+        }
     }
+
+    # Ajouter les fields si présents
+    if fields:
+        embed["fields"] = fields
+
+    # Ajouter la thumbnail si présente
+    if thumbnail:
+        embed["thumbnail"] = {"url": thumbnail}
+
+    payload = {"embeds": [embed]}
 
     try:
         data = json.dumps(payload).encode('utf-8')
@@ -96,40 +229,71 @@ def notify_discord(title: str, message: str, color: int = COLOR_GREEN) -> bool:
 
 
 def notify_start():
-    """Notification de démarrage."""
+    """Notification de démarrage avec infos détaillées."""
+    record_start()
+    last_crash = get_last_crash_info()
+
+    fields = [
+        {"name": "Game", "value": "UDP `4124`", "inline": True},
+        {"name": "Auth", "value": "TCP `4125`", "inline": True},
+        {"name": "Voice", "value": "UDP `4126`", "inline": True},
+    ]
+
+    # Ajouter info sur le dernier crash si disponible
+    if last_crash:
+        fields.append({"name": "Dernier crash", "value": f"il y a {last_crash}", "inline": True})
+
     notify_discord(
-        title="🟢 Serveur démarré",
-        message=(
-            "Le serveur R-Type est maintenant **en ligne**\n\n"
-            "**Port Game:** UDP 4124\n"
-            "**Port Auth:** TCP 4125\n"
-            "**Port Voice:** UDP 4126"
-        ),
-        color=COLOR_GREEN
+        title="🟢 Serveur en ligne",
+        message=f"Le serveur R-Type est maintenant **opérationnel**",
+        color=COLOR_GREEN,
+        fields=fields
     )
 
 
 def notify_stop():
-    """Notification d'arrêt propre."""
+    """Notification d'arrêt propre avec uptime."""
+    uptime = record_stop()
+
+    fields = []
+    if uptime:
+        fields.append({"name": "Uptime", "value": uptime, "inline": True})
+
     notify_discord(
         title="🔴 Serveur arrêté",
         message="Le serveur R-Type a été **arrêté proprement**",
-        color=COLOR_GRAY
+        color=COLOR_GRAY,
+        fields=fields if fields else None
     )
 
 
 def notify_crash(exit_code: int):
-    """Notification de crash avec logs d'erreur."""
-    last_errors = get_last_errors()
+    """Notification de crash avec logs d'erreur et statistiques."""
+    uptime, last_crash_ago = record_crash(exit_code)
+    last_errors = get_last_errors(lines=15, max_chars=800)
+
+    fields = [
+        {"name": "Exit Code", "value": f"`{exit_code}`", "inline": True},
+    ]
+
+    if uptime:
+        fields.append({"name": "Uptime avant crash", "value": uptime, "inline": True})
+
+    if last_crash_ago:
+        fields.append({"name": "Crash précédent", "value": f"il y a {last_crash_ago}", "inline": True})
+
+    # Bloc d'erreurs séparé pour meilleure lisibilité
+    error_block = f"```\n{last_errors}\n```" if last_errors != "Pas de logs d'erreur disponibles" else ""
 
     notify_discord(
         title="💥 CRASH SERVEUR",
         message=(
-            f"Le serveur R-Type a **crashé** (code: {exit_code})\n\n"
-            f"**Dernières erreurs:**\n```\n{last_errors}\n```\n\n"
-            "⚠️ Redémarrage automatique en cours..."
+            f"Le serveur R-Type a **crashé**\n\n"
+            f"{error_block}\n"
+            "⚠️ **Redémarrage automatique en cours...**"
         ),
-        color=COLOR_RED
+        color=COLOR_RED,
+        fields=fields
     )
 
 
@@ -158,19 +322,14 @@ def acquire_lock() -> bool:
     lock_path = Path(LOCK_FILE_PATH)
 
     if lock_path.exists():
-        # Vérifie si le PID dans le lock est encore actif
         try:
             pid = int(lock_path.read_text().strip())
-            # Vérifie si le processus existe
             subprocess.run(["kill", "-0", str(pid)], check=True, capture_output=True)
-            # Le processus existe encore
             log(f"Une instance est déjà en cours (PID {pid})")
             return False
         except (ValueError, subprocess.CalledProcessError):
-            # PID invalide ou processus mort, on peut prendre le lock
             pass
 
-    # Écrit notre PID
     lock_path.write_text(str(subprocess.os.getpid()))
     return True
 
@@ -209,14 +368,9 @@ def kill_existing_session():
 
 
 def start_server_in_tmux(server_path: str) -> bool:
-    """
-    Lance le serveur dans tmux.
-    La commande écrit l'exit code dans un fichier temporaire.
-    """
+    """Lance le serveur dans tmux."""
     exit_code_file = f"/tmp/rtype_exit_code_{subprocess.os.getpid()}"
 
-    # Commande qui lance le serveur et capture son exit code
-    # Utilise systemd-cat pour envoyer les logs à journald
     tmux_command = (
         f"{server_path} 2>&1 | tee >(systemd-cat -t rtype-server); "
         f"echo ${{PIPESTATUS[0]}} > {exit_code_file}"
@@ -227,7 +381,6 @@ def start_server_in_tmux(server_path: str) -> bool:
         "bash", "-c", tmux_command
     ], capture_output=True)
 
-    # Rendre le socket accessible à tous les utilisateurs
     try:
         import os
         os.chmod(TMUX_SOCKET_PATH, 0o777)
@@ -243,16 +396,12 @@ def start_server_in_tmux(server_path: str) -> bool:
 
 
 def wait_for_session_end() -> int:
-    """
-    Attend que la session tmux se termine.
-    Retourne l'exit code du serveur.
-    """
+    """Attend que la session tmux se termine."""
     exit_code_file = f"/tmp/rtype_exit_code_{subprocess.os.getpid()}"
 
     while session_exists():
         time.sleep(1)
 
-    # Récupère l'exit code
     try:
         exit_code = int(Path(exit_code_file).read_text().strip())
         Path(exit_code_file).unlink(missing_ok=True)
@@ -271,16 +420,13 @@ def setup_signal_handlers():
     def handler(signum, frame):
         log(f"Signal {signum} reçu, arrêt du serveur...")
         if session_exists():
-            # Envoie SIGTERM au serveur dans tmux
             subprocess.run([
                 "tmux", "-S", TMUX_SOCKET_PATH, "send-keys", "-t", TMUX_SESSION_NAME, "C-c"
             ], capture_output=True)
             time.sleep(2)
             kill_existing_session()
 
-        # Notification d'arrêt propre (systemctl stop)
         notify_stop()
-
         release_lock()
         sys.exit(0)
 
@@ -311,42 +457,33 @@ def main():
     )
     args = parser.parse_args()
 
-    # Vérifie que le serveur existe
     server_path = Path(args.server_path)
     if not server_path.exists():
         log(f"Erreur: serveur non trouvé: {server_path}")
         sys.exit(1)
 
-    # Anti multi-instance
     if not acquire_lock():
         log("Erreur: une instance du serveur est déjà en cours")
         sys.exit(1)
 
     try:
         setup_signal_handlers()
-
-        # Nettoie une éventuelle session orpheline
         kill_existing_session()
 
-        # Lance le serveur
         if not start_server_in_tmux(str(server_path)):
             release_lock()
             sys.exit(1)
 
-        # Notification de démarrage
         notify_start()
 
-        # Attend la fin
         exit_code = wait_for_session_end()
         log(f"Serveur terminé avec code: {exit_code}")
 
-        # Notification selon le résultat
         if exit_code == 0:
             notify_stop()
         else:
             notify_crash(exit_code)
 
-        # Propage l'exit code à systemd
         sys.exit(exit_code)
 
     finally:
