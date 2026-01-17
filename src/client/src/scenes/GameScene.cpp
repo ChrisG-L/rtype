@@ -198,6 +198,23 @@ void GameScene::initVoiceChat()
 
 void GameScene::handleEvent(const events::Event& event)
 {
+    // Always process KeyReleased to avoid stuck keys when chat opens/closes
+    if (std::holds_alternative<events::KeyReleased>(event)) {
+        auto& key = std::get<events::KeyReleased>(event);
+        _keysPressed.erase(key.key);
+
+        // Release Push-to-Talk (configurable key)
+        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
+        if (accessConfig.isActionKey(accessibility::GameAction::PushToTalk, key.key)) {
+            auto& voiceMgr = audio::VoiceChatManager::getInstance();
+            if (voiceMgr.isConnected()) {
+                voiceMgr.stopTalking();
+            }
+        }
+        // Don't return here - let chat handle KeyReleased too if needed
+        if (_chatInputOpen) return;
+    }
+
     // Handle chat input when open
     if (_chatInputOpen && _chatInput) {
         // Skip the first TextEntered event after opening chat (avoids 'T' appearing in input)
@@ -242,6 +259,7 @@ void GameScene::handleEvent(const events::Event& event)
             !_context.udpClient->isLocalPlayerDead() && !_wasKicked) {
             _chatInputOpen = true;
             _skipNextTextEntered = true;  // Prevent key from appearing in chat input
+            _keysPressed.clear();  // Clear all pressed keys to avoid stuck movement
             if (_chatInput) {
                 _chatInput->setFocused(true);
             }
@@ -276,19 +294,8 @@ void GameScene::handleEvent(const events::Event& event)
             _showControlsHUD = !_showControlsHUD;
             return;
         }
-    } else if (std::holds_alternative<events::KeyReleased>(event)) {
-        auto& key = std::get<events::KeyReleased>(event);
-        _keysPressed.erase(key.key);
-
-        // Release Push-to-Talk (configurable key)
-        auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
-        if (accessConfig.isActionKey(accessibility::GameAction::PushToTalk, key.key)) {
-            auto& voiceMgr = audio::VoiceChatManager::getInstance();
-            if (voiceMgr.isConnected()) {
-                voiceMgr.stopTalking();
-            }
-        }
     }
+    // Note: KeyReleased is handled at the beginning of this function
 }
 
 void GameScene::processUDPEvents()
