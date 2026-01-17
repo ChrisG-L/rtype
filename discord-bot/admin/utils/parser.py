@@ -65,15 +65,14 @@ def parse_users_output(output: list[str]) -> list[dict[str, str]]:
     """
     Parse users command output.
 
-    Example output:
-    ┌────────────────────────────────────────────────────────┐
-    │                   REGISTERED USERS                     │
-    ├────────────────────────────────────────────────────────┤
-    │ Email                        │ Username    │ Status    │
-    ├────────────────────────────────────────────────────────┤
-    │ test.test@test.test          │ test        │ Offline   │
-    │ test2.test2@test2.test2      │ test2       │ Offline   │
-    └────────────────────────────────────────────────────────┘
+    Example output (double border):
+    ╔═════════════════════════════════════════════════════════════════════════════════╗
+    ║                                REGISTERED USERS                                 ║
+    ╠═════════════════════════════════════════════════════════════════════════════════╣
+    ║ Email                                   Username                 Status         ║
+    ╠═════════════════════════════════════════════════════════════════════════════════╣
+    ║ test.test@test.test                     test                     Offline        ║
+    ╚═════════════════════════════════════════════════════════════════════════════════╝
     [CLI] Total: 2 user(s)
 
     Returns list of user dicts.
@@ -82,32 +81,33 @@ def parse_users_output(output: list[str]) -> list[dict[str, str]]:
 
     for line in output:
         # Skip header, border and empty lines
-        if not line or "──" in line or "REGISTERED" in line or "Email" in line:
+        if not line or "═" in line or "─" in line or "REGISTERED" in line:
             continue
         if "[CLI]" in line:
             continue
+        # Skip header row with column names
+        if "Email" in line and "Username" in line and "Status" in line:
+            continue
 
-        # Extract data from table row: │ email │ username │ status │
-        # Remove box-drawing characters and split
-        clean = line.replace("│", "|").strip()
-        if clean.startswith("|"):
-            clean = clean[1:]
-        if clean.endswith("|"):
-            clean = clean[:-1]
+        # Extract data from table row: ║ email  username  status ║
+        # The TUI uses space-separated columns within ║ borders
+        clean = line.replace("║", "").replace("│", "").strip()
 
-        parts = [p.strip() for p in clean.split("|") if p.strip()]
+        if not clean:
+            continue
+
+        # Split by multiple spaces (columns are space-padded)
+        parts = clean.split()
 
         if len(parts) >= 3:
+            # Last part is status, second-to-last is username, rest is email
+            status = parts[-1]
+            username = parts[-2]
+            email = " ".join(parts[:-2])
             users.append({
-                "email": parts[0],
-                "username": parts[1],
-                "status": parts[2]
-            })
-        elif len(parts) == 2:
-            users.append({
-                "email": parts[0],
-                "username": parts[1],
-                "status": "Unknown"
+                "email": email,
+                "username": username,
+                "status": status
             })
 
     return users
@@ -120,23 +120,25 @@ def parse_sessions_output(output: list[str]) -> list[dict[str, str]]:
     Returns list of session dicts.
     """
     sessions = []
+    text = "\n".join(output)
+
+    if "No active sessions" in text:
+        return []
 
     for line in output:
-        if not line or "──" in line or "SESSIONS" in line or "Email" in line:
+        if not line or "═" in line or "─" in line or "SESSIONS" in line:
             continue
         if "[CLI]" in line:
             continue
-        if "No active sessions" in line:
-            return []
+        # Skip header row
+        if "Email" in line and "Room" in line:
+            continue
 
-        clean = line.replace("│", "|").strip()
-        if clean.startswith("|"):
-            clean = clean[1:]
-        if clean.endswith("|"):
-            clean = clean[:-1]
+        clean = line.replace("║", "").replace("│", "").strip()
+        if not clean:
+            continue
 
-        parts = [p.strip() for p in clean.split("|") if p.strip()]
-
+        parts = clean.split()
         if len(parts) >= 2:
             sessions.append({
                 "email": parts[0],
@@ -154,23 +156,25 @@ def parse_rooms_output(output: list[str]) -> list[dict[str, str]]:
     Returns list of room dicts.
     """
     rooms = []
+    text = "\n".join(output)
+
+    if "No active rooms" in text:
+        return []
 
     for line in output:
-        if not line or "──" in line or "ROOMS" in line or "Code" in line:
+        if not line or "═" in line or "─" in line or "ROOMS" in line:
             continue
         if "[CLI]" in line:
             continue
-        if "No active rooms" in line:
-            return []
+        # Skip header row
+        if "Code" in line and "Players" in line:
+            continue
 
-        clean = line.replace("│", "|").strip()
-        if clean.startswith("|"):
-            clean = clean[1:]
-        if clean.endswith("|"):
-            clean = clean[:-1]
+        clean = line.replace("║", "").replace("│", "").strip()
+        if not clean:
+            continue
 
-        parts = [p.strip() for p in clean.split("|") if p.strip()]
-
+        parts = clean.split()
         if len(parts) >= 2:
             rooms.append({
                 "code": parts[0],
@@ -194,24 +198,27 @@ def parse_bans_output(output: list[str]) -> list[dict[str, str]]:
         return []
 
     for line in output:
-        if not line or "──" in line or "BANNED" in line or "Email" in line:
+        if not line or "═" in line or "─" in line or "BANNED" in line:
             continue
         if "[CLI]" in line:
             continue
+        # Skip header row
+        if "Email" in line and "Reason" in line:
+            continue
 
-        clean = line.replace("│", "|").strip()
-        if clean.startswith("|"):
-            clean = clean[1:]
-        if clean.endswith("|"):
-            clean = clean[:-1]
+        clean = line.replace("║", "").replace("│", "").strip()
+        if not clean:
+            continue
 
-        parts = [p.strip() for p in clean.split("|") if p.strip()]
-
+        parts = clean.split()
         if len(parts) >= 1:
+            # First part is email, rest is reason
+            email = parts[0]
+            reason = " ".join(parts[1:]) if len(parts) > 1 else "No reason"
             bans.append({
-                "email": parts[0],
-                "reason": parts[1] if len(parts) > 1 else "No reason",
-                "date": parts[2] if len(parts) > 2 else "N/A"
+                "email": email,
+                "reason": reason,
+                "date": "N/A"
             })
 
     return bans
