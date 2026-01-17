@@ -50,6 +50,11 @@ namespace graphics {
             virtual void beginFrame() = 0;
             virtual void endFrame() = 0;
 
+            // Fullscreen support
+            virtual void setFullscreen(bool enabled) = 0;
+            virtual void toggleFullscreen() = 0;
+            virtual bool isFullscreen() const = 0;
+
         private:
     };
 }
