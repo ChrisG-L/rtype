@@ -294,6 +294,12 @@ void GameScene::handleEvent(const events::Event& event)
             _showControlsHUD = !_showControlsHUD;
             return;
         }
+
+        // Toggle Fullscreen (F11)
+        if (key.key == events::Key::F11) {
+            _context.window->toggleFullscreen();
+            return;
+        }
     }
     // Note: KeyReleased is handled at the beginning of this function
 }
@@ -1776,7 +1782,7 @@ void GameScene::renderControlsHUD()
     constexpr float hudWidth = 230.0f;
     constexpr float hudHeight = 195.0f;  // 6 lines × 22px + title(30) + padding(33)
     constexpr float margin = 15.0f;
-    constexpr float UBUNTU_OFFSET = 30.0f;
+    constexpr float UBUNTU_OFFSET = 0.0f;  // Removed: fullscreen mode handles this
     float hudX = SCREEN_WIDTH - hudWidth - margin;
     float hudY = SCREEN_HEIGHT - hudHeight - margin - UBUNTU_OFFSET;
 
@@ -1850,7 +1856,7 @@ void GameScene::initChatUI()
     // Chat input field - positioned in bottom-left chat area
     // Position: after "Say:" label at x=60, inside the chat overlay box
     // Note: UBUNTU_OFFSET (70px) accounts for Ubuntu taskbar/dock
-    constexpr float UBUNTU_OFFSET = 70.0f;
+    constexpr float UBUNTU_OFFSET = 0.0f;  // Removed: fullscreen mode handles this
     _chatInput = std::make_unique<ui::TextInput>(
         Vec2f{60.0f, SCREEN_HEIGHT - 52.0f - UBUNTU_OFFSET},
         Vec2f{440.0f, 28.0f},
@@ -1964,7 +1970,7 @@ void GameScene::renderChatOverlay()
     // Calculate base Y position (above chat input area)
     // Note: Offset by 70px to account for Ubuntu taskbar/dock cutting off bottom of window
     // TODO: Remove this workaround when fullscreen/resize is implemented
-    constexpr float UBUNTU_OFFSET = 70.0f;
+    constexpr float UBUNTU_OFFSET = 0.0f;  // Removed: fullscreen mode handles this
     float baseY = _chatInputOpen ? SCREEN_HEIGHT - 120.0f - UBUNTU_OFFSET : SCREEN_HEIGHT - 70.0f - UBUNTU_OFFSET;
 
     // Determine which messages to show
