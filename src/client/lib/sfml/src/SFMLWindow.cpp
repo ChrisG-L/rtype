@@ -76,12 +76,30 @@ static events::Key scancodeToKey(sf::Keyboard::Scancode scancode)
         case sf::Keyboard::Scancode::RControl: return events::Key::RCtrl;
         case sf::Keyboard::Scancode::LAlt: return events::Key::LAlt;
         case sf::Keyboard::Scancode::RAlt: return events::Key::RAlt;
+        case sf::Keyboard::Scancode::F1: return events::Key::F1;
+        case sf::Keyboard::Scancode::F2: return events::Key::F2;
+        case sf::Keyboard::Scancode::F3: return events::Key::F3;
+        case sf::Keyboard::Scancode::F4: return events::Key::F4;
+        case sf::Keyboard::Scancode::F5: return events::Key::F5;
+        case sf::Keyboard::Scancode::F6: return events::Key::F6;
+        case sf::Keyboard::Scancode::F7: return events::Key::F7;
+        case sf::Keyboard::Scancode::F8: return events::Key::F8;
+        case sf::Keyboard::Scancode::F9: return events::Key::F9;
+        case sf::Keyboard::Scancode::F10: return events::Key::F10;
+        case sf::Keyboard::Scancode::F11: return events::Key::F11;
+        case sf::Keyboard::Scancode::F12: return events::Key::F12;
         default: return events::Key::Unknown;
     }
 }
 
-SFMLWindow::SFMLWindow(Vec2u winSize, const std::string& name) {
+SFMLWindow::SFMLWindow(Vec2u winSize, const std::string& name)
+    : _windowTitle(name)
+{
     _window.create(sf::VideoMode({winSize.x, winSize.y}), name);
+
+    // Maintenir la view de référence 1920x1080 pour le scaling
+    sf::View view(sf::FloatRect({0.f, 0.f}, {1920.f, 1080.f}));
+    _window.setView(view);
 }
 
 Vec2u SFMLWindow::getSize() const {
@@ -301,4 +319,37 @@ void SFMLWindow::endFrame() {
         _window.draw(screenSprite, _activePostProcessShader);
     }
     _window.display();
+}
+
+// Fullscreen support implementation
+
+void SFMLWindow::setFullscreen(bool enabled) {
+    if (enabled) {
+        // Fullscreen desktop (borderless) - prend toute la résolution sans changer le mode vidéo
+        _window.create(sf::VideoMode::getDesktopMode(), _windowTitle, sf::Style::None);
+        _window.setPosition({0, 0});
+    } else {
+        // Mode fenêtré standard 1920x1080
+        _window.create(sf::VideoMode({1920, 1080}), _windowTitle, sf::Style::Default);
+    }
+
+    // Maintenir la view de référence 1920x1080 pour le scaling automatique
+    sf::View view(sf::FloatRect({0.f, 0.f}, {1920.f, 1080.f}));
+    _window.setView(view);
+
+    // Réinitialiser la RenderTexture si nécessaire (pour les shaders)
+    if (_renderTextureInitialized) {
+        auto size = _window.getSize();
+        _renderTexture.resize({size.x, size.y});
+    }
+
+    _isFullscreen = enabled;
+}
+
+void SFMLWindow::toggleFullscreen() {
+    setFullscreen(!_isFullscreen);
+}
+
+bool SFMLWindow::isFullscreen() const {
+    return _isFullscreen;
 }
