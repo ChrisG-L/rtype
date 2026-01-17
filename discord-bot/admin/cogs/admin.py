@@ -8,7 +8,14 @@ from discord.ext import commands
 import logging
 
 from tcp_client import TCPAdminClient
-from utils import AdminEmbeds, is_admin_channel, has_admin_role
+from utils import (
+    AdminEmbeds,
+    is_admin_channel,
+    has_admin_role,
+    parse_status_output,
+    parse_sessions_output,
+    parse_rooms_output,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +46,9 @@ class AdminCog(commands.Cog):
                 )
                 return
 
-            # Format output as embed
-            embed = AdminEmbeds.cli_output("Server Status", result.output)
+            # Parse TUI output and create clean embed
+            data = parse_status_output(result.output)
+            embed = AdminEmbeds.server_status(data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error getting status: {e}")
@@ -63,7 +71,9 @@ class AdminCog(commands.Cog):
                 )
                 return
 
-            embed = AdminEmbeds.cli_output("Active Sessions", result.output)
+            # Parse TUI output and create clean embed
+            sessions_data = parse_sessions_output(result.output)
+            embed = AdminEmbeds.sessions_list(sessions_data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error getting sessions: {e}")
@@ -86,7 +96,9 @@ class AdminCog(commands.Cog):
                 )
                 return
 
-            embed = AdminEmbeds.cli_output("Active Rooms", result.output)
+            # Parse TUI output and create clean embed
+            rooms_data = parse_rooms_output(result.output)
+            embed = AdminEmbeds.rooms_list(rooms_data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error getting rooms: {e}")
