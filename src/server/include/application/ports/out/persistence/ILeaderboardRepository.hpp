@@ -61,9 +61,10 @@ struct LeaderboardEntry {
     uint32_t duration;
     int64_t timestamp;
     uint32_t rank;
+    uint8_t playerCount;    // Number of players in game when score was achieved (1=Solo, 2=Duo, etc.)
 
     LeaderboardEntry()
-        : score(0), wave(0), kills(0), deaths(0), duration(0), timestamp(0), rank(0) {}
+        : score(0), wave(0), kills(0), deaths(0), duration(0), timestamp(0), rank(0), playerCount(0) {}
 };
 
 struct PlayerStats {
@@ -134,6 +135,7 @@ struct GameHistoryEntry {
     int64_t timestamp;
     uint8_t weaponUsed;
     bool bossDefeated;
+    uint8_t playerCount = 0;  // Number of players in game (1=Solo, 2=Duo, etc.)
 
     // Detailed weapon kills (optional, for accurate stats tracking)
     uint32_t standardKills = 0;
@@ -150,7 +152,7 @@ struct GameHistoryEntry {
 
     GameHistoryEntry()
         : score(0), wave(0), kills(0), deaths(0), duration(0), timestamp(0)
-        , weaponUsed(0), bossDefeated(false) {}
+        , weaponUsed(0), bossDefeated(false), playerCount(0) {}
 };
 
 struct AchievementRecord {
@@ -187,7 +189,9 @@ public:
     virtual ~ILeaderboardRepository() = default;
 
     virtual std::vector<LeaderboardEntry> getLeaderboard(LeaderboardPeriod period, uint32_t limit = 50) = 0;
+    virtual std::vector<LeaderboardEntry> getLeaderboard(LeaderboardPeriod period, uint8_t playerCount, uint32_t limit = 50) = 0;
     virtual uint32_t getPlayerRank(const std::string& email, LeaderboardPeriod period) = 0;
+    virtual uint32_t getPlayerRank(const std::string& email, LeaderboardPeriod period, uint8_t playerCount) = 0;
     virtual bool submitScore(const std::string& email, const std::string& playerName, const LeaderboardEntry& entry) = 0;
     virtual std::optional<PlayerStats> getPlayerStats(const std::string& email) = 0;
     virtual void updatePlayerStats(const std::string& email, const std::string& playerName, const GameHistoryEntry& gameStats) = 0;

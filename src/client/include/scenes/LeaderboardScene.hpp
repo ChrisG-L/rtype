@@ -43,8 +43,11 @@ private:
     void onWeeklyClick();
     void onMonthlyClick();
 
+    // Player count filter switching
+    void onPlayerCountFilterClick(uint8_t playerCount);
+
     // Request data from server
-    void requestLeaderboard(uint8_t period);
+    void requestLeaderboard(uint8_t period, uint8_t playerCount = 0);
     void requestPlayerStats();
     void requestAchievements();
 
@@ -98,9 +101,11 @@ private:
         uint16_t wave;
         uint16_t kills;
         uint32_t duration;
+        uint8_t playerCount;  // Number of players when score was achieved
     };
     std::vector<LeaderboardEntryData> _leaderboardEntries;
     uint8_t _currentPeriod = 0;  // 0 = AllTime, 1 = Weekly, 2 = Monthly
+    uint8_t _currentPlayerCountFilter = 0;  // 0 = All, 1 = Solo, 2 = Duo, 3-6 = Trio/4/5/6
     uint32_t _yourRank = 0;
     bool _leaderboardLoading = false;
 
@@ -142,6 +147,9 @@ private:
     std::unique_ptr<ui::Button> _allTimeBtn;
     std::unique_ptr<ui::Button> _weeklyBtn;
     std::unique_ptr<ui::Button> _monthlyBtn;
+
+    // Player count filter buttons (All/Solo/Duo/Trio/4/5/6)
+    std::array<std::unique_ptr<ui::Button>, 7> _playerCountBtns;
 
     // Back button
     std::unique_ptr<ui::Button> _backBtn;

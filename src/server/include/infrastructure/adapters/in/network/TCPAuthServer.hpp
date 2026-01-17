@@ -113,7 +113,7 @@ namespace infrastructure::adapters::in::network {
             void handleGetAchievements();
 
             // Leaderboard response writers
-            void do_write_leaderboard_response(const std::vector<application::ports::out::persistence::LeaderboardEntry>& entries, uint8_t period, uint32_t yourRank);
+            void do_write_leaderboard_response(const std::vector<application::ports::out::persistence::LeaderboardEntry>& entries, uint8_t period, uint8_t playerCountFilter, uint32_t yourRank);
             void do_write_player_stats_response(const application::ports::out::persistence::PlayerStats& stats);
             void do_write_game_history_response(const std::vector<application::ports::out::persistence::GameHistoryEntry>& entries);
             void do_write_achievements_response(const std::vector<application::ports::out::persistence::AchievementRecord>& achievements);

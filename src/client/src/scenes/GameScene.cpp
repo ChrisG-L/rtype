@@ -391,6 +391,7 @@ void GameScene::update(float deltatime)
             GetLeaderboardRequest req;
             req.period = 0;  // All-time
             req.limit = 1;   // We only need our rank, not the full list
+            req.playerCount = 0;  // All modes (global rank)
             _context.tcpClient->sendGetLeaderboard(req);
             _globalRankRequested = true;
             client::logging::Logger::getSceneLogger()->debug("Requested global rank from leaderboard");
@@ -408,6 +409,7 @@ void GameScene::update(float deltatime)
         GetLeaderboardRequest req;
         req.period = 0;  // All-time
         req.limit = 1;   // We only need our rank
+        req.playerCount = 0;  // All modes (global rank)
         _context.tcpClient->sendGetLeaderboard(req);
         _rankUpdateTimer = 0.0f;
         client::logging::Logger::getSceneLogger()->trace("Periodic rank update requested");

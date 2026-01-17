@@ -93,6 +93,24 @@ void LeaderboardScene::initUI() {
     );
     _monthlyBtn->setOnClick([this]() { onMonthlyClick(); });
 
+    // Player count filter buttons (All/Solo/Duo/Trio/4/5/6)
+    std::array<std::string, 7> filterLabels = {"ALL", "SOLO", "DUO", "TRIO", "4P", "5P", "6P"};
+    float filterX = SCREEN_WIDTH - MARGIN_X - 7 * 70;  // Right-aligned
+    float filterY = periodY;
+    float filterBtnWidth = 60.0f;
+    float filterBtnHeight = 40.0f;
+
+    for (size_t i = 0; i < 7; ++i) {
+        _playerCountBtns[i] = std::make_unique<ui::Button>(
+            Vec2f{filterX + i * 70.0f, filterY},
+            Vec2f{filterBtnWidth, filterBtnHeight},
+            filterLabels[i],
+            FONT_KEY
+        );
+        uint8_t filterValue = static_cast<uint8_t>(i);  // 0=All, 1=Solo, 2=Duo, etc.
+        _playerCountBtns[i]->setOnClick([this, filterValue]() { onPlayerCountFilterClick(filterValue); });
+    }
+
     // Back button
     _backBtn = std::make_unique<ui::Button>(
         Vec2f{SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT - 80},
@@ -106,7 +124,7 @@ void LeaderboardScene::initUI() {
     client::logging::Logger::getSceneLogger()->info("[LeaderboardScene] UI initialized");
 
     // Load initial data
-    requestLeaderboard(0);  // All-time by default
+    requestLeaderboard(0, 0);  // All-time, all player counts by default
 }
 
 void LeaderboardScene::handleEvent(const events::Event& event) {
@@ -139,21 +157,21 @@ void LeaderboardScene::handleEvent(const events::Event& event) {
 
             // Check if click is in header row (Y range)
             if (my >= headerY && my <= headerY + 25) {
-                // Check column hit boxes
+                // Check column hit boxes (positions adjusted for MODE column)
                 // SCORE column: MARGIN_X + 400, width ~100
                 if (mx >= MARGIN_X + 400 && mx < MARGIN_X + 500) {
                     onColumnHeaderClick(SortColumn::Score);
                 }
-                // WAVE column: MARGIN_X + 580, width ~80
-                else if (mx >= MARGIN_X + 580 && mx < MARGIN_X + 660) {
+                // WAVE column: MARGIN_X + 530, width ~80
+                else if (mx >= MARGIN_X + 530 && mx < MARGIN_X + 610) {
                     onColumnHeaderClick(SortColumn::Wave);
                 }
-                // KILLS column: MARGIN_X + 700, width ~80
-                else if (mx >= MARGIN_X + 700 && mx < MARGIN_X + 780) {
+                // KILLS column: MARGIN_X + 620, width ~80
+                else if (mx >= MARGIN_X + 620 && mx < MARGIN_X + 700) {
                     onColumnHeaderClick(SortColumn::Kills);
                 }
-                // TIME column: MARGIN_X + 820, width ~100
-                else if (mx >= MARGIN_X + 820 && mx < MARGIN_X + 920) {
+                // TIME column: MARGIN_X + 720, width ~100
+                else if (mx >= MARGIN_X + 720 && mx < MARGIN_X + 820) {
                     onColumnHeaderClick(SortColumn::Time);
                 }
             }
@@ -170,6 +188,11 @@ void LeaderboardScene::handleEvent(const events::Event& event) {
         _allTimeBtn->handleEvent(event);
         _weeklyBtn->handleEvent(event);
         _monthlyBtn->handleEvent(event);
+
+        // Player count filter buttons
+        for (auto& btn : _playerCountBtns) {
+            if (btn) btn->handleEvent(event);
+        }
     }
 
     _backBtn->handleEvent(event);
@@ -195,6 +218,9 @@ void LeaderboardScene::update(float deltaTime) {
     if (_allTimeBtn) _allTimeBtn->update(deltaTime);
     if (_weeklyBtn) _weeklyBtn->update(deltaTime);
     if (_monthlyBtn) _monthlyBtn->update(deltaTime);
+    for (auto& btn : _playerCountBtns) {
+        if (btn) btn->update(deltaTime);
+    }
     if (_backBtn) _backBtn->update(deltaTime);
 
     // Process incoming TCP messages
@@ -220,6 +246,7 @@ void LeaderboardScene::processTCPEvents() {
                     e.wave = entry.wave;
                     e.kills = entry.kills;
                     e.duration = entry.duration;
+                    e.playerCount = entry.playerCount;  // New: capture player count
                     _leaderboardEntries.push_back(e);
                 }
                 _leaderboardLoading = false;
@@ -302,6 +329,15 @@ void LeaderboardScene::renderLeaderboardTab() {
     _weeklyBtn->render(*_context.window);
     _monthlyBtn->render(*_context.window);
 
+    // Player count filter buttons
+    for (size_t i = 0; i < _playerCountBtns.size(); ++i) {
+        if (_playerCountBtns[i]) {
+            rgba filterColor = (_currentPlayerCountFilter == i) ? rgba{100, 150, 255, 255} : rgba{60, 60, 60, 255};
+            _playerCountBtns[i]->setNormalColor(filterColor);
+            _playerCountBtns[i]->render(*_context.window);
+        }
+    }
+
     if (_leaderboardLoading) {
         renderLoadingIndicator();
         return;
@@ -327,17 +363,22 @@ void LeaderboardScene::renderLeaderboardTab() {
     _context.window->drawText(FONT_KEY, "RANK", MARGIN_X, headerY, 16, headerColor);  // Rank not sortable (always by rank from server)
     _context.window->drawText(FONT_KEY, "PLAYER", MARGIN_X + 100, headerY, 16, headerColor);  // Player not sortable
 
+    // Show MODE column only when filter is "ALL" (otherwise redundant)
+    if (_currentPlayerCountFilter == 0) {
+        _context.window->drawText(FONT_KEY, "MODE", MARGIN_X + 320, headerY, 16, headerColor);
+    }
+
     std::string scoreText = "SCORE" + getSortIndicator(SortColumn::Score);
     _context.window->drawText(FONT_KEY, scoreText, MARGIN_X + 400, headerY, 16, getHeaderColor(SortColumn::Score));
 
     std::string waveText = "WAVE" + getSortIndicator(SortColumn::Wave);
-    _context.window->drawText(FONT_KEY, waveText, MARGIN_X + 580, headerY, 16, getHeaderColor(SortColumn::Wave));
+    _context.window->drawText(FONT_KEY, waveText, MARGIN_X + 530, headerY, 16, getHeaderColor(SortColumn::Wave));
 
     std::string killsText = "KILLS" + getSortIndicator(SortColumn::Kills);
-    _context.window->drawText(FONT_KEY, killsText, MARGIN_X + 700, headerY, 16, getHeaderColor(SortColumn::Kills));
+    _context.window->drawText(FONT_KEY, killsText, MARGIN_X + 620, headerY, 16, getHeaderColor(SortColumn::Kills));
 
     std::string timeText = "TIME" + getSortIndicator(SortColumn::Time);
-    _context.window->drawText(FONT_KEY, timeText, MARGIN_X + 820, headerY, 16, getHeaderColor(SortColumn::Time));
+    _context.window->drawText(FONT_KEY, timeText, MARGIN_X + 720, headerY, 16, getHeaderColor(SortColumn::Time));
 
     // Separator line
     _context.window->drawRect(MARGIN_X, headerY + 30, SCREEN_WIDTH - 2 * MARGIN_X, 2, {100, 100, 100, 255});
@@ -357,22 +398,40 @@ void LeaderboardScene::renderLeaderboardTab() {
                                   MARGIN_X, rowY, 16, rowColor);
         _context.window->drawText(FONT_KEY, entry.playerName,
                                   MARGIN_X + 100, rowY, 16, rowColor);
+
+        // Show MODE only when filter is "ALL"
+        if (_currentPlayerCountFilter == 0) {
+            std::string modeStr;
+            switch (entry.playerCount) {
+                case 0: modeStr = "?"; break;   // Legacy data (before playerCount tracking)
+                case 1: modeStr = "Solo"; break;
+                case 2: modeStr = "Duo"; break;
+                case 3: modeStr = "Trio"; break;
+                case 4: modeStr = "4P"; break;
+                case 5: modeStr = "5P"; break;
+                case 6: modeStr = "6P"; break;
+                default: modeStr = "?"; break;  // Unknown
+            }
+            _context.window->drawText(FONT_KEY, modeStr,
+                                      MARGIN_X + 320, rowY, 16, rowColor);
+        }
+
         _context.window->drawText(FONT_KEY, formatNumber(entry.score),
                                   MARGIN_X + 400, rowY, 16, rowColor);
         _context.window->drawText(FONT_KEY, std::to_string(entry.wave),
-                                  MARGIN_X + 580, rowY, 16, rowColor);
+                                  MARGIN_X + 530, rowY, 16, rowColor);
         _context.window->drawText(FONT_KEY, std::to_string(entry.kills),
-                                  MARGIN_X + 700, rowY, 16, rowColor);
+                                  MARGIN_X + 620, rowY, 16, rowColor);
         _context.window->drawText(FONT_KEY, formatDuration(entry.duration),
-                                  MARGIN_X + 820, rowY, 16, rowColor);
+                                  MARGIN_X + 720, rowY, 16, rowColor);
 
         rowY += ROW_HEIGHT;
     }
 
-    // Your rank
+    // Your rank (displayed below the table on the right)
     if (_yourRank > 0) {
         _context.window->drawText(FONT_KEY, "Your Rank: #" + std::to_string(_yourRank),
-                                  SCREEN_WIDTH - MARGIN_X - 200, CONTENT_START_Y - 50, 18, {100, 200, 255, 255});
+                                  SCREEN_WIDTH - MARGIN_X - 200, SCREEN_HEIGHT - 160, 18, {100, 200, 255, 255});
     }
 
     // Scroll indicator
@@ -543,7 +602,7 @@ void LeaderboardScene::renderLoadingIndicator() {
 void LeaderboardScene::onLeaderboardTabClick() {
     _currentTab = Tab::Leaderboard;
     if (_leaderboardEntries.empty()) {
-        requestLeaderboard(_currentPeriod);
+        requestLeaderboard(_currentPeriod, _currentPlayerCountFilter);
     }
 }
 
@@ -564,21 +623,28 @@ void LeaderboardScene::onAchievementsTabClick() {
 void LeaderboardScene::onAllTimeClick() {
     if (_currentPeriod != 0) {
         _currentPeriod = 0;
-        requestLeaderboard(0);
+        requestLeaderboard(0, _currentPlayerCountFilter);
     }
 }
 
 void LeaderboardScene::onWeeklyClick() {
     if (_currentPeriod != 1) {
         _currentPeriod = 1;
-        requestLeaderboard(1);
+        requestLeaderboard(1, _currentPlayerCountFilter);
     }
 }
 
 void LeaderboardScene::onMonthlyClick() {
     if (_currentPeriod != 2) {
         _currentPeriod = 2;
-        requestLeaderboard(2);
+        requestLeaderboard(2, _currentPlayerCountFilter);
+    }
+}
+
+void LeaderboardScene::onPlayerCountFilterClick(uint8_t playerCount) {
+    if (_currentPlayerCountFilter != playerCount) {
+        _currentPlayerCountFilter = playerCount;
+        requestLeaderboard(_currentPeriod, playerCount);
     }
 }
 
@@ -588,7 +654,7 @@ void LeaderboardScene::onBackClick() {
     }
 }
 
-void LeaderboardScene::requestLeaderboard(uint8_t period) {
+void LeaderboardScene::requestLeaderboard(uint8_t period, uint8_t playerCount) {
     if (!_context.tcpClient) return;
 
     _leaderboardLoading = true;
@@ -602,9 +668,10 @@ void LeaderboardScene::requestLeaderboard(uint8_t period) {
     GetLeaderboardRequest req;
     req.period = period;
     req.limit = MAX_ENTRIES;
+    req.playerCount = playerCount;  // 0 = all, 1-6 = specific
 
     _context.tcpClient->sendGetLeaderboard(req);
-    client::logging::Logger::getSceneLogger()->info("[LeaderboardScene] Requested leaderboard period={}", period);
+    client::logging::Logger::getSceneLogger()->info("[LeaderboardScene] Requested leaderboard period={}, playerCount={}", period, playerCount);
 }
 
 void LeaderboardScene::requestPlayerStats() {
