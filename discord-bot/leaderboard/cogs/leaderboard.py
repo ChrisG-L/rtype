@@ -21,8 +21,6 @@ class LeaderboardCog(commands.Cog):
         self, interaction: discord.Interaction, current: str
     ) -> list[app_commands.Choice[str]]:
         """Autocomplete for player names."""
-        if len(current) < 1:
-            return []
         names = await PlayerStatsRepository.search_players(current, limit=25)
         return [app_commands.Choice(name=n, value=n) for n in names]
 
