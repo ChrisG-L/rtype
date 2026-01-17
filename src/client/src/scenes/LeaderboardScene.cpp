@@ -7,6 +7,7 @@
 
 #include "scenes/LeaderboardScene.hpp"
 #include "scenes/SceneManager.hpp"
+#include "scenes/MainMenuScene.hpp"
 #include "network/NetworkEvents.hpp"
 #include "core/Logger.hpp"
 #include <algorithm>
@@ -175,8 +176,8 @@ void LeaderboardScene::handleEvent(const events::Event& event) {
 }
 
 void LeaderboardScene::update(float deltaTime) {
-    loadAssets();
-    initUI();
+    if (!_assetsLoaded) loadAssets();
+    if (!_uiInitialized) initUI();
 
     // Update starfield
     if (_starfield) {
@@ -234,7 +235,7 @@ void LeaderboardScene::processTCPEvents() {
 void LeaderboardScene::render() {
     if (!_assetsLoaded || !_uiInitialized) return;
 
-    _context.window->clear();
+    // Note: clear() is called by GameLoop::beginFrame(), don't call it here
 
     // Draw starfield
     if (_starfield) {
@@ -284,7 +285,7 @@ void LeaderboardScene::render() {
     // Back button
     _backBtn->render(*_context.window);
 
-    _context.window->display();
+    // Note: display() is called by GameLoop::endFrame(), don't call it here
 }
 
 void LeaderboardScene::renderLeaderboardTab() {
@@ -583,7 +584,7 @@ void LeaderboardScene::onMonthlyClick() {
 
 void LeaderboardScene::onBackClick() {
     if (_sceneManager) {
-        _sceneManager->popScene();
+        _sceneManager->changeScene(std::make_unique<MainMenuScene>());
     }
 }
 

@@ -758,7 +758,7 @@ Accessible via **LEADERBOARD** button in main menu.
 ```cpp
 // In MainMenuScene::onLeaderboardClick()
 auto& sceneManager = SceneManager::getInstance();
-sceneManager.pushScene(std::make_unique<LeaderboardScene>());
+sceneManager.changeScene(std::make_unique<LeaderboardScene>());
 
 // In LeaderboardScene - request data
 auto& tcpClient = TCPClient::getInstance();

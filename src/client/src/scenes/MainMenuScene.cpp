@@ -436,7 +436,7 @@ void MainMenuScene::processTCPEvents()
 void MainMenuScene::onLeaderboardClick()
 {
     if (_sceneManager) {
-        _sceneManager->pushScene(std::make_unique<LeaderboardScene>());
+        _sceneManager->changeScene(std::make_unique<LeaderboardScene>());
     }
 }
 
