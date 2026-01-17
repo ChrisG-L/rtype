@@ -28,9 +28,34 @@ class PlayerStatsRepository:
 
     @staticmethod
     async def get_by_name(player_name: str) -> Optional[dict]:
-        """Get player stats by player name."""
+        """Get player stats by player name.
+
+        First searches in player_stats, then falls back to user collection.
+        """
         db = MongoDB.get()
-        return await db.player_stats.find_one({"playerName": player_name})
+
+        # Try player_stats first
+        stats = await db.player_stats.find_one({"playerName": player_name})
+        if stats:
+            return stats
+
+        # Fall back to user collection (player may not have played yet)
+        user = await db.users.find_one({"username": player_name})
+        if user:
+            # Return a minimal stats object from user data
+            return {
+                "playerName": user.get("username"),
+                "email": user.get("email"),
+                "gamesPlayed": 0,
+                "totalKills": 0,
+                "totalDeaths": 0,
+                "totalScore": 0,
+                "bestScore": 0,
+                "bestWave": 0,
+                "achievements": 0,
+            }
+
+        return None
 
     @staticmethod
     async def get_by_email(email: str) -> Optional[dict]:
@@ -97,16 +122,36 @@ class PlayerStatsRepository:
 
     @staticmethod
     async def search_players(query: str, limit: int = 25) -> list[str]:
-        """Search player names matching query (for autocomplete)."""
+        """Search player names matching query (for autocomplete).
+
+        Searches in both player_stats (playerName) and user (username) collections.
+        If query is empty, returns all players up to limit.
+        """
         db = MongoDB.get()
+        names = set()
 
-        cursor = db.player_stats.find(
-            {"playerName": {"$regex": f"^{query}", "$options": "i"}},
-            {"playerName": 1},
-        ).limit(limit)
+        # Build filter - empty query matches all
+        if query:
+            player_filter = {"playerName": {"$regex": f"^{query}", "$options": "i"}}
+            user_filter = {"username": {"$regex": f"^{query}", "$options": "i"}}
+        else:
+            player_filter = {}
+            user_filter = {}
 
-        names = []
+        # Search in player_stats collection
+        cursor = db.player_stats.find(player_filter, {"playerName": 1}).limit(limit)
+
         async for doc in cursor:
             if "playerName" in doc:
-                names.append(doc["playerName"])
-        return names
+                names.add(doc["playerName"])
+
+        # Also search in user collection (registered users)
+        if len(names) < limit:
+            remaining = limit - len(names)
+            cursor = db.users.find(user_filter, {"username": 1}).limit(remaining)
+
+            async for doc in cursor:
+                if "username" in doc:
+                    names.add(doc["username"])
+
+        return list(names)[:limit]
