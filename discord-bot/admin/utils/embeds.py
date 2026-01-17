@@ -3,7 +3,7 @@ Discord embed generators for R-Type Admin Bot.
 """
 
 import discord
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from .formatters import format_datetime, format_duration
 
@@ -23,7 +23,7 @@ class AdminEmbeds:
         embed = discord.Embed(
             title="R-Type Server Status",
             color=AdminEmbeds.COLOR_INFO,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         embed.add_field(
@@ -58,7 +58,7 @@ class AdminEmbeds:
         embed = discord.Embed(
             title="Active Sessions",
             color=AdminEmbeds.COLOR_INFO,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         if not sessions:
@@ -88,7 +88,7 @@ class AdminEmbeds:
         embed = discord.Embed(
             title="Registered Users",
             color=AdminEmbeds.COLOR_INFO,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         if not users:
@@ -117,7 +117,7 @@ class AdminEmbeds:
         embed = discord.Embed(
             title=f"User: {user.get('username', 'Unknown')}",
             color=AdminEmbeds.COLOR_INFO,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         embed.add_field(name="Email", value=email, inline=True)
@@ -157,7 +157,7 @@ class AdminEmbeds:
         embed = discord.Embed(
             title="Banned Users",
             color=AdminEmbeds.COLOR_WARNING,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         if not banned_users:
@@ -188,7 +188,7 @@ class AdminEmbeds:
             title=title,
             description=message,
             color=AdminEmbeds.COLOR_SUCCESS,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
     @staticmethod
@@ -198,7 +198,7 @@ class AdminEmbeds:
             title=title,
             description=message,
             color=AdminEmbeds.COLOR_ERROR,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
     @staticmethod
@@ -208,7 +208,7 @@ class AdminEmbeds:
             title=title,
             description=message,
             color=AdminEmbeds.COLOR_WARNING,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
     @staticmethod
@@ -217,7 +217,7 @@ class AdminEmbeds:
         embed = discord.Embed(
             title=title,
             color=AdminEmbeds.COLOR_INFO,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
 
         if not output:
