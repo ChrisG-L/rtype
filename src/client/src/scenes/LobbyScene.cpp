@@ -457,9 +457,14 @@ void LobbyScene::processUDPEvents()
 
             if constexpr (std::is_same_v<T, client::network::UDPJoinGameAckEvent>) {
                 // We successfully joined the game via UDP
-                // Transition to GameScene with room game speed and chat history from lobby
+                // Build player names map from lobby players (slotId -> displayName)
+                std::unordered_map<uint8_t, std::string> playerNames;
+                for (const auto& p : _players) {
+                    playerNames[p.slotId] = p.displayName;
+                }
+                // Transition to GameScene with room game speed, chat history, and player names
                 if (_sceneManager && _transitioningToGame) {
-                    _sceneManager->changeScene(std::make_unique<GameScene>(_roomGameSpeedPercent, _chatMessages));
+                    _sceneManager->changeScene(std::make_unique<GameScene>(_roomGameSpeedPercent, _chatMessages, playerNames));
                 }
             }
             else if constexpr (std::is_same_v<T, client::network::UDPJoinGameNackEvent>) {

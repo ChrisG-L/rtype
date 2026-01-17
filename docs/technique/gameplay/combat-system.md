@@ -307,6 +307,77 @@ namespace Hitboxes {
 
 ---
 
+## Affichage du Rang en Jeu
+
+Pendant la partie, le rang global et le meilleur score personnel sont affiches dans le HUD.
+
+### Fonctionnalites
+
+| Element | Description |
+|---------|-------------|
+| Rang global | Position actuelle (#1, #2, etc.) |
+| Meilleur score | Record personnel a battre |
+| Mise a jour | Toutes les 10 secondes |
+| Indicateur NEW! | Affiche quand le score depasse le record |
+
+### Couleurs du Rang
+
+| Position | Couleur |
+|----------|---------|
+| #1 | Or (255, 215, 0) |
+| #2 | Argent (192, 192, 192) |
+| #3 | Bronze (205, 127, 50) |
+| Top 10 | Bleu clair (100, 200, 255) |
+| Top 50 | Vert (100, 255, 150) |
+| Autres | Gris (200, 200, 200) |
+
+### Format du Score
+
+| Seuil | Format | Exemple |
+|-------|--------|---------|
+| < 1000 | Brut | BEST: 850 |
+| >= 1000 | K | BEST: 32.6K |
+| >= 1000000 | M | BEST: 1.2M |
+
+### Comportement Live
+
+- Le meilleur score suit le score actuel quand il est depasse
+- Le texte devient vert avec "NEW!" quand un nouveau record est etabli
+- Exemple : `BEST: 17.3K NEW!`
+
+---
+
+## Leaderboard - Tri par Colonnes
+
+Le leaderboard permet de trier les entrees par differentes colonnes.
+
+### Colonnes Triables
+
+| Colonne | Description | Direction par defaut |
+|---------|-------------|---------------------|
+| SCORE | Score total | Descendant (plus haut d'abord) |
+| WAVE | Vague atteinte | Descendant |
+| KILLS | Nombre de kills | Descendant |
+| TIME | Duree de la partie | Descendant |
+
+### Comportement
+
+- Cliquer sur une colonne trie par cette colonne
+- Cliquer a nouveau inverse l'ordre (ascendant <-> descendant)
+- La colonne active est affichee en or avec un indicateur (`^` ou `v`)
+- Changer de periode (ALL TIME/WEEKLY/MONTHLY) reset le tri a RANK ascendant
+
+### Indicateurs Visuels
+
+| Indicateur | Signification |
+|------------|---------------|
+| `^` | Tri ascendant (plus petit d'abord) |
+| `v` | Tri descendant (plus grand d'abord) |
+| Couleur or | Colonne de tri active |
+| Couleur grise | Colonne inactive |
+
+---
+
 ## References Code
 
 | Fichier | Description |
@@ -315,3 +386,5 @@ namespace Hitboxes {
 | `GameWorld.cpp` | Logique serveur |
 | `AABB.hpp` | Systeme de collision |
 | `GameScene.cpp` | Rendu et HUD |
+| `MongoDBLeaderboardRepository.cpp` | Calcul du rang unique par joueur |
+| `LeaderboardScene.cpp` | Affichage et tri du leaderboard |

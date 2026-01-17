@@ -38,7 +38,9 @@ namespace infrastructure::game {
         uint8_t chargeLevel = 0;       // 0-3 charge level
         bool isCharging = false;       // Currently charging?
         uint8_t speedLevel = 0;        // Speed upgrade level (0-3)
-        uint8_t weaponLevel = 0;       // Weapon upgrade level (0-3)
+        // Weapon levels per weapon type (0-3 each)
+        // Index: 0=Standard, 1=Spread, 2=Laser, 3=Missile
+        std::array<uint8_t, 4> weaponLevels = {0, 0, 0, 0};
         bool hasForce = false;         // Has Force Pod?
         uint8_t forceLevel = 0;        // Force Pod level (0-2)
         bool hasBits = false;          // Has Bit Devices? (2 orbiting satellites)
@@ -276,13 +278,60 @@ namespace infrastructure::game {
     struct PlayerScore {
         uint32_t score = 0;
         uint16_t kills = 0;
+        uint8_t deaths = 0;
         float comboMultiplier = 1.0f;
         float comboTimer = 0.0f;       // Reset combo if > 2s without kill
+        float maxCombo = 1.0f;         // Best combo achieved this game
         bool tookDamageThisWave = false;
+
+        // Kill streak tracking (consecutive kills without taking damage)
+        uint16_t currentKillStreak = 0;
+        uint16_t bestKillStreak = 0;
+
+        // Wave streak tracking
+        uint16_t currentWaveStreak = 0;   // Waves completed without dying (reset on death)
+        uint16_t bestWaveStreak = 0;      // Best wave streak this game
+        uint16_t perfectWaves = 0;        // Waves completed without taking any damage
+
+        // Weapon-specific kills for leaderboard stats
+        uint32_t standardKills = 0;
+        uint32_t spreadKills = 0;
+        uint32_t laserKills = 0;
+        uint32_t missileKills = 0;
+        uint32_t waveCannonKills = 0;  // Wave Cannon (charged beam) kills
+        uint8_t bossKills = 0;
+
+        // Damage tracking
+        uint64_t totalDamageDealt = 0;    // Total damage dealt to enemies/boss
+
+        // Game session tracking
+        std::chrono::steady_clock::time_point gameStartTime;
+        bool gameStarted = false;
 
         // Get combo as uint8_t (x10, e.g., 1.5x = 15)
         uint8_t getComboEncoded() const {
             return static_cast<uint8_t>(std::clamp(comboMultiplier * 10.0f, 10.0f, 30.0f));
+        }
+
+        // Get best combo as uint16_t (x10)
+        uint16_t getMaxComboEncoded() const {
+            return static_cast<uint16_t>(std::clamp(maxCombo * 10.0f, 10.0f, 100.0f));
+        }
+
+        // Get game duration in seconds
+        uint32_t getGameDurationSeconds() const {
+            if (!gameStarted) return 0;
+            auto now = std::chrono::steady_clock::now();
+            return static_cast<uint32_t>(
+                std::chrono::duration_cast<std::chrono::seconds>(now - gameStartTime).count()
+            );
+        }
+
+        void startGame() {
+            if (!gameStarted) {
+                gameStartTime = std::chrono::steady_clock::now();
+                gameStarted = true;
+            }
         }
     };
 
@@ -295,7 +344,8 @@ namespace infrastructure::game {
     static constexpr uint16_t POINTS_POW_ARMOR = 200;   // Special power-up carrier
     static constexpr uint16_t POINTS_BOSS = 5000;       // Boss kill bonus
     static constexpr uint16_t POINTS_WAVE_BONUS = 500;  // Bonus for completing wave without damage
-    static constexpr float COMBO_DECAY_TIME = 3.0f;     // Reset combo after 3s without kill
+    static constexpr float COMBO_GRACE_TIME = 3.0f;     // Grace period before decay starts
+    static constexpr float COMBO_DECAY_RATE = 0.5f;    // -0.5x per second after grace period
     static constexpr float COMBO_INCREMENT = 0.1f;      // +0.1x per kill
     static constexpr float COMBO_MAX = 3.0f;            // Max 3.0x multiplier
 
@@ -590,10 +640,11 @@ namespace infrastructure::game {
         // Score System (Gameplay Phase 2)
         // ═══════════════════════════════════════════════════════════════════
 
-        void awardKillScore(uint8_t playerId, EnemyType enemyType);
+        void awardKillScore(uint8_t playerId, EnemyType enemyType, WeaponType weaponUsed = WeaponType::Standard);
         void updateComboTimers(float deltaTime);
         uint16_t getEnemyPointValue(EnemyType type) const;
         void onPlayerDamaged(uint8_t playerId);
+        void onPlayerDied(uint8_t playerId);
         uint16_t getWaveNumber() const { return _waveNumber; }
         const PlayerScore& getPlayerScore(uint8_t playerId) const;
 

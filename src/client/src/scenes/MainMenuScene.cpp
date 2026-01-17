@@ -10,6 +10,7 @@
 #include "scenes/LobbyScene.hpp"
 #include "scenes/SettingsScene.hpp"
 #include "scenes/RoomBrowserScene.hpp"
+#include "scenes/LeaderboardScene.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
 #include "audio/VoiceChatManager.hpp"
 #include <variant>
@@ -84,9 +85,20 @@ void MainMenuScene::initUI()
     _quickJoinButton->setNormalColor({120, 100, 50, 255});
     _quickJoinButton->setHoveredColor({150, 130, 70, 255});
 
+    // Leaderboard button
+    _leaderboardButton = std::make_unique<ui::Button>(
+        Vec2f{centerX - buttonWidth / 2, startY + spacing * 4},
+        Vec2f{buttonWidth, buttonHeight},
+        "LEADERBOARD",
+        FONT_KEY
+    );
+    _leaderboardButton->setOnClick([this]() { onLeaderboardClick(); });
+    _leaderboardButton->setNormalColor({150, 120, 50, 255});
+    _leaderboardButton->setHoveredColor({180, 150, 70, 255});
+
     // Settings button
     _settingsButton = std::make_unique<ui::Button>(
-        Vec2f{centerX - buttonWidth / 2, startY + spacing * 4},
+        Vec2f{centerX - buttonWidth / 2, startY + spacing * 5},
         Vec2f{buttonWidth, buttonHeight},
         "SETTINGS",
         FONT_KEY
@@ -95,7 +107,7 @@ void MainMenuScene::initUI()
 
     // Quit button
     _quitButton = std::make_unique<ui::Button>(
-        Vec2f{centerX - buttonWidth / 2, startY + spacing * 5},
+        Vec2f{centerX - buttonWidth / 2, startY + spacing * 6},
         Vec2f{buttonWidth, buttonHeight},
         "QUIT",
         FONT_KEY
@@ -421,6 +433,13 @@ void MainMenuScene::processTCPEvents()
     }
 }
 
+void MainMenuScene::onLeaderboardClick()
+{
+    if (_sceneManager) {
+        _sceneManager->pushScene(std::make_unique<LeaderboardScene>());
+    }
+}
+
 void MainMenuScene::onSettingsClick()
 {
     if (_sceneManager) {
@@ -474,6 +493,7 @@ void MainMenuScene::handleEvent(const events::Event& event)
         _joinRoomButton->handleEvent(event);
         _browseRoomsButton->handleEvent(event);
         _quickJoinButton->handleEvent(event);
+        _leaderboardButton->handleEvent(event);
         _settingsButton->handleEvent(event);
         _quitButton->handleEvent(event);
     }
@@ -543,6 +563,7 @@ void MainMenuScene::render()
     _joinRoomButton->render(*_context.window);
     _browseRoomsButton->render(*_context.window);
     _quickJoinButton->render(*_context.window);
+    _leaderboardButton->render(*_context.window);
     _settingsButton->render(*_context.window);
     _quitButton->render(*_context.window);
 

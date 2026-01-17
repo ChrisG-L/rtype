@@ -19,16 +19,47 @@
 namespace infrastructure::adapters::in::network {
 
     static constexpr int BROADCAST_INTERVAL_MS = 50;
-    static constexpr int PLAYER_TIMEOUT_MS = 2000;
 
-    UDPServer::UDPServer(boost::asio::io_context& io_ctx, std::shared_ptr<SessionManager> sessionManager)
+    // ════════════════════════════════════════════════════════════════════════
+    // Generic broadcast method implementation (reduces code duplication)
+    // ════════════════════════════════════════════════════════════════════════
+    template<typename T>
+    void UDPServer::broadcastToRoom(MessageType type, const T& payload,
+                                     const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + T::WIRE_SIZE;
+        std::vector<uint8_t> buf(totalSize);
+
+        UDPHeader head{
+            .type = static_cast<uint16_t>(type),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+        head.to_bytes(buf.data());
+        payload.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+
+        auto endpoints = gameWorld->getAllEndpoints();
+        for (const auto& ep : endpoints) {
+            sendTo(ep, buf.data(), buf.size());
+        }
+    }
+
+    static constexpr int PLAYER_TIMEOUT_MS = 2000;
+    static constexpr int AUTO_SAVE_INTERVAL_MS = 1000;  // Auto-save every 1 second
+
+    UDPServer::UDPServer(boost::asio::io_context& io_ctx,
+                         std::shared_ptr<SessionManager> sessionManager,
+                         std::shared_ptr<ILeaderboardRepository> leaderboardRepository)
         : _io_ctx(io_ctx),
           _socket(io_ctx, udp::endpoint(udp::v4(), 4124)),
           _instanceManager(io_ctx),
           _sessionManager(sessionManager),
+          _leaderboardRepository(leaderboardRepository),
           _broadcastTimer(io_ctx),
           _networkStats(std::make_shared<infrastructure::network::NetworkStats>()),
-          _statsTimer(io_ctx) {
+          _statsTimer(io_ctx),
+          _autoSaveTimer(io_ctx) {
         // Windows: désactiver ICMP Port Unreachable qui cause des erreurs sur UDP
         #ifdef _WIN32
             BOOL bNewBehavior = FALSE;
@@ -43,10 +74,11 @@ namespace infrastructure::adapters::in::network {
         // Register callback to handle player leaving game via TCP
         if (_sessionManager) {
             _sessionManager->setPlayerLeaveGameCallback(
-                [this](uint8_t playerId, const std::string& roomCode, const std::string& endpoint) {
+                [this](uint8_t playerId, const std::string& roomCode, const std::string& endpoint,
+                       const std::string& email, const std::string& displayName) {
                     // Post to io_context to ensure thread-safety
-                    boost::asio::post(_io_ctx, [this, playerId, roomCode, endpoint]() {
-                        handlePlayerLeaveGame(playerId, roomCode, endpoint);
+                    boost::asio::post(_io_ctx, [this, playerId, roomCode, endpoint, email, displayName]() {
+                        handlePlayerLeaveGame(playerId, roomCode, endpoint, email, displayName);
                     });
                 }
             );
@@ -75,6 +107,7 @@ namespace infrastructure::adapters::in::network {
         do_read();
         scheduleBroadcast();
         scheduleStatsUpdate();
+        scheduleAutoSave();
     }
 
     void UDPServer::run() {
@@ -84,6 +117,7 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::stop() {
         _broadcastTimer.cancel();
         _statsTimer.cancel();
+        _autoSaveTimer.cancel();
         _socket.close();
     }
 
@@ -112,24 +146,8 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::sendPlayerJoin(const udp::endpoint& endpoint, uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerJoin::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerJoin),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PlayerJoin pj{.player_id = playerId};
-        pj.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        // Broadcast to all players in the same game instance
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PlayerJoin, pj, gameWorld);
 
         server::logging::Logger::getNetworkLogger()->info(
             "Player {} joined from {}:{}",
@@ -139,23 +157,8 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::sendPlayerLeave(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerLeave::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerLeave),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PlayerLeave pl{.player_id = playerId};
-        pl.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PlayerLeave, pl, gameWorld);
 
         server::logging::Logger::getNetworkLogger()->info("Player {} left", static_cast<int>(playerId));
     }
@@ -320,7 +323,7 @@ namespace infrastructure::adapters::in::network {
         // Process dead players
         auto deadPlayers = gameWorld->getDeadPlayers();
         for (uint8_t playerId : deadPlayers) {
-            broadcastPlayerDied(playerId, gameWorld);
+            broadcastPlayerDied(playerId, roomCode, gameWorld);
         }
 
         // R-Type Authentic (Phase 3) broadcasts
@@ -395,88 +398,33 @@ namespace infrastructure::adapters::in::network {
         if (!missileOpt) return;
 
         const auto& m = *missileOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + MissileSpawned::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::MissileSpawned),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         MissileSpawned ms{
             .missile_id = missileId,
             .owner_id = ownerId,
             .x = static_cast<uint16_t>(m.x),
             .y = static_cast<uint16_t>(m.y)
         };
-        ms.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::MissileSpawned, ms, gameWorld);
     }
 
     void UDPServer::broadcastMissileDestroyed(uint16_t missileId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + MissileDestroyed::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::MissileDestroyed),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         MissileDestroyed md{.missile_id = missileId};
-        md.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::MissileDestroyed, md, gameWorld);
     }
 
     void UDPServer::broadcastEnemyDestroyed(uint16_t enemyId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + EnemyDestroyed::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::EnemyDestroyed),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         EnemyDestroyed ed{.enemy_id = enemyId};
-        ed.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::EnemyDestroyed, ed, gameWorld);
     }
 
     void UDPServer::broadcastPlayerDamaged(uint8_t playerId, uint8_t damage, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDamaged::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerDamaged),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
+        // Get current health from snapshot
         auto snapshot = gameWorld->getSnapshot();
         uint8_t newHealth = 0;
         for (uint8_t i = 0; i < snapshot.player_count; ++i) {
@@ -491,36 +439,20 @@ namespace infrastructure::adapters::in::network {
             .damage = damage,
             .new_health = newHealth
         };
-        pd.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PlayerDamaged, pd, gameWorld);
     }
 
-    void UDPServer::broadcastPlayerDied(uint8_t playerId, const std::shared_ptr<game::GameWorld>& gameWorld) {
+    void UDPServer::broadcastPlayerDied(uint8_t playerId, const std::string& roomCode,
+                                          const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PlayerDied::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PlayerDied),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PlayerDied pd{.player_id = playerId};
-        pd.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+        broadcastToRoom(MessageType::PlayerDied, pd, gameWorld);
 
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        // Save player stats on death (incremental save)
+        savePlayerStatsOnDeath(playerId, roomCode, gameWorld);
 
-        server::logging::Logger::getGameLogger()->info("Player {} died", static_cast<int>(playerId));
+        server::logging::Logger::getGameLogger()->info("Player {} died (stats saved)", static_cast<int>(playerId));
     }
 
     // ============================================================================
@@ -534,17 +466,6 @@ namespace infrastructure::adapters::in::network {
         if (!wcOpt) return;
 
         const auto& wc = *wcOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + WaveCannonState::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::WaveCannonFired),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         WaveCannonState wcState{
             .id = wc.id,
             .owner_id = wc.owner_id,
@@ -553,12 +474,7 @@ namespace infrastructure::adapters::in::network {
             .charge_level = wc.chargeLevel,
             .width = static_cast<uint8_t>(wc.width)
         };
-        wcState.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::WaveCannonFired, wcState, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Wave Cannon {} fired by player {}",
             waveCannonId, static_cast<int>(wc.owner_id));
@@ -571,17 +487,6 @@ namespace infrastructure::adapters::in::network {
         if (!puOpt) return;
 
         const auto& pu = *puOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpState::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PowerUpSpawned),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PowerUpState puState{
             .id = pu.id,
             .x = static_cast<uint16_t>(pu.x),
@@ -589,12 +494,7 @@ namespace infrastructure::adapters::in::network {
             .type = static_cast<uint8_t>(pu.type),
             .remaining_time = static_cast<uint8_t>(pu.lifetime)
         };
-        puState.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PowerUpSpawned, puState, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Power-up {} spawned (type {})",
             powerUpId, static_cast<int>(pu.type));
@@ -603,27 +503,12 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::broadcastPowerUpCollected(uint16_t powerUpId, uint8_t playerId, uint8_t powerUpType, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpCollected::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PowerUpCollected),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PowerUpCollected pc{
             .powerup_id = powerUpId,
             .player_id = playerId,
             .powerup_type = powerUpType
         };
-        pc.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PowerUpCollected, pc, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Power-up {} collected by player {}",
             powerUpId, static_cast<int>(playerId));
@@ -632,23 +517,8 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::broadcastPowerUpExpired(uint16_t powerUpId, const std::shared_ptr<game::GameWorld>& gameWorld) {
         if (!gameWorld) return;
 
-        const size_t totalSize = UDPHeader::WIRE_SIZE + PowerUpExpired::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::PowerUpExpired),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         PowerUpExpired pe{.powerup_id = powerUpId};
-        pe.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::PowerUpExpired, pe, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Power-up {} expired", powerUpId);
     }
@@ -660,17 +530,6 @@ namespace infrastructure::adapters::in::network {
         if (!forceOpt) return;
 
         const auto& force = *forceOpt;
-
-        const size_t totalSize = UDPHeader::WIRE_SIZE + ForceState::WIRE_SIZE;
-        std::vector<uint8_t> buf(totalSize);
-
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::ForceStateUpdate),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-
         ForceState fs{
             .owner_id = force.ownerId,
             .x = static_cast<uint16_t>(force.x),
@@ -678,12 +537,7 @@ namespace infrastructure::adapters::in::network {
             .is_attached = force.isAttached ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0),
             .level = force.level
         };
-        fs.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
-
-        auto endpoints = gameWorld->getAllEndpoints();
-        for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
-        }
+        broadcastToRoom(MessageType::ForceStateUpdate, fs, gameWorld);
 
         server::logging::Logger::getGameLogger()->debug("Force state updated for player {}",
             static_cast<int>(playerId));
@@ -1046,8 +900,150 @@ namespace infrastructure::adapters::in::network {
         });
     }
 
-    void UDPServer::handlePlayerLeaveGame(uint8_t playerId, const std::string& roomCode, const std::string& endpoint) {
+    void UDPServer::scheduleAutoSave() {
+        _autoSaveTimer.expires_after(std::chrono::milliseconds(AUTO_SAVE_INTERVAL_MS));
+        _autoSaveTimer.async_wait([this](boost::system::error_code ec) {
+            if (ec) return;
+
+            autoSaveAllPlayerStats();
+            scheduleAutoSave();  // Reschedule
+        });
+    }
+
+    void UDPServer::autoSaveAllPlayerStats() {
+        if (!_leaderboardRepository || !_sessionManager) return;
+
         auto logger = server::logging::Logger::getGameLogger();
+        auto roomCodes = _instanceManager.getActiveRoomCodes();
+
+        for (const auto& roomCode : roomCodes) {
+            auto gameWorld = _instanceManager.getInstance(roomCode);
+            if (!gameWorld) continue;
+
+            // Post to each room's strand for thread safety
+            boost::asio::post(gameWorld->getStrand(),
+                [this, roomCode, gameWorld, logger]() {
+                    // Get all endpoints in this room
+                    auto endpoints = gameWorld->getAllEndpoints();
+
+                    for (const auto& endpoint : endpoints) {
+                        std::string endpointStr = endpointToString(endpoint);
+
+                        // Get player info from session
+                        auto session = _sessionManager->getSessionByEndpoint(endpointStr);
+                        if (!session || !session->playerId.has_value()) continue;
+
+                        uint8_t playerId = *session->playerId;
+                        const auto& scoreData = gameWorld->getPlayerScore(playerId);
+
+                        // Only save if player has played (has score or kills)
+                        if (scoreData.score == 0 && scoreData.kills == 0) continue;
+
+                        // Create game history entry for current session save
+                        application::ports::out::persistence::GameHistoryEntry historyEntry;
+                        historyEntry.playerName = session->displayName;
+                        historyEntry.score = scoreData.score;
+                        historyEntry.wave = gameWorld->getWaveNumber();
+                        historyEntry.kills = scoreData.kills;
+                        historyEntry.deaths = scoreData.deaths;
+                        historyEntry.duration = scoreData.getGameDurationSeconds();
+                        historyEntry.timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now().time_since_epoch()
+                        ).count();
+                        historyEntry.bossDefeated = scoreData.bossKills > 0;
+                        historyEntry.standardKills = scoreData.standardKills;
+                        historyEntry.spreadKills = scoreData.spreadKills;
+                        historyEntry.laserKills = scoreData.laserKills;
+                        historyEntry.missileKills = scoreData.missileKills;
+                        historyEntry.waveCannonKills = scoreData.waveCannonKills;
+                        historyEntry.bossKills = scoreData.bossKills;
+                        historyEntry.bestCombo = scoreData.getMaxComboEncoded();
+                        historyEntry.bestKillStreak = scoreData.bestKillStreak;
+                        historyEntry.bestWaveStreak = scoreData.bestWaveStreak;
+                        historyEntry.perfectWaves = scoreData.perfectWaves;
+                        historyEntry.totalDamageDealt = scoreData.totalDamageDealt;
+
+                        try {
+                            // Save current game session (upsert - doesn't duplicate stats)
+                            // This only updates the current_game_sessions collection
+                            _leaderboardRepository->saveCurrentGameSession(
+                                session->email, session->displayName, roomCode, historyEntry);
+                            logger->info("Auto-saved session for {} ({}): score={}, kills={}, wave={}, stdKills={}, spreadKills={}, laserKills={}, missileKills={}, waveCannonKills={}, dmg={}",
+                                         session->displayName, static_cast<int>(playerId),
+                                         scoreData.score, scoreData.kills, gameWorld->getWaveNumber(),
+                                         scoreData.standardKills, scoreData.spreadKills, scoreData.laserKills,
+                                         scoreData.missileKills, scoreData.waveCannonKills, scoreData.totalDamageDealt);
+                        } catch (const std::exception& e) {
+                            logger->error("Auto-save failed for {}: {}", session->displayName, e.what());
+                        }
+                    }
+                });
+        }
+    }
+
+    void UDPServer::savePlayerStatsOnDeath(uint8_t playerId, const std::string& roomCode,
+                                           const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!_leaderboardRepository || !_sessionManager || !gameWorld) return;
+
+        auto logger = server::logging::Logger::getGameLogger();
+
+        // Find the endpoint for this player
+        auto endpointOpt = gameWorld->getEndpointByPlayerId(playerId);
+        if (!endpointOpt) return;
+
+        std::string endpointStr = endpointToString(*endpointOpt);
+        auto session = _sessionManager->getSessionByEndpoint(endpointStr);
+        if (!session) return;
+
+        const auto& scoreData = gameWorld->getPlayerScore(playerId);
+
+        // Only save if player has played
+        if (scoreData.score == 0 && scoreData.kills == 0) return;
+
+        // Create game history entry for current session save
+        application::ports::out::persistence::GameHistoryEntry historyEntry;
+        historyEntry.playerName = session->displayName;
+        historyEntry.score = scoreData.score;
+        historyEntry.wave = gameWorld->getWaveNumber();
+        historyEntry.kills = scoreData.kills;
+        historyEntry.deaths = scoreData.deaths;
+        historyEntry.duration = scoreData.getGameDurationSeconds();
+        historyEntry.timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count();
+        historyEntry.bossDefeated = scoreData.bossKills > 0;
+        historyEntry.standardKills = scoreData.standardKills;
+        historyEntry.spreadKills = scoreData.spreadKills;
+        historyEntry.laserKills = scoreData.laserKills;
+        historyEntry.missileKills = scoreData.missileKills;
+        historyEntry.waveCannonKills = scoreData.waveCannonKills;
+        historyEntry.bossKills = scoreData.bossKills;
+        historyEntry.bestCombo = scoreData.getMaxComboEncoded();
+        historyEntry.bestKillStreak = scoreData.bestKillStreak;
+        historyEntry.bestWaveStreak = scoreData.bestWaveStreak;
+        historyEntry.perfectWaves = scoreData.perfectWaves;
+        historyEntry.totalDamageDealt = scoreData.totalDamageDealt;
+
+        try {
+            // Save current game session (upsert - same as auto-save)
+            // This ensures the latest state is saved without duplicating stats
+            // Final transfer to cumulative stats happens on disconnect (finalizeGameSession)
+            _leaderboardRepository->saveCurrentGameSession(
+                session->email, session->displayName, roomCode, historyEntry);
+
+            logger->info("Saved session on death for {} ({}): score={}, kills={}, wave={}, deaths={}",
+                        session->displayName, static_cast<int>(playerId),
+                        scoreData.score, scoreData.kills, gameWorld->getWaveNumber(), scoreData.deaths);
+        } catch (const std::exception& e) {
+            logger->error("Failed to save session on death for {}: {}", session->displayName, e.what());
+        }
+    }
+
+    void UDPServer::handlePlayerLeaveGame(uint8_t playerId, const std::string& roomCode, const std::string& endpoint,
+                                           const std::string& email, const std::string& displayName) {
+        auto logger = server::logging::Logger::getGameLogger();
+        logger->info("handlePlayerLeaveGame called: playerId={}, roomCode={}, endpoint={}, email={}, displayName={}",
+                     static_cast<int>(playerId), roomCode, endpoint, email, displayName);
 
         // Unregister player from network stats (thread-safe)
         _networkStats->unregisterPlayer(endpoint);
@@ -1062,7 +1058,12 @@ namespace infrastructure::adapters::in::network {
 
         // Post to room's strand for thread safety
         boost::asio::post(gameWorld->getStrand(),
-            [this, gameWorld, playerId, roomCode, logger]() {
+            [this, gameWorld, playerId, roomCode, logger, email, displayName]() {
+                // Save player stats BEFORE removing (so we still have the data)
+                if (!email.empty() && _leaderboardRepository) {
+                    savePlayerStats(playerId, email, displayName, gameWorld);
+                }
+
                 // Remove player from GameWorld (we're in the strand, safe)
                 gameWorld->removePlayer(playerId);
 
@@ -1080,5 +1081,131 @@ namespace infrastructure::adapters::in::network {
                     });
                 }
             });
+    }
+
+    void UDPServer::savePlayerStats(uint8_t playerId, const std::string& email, const std::string& displayName,
+                                     const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!_leaderboardRepository || !gameWorld) return;
+
+        auto logger = server::logging::Logger::getGameLogger();
+        logger->info("savePlayerStats called for {} (playerId={})", displayName, static_cast<int>(playerId));
+
+        // Get player's score data
+        const auto& scoreData = gameWorld->getPlayerScore(playerId);
+        logger->info("savePlayerStats scoreData: score={}, kills={}, deaths={}, stdKills={}, missileKills={}",
+                    scoreData.score, scoreData.kills, scoreData.deaths,
+                    scoreData.standardKills, scoreData.missileKills);
+
+        // Only save if player actually played (has score or kills)
+        if (scoreData.score == 0 && scoreData.kills == 0) {
+            logger->info("Player {} ({}) has no stats to save - calling finalizeGameSession anyway", static_cast<int>(playerId), displayName);
+            // Still cleanup any empty session
+            try {
+                _leaderboardRepository->finalizeGameSession(email, displayName);
+                logger->info("finalizeGameSession called (empty stats) for {}", displayName);
+            } catch (const std::exception& e) {
+                logger->error("finalizeGameSession failed (empty stats) for {}: {}", displayName, e.what());
+            }
+            return;
+        }
+
+        // Create leaderboard entry for submission
+        application::ports::out::persistence::LeaderboardEntry entry;
+        entry.playerName = displayName;
+        entry.score = scoreData.score;
+        entry.wave = gameWorld->getWaveNumber();
+        entry.kills = scoreData.kills;
+        entry.deaths = scoreData.deaths;
+        entry.duration = scoreData.getGameDurationSeconds();
+        entry.timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count();
+
+        try {
+            // Submit to leaderboard (best score tracking)
+            bool submitted = _leaderboardRepository->submitScore(email, displayName, entry);
+
+            // Finalize the game session: transfers from current_game_sessions to
+            // cumulative player_stats and game_history, then deletes the session
+            _leaderboardRepository->finalizeGameSession(email, displayName);
+
+            // Check and unlock achievements
+            checkAndUnlockAchievements(email, scoreData, gameWorld->getWaveNumber());
+
+            logger->info("Finalized stats for player {} ({}): score={}, kills={}, wave={}, duration={}s, submitted={}, stdKills={}, spreadKills={}, laserKills={}, missileKills={}, waveCannonKills={}, dmg={}",
+                        static_cast<int>(playerId), displayName, scoreData.score, scoreData.kills,
+                        gameWorld->getWaveNumber(), scoreData.getGameDurationSeconds(), submitted,
+                        scoreData.standardKills, scoreData.spreadKills, scoreData.laserKills,
+                        scoreData.missileKills, scoreData.waveCannonKills, scoreData.totalDamageDealt);
+        } catch (const std::exception& e) {
+            logger->error("Failed to finalize stats for player {}: {}", displayName, e.what());
+        }
+    }
+
+    void UDPServer::checkAndUnlockAchievements(const std::string& email,
+                                               const game::PlayerScore& scoreData,
+                                               uint16_t wave) {
+        if (!_leaderboardRepository) return;
+
+        using AchievementType = application::ports::out::persistence::AchievementType;
+
+        try {
+            // Get current stats for cumulative checks
+            auto statsOpt = _leaderboardRepository->getPlayerStats(email);
+            if (!statsOpt) return;
+
+            const auto& stats = *statsOpt;
+
+            // First Blood - Get 1 kill (check current game)
+            if (scoreData.kills >= 1 && !stats.hasAchievement(AchievementType::FirstBlood)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::FirstBlood);
+            }
+
+            // Exterminator - 1000 total kills
+            if (stats.totalKills >= 1000 && !stats.hasAchievement(AchievementType::Exterminator)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::Exterminator);
+            }
+
+            // Combo Master - Achieve 3.0x combo
+            if (scoreData.maxCombo >= 3.0f && !stats.hasAchievement(AchievementType::ComboMaster)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::ComboMaster);
+            }
+
+            // Boss Slayer - Kill any boss
+            if (scoreData.bossKills > 0 && !stats.hasAchievement(AchievementType::BossSlayer)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::BossSlayer);
+            }
+
+            // Survivor - Reach wave 20 without dying
+            if (wave >= 20 && scoreData.deaths == 0 && !stats.hasAchievement(AchievementType::Survivor)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::Survivor);
+            }
+
+            // Speed Demon - Wave 10 in under 5 minutes (300 seconds)
+            if (wave >= 10 && scoreData.getGameDurationSeconds() < 300 && !stats.hasAchievement(AchievementType::SpeedDemon)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::SpeedDemon);
+            }
+
+            // Veteran - Play 100 games
+            if (stats.gamesPlayed >= 100 && !stats.hasAchievement(AchievementType::Veteran)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::Veteran);
+            }
+
+            // Untouchable - Complete game with 0 deaths
+            if (scoreData.deaths == 0 && wave >= 5 && !stats.hasAchievement(AchievementType::Untouchable)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::Untouchable);
+            }
+
+            // Weapon Master - 100+ kills with each weapon
+            if (stats.standardKills >= 100 && stats.spreadKills >= 100 &&
+                stats.laserKills >= 100 && stats.missileKills >= 100 &&
+                !stats.hasAchievement(AchievementType::WeaponMaster)) {
+                _leaderboardRepository->unlockAchievement(email, AchievementType::WeaponMaster);
+            }
+
+        } catch (const std::exception& e) {
+            auto logger = server::logging::Logger::getGameLogger();
+            logger->error("Failed to check achievements for {}: {}", email, e.what());
+        }
     }
 }

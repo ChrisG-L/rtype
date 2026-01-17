@@ -13,6 +13,29 @@ using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::make_document;
 using bsoncxx::builder::basic::make_array;
 
+// Helper functions to safely read integers from BSON (handles both int32 and int64)
+namespace {
+    // For document elements
+    int32_t getInt32Safe(const bsoncxx::document::element& elem) {
+        if (elem.type() == bsoncxx::type::k_int32) {
+            return elem.get_int32().value;
+        } else if (elem.type() == bsoncxx::type::k_int64) {
+            return static_cast<int32_t>(elem.get_int64().value);
+        }
+        return 0;
+    }
+
+    // For array elements
+    int32_t getInt32Safe(const bsoncxx::array::element& elem) {
+        if (elem.type() == bsoncxx::type::k_int32) {
+            return elem.get_int32().value;
+        } else if (elem.type() == bsoncxx::type::k_int64) {
+            return static_cast<int32_t>(elem.get_int64().value);
+        }
+        return 0;
+    }
+}
+
 MongoDBUserSettingsRepository::MongoDBUserSettingsRepository(
     std::shared_ptr<MongoDBConfiguration> mongoDB)
     : _mongoDB(mongoDB)
@@ -33,7 +56,7 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
 
     // Game speed percent
     if (doc["gameSpeedPercent"]) {
-        settings.gameSpeedPercent = static_cast<uint16_t>(doc["gameSpeedPercent"].get_int32().value);
+        settings.gameSpeedPercent = static_cast<uint16_t>(getInt32Safe(doc["gameSpeedPercent"]));
     }
 
     // Key bindings array (with backward compatibility for old 12-element format)
@@ -45,7 +68,7 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
         size_t i = 0;
         for (auto&& elem : arr) {
             if (i >= settings.keyBindings.size()) break;
-            settings.keyBindings[i] = static_cast<uint8_t>(elem.get_int32().value);
+            settings.keyBindings[i] = static_cast<uint8_t>(getInt32Safe(elem));
             ++i;
         }
         // If old format (12 elements), indices 12-25 keep their defaults set above
@@ -53,20 +76,20 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
 
     // Ship skin (default to 1 if not present)
     if (doc["shipSkin"]) {
-        settings.shipSkin = static_cast<uint8_t>(doc["shipSkin"].get_int32().value);
+        settings.shipSkin = static_cast<uint8_t>(getInt32Safe(doc["shipSkin"]));
     } else {
         settings.shipSkin = 1;
     }
 
     // Voice settings (with defaults)
     settings.voiceMode = doc["voiceMode"]
-        ? static_cast<uint8_t>(doc["voiceMode"].get_int32().value) : 0;
+        ? static_cast<uint8_t>(getInt32Safe(doc["voiceMode"])) : 0;
     settings.vadThreshold = doc["vadThreshold"]
-        ? static_cast<uint8_t>(doc["vadThreshold"].get_int32().value) : 2;
+        ? static_cast<uint8_t>(getInt32Safe(doc["vadThreshold"])) : 2;
     settings.micGain = doc["micGain"]
-        ? static_cast<uint8_t>(doc["micGain"].get_int32().value) : 100;
+        ? static_cast<uint8_t>(getInt32Safe(doc["micGain"])) : 100;
     settings.voiceVolume = doc["voiceVolume"]
-        ? static_cast<uint8_t>(doc["voiceVolume"].get_int32().value) : 100;
+        ? static_cast<uint8_t>(getInt32Safe(doc["voiceVolume"])) : 100;
 
     // Audio device selection (empty string = auto)
     if (doc["audioInputDevice"]) {

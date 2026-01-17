@@ -29,10 +29,13 @@ docker run -d --name rtype-mongodb -p 8089:27017 -v rtype_data:/data/db --restar
 
 ```
 rtype/
-├── players        # Profils joueurs
-├── highscores     # Meilleurs scores
-├── sessions       # Parties actives
-└── config         # Configuration
+├── users          # Comptes utilisateurs (auth)
+├── user_settings  # Parametres utilisateurs
+├── leaderboard    # Scores pour le classement
+├── player_stats   # Statistiques cumulees par joueur
+├── game_history   # Historique des parties
+├── achievements   # Succes debloques
+└── sessions       # Sessions actives
 ```
 
 ---

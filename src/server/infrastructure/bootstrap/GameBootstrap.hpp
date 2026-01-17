@@ -14,6 +14,7 @@
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBLeaderboardRepository.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBChatMessageRepository.hpp"
 #include "infrastructure/adapters/out/MongoIdGenerator.hpp"
 #include "infrastructure/adapters/out/SpdLogAdapter.hpp"
@@ -41,6 +42,7 @@ namespace infrastructure::bootstrap {
                 using adapters::out::persistence::MongoDBConfiguration;
                 using adapters::out::persistence::MongoDBUserRepository;
                 using adapters::out::persistence::MongoDBUserSettingsRepository;
+                using adapters::out::persistence::MongoDBLeaderboardRepository;
                 using adapters::out::persistence::MongoDBChatMessageRepository;
                 using adapters::out::MongoIdGenerator;
                 using adapters::out::SpdLogAdapter;
@@ -77,6 +79,7 @@ namespace infrastructure::bootstrap {
                 auto mongoConfig = std::make_shared<MongoDBConfiguration>(dbConfig);
                 auto userRepo = std::make_shared<MongoDBUserRepository>(mongoConfig);
                 auto userSettingsRepo = std::make_shared<MongoDBUserSettingsRepository>(mongoConfig);
+                auto leaderboardRepo = std::make_shared<MongoDBLeaderboardRepository>(mongoConfig);
                 auto chatMessageRepo = std::make_shared<MongoDBChatMessageRepository>(mongoConfig);
 
                 // Create adapters for ports
@@ -100,6 +103,7 @@ namespace infrastructure::bootstrap {
                     keyFile ? keyFile : "certs/server.key",
                     userRepo,
                     userSettingsRepo,
+                    leaderboardRepo,
                     idGenerator,
                     logger,
                     sessionManager,
@@ -107,8 +111,8 @@ namespace infrastructure::bootstrap {
                 );
                 tcpAuthServer.start();
 
-                // Start UDP Game Server on port 4124 (shares SessionManager with TCP)
-                UDPServer udpServer(io_ctx, sessionManager);
+                // Start UDP Game Server on port 4124 (shares SessionManager with TCP, has leaderboard for stats)
+                UDPServer udpServer(io_ctx, sessionManager, leaderboardRepo);
                 udpServer.start();
 
                 // Start Voice UDP Server on port 4126 (shares SessionManager with TCP)

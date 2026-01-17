@@ -228,6 +228,7 @@ add_executable(rtype_client
     src/scenes/LobbyScene.cpp
     src/scenes/SettingsScene.cpp
     src/scenes/RoomBrowserScene.cpp
+    src/scenes/LeaderboardScene.cpp
 
     src/ui/Button.cpp
     src/ui/TextInput.cpp

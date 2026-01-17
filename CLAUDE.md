@@ -211,7 +211,7 @@ struct PlayerState {
     uint8_t currentWeapon;  // WeaponType enum
     uint8_t chargeLevel;    // Wave Cannon charge (0-3)
     uint8_t speedLevel;     // Speed upgrade level (0-3)
-    uint8_t weaponLevel;    // Weapon upgrade level (0-3)
+    uint8_t weaponLevel;    // Current weapon's upgrade level (0-3, each weapon has independent levels)
     uint8_t hasForce;       // Has Force Pod (0 or 1)
     uint8_t shieldTimer;    // Reserved (always 0, R-Type authentic has no shield)
 };
@@ -608,6 +608,212 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | Bomber | 4 | -80 | 80 | 1.0s | 250 | Tanky, rapid fire |
 | POWArmor | 5 | -90 | 60 | 4.0s | 200 | 50% power-up drop |
 
+## Leaderboard & Achievements System
+
+Global leaderboards with player statistics and achievements, persisted in MongoDB.
+
+### Architecture
+
+```
+[Client: LeaderboardScene] ←TCP→ [TCPAuthServer]
+                                        ↓
+                              [ILeaderboardRepository]
+                                        ↓
+                           [MongoDBLeaderboardRepository]
+                                        ↓
+                                    [MongoDB]
+```
+
+### MongoDB Collections
+
+| Collection | Description |
+|------------|-------------|
+| `leaderboard` | Top scores with player info |
+| `player_stats` | Cumulative statistics per player |
+| `game_history` | Individual game records |
+| `achievements` | Unlocked achievement timestamps |
+
+### TCP Protocol Messages (Leaderboard)
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `GetLeaderboard` | 0x0500 | C→S | Request leaderboard (period + limit) |
+| `LeaderboardData` | 0x0501 | S→C | Leaderboard entries response |
+| `GetPlayerStats` | 0x0502 | C→S | Request own stats |
+| `PlayerStatsData` | 0x0503 | S→C | Player statistics response |
+| `GetGameHistory` | 0x0504 | C→S | Request game history |
+| `GameHistoryData` | 0x0505 | S→C | Game history entries |
+| `GetAchievements` | 0x0506 | C→S | Request achievements |
+| `AchievementsData` | 0x0507 | S→C | Achievement bitfield |
+
+### Wire Structures
+
+```cpp
+// GetLeaderboardRequest (2 bytes)
+struct GetLeaderboardRequest {
+    uint8_t period;   // 0=All-Time, 1=Weekly, 2=Monthly
+    uint8_t limit;    // Max entries (default 50)
+};
+
+// LeaderboardEntryWire (88 bytes per entry)
+struct LeaderboardEntryWire {
+    uint32_t rank;
+    char playerName[32];
+    uint32_t score;
+    uint16_t wave;
+    uint32_t kills;
+    uint32_t duration;    // Seconds
+    uint64_t timestamp;   // Unix timestamp
+};
+
+// PlayerStatsWire (76 bytes)
+struct PlayerStatsWire {
+    uint32_t gamesPlayed;
+    uint32_t totalKills;
+    uint32_t totalDeaths;
+    uint32_t totalScore;
+    uint32_t bestScore;
+    uint16_t bestWave;
+    uint16_t bestCombo;     // x10 (30 = 3.0x)
+    uint32_t bossKills;
+    uint32_t totalPlaytime; // Seconds
+    uint32_t standardKills;
+    uint32_t spreadKills;
+    uint32_t laserKills;
+    uint32_t missileKills;
+    uint32_t achievements;  // Bitfield
+};
+
+// GameHistoryEntryWire (24 bytes per entry)
+struct GameHistoryEntryWire {
+    uint32_t score;
+    uint16_t wave;
+    uint16_t kills;
+    uint16_t deaths;
+    uint32_t duration;    // Seconds
+    uint64_t timestamp;
+};
+```
+
+### Achievements System
+
+10 achievements tracked as a 32-bit bitfield:
+
+| Bit | Achievement | Condition |
+|-----|-------------|-----------|
+| 0 | First Blood | Get 1 kill |
+| 1 | Exterminator | 1000 total kills |
+| 2 | Combo Master | Achieve 3.0x combo |
+| 3 | Boss Slayer | Kill any boss |
+| 4 | Survivor | Reach wave 20 without dying |
+| 5 | Speed Demon | Wave 10 in under 5 minutes |
+| 6 | Perfectionist | Complete wave without damage |
+| 7 | Veteran | Play 100 games |
+| 8 | Untouchable | Complete game with 0 deaths |
+| 9 | Weapon Master | 100+ kills with each weapon |
+
+**Achievement Checker:** `src/server/application/services/AchievementChecker.hpp`
+
+### Leaderboard Periods
+
+| Period | Value | Filter |
+|--------|-------|--------|
+| All-Time | 0 | No filter |
+| Weekly | 1 | Last 7 days |
+| Monthly | 2 | Last 30 days |
+
+### Client UI (LeaderboardScene)
+
+Accessible via **LEADERBOARD** button in main menu.
+
+**Tabs:**
+1. **Leaderboard** - Top 50 players with rank, name, score, wave, kills
+2. **Stats** - Personal statistics (games, K/D, playtime, weapon usage)
+3. **Achievements** - 10 achievement badges (locked/unlocked)
+
+**Navigation:**
+- Tab buttons at top
+- Period filter buttons (All-Time/Weekly/Monthly) for Leaderboard tab
+- **BACK** button returns to main menu
+- Scroll support for long lists
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `src/server/include/application/ports/out/persistence/ILeaderboardRepository.hpp` | Repository interface |
+| `src/server/infrastructure/adapters/out/persistence/MongoDBLeaderboardRepository.cpp` | MongoDB implementation |
+| `src/server/include/application/services/AchievementChecker.hpp` | Achievement logic |
+| `src/client/include/scenes/LeaderboardScene.hpp` | Client scene header |
+| `src/client/src/scenes/LeaderboardScene.cpp` | Client scene implementation |
+| `src/client/include/network/NetworkEvents.hpp` | TCP event types |
+| `src/common/protocol/Protocol.hpp` | Wire format structures |
+
+### Usage Example (Client)
+
+```cpp
+// In MainMenuScene::onLeaderboardClick()
+auto& sceneManager = SceneManager::getInstance();
+sceneManager.pushScene(std::make_unique<LeaderboardScene>());
+
+// In LeaderboardScene - request data
+auto& tcpClient = TCPClient::getInstance();
+tcpClient.sendGetLeaderboard({.period = 0, .limit = 50});
+tcpClient.sendGetPlayerStats();
+tcpClient.sendGetAchievements();
+
+// Handle response events in update()
+while (auto event = tcpClient.pollEvent()) {
+    if (auto* data = std::get_if<LeaderboardDataEvent>(&*event)) {
+        // Update UI with data->response.entries
+    }
+}
+```
+
+### Real-Time Rank Display (GameScene)
+
+During gameplay, the player's global rank and personal best score are displayed in the HUD.
+
+**Features:**
+- **Global rank badge** - Shows current position (e.g., "RANK #42")
+- **Personal best score** - Target to beat (e.g., "BEST: 32.6K")
+- **Real-time updates** - Rank refreshed every 10 seconds
+- **Visual feedback** - Best score turns green when current score exceeds it
+
+**Rank Colors:**
+| Position | Color |
+|----------|-------|
+| #1 | Gold (255, 215, 0) |
+| #2 | Silver (192, 192, 192) |
+| #3 | Bronze (205, 127, 50) |
+| Top 10 | Light Blue (100, 200, 255) |
+| Top 50 | Green (100, 255, 150) |
+| Others | Gray (200, 200, 200) |
+
+**Score Formatting:**
+- `< 1000` → Raw number (e.g., "BEST: 850")
+- `≥ 1000` → K format (e.g., "BEST: 32.6K")
+- `≥ 1000000` → M format (e.g., "BEST: 1.2M")
+
+**Implementation:**
+```cpp
+// GameScene requests rank and stats at start
+_context.tcpClient->sendGetLeaderboard({.period = 0, .limit = 1});
+_context.tcpClient->sendGetPlayerStats();  // For bestScore
+
+// Periodic update every 10 seconds
+if (_rankUpdateTimer >= RANK_UPDATE_INTERVAL) {
+    _context.tcpClient->sendGetLeaderboard({.period = 0, .limit = 1});
+    _rankUpdateTimer = 0.0f;
+}
+```
+
+**Key Files:**
+| File | Description |
+|------|-------------|
+| `src/client/include/scenes/GameScene.hpp` | Rank state variables |
+| `src/client/src/scenes/GameScene.cpp` | `renderGlobalRank()` function |
+
 ## Assets
 
 | Asset | Path | Size |
@@ -643,6 +849,21 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 | **TCPAuthServer** | `src/server/infrastructure/adapters/in/network/TCPAuthServer.cpp` |
 | **TCPClient** | `src/client/src/network/TCPClient.cpp` |
 | **SessionManager** | `src/server/infrastructure/session/SessionManager.cpp` |
+| **LeaderboardScene** | `src/client/src/scenes/LeaderboardScene.cpp` |
+| **ILeaderboardRepository** | `src/server/include/application/ports/out/persistence/ILeaderboardRepository.hpp` |
+| **AchievementChecker** | `src/server/application/services/AchievementChecker.cpp` |
+
+### Unit Tests (Leaderboard)
+
+| Test File | Coverage |
+|-----------|----------|
+| `tests/server/application/services/AchievementCheckerTest.cpp` | All 10 achievements, edge cases |
+| `tests/server/application/services/LeaderboardDataTest.cpp` | PlayerStats, GameHistoryEntry, enums |
+
+**Run tests:**
+```bash
+./scripts/compile.sh && ./artifacts/tests/server_tests --gtest_filter="Achievement*:PlayerStats*:Leaderboard*"
+```
 | **ServerConfigManager** | `src/client/src/config/ServerConfigManager.cpp` |
 | **Server wrapper** | `src/server/scripts/server-wrapper.py` |
 | **Systemd service** | `src/server/scripts/rtype_server.service` |

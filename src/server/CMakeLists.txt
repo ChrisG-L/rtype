@@ -30,6 +30,9 @@ add_executable(rtype_server
     application/use_cases/auth/Login.cpp
     application/use_cases/auth/Register.cpp
 
+    # Application - Services
+    application/services/AchievementChecker.cpp
+
     # Infrastructure - Adapters In
     infrastructure/adapters/in/network/UDPServer.cpp
     infrastructure/adapters/in/network/VoiceUDPServer.cpp
@@ -39,6 +42,7 @@ add_executable(rtype_server
     infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp
     infrastructure/adapters/out/persistence/MongoDBUserRepository.cpp
     infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.cpp
+    infrastructure/adapters/out/persistence/MongoDBLeaderboardRepository.cpp
     infrastructure/adapters/out/persistence/MongoDBChatMessageRepository.cpp
 
     # Infrastructure - Game
