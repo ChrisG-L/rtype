@@ -962,6 +962,7 @@ namespace infrastructure::adapters::in::network {
                         historyEntry.bestWaveStreak = scoreData.bestWaveStreak;
                         historyEntry.perfectWaves = scoreData.perfectWaves;
                         historyEntry.totalDamageDealt = scoreData.totalDamageDealt;
+                        historyEntry.playerCount = static_cast<uint8_t>(gameWorld->getPlayerCount());
 
                         try {
                             // Save current game session (upsert - doesn't duplicate stats)
@@ -1023,6 +1024,7 @@ namespace infrastructure::adapters::in::network {
         historyEntry.bestWaveStreak = scoreData.bestWaveStreak;
         historyEntry.perfectWaves = scoreData.perfectWaves;
         historyEntry.totalDamageDealt = scoreData.totalDamageDealt;
+        historyEntry.playerCount = static_cast<uint8_t>(gameWorld->getPlayerCount());
 
         try {
             // Save current game session (upsert - same as auto-save)
@@ -1117,6 +1119,7 @@ namespace infrastructure::adapters::in::network {
         entry.kills = scoreData.kills;
         entry.deaths = scoreData.deaths;
         entry.duration = scoreData.getGameDurationSeconds();
+        entry.playerCount = static_cast<uint8_t>(gameWorld->getPlayerCount());
         entry.timestamp = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()
         ).count();

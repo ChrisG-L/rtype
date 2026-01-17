@@ -1729,12 +1729,24 @@ namespace infrastructure::adapters::in::network {
 
         auto period = static_cast<application::ports::out::persistence::LeaderboardPeriod>(reqOpt->period);
         uint32_t limit = reqOpt->limit > 0 ? reqOpt->limit : 50;
+        uint8_t playerCountFilter = reqOpt->playerCount;  // 0 = all, 1-6 = specific
 
-        auto entries = _leaderboardRepository->getLeaderboard(period, limit);
-        uint32_t yourRank = _leaderboardRepository->getPlayerRank(_user->getEmail().value(), period);
+        std::vector<application::ports::out::persistence::LeaderboardEntry> entries;
+        uint32_t yourRank;
 
-        do_write_leaderboard_response(entries, reqOpt->period, yourRank);
-        logger->debug("GetLeaderboard: sent {} entries, yourRank={}", entries.size(), yourRank);
+        if (playerCountFilter > 0) {
+            // Filtered by player count (Solo/Duo/Trio/etc.)
+            entries = _leaderboardRepository->getLeaderboard(period, playerCountFilter, limit);
+            yourRank = _leaderboardRepository->getPlayerRank(_user->getEmail().value(), period, playerCountFilter);
+        } else {
+            // All player counts combined
+            entries = _leaderboardRepository->getLeaderboard(period, limit);
+            yourRank = _leaderboardRepository->getPlayerRank(_user->getEmail().value(), period);
+        }
+
+        do_write_leaderboard_response(entries, reqOpt->period, playerCountFilter, yourRank);
+        logger->debug("GetLeaderboard: sent {} entries, period={}, playerCount={}, yourRank={}",
+                      entries.size(), reqOpt->period, playerCountFilter, yourRank);
     }
 
     void Session::handleGetPlayerStats() {
@@ -1790,12 +1802,13 @@ namespace infrastructure::adapters::in::network {
     void Session::do_write_leaderboard_response(
         const std::vector<application::ports::out::persistence::LeaderboardEntry>& entries,
         uint8_t period,
+        uint8_t playerCountFilter,
         uint32_t yourRank)
     {
         // Build wire format response
         uint8_t entryCount = static_cast<uint8_t>(std::min(entries.size(), size_t(50)));
 
-        // Calculate payload size: header (6 bytes) + entries
+        // Calculate payload size: header (7 bytes) + entries
         size_t payloadSize = LeaderboardDataResponse::HEADER_SIZE + entryCount * LeaderboardEntryWire::WIRE_SIZE;
 
         Header head = {
@@ -1807,12 +1820,13 @@ namespace infrastructure::adapters::in::network {
         auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
         head.to_bytes(buf->data());
 
-        // Write LeaderboardDataResponse header
+        // Write LeaderboardDataResponse header (7 bytes)
         uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
         ptr[0] = period;
         ptr[1] = entryCount;
         uint32_t netRank = swap32(yourRank);
         std::memcpy(ptr + 2, &netRank, 4);
+        ptr[6] = playerCountFilter;  // New field: player count filter used
         ptr += LeaderboardDataResponse::HEADER_SIZE;
 
         // Write each entry
@@ -1824,6 +1838,7 @@ namespace infrastructure::adapters::in::network {
             wire.wave = entries[i].wave;
             wire.duration = entries[i].duration;
             wire.timestamp = entries[i].timestamp;
+            wire.playerCount = entries[i].playerCount;  // New field
             // Safe string copy: truncate if too long, always null-terminate
             const auto& name = entries[i].playerName;
             const size_t copyLen = std::min(name.size(), static_cast<size_t>(PLAYER_NAME_LEN - 1));

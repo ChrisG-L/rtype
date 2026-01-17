@@ -23,7 +23,15 @@ public:
         return {};
     }
 
+    std::vector<LeaderboardEntry> getLeaderboard(LeaderboardPeriod, uint8_t, uint32_t) override {
+        return {};
+    }
+
     uint32_t getPlayerRank(const std::string&, LeaderboardPeriod) override {
+        return 0;
+    }
+
+    uint32_t getPlayerRank(const std::string&, LeaderboardPeriod, uint8_t) override {
         return 0;
     }
 

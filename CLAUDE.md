@@ -653,21 +653,32 @@ Global leaderboards with player statistics and achievements, persisted in MongoD
 ### Wire Structures
 
 ```cpp
-// GetLeaderboardRequest (2 bytes)
+// GetLeaderboardRequest (3 bytes)
 struct GetLeaderboardRequest {
-    uint8_t period;   // 0=All-Time, 1=Weekly, 2=Monthly
-    uint8_t limit;    // Max entries (default 50)
+    uint8_t period;       // 0=All-Time, 1=Weekly, 2=Monthly
+    uint8_t limit;        // Max entries (default 50)
+    uint8_t playerCount;  // 0=All, 1=Solo, 2=Duo, 3=Trio, 4-6=4P-6P
 };
 
-// LeaderboardEntryWire (88 bytes per entry)
+// LeaderboardEntryWire (57 bytes per entry)
 struct LeaderboardEntryWire {
     uint32_t rank;
     char playerName[32];
     uint32_t score;
     uint16_t wave;
-    uint32_t kills;
+    uint16_t kills;
     uint32_t duration;    // Seconds
-    uint64_t timestamp;   // Unix timestamp
+    int64_t timestamp;    // Unix timestamp
+    uint8_t playerCount;  // Number of players when score was achieved
+};
+
+// LeaderboardDataResponse header (7 bytes)
+struct LeaderboardDataResponse {
+    uint8_t period;
+    uint8_t count;
+    uint32_t yourRank;
+    uint8_t playerCountFilter;  // Echo back requested filter
+    // Followed by count * LeaderboardEntryWire
 };
 
 // PlayerStatsWire (76 bytes)
@@ -698,6 +709,21 @@ struct GameHistoryEntryWire {
     uint64_t timestamp;
 };
 ```
+
+### Leaderboard Filtering
+
+The leaderboard supports filtering by player count (game mode):
+
+| Filter | Description |
+|--------|-------------|
+| 0 | All modes combined |
+| 1 | Solo (1 player) |
+| 2 | Duo (2 players) |
+| 3 | Trio (3 players) |
+| 4-6 | 4P to 6P |
+
+**Client UI:** In `LeaderboardScene`, buttons for "ALL", "SOLO", "DUO", "TRIO", "4P", "5P", "6P" allow filtering.
+When "ALL" is selected, a "MODE" column displays the game mode for each entry.
 
 ### Achievements System
 

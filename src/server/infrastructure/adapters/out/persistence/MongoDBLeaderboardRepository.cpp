@@ -99,6 +99,7 @@ LeaderboardEntry MongoDBLeaderboardRepository::documentToLeaderboardEntry(
     if (doc["deaths"]) entry.deaths = static_cast<uint8_t>(getInt32Safe(doc["deaths"]));
     if (doc["duration"]) entry.duration = static_cast<uint32_t>(getInt64Safe(doc["duration"]));
     if (doc["timestamp"]) entry.timestamp = getInt64Safe(doc["timestamp"]);
+    if (doc["playerCount"]) entry.playerCount = static_cast<uint8_t>(getInt32Safe(doc["playerCount"]));
 
     return entry;
 }
@@ -148,6 +149,7 @@ GameHistoryEntry MongoDBLeaderboardRepository::documentToGameHistory(
     if (doc["timestamp"]) entry.timestamp = getInt64Safe(doc["timestamp"]);
     if (doc["weaponUsed"]) entry.weaponUsed = static_cast<uint8_t>(getInt32Safe(doc["weaponUsed"]));
     if (doc["bossDefeated"]) entry.bossDefeated = doc["bossDefeated"].get_bool().value;
+    if (doc["playerCount"]) entry.playerCount = static_cast<uint8_t>(getInt32Safe(doc["playerCount"]));
 
     return entry;
 }
@@ -205,6 +207,7 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
             if (doc["deaths"]) entry.deaths = static_cast<uint8_t>(getInt32Safe(doc["deaths"]));
             if (doc["duration"]) entry.duration = static_cast<uint32_t>(getInt64Safe(doc["duration"]));
             if (doc["timestamp"]) entry.timestamp = getInt64Safe(doc["timestamp"]);
+            if (doc["playerCount"]) entry.playerCount = static_cast<uint8_t>(getInt32Safe(doc["playerCount"]));
             entry.rank = rank++;
             entries.push_back(entry);
         }
@@ -212,6 +215,72 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
         auto logger = server::logging::Logger::getGameLogger();
         logger->error("getLeaderboard failed: {}", e.what());
         // Return empty list on error
+    }
+
+    return entries;
+}
+
+std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
+    LeaderboardPeriod period, uint8_t playerCount, uint32_t limit)
+{
+    std::vector<LeaderboardEntry> entries;
+
+    try {
+        mongocxx::pipeline pipeline;
+
+        // Stage 1: Filter by period if needed
+        if (period != LeaderboardPeriod::AllTime) {
+            int64_t startTs = getPeriodStartTimestamp(period);
+            pipeline.match(make_document(kvp("timestamp", make_document(kvp("$gte", startTs)))));
+        }
+
+        // Stage 1b: Filter by player count if specified (0 = all)
+        if (playerCount > 0) {
+            pipeline.match(make_document(kvp("playerCount", static_cast<int32_t>(playerCount))));
+        }
+
+        // Stage 2: Sort by score descending
+        pipeline.sort(make_document(kvp("score", -1)));
+
+        // Stage 3: Group by email, keeping the best score per player
+        pipeline.group(make_document(
+            kvp("_id", "$email"),
+            kvp("playerName", make_document(kvp("$first", "$playerName"))),
+            kvp("score", make_document(kvp("$max", "$score"))),
+            kvp("wave", make_document(kvp("$first", "$wave"))),
+            kvp("kills", make_document(kvp("$first", "$kills"))),
+            kvp("deaths", make_document(kvp("$first", "$deaths"))),
+            kvp("duration", make_document(kvp("$first", "$duration"))),
+            kvp("timestamp", make_document(kvp("$first", "$timestamp"))),
+            kvp("playerCount", make_document(kvp("$first", "$playerCount")))
+        ));
+
+        // Stage 4: Sort again by score
+        pipeline.sort(make_document(kvp("score", -1)));
+
+        // Stage 5: Limit results
+        pipeline.limit(static_cast<int32_t>(limit));
+
+        auto cursor = _leaderboardCollection->aggregate(pipeline);
+
+        uint32_t rank = 1;
+        for (auto&& doc : cursor) {
+            LeaderboardEntry entry;
+            if (doc["_id"]) entry.odId = std::string(doc["_id"].get_string().value);
+            if (doc["playerName"]) entry.playerName = std::string(doc["playerName"].get_string().value);
+            if (doc["score"]) entry.score = static_cast<uint32_t>(getInt64Safe(doc["score"]));
+            if (doc["wave"]) entry.wave = static_cast<uint16_t>(getInt32Safe(doc["wave"]));
+            if (doc["kills"]) entry.kills = static_cast<uint16_t>(getInt32Safe(doc["kills"]));
+            if (doc["deaths"]) entry.deaths = static_cast<uint8_t>(getInt32Safe(doc["deaths"]));
+            if (doc["duration"]) entry.duration = static_cast<uint32_t>(getInt64Safe(doc["duration"]));
+            if (doc["timestamp"]) entry.timestamp = getInt64Safe(doc["timestamp"]);
+            if (doc["playerCount"]) entry.playerCount = static_cast<uint8_t>(getInt32Safe(doc["playerCount"]));
+            entry.rank = rank++;
+            entries.push_back(entry);
+        }
+    } catch (const std::exception& e) {
+        auto logger = server::logging::Logger::getGameLogger();
+        logger->error("getLeaderboard (playerCount={}) failed: {}", playerCount, e.what());
     }
 
     return entries;
@@ -278,6 +347,72 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
     }
 }
 
+uint32_t MongoDBLeaderboardRepository::getPlayerRank(
+    const std::string& email, LeaderboardPeriod period, uint8_t playerCount)
+{
+    try {
+        // Get player's best score for this period and player count
+        bsoncxx::builder::basic::document filter;
+        filter.append(kvp("email", email));
+        if (period != LeaderboardPeriod::AllTime) {
+            int64_t startTs = getPeriodStartTimestamp(period);
+            filter.append(kvp("timestamp", make_document(kvp("$gte", startTs))));
+        }
+        if (playerCount > 0) {
+            filter.append(kvp("playerCount", static_cast<int32_t>(playerCount)));
+        }
+
+        mongocxx::options::find opts;
+        opts.sort(make_document(kvp("score", -1)));
+        opts.limit(1);
+
+        auto result = _leaderboardCollection->find_one(filter.view(), opts);
+        if (!result) return 0;
+
+        uint32_t playerScore = static_cast<uint32_t>(getInt64Safe(result->view()["score"]));
+
+        // Count unique players with higher best score
+        mongocxx::pipeline pipe;
+
+        // Match period filter if needed
+        if (period != LeaderboardPeriod::AllTime) {
+            int64_t startTs = getPeriodStartTimestamp(period);
+            pipe.match(make_document(kvp("timestamp", make_document(kvp("$gte", startTs)))));
+        }
+
+        // Match player count filter if needed
+        if (playerCount > 0) {
+            pipe.match(make_document(kvp("playerCount", static_cast<int32_t>(playerCount))));
+        }
+
+        // Group by email and get max score per player
+        pipe.group(make_document(
+            kvp("_id", "$email"),
+            kvp("maxScore", make_document(kvp("$max", "$score")))
+        ));
+
+        // Filter to only players with higher score
+        pipe.match(make_document(
+            kvp("maxScore", make_document(kvp("$gt", static_cast<int64_t>(playerScore))))
+        ));
+
+        pipe.count("count");
+
+        auto cursor = _leaderboardCollection->aggregate(pipe);
+        uint32_t count = 0;
+        for (auto&& doc : cursor) {
+            count = static_cast<uint32_t>(getInt64Safe(doc["count"]));
+            break;
+        }
+
+        return count + 1;
+    } catch (const std::exception& e) {
+        auto logger = server::logging::Logger::getGameLogger();
+        logger->error("getPlayerRank (playerCount={}) failed for {}: {}", playerCount, email, e.what());
+        return 0;
+    }
+}
+
 bool MongoDBLeaderboardRepository::submitScore(
     const std::string& email, const std::string& playerName, const LeaderboardEntry& entry)
 {
@@ -293,7 +428,8 @@ bool MongoDBLeaderboardRepository::submitScore(
         kvp("kills", static_cast<int32_t>(entry.kills)),
         kvp("deaths", static_cast<int32_t>(entry.deaths)),
         kvp("duration", static_cast<int64_t>(entry.duration)),
-        kvp("timestamp", timestamp)
+        kvp("timestamp", timestamp),
+        kvp("playerCount", static_cast<int32_t>(entry.playerCount))
     );
 
     auto result = _leaderboardCollection->insert_one(doc.view());
@@ -560,6 +696,7 @@ void MongoDBLeaderboardRepository::saveCurrentGameSession(
         kvp("perfectWaves", static_cast<int32_t>(gameStats.perfectWaves)),
         kvp("totalDamageDealt", static_cast<int64_t>(gameStats.totalDamageDealt)),
         kvp("bossDefeated", gameStats.bossDefeated),
+        kvp("playerCount", static_cast<int32_t>(gameStats.playerCount)),
         kvp("updatedAt", timestamp)
     );
 
@@ -634,6 +771,7 @@ std::optional<GameHistoryEntry> MongoDBLeaderboardRepository::getCurrentGameSess
     if (doc["perfectWaves"]) entry.perfectWaves = static_cast<uint16_t>(getInt32Safe(doc["perfectWaves"]));
     if (doc["totalDamageDealt"]) entry.totalDamageDealt = static_cast<uint64_t>(getInt64Safe(doc["totalDamageDealt"]));
     if (doc["bossDefeated"]) entry.bossDefeated = doc["bossDefeated"].get_bool().value;
+    if (doc["playerCount"]) entry.playerCount = static_cast<uint8_t>(getInt32Safe(doc["playerCount"]));
     if (doc["updatedAt"]) entry.timestamp = getInt64Safe(doc["updatedAt"]);
 
     return entry;

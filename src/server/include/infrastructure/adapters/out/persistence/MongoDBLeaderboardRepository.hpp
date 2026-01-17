@@ -48,7 +48,9 @@ public:
 
     // Leaderboard
     std::vector<LeaderboardEntry> getLeaderboard(LeaderboardPeriod period, uint32_t limit = 50) override;
+    std::vector<LeaderboardEntry> getLeaderboard(LeaderboardPeriod period, uint8_t playerCount, uint32_t limit = 50) override;
     uint32_t getPlayerRank(const std::string& email, LeaderboardPeriod period) override;
+    uint32_t getPlayerRank(const std::string& email, LeaderboardPeriod period, uint8_t playerCount) override;
     bool submitScore(const std::string& email, const std::string& playerName, const LeaderboardEntry& entry) override;
 
     // Player Stats

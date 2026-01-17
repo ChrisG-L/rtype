@@ -2486,14 +2486,16 @@ static constexpr size_t PLAYER_NAME_LEN = 32;
 
 // GetLeaderboard: Client requests leaderboard data
 struct GetLeaderboardRequest {
-    uint8_t period;     // LeaderboardPeriod
-    uint8_t limit;      // Max entries (1-50)
+    uint8_t period = 0;         // LeaderboardPeriod (0=AllTime)
+    uint8_t limit = 50;         // Max entries (1-50)
+    uint8_t playerCount = 0;    // Filter by player count: 0=All, 1=Solo, 2=Duo, etc.
 
-    static constexpr size_t WIRE_SIZE = 2;
+    static constexpr size_t WIRE_SIZE = 3;
 
     void to_bytes(uint8_t* buf) const {
         buf[0] = period;
         buf[1] = limit;
+        buf[2] = playerCount;
     }
 
     static std::optional<GetLeaderboardRequest> from_bytes(const void* buf, size_t len) {
@@ -2502,21 +2504,23 @@ struct GetLeaderboardRequest {
         GetLeaderboardRequest req;
         req.period = ptr[0];
         req.limit = ptr[1];
+        req.playerCount = ptr[2];
         return req;
     }
 };
 
 // Single leaderboard entry (wire format)
 struct LeaderboardEntryWire {
-    uint32_t rank;
-    char playerName[PLAYER_NAME_LEN];
-    uint32_t score;
-    uint16_t wave;
-    uint16_t kills;
-    uint32_t duration;      // seconds
-    int64_t timestamp;
+    uint32_t rank = 0;
+    char playerName[PLAYER_NAME_LEN] = {};
+    uint32_t score = 0;
+    uint16_t wave = 0;
+    uint16_t kills = 0;
+    uint32_t duration = 0;      // seconds
+    int64_t timestamp = 0;
+    uint8_t playerCount = 0;    // Number of players in game when score was achieved
 
-    static constexpr size_t WIRE_SIZE = 4 + PLAYER_NAME_LEN + 4 + 2 + 2 + 4 + 8; // 56 bytes
+    static constexpr size_t WIRE_SIZE = 4 + PLAYER_NAME_LEN + 4 + 2 + 2 + 4 + 8 + 1; // 57 bytes
 
     void to_bytes(uint8_t* buf) const {
         uint32_t net_rank = swap32(rank);
@@ -2532,6 +2536,7 @@ struct LeaderboardEntryWire {
         std::memcpy(buf + 12 + PLAYER_NAME_LEN, &net_duration, 4);
         uint64_t net_ts = swap64(static_cast<uint64_t>(timestamp));
         std::memcpy(buf + 16 + PLAYER_NAME_LEN, &net_ts, 8);
+        buf[24 + PLAYER_NAME_LEN] = playerCount;
     }
 
     static std::optional<LeaderboardEntryWire> from_bytes(const void* buf, size_t len) {
@@ -2558,24 +2563,27 @@ struct LeaderboardEntryWire {
         uint64_t net_ts;
         std::memcpy(&net_ts, ptr + 16 + PLAYER_NAME_LEN, 8);
         entry.timestamp = static_cast<int64_t>(swap64(net_ts));
+        entry.playerCount = ptr[24 + PLAYER_NAME_LEN];
         return entry;
     }
 };
 
 // LeaderboardData: Server response with leaderboard entries
 struct LeaderboardDataResponse {
-    uint8_t period;
-    uint8_t count;
-    uint32_t yourRank;      // Requester's rank (0 if not in top)
+    uint8_t period = 0;
+    uint8_t count = 0;
+    uint32_t yourRank = 0;          // Requester's rank (0 if not in top)
+    uint8_t playerCountFilter = 0;  // Echo back requested player count filter
     // Followed by count * LeaderboardEntryWire
 
-    static constexpr size_t HEADER_SIZE = 1 + 1 + 4; // 6 bytes
+    static constexpr size_t HEADER_SIZE = 1 + 1 + 4 + 1; // 7 bytes
 
     void to_bytes(uint8_t* buf) const {
         buf[0] = period;
         buf[1] = count;
         uint32_t net_rank = swap32(yourRank);
         std::memcpy(buf + 2, &net_rank, 4);
+        buf[6] = playerCountFilter;
     }
 
     static std::optional<LeaderboardDataResponse> from_bytes(const void* buf, size_t len) {
@@ -2587,6 +2595,7 @@ struct LeaderboardDataResponse {
         uint32_t net_rank;
         std::memcpy(&net_rank, ptr + 2, 4);
         resp.yourRank = swap32(net_rank);
+        resp.playerCountFilter = ptr[6];
         return resp;
     }
 };
