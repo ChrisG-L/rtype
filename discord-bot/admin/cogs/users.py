@@ -8,7 +8,13 @@ from discord.ext import commands
 import logging
 
 from tcp_client import TCPAdminClient
-from utils import AdminEmbeds, is_admin_channel, has_admin_role
+from utils import (
+    AdminEmbeds,
+    is_admin_channel,
+    has_admin_role,
+    parse_users_output,
+    parse_user_output,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +45,9 @@ class UsersCog(commands.Cog):
                 )
                 return
 
-            embed = AdminEmbeds.cli_output("Registered Users", result.output)
+            # Parse TUI output and create clean embed
+            users_data = parse_users_output(result.output)
+            embed = AdminEmbeds.users_list(users_data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error getting users: {e}")
@@ -63,7 +71,12 @@ class UsersCog(commands.Cog):
                 )
                 return
 
-            embed = AdminEmbeds.cli_output(f"User: {email}", result.output)
+            # Parse TUI output and create clean embed
+            user_data = parse_user_output(result.output)
+            if user_data:
+                embed = AdminEmbeds.user_details(user_data)
+            else:
+                embed = AdminEmbeds.cli_output(f"User: {email}", result.output)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error getting user: {e}")

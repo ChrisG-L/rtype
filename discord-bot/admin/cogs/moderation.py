@@ -8,7 +8,7 @@ from discord.ext import commands
 import logging
 
 from tcp_client import TCPAdminClient
-from utils import AdminEmbeds, is_admin_channel, has_admin_role
+from utils import AdminEmbeds, is_admin_channel, has_admin_role, parse_bans_output
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,9 @@ class ModerationCog(commands.Cog):
                 )
                 return
 
-            embed = AdminEmbeds.cli_output("Banned Users", result.output)
+            # Parse TUI output and create clean embed
+            bans_data = parse_bans_output(result.output)
+            embed = AdminEmbeds.bans_list(bans_data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error getting bans: {e}")

@@ -16,10 +16,201 @@ class AdminEmbeds:
     COLOR_ERROR = 0xFF0000    # Red
     COLOR_INFO = 0x3498DB     # Blue
     COLOR_WARNING = 0xFFA500  # Orange
+    COLOR_ONLINE = 0x2ECC71   # Green for online
+    COLOR_OFFLINE = 0x95A5A6  # Gray for offline
+
+    @staticmethod
+    def server_status(data: dict[str, Any]) -> discord.Embed:
+        """Create server status embed with parsed data."""
+        embed = discord.Embed(
+            title="R-Type Server Status",
+            color=AdminEmbeds.COLOR_INFO,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        # Main stats
+        embed.add_field(
+            name="Sessions",
+            value=f"**{data.get('active_sessions', 0)}** active",
+            inline=True
+        )
+        embed.add_field(
+            name="Players",
+            value=f"**{data.get('players_in_game', 0)}** in game",
+            inline=True
+        )
+        embed.add_field(
+            name="Rooms",
+            value=f"**{data.get('active_rooms', 0)}** active",
+            inline=True
+        )
+
+        # User stats
+        embed.add_field(
+            name="Users",
+            value=f"**{data.get('users_in_db', 0)}** registered",
+            inline=True
+        )
+        embed.add_field(
+            name="Banned",
+            value=f"**{data.get('banned_users', 0)}** users",
+            inline=True
+        )
+
+        # Server config
+        logs_emoji = "\u2705" if data.get('logs') == 'ON' else "\u274C"
+        debug_emoji = "\u2705" if data.get('debug') == 'ON' else "\u274C"
+        embed.add_field(
+            name="Config",
+            value=f"Logs: {logs_emoji} | Debug: {debug_emoji}",
+            inline=True
+        )
+
+        embed.set_footer(text="R-Type Admin")
+        return embed
+
+    @staticmethod
+    def users_list(users: list[dict[str, str]]) -> discord.Embed:
+        """Create users list embed with parsed data."""
+        embed = discord.Embed(
+            title="Registered Users",
+            color=AdminEmbeds.COLOR_INFO,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        if not users:
+            embed.description = "*No registered users*"
+            return embed
+
+        lines = []
+        for i, user in enumerate(users[:25], 1):
+            status = user.get('status', 'Unknown')
+            status_emoji = "\U0001F7E2" if status.lower() == 'online' else "\u26AB"
+            email = user.get('email', 'Unknown')
+            username = user.get('username', 'N/A')
+            lines.append(f"{status_emoji} **{username}** - `{email}`")
+
+        embed.description = "\n".join(lines)
+
+        if len(users) > 25:
+            embed.set_footer(text=f"Showing 25/{len(users)} users | R-Type Admin")
+        else:
+            embed.set_footer(text=f"Total: {len(users)} users | R-Type Admin")
+
+        return embed
+
+    @staticmethod
+    def sessions_list(sessions: list[dict[str, str]]) -> discord.Embed:
+        """Create sessions list embed with parsed data."""
+        embed = discord.Embed(
+            title="Active Sessions",
+            color=AdminEmbeds.COLOR_ONLINE if sessions else AdminEmbeds.COLOR_INFO,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        if not sessions:
+            embed.description = "*No active sessions*"
+            return embed
+
+        lines = []
+        for i, session in enumerate(sessions[:20], 1):
+            email = session.get('email', 'Unknown')
+            room = session.get('room', 'N/A')
+            lines.append(f"\U0001F7E2 **{email}** - Room: `{room}`")
+
+        embed.description = "\n".join(lines)
+        embed.set_footer(text=f"Total: {len(sessions)} sessions | R-Type Admin")
+
+        return embed
+
+    @staticmethod
+    def rooms_list(rooms: list[dict[str, str]]) -> discord.Embed:
+        """Create rooms list embed with parsed data."""
+        embed = discord.Embed(
+            title="Active Game Rooms",
+            color=AdminEmbeds.COLOR_INFO,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        if not rooms:
+            embed.description = "*No active rooms*"
+            return embed
+
+        lines = []
+        for room in rooms[:20]:
+            code = room.get('code', 'Unknown')
+            players = room.get('players', '0')
+            status = room.get('status', 'Active')
+            lines.append(f"\U0001F3AE **{code}** - {players} players ({status})")
+
+        embed.description = "\n".join(lines)
+        embed.set_footer(text=f"Total: {len(rooms)} rooms | R-Type Admin")
+
+        return embed
+
+    @staticmethod
+    def bans_list(bans: list[dict[str, str]]) -> discord.Embed:
+        """Create banned users list embed with parsed data."""
+        embed = discord.Embed(
+            title="Banned Users",
+            color=AdminEmbeds.COLOR_WARNING if bans else AdminEmbeds.COLOR_INFO,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        if not bans:
+            embed.description = "*No banned users*"
+            return embed
+
+        lines = []
+        for ban in bans[:20]:
+            email = ban.get('email', 'Unknown')
+            reason = ban.get('reason', 'No reason')
+            lines.append(f"\U0001F6AB **{email}**\n   Reason: _{reason}_")
+
+        embed.description = "\n".join(lines)
+        embed.set_footer(text=f"Total: {len(bans)} bans | R-Type Admin")
+
+        return embed
+
+    @staticmethod
+    def user_details(user: dict[str, str]) -> discord.Embed:
+        """Create user details embed with parsed data."""
+        username = user.get('username', 'Unknown')
+        status = user.get('status', 'Unknown')
+
+        color = AdminEmbeds.COLOR_ONLINE if status.lower() == 'online' else AdminEmbeds.COLOR_OFFLINE
+        embed = discord.Embed(
+            title=f"User: {username}",
+            color=color,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        # Status with emoji
+        status_emoji = "\U0001F7E2" if status.lower() == 'online' else "\u26AB"
+        embed.add_field(name="Status", value=f"{status_emoji} {status}", inline=True)
+
+        if user.get('email'):
+            embed.add_field(name="Email", value=f"`{user['email']}`", inline=True)
+
+        if user.get('created'):
+            embed.add_field(name="Created", value=user['created'], inline=True)
+
+        # Stats if available
+        if user.get('games_played'):
+            embed.add_field(name="Games Played", value=user['games_played'], inline=True)
+        if user.get('best_score'):
+            embed.add_field(name="Best Score", value=user['best_score'], inline=True)
+        if user.get('total_kills'):
+            embed.add_field(name="Total Kills", value=user['total_kills'], inline=True)
+
+        embed.set_footer(text="R-Type Admin")
+        return embed
+
+    # Keep old methods for backward compatibility
 
     @staticmethod
     def status(stats: dict[str, Any], uptime: int = 0) -> discord.Embed:
-        """Create server status embed."""
+        """Create server status embed (legacy)."""
         embed = discord.Embed(
             title="R-Type Server Status",
             color=AdminEmbeds.COLOR_INFO,
@@ -54,7 +245,7 @@ class AdminEmbeds:
 
     @staticmethod
     def sessions(sessions: list[dict[str, Any]]) -> discord.Embed:
-        """Create sessions list embed."""
+        """Create sessions list embed (legacy)."""
         embed = discord.Embed(
             title="Active Sessions",
             color=AdminEmbeds.COLOR_INFO,
@@ -65,7 +256,6 @@ class AdminEmbeds:
             embed.description = "No active sessions"
             return embed
 
-        # Group by email, show first 20
         lines = []
         for i, session in enumerate(sessions[:20]):
             email = session.get("email", "Unknown")
@@ -84,7 +274,7 @@ class AdminEmbeds:
 
     @staticmethod
     def users(users: list[dict[str, Any]]) -> discord.Embed:
-        """Create users list embed."""
+        """Create users list embed (legacy)."""
         embed = discord.Embed(
             title="Registered Users",
             color=AdminEmbeds.COLOR_INFO,
@@ -111,49 +301,8 @@ class AdminEmbeds:
         return embed
 
     @staticmethod
-    def user_details(user: dict[str, Any], stats: dict[str, Any] | None = None) -> discord.Embed:
-        """Create user details embed."""
-        email = user.get("email", "Unknown")
-        embed = discord.Embed(
-            title=f"User: {user.get('username', 'Unknown')}",
-            color=AdminEmbeds.COLOR_INFO,
-            timestamp=datetime.now(timezone.utc)
-        )
-
-        embed.add_field(name="Email", value=email, inline=True)
-        embed.add_field(
-            name="Created",
-            value=format_datetime(user.get("createdAt")),
-            inline=True
-        )
-
-        if stats:
-            embed.add_field(
-                name="Games Played",
-                value=str(stats.get("gamesPlayed", 0)),
-                inline=True
-            )
-            embed.add_field(
-                name="Total Kills",
-                value=str(stats.get("totalKills", 0)),
-                inline=True
-            )
-            embed.add_field(
-                name="Best Score",
-                value=str(stats.get("bestScore", 0)),
-                inline=True
-            )
-            embed.add_field(
-                name="Best Wave",
-                value=str(stats.get("bestWave", 0)),
-                inline=True
-            )
-
-        return embed
-
-    @staticmethod
     def bans(banned_users: list[dict[str, Any]]) -> discord.Embed:
-        """Create banned users list embed."""
+        """Create banned users list embed (legacy)."""
         embed = discord.Embed(
             title="Banned Users",
             color=AdminEmbeds.COLOR_WARNING,
@@ -185,7 +334,7 @@ class AdminEmbeds:
     def success(message: str, title: str = "Success") -> discord.Embed:
         """Create success embed."""
         return discord.Embed(
-            title=title,
+            title=f"\u2705 {title}",
             description=message,
             color=AdminEmbeds.COLOR_SUCCESS,
             timestamp=datetime.now(timezone.utc)
@@ -195,7 +344,7 @@ class AdminEmbeds:
     def error(message: str, title: str = "Error") -> discord.Embed:
         """Create error embed."""
         return discord.Embed(
-            title=title,
+            title=f"\u274C {title}",
             description=message,
             color=AdminEmbeds.COLOR_ERROR,
             timestamp=datetime.now(timezone.utc)
@@ -205,7 +354,7 @@ class AdminEmbeds:
     def warning(message: str, title: str = "Warning") -> discord.Embed:
         """Create warning embed."""
         return discord.Embed(
-            title=title,
+            title=f"\u26A0\uFE0F {title}",
             description=message,
             color=AdminEmbeds.COLOR_WARNING,
             timestamp=datetime.now(timezone.utc)
