@@ -15,6 +15,7 @@ from utils import (
     parse_status_output,
     parse_sessions_output,
     parse_rooms_output,
+    parse_room_details_output,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,11 +26,36 @@ class AdminCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._rooms_cache: list[dict[str, str]] = []
 
     @property
     def tcp(self) -> TCPAdminClient:
         """Get the TCP client from bot."""
         return self.bot.tcp_client
+
+    async def _get_rooms_list(self) -> list[dict[str, str]]:
+        """Fetch and cache rooms list for autocomplete."""
+        try:
+            result = await self.tcp.rooms()
+            if result.success:
+                self._rooms_cache = parse_rooms_output(result.output)
+        except Exception:
+            pass
+        return self._rooms_cache
+
+    async def room_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        """Autocomplete for room codes."""
+        rooms = await self._get_rooms_list()
+        choices = []
+        for room in rooms[:25]:
+            code = room.get('code', '')
+            name = room.get('name', '')
+            label = f"{name} ({code})" if name else code
+            if current.lower() in code.lower() or current.lower() in name.lower():
+                choices.append(app_commands.Choice(name=label, value=code))
+        return choices[:25]
 
     @app_commands.command(name="status", description="Show R-Type server status")
     @is_admin_channel()
@@ -108,6 +134,7 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="room", description="Show details for a specific room")
     @app_commands.describe(room_code="Room code to inspect")
+    @app_commands.autocomplete(room_code=room_autocomplete)
     @is_admin_channel()
     @has_admin_role()
     async def room(self, interaction: discord.Interaction, room_code: str):
@@ -122,7 +149,12 @@ class AdminCog(commands.Cog):
                 )
                 return
 
-            embed = AdminEmbeds.cli_output(f"Room: {room_code}", result.output)
+            # Parse TUI output and create clean embed
+            room_data = parse_room_details_output(result.output)
+            if room_data.get('code'):
+                embed = AdminEmbeds.room_details(room_data)
+            else:
+                embed = AdminEmbeds.cli_output(f"Room: {room_code}", result.output)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             logger.error(f"Error getting room: {e}")
@@ -157,6 +189,7 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="say", description="Send a message to a specific room")
     @app_commands.describe(room_code="Room code", message="Message to send")
+    @app_commands.autocomplete(room_code=room_autocomplete)
     @is_admin_channel()
     @has_admin_role()
     async def say(self, interaction: discord.Interaction, room_code: str, message: str):
