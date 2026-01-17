@@ -12,6 +12,7 @@
 #include "accessibility/AccessibilityConfig.hpp"
 #include "Protocol.hpp"
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <variant>
 
@@ -457,9 +458,14 @@ void LobbyScene::processUDPEvents()
 
             if constexpr (std::is_same_v<T, client::network::UDPJoinGameAckEvent>) {
                 // We successfully joined the game via UDP
-                // Transition to GameScene with room game speed and chat history from lobby
+                // Build player names map from lobby players (slotId -> displayName)
+                std::unordered_map<uint8_t, std::string> playerNames;
+                for (const auto& p : _players) {
+                    playerNames[p.slotId] = p.displayName;
+                }
+                // Transition to GameScene with room game speed, chat history, and player names
                 if (_sceneManager && _transitioningToGame) {
-                    _sceneManager->changeScene(std::make_unique<GameScene>(_roomGameSpeedPercent, _chatMessages));
+                    _sceneManager->changeScene(std::make_unique<GameScene>(_roomGameSpeedPercent, _chatMessages, playerNames));
                 }
             }
             else if constexpr (std::is_same_v<T, client::network::UDPJoinGameNackEvent>) {
@@ -972,10 +978,8 @@ void LobbyScene::onShipSkinSelect(uint8_t skinId)
     // Save settings via TCP (like in SettingsScene)
     if (_context.tcpClient && _context.tcpClient->isConnected()) {
         UserSettingsPayload payload;
-        std::strncpy(payload.colorBlindMode,
-            accessibility::AccessibilityConfig::colorBlindModeToString(config.getColorBlindMode()).c_str(),
-            COLORBLIND_MODE_LEN - 1);
-        payload.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
+        std::snprintf(payload.colorBlindMode, COLORBLIND_MODE_LEN, "%s",
+            accessibility::AccessibilityConfig::colorBlindModeToString(config.getColorBlindMode()).c_str());
         payload.gameSpeedPercent = 100;  // Game speed is per-room, not per-player
         payload.shipSkin = skinId;
 

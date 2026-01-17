@@ -1,0 +1,24 @@
+[Unit]
+Description=R-Type Game Server
+After=network.target mongod.service
+
+[Service]
+Type=simple
+User=alexandre
+Group=rtype-team
+WorkingDirectory=/opt/rtype/server
+
+# Lancement via wrapper Python (gère tmux + notifications Discord)
+ExecStart=/usr/bin/python3 /opt/rtype/server-wrapper.py
+
+# Restart automatique en cas de crash (avec limite)
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Configuration MongoDB et TLS
+Environment="MONGODB_URI=mongodb://localhost:27017"
+
+[Install]
+WantedBy=multi-user.target

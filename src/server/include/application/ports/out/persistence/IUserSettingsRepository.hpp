@@ -28,6 +28,7 @@ struct UserSettingsData {
     std::string audioInputDevice;   // Preferred input device name ("" = auto)
     std::string audioOutputDevice;  // Preferred output device name ("" = auto)
     bool keepChatOpenAfterSend;     // If true, chat input stays open after sending
+    bool godMode;                   // Hidden: player is invincible (no HP loss)
 
     // Default constructor with default values
     UserSettingsData()
@@ -41,7 +42,8 @@ struct UserSettingsData {
         , voiceVolume(100)
         , audioInputDevice("")
         , audioOutputDevice("")
-        , keepChatOpenAfterSend(false) {}
+        , keepChatOpenAfterSend(false)
+        , godMode(false) {}
 
     // Set default key bindings (matches AccessibilityConfig defaults)
     // Key values based on events::Key enum:

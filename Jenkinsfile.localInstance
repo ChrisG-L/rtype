@@ -1,5 +1,52 @@
 def builderAPI
 
+// Couleurs Discord (décimal)
+def COLOR_GREEN = 3066993
+def COLOR_RED = 15158332
+def COLOR_YELLOW = 16776960
+def COLOR_GRAY = 9807270
+
+/**
+ * Envoie une notification Discord via webhook
+ * @param title Titre de l'embed
+ * @param message Description du message
+ * @param color Couleur de l'embed (décimal)
+ */
+def notifyDiscord(Map params) {
+    def title = params.title ?: "Jenkins Notification"
+    def message = params.message ?: ""
+    def color = params.color ?: COLOR_GREEN
+
+    if (!env.DISCORD_WEBHOOK_URL) {
+        echo "⚠️ DISCORD_WEBHOOK_URL non configuré, notification ignorée"
+        return
+    }
+
+    def timestamp = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))
+
+    // Échapper les caractères spéciaux pour JSON
+    def safeTitle = title.replaceAll('"', '\\\\"')
+    def safeMessage = message.replaceAll('"', '\\\\"')
+
+    def payload = """{"embeds":[{"title":"${safeTitle}","description":"${safeMessage}","color":${color},"timestamp":"${timestamp}","footer":{"text":"Jenkins CI/CD"}}]}"""
+
+    try {
+        // Écrire le payload dans un fichier temporaire pour éviter les problèmes d'échappement
+        writeFile file: 'discord_payload.json', text: payload
+
+        // Utiliser la variable shell $DISCORD_WEBHOOK_URL (pas d'interpolation Groovy)
+        sh(script: '''
+            curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+                -H 'Content-Type: application/json' \
+                -d @discord_payload.json
+            rm -f discord_payload.json
+        ''', returnStatus: true)
+        echo "✅ Notification Discord envoyée: ${title}"
+    } catch (Exception e) {
+        echo "⚠️ Erreur notification Discord: ${e.message}"
+    }
+}
+
 pipeline {
     agent any
 
@@ -10,15 +57,16 @@ pipeline {
 
     // Options globales pour le pipeline
     options {
-        timeout(time: 2, unit: 'HOURS')
+        timeout(time: 3, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     environment {
-        BUILDER_HOST = "rtype_builder"
+        BUILDER_HOST = "localhost"
         BUILDER_PORT = "8082"
         WORKSPACE_ID_LINUX = "build_${BUILD_NUMBER}_linux"
         WORKSPACE_ID_WINDOWS = "build_${BUILD_NUMBER}_windows"
+        DISCORD_WEBHOOK_URL = credentials('discord-webhook-url')
     }
 
     stages {
@@ -26,6 +74,21 @@ pipeline {
             steps {
                 echo '📥 Récupération du code source...'
                 checkout scm
+            }
+        }
+
+        stage('🔔 Notify Build Started') {
+            steps {
+                script {
+                    def commitInfo = sh(script: "git log -1 --pretty=format:'%h - %s (%an)'", returnStdout: true).trim()
+                    def branchName = env.BRANCH_NAME ?: sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+
+                    notifyDiscord(
+                        title: "🔨 Build #${BUILD_NUMBER} Démarré",
+                        message: "**Branche:** ${branchName}\\n**Commit:** ${commitInfo}\\n**Job:** [${JOB_NAME}](${BUILD_URL})",
+                        color: 16776960  // Jaune
+                    )
+                }
             }
         }
 
@@ -243,27 +306,85 @@ pipeline {
             }
         }
 
-        stage('🧪 Run Tests') {
+        stage('🧪 Run Linux Test') {
             // Tests uniquement sur Linux (Windows = cross-compile, non exécutable)
-            stages {
-                stage('🐧 Linux Tests') {
-                    steps {
-                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                            script {
-                                echo '🧪 Exécution des tests sur Linux...'
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    script {
+                        echo '🧪 Exécution des tests sur Linux...'
 
-                                def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                // Lancer les tests dans le workspace Linux
-                                def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
+                        // Lancer les tests dans le workspace Linux
+                        def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
 
-                                echo "[LINUX] Job créé: ${jobId}"
+                        echo "[LINUX] Job créé: ${jobId}"
 
-                                // Attendre la fin des tests
-                                api.waitForJob(jobId, 10, 7200)
+                        // Attendre la fin des tests
+                        api.waitForJob(jobId, 10, 7200)
 
-                                echo "✅ [LINUX] Tests exécutés avec succès"
-                            }
+                        echo "✅ [LINUX] Tests exécutés avec succès"
+                    }
+                }
+            }
+        }
+
+        stage('🚀 Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    script {
+                        echo '🚀 Déploiement automatique sur le serveur de production...'
+
+                        // Attendre que les artifacts soient récupérés
+                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                        // Télécharger l'artifact serveur Linux localement
+                        def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_LINUX}"
+                        def serverBinary = "${artifactPath}/server/linux/rtype_server"
+
+                        // Vérifier que le binaire existe
+                        if (!fileExists(serverBinary)) {
+                            // Télécharger les artifacts si pas encore fait
+                            api.downloadArtifacts(
+                                env.BUILDER_HOST,
+                                env.WORKSPACE_ID_LINUX,
+                                artifactPath
+                            )
+                        }
+
+                        if (!fileExists(serverBinary)) {
+                            error("❌ Binaire serveur non trouvé: ${serverBinary}")
+                        }
+
+                        echo "📦 Binaire trouvé: ${serverBinary}"
+
+                        // Appeler le service de déploiement local
+                        def deployResponse = sh(
+                            script: """
+                                curl -s -f -X POST http://127.0.0.1:8081/deploy \
+                                    -H 'Content-Type: application/json' \
+                                    -d '{"source": "${serverBinary}"}'
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        echo "Réponse du déploiement: ${deployResponse}"
+
+                        // Vérifier le statut
+                        def statusResponse = sh(
+                            script: "curl -s http://127.0.0.1:8081/status",
+                            returnStdout: true
+                        ).trim()
+
+                        def status = api.parseJson(statusResponse)
+
+                        if (status.active) {
+                            echo "✅ Serveur déployé et actif (PID: ${status.pid})"
+                        } else {
+                            error("❌ Le serveur n'est pas actif après déploiement")
                         }
                     }
                 }
@@ -330,10 +451,32 @@ pipeline {
             }
         }
         success {
-            echo '✅ Build réussi !'
+            script {
+                echo '✅ Build réussi !'
+
+                def duration = currentBuild.durationString.replace(' and counting', '')
+                def branchName = env.BRANCH_NAME ?: sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+
+                notifyDiscord(
+                    title: "✅ Build #${BUILD_NUMBER} Réussi",
+                    message: "**Branche:** ${branchName}\\n**Durée:** ${duration}\\n**Job:** [Voir les détails](${BUILD_URL})",
+                    color: 3066993  // Vert
+                )
+            }
         }
         failure {
-            echo '❌ Build échoué !'
+            script {
+                echo '❌ Build échoué !'
+
+                def duration = currentBuild.durationString.replace(' and counting', '')
+                def branchName = env.BRANCH_NAME ?: sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+
+                notifyDiscord(
+                    title: "❌ Build #${BUILD_NUMBER} Échoué",
+                    message: "**Branche:** ${branchName}\\n**Durée:** ${duration}\\n**Job:** [Voir les logs](${BUILD_URL}console)",
+                    color: 15158332  // Rouge
+                )
+            }
         }
     }
 }

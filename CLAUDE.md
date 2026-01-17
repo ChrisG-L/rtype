@@ -8,9 +8,10 @@ R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **H
 
 | Component | Technology | Port |
 |-----------|------------|------|
-| Server | C++23, Boost.ASIO | TCP 4125 (auth/TLS), UDP 4124 (game), UDP 4126 (voice) |
+| Server | C++23, Boost.ASIO | TCP 4125 (auth/TLS), UDP 4124 (game), UDP 4126 (voice), TCP 4127 (admin) |
 | Client | C++23, SFML/SDL2 (multi-backend) | - |
 | Build | CMake 3.30+, Ninja, vcpkg, Nix | - |
+| Discord Bot (Admin) | Python 3.12, discord.py | TCP 4127 (connects to server) |
 
 ## Project Structure
 
@@ -33,7 +34,8 @@ rtype/
 │   │   │       └── logging/             # Logger
 │   │   ├── domain/                      # Domain implementations
 │   │   ├── application/                 # Application implementations
-│   │   └── infrastructure/              # Infrastructure implementations
+│   │   ├── infrastructure/              # Infrastructure implementations
+│   │   └── scripts/                     # VPS deployment (systemd, wrapper)
 │   │
 │   ├── client/                          # Client implementation
 │   │   ├── include/
@@ -45,6 +47,8 @@ rtype/
 │   │   │   ├── events/                  # Event system (KeyPressed, etc.)
 │   │   │   ├── core/                    # Engine, GameLoop, Logger
 │   │   │   ├── boot/                    # Boot
+│   │   │   ├── config/                  # ServerConfigManager
+│   │   │   ├── ui/                      # ServerConfigPanel
 │   │   │   └── utils/                   # Vecs (Vec2u, Vec2f)
 │   │   ├── src/                         # Implementations
 │   │   └── lib/                         # Graphics backends
@@ -71,6 +75,9 @@ rtype/
 ├── tests/                               # Google Test tests
 ├── docs/                                # MkDocs documentation
 ├── scripts/                             # Build scripts
+├── discord-bot/                         # Discord bots
+│   ├── admin/                           # Admin bot (TCPAdminServer client)
+│   └── leaderboard/                     # Leaderboard bot (MongoDB client)
 ├── third_party/vcpkg/                   # Package manager
 ├── .mcp.json                            # MCP server configuration
 └── .claude/                             # Claude Code tooling
@@ -86,13 +93,64 @@ rtype/
 # Compile
 ./scripts/compile.sh
 
-# Run
+# Run Server
 ./artifacts/server/linux/rtype_server  # Server (UDP 4124)
-./artifacts/client/linux/rtype_client  # Client
+
+# Run Client (RECOMMENDED - uses wrapper script for voice chat support)
+./scripts/run-client.sh                # Handles PipeWire/JACK audio automatically
+./scripts/run-client.sh --server=51.254.137.175  # Connect to VPS
+
+# Run Client (direct binary - voice chat may not work on Linux/PipeWire)
+./artifacts/client/linux/rtype_client  # Only if run-client.sh unavailable
 
 # Clean build
 rm -rf build*/ artifacts/
 ```
+
+> **Note:** On Linux with PipeWire, the `run-client.sh` script wraps the binary with `pw-jack` to enable voice chat support. Always prefer the script over the direct binary.
+
+## Client Server Configuration
+
+The client supports configurable server addresses with persistence.
+
+### Command Line
+
+```bash
+# Connect to specific server (RECOMMENDED - via script)
+./scripts/run-client.sh --server=51.254.137.175       # Uses default ports (4125/4124)
+./scripts/run-client.sh --server=myserver.com:4125    # Custom port (UDP = TCP - 1)
+
+# Direct binary (voice chat may not work on Linux/PipeWire)
+./artifacts/client/linux/rtype_client --server=51.254.137.175
+```
+
+### In-App Configuration
+
+- Press **S** during connection screen to open server config
+- Click **SERVER** button on login screen (bottom left)
+- Auto-shows after 3 failed connection attempts
+- Quick connect buttons: **FRANCE** (51.254.137.175) / **LOCAL** (127.0.0.1)
+- Config is saved to `~/.config/rtype/rtype_client.json` (Linux) or `%APPDATA%/RType/rtype_client.json` (Windows)
+
+### Config File Format
+
+```json
+{
+    "host": "51.254.137.175",
+    "tcpPort": 4125,
+    "udpPort": 4124,
+    "voicePort": 4126
+}
+```
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `src/client/include/config/ServerConfigManager.hpp` | Singleton for server config |
+| `src/client/src/config/ServerConfigManager.cpp` | JSON persistence, cross-platform |
+| `src/client/src/scenes/ConnectionScene.cpp` | Config UI when connection fails |
+| `src/client/src/scenes/LoginScene.cpp` | SERVER button + config UI on login |
 
 ## Network Protocol
 
@@ -157,7 +215,7 @@ struct PlayerState {
     uint8_t currentWeapon;  // WeaponType enum
     uint8_t chargeLevel;    // Wave Cannon charge (0-3)
     uint8_t speedLevel;     // Speed upgrade level (0-3)
-    uint8_t weaponLevel;    // Weapon upgrade level (0-3)
+    uint8_t weaponLevel;    // Current weapon's upgrade level (0-3, each weapon has independent levels)
     uint8_t hasForce;       // Has Force Pod (0 or 1)
     uint8_t shieldTimer;    // Reserved (always 0, R-Type authentic has no shield)
 };
@@ -554,6 +612,212 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | Bomber | 4 | -80 | 80 | 1.0s | 250 | Tanky, rapid fire |
 | POWArmor | 5 | -90 | 60 | 4.0s | 200 | 50% power-up drop |
 
+## Leaderboard & Achievements System
+
+Global leaderboards with player statistics and achievements, persisted in MongoDB.
+
+### Architecture
+
+```
+[Client: LeaderboardScene] ←TCP→ [TCPAuthServer]
+                                        ↓
+                              [ILeaderboardRepository]
+                                        ↓
+                           [MongoDBLeaderboardRepository]
+                                        ↓
+                                    [MongoDB]
+```
+
+### MongoDB Collections
+
+| Collection | Description |
+|------------|-------------|
+| `leaderboard` | Top scores with player info |
+| `player_stats` | Cumulative statistics per player |
+| `game_history` | Individual game records |
+| `achievements` | Unlocked achievement timestamps |
+
+### TCP Protocol Messages (Leaderboard)
+
+| Type | Value | Direction | Description |
+|------|-------|-----------|-------------|
+| `GetLeaderboard` | 0x0500 | C→S | Request leaderboard (period + limit) |
+| `LeaderboardData` | 0x0501 | S→C | Leaderboard entries response |
+| `GetPlayerStats` | 0x0502 | C→S | Request own stats |
+| `PlayerStatsData` | 0x0503 | S→C | Player statistics response |
+| `GetGameHistory` | 0x0504 | C→S | Request game history |
+| `GameHistoryData` | 0x0505 | S→C | Game history entries |
+| `GetAchievements` | 0x0506 | C→S | Request achievements |
+| `AchievementsData` | 0x0507 | S→C | Achievement bitfield |
+
+### Wire Structures
+
+```cpp
+// GetLeaderboardRequest (2 bytes)
+struct GetLeaderboardRequest {
+    uint8_t period;   // 0=All-Time, 1=Weekly, 2=Monthly
+    uint8_t limit;    // Max entries (default 50)
+};
+
+// LeaderboardEntryWire (88 bytes per entry)
+struct LeaderboardEntryWire {
+    uint32_t rank;
+    char playerName[32];
+    uint32_t score;
+    uint16_t wave;
+    uint32_t kills;
+    uint32_t duration;    // Seconds
+    uint64_t timestamp;   // Unix timestamp
+};
+
+// PlayerStatsWire (76 bytes)
+struct PlayerStatsWire {
+    uint32_t gamesPlayed;
+    uint32_t totalKills;
+    uint32_t totalDeaths;
+    uint32_t totalScore;
+    uint32_t bestScore;
+    uint16_t bestWave;
+    uint16_t bestCombo;     // x10 (30 = 3.0x)
+    uint32_t bossKills;
+    uint32_t totalPlaytime; // Seconds
+    uint32_t standardKills;
+    uint32_t spreadKills;
+    uint32_t laserKills;
+    uint32_t missileKills;
+    uint32_t achievements;  // Bitfield
+};
+
+// GameHistoryEntryWire (24 bytes per entry)
+struct GameHistoryEntryWire {
+    uint32_t score;
+    uint16_t wave;
+    uint16_t kills;
+    uint16_t deaths;
+    uint32_t duration;    // Seconds
+    uint64_t timestamp;
+};
+```
+
+### Achievements System
+
+10 achievements tracked as a 32-bit bitfield:
+
+| Bit | Achievement | Condition |
+|-----|-------------|-----------|
+| 0 | First Blood | Get 1 kill |
+| 1 | Exterminator | 1000 total kills |
+| 2 | Combo Master | Achieve 3.0x combo |
+| 3 | Boss Slayer | Kill any boss |
+| 4 | Survivor | Reach wave 20 without dying |
+| 5 | Speed Demon | Wave 10 in under 5 minutes |
+| 6 | Perfectionist | Complete wave without damage |
+| 7 | Veteran | Play 100 games |
+| 8 | Untouchable | Complete game with 0 deaths |
+| 9 | Weapon Master | 100+ kills with each weapon |
+
+**Achievement Checker:** `src/server/application/services/AchievementChecker.hpp`
+
+### Leaderboard Periods
+
+| Period | Value | Filter |
+|--------|-------|--------|
+| All-Time | 0 | No filter |
+| Weekly | 1 | Last 7 days |
+| Monthly | 2 | Last 30 days |
+
+### Client UI (LeaderboardScene)
+
+Accessible via **LEADERBOARD** button in main menu.
+
+**Tabs:**
+1. **Leaderboard** - Top 50 players with rank, name, score, wave, kills
+2. **Stats** - Personal statistics (games, K/D, playtime, weapon usage)
+3. **Achievements** - 10 achievement badges (locked/unlocked)
+
+**Navigation:**
+- Tab buttons at top
+- Period filter buttons (All-Time/Weekly/Monthly) for Leaderboard tab
+- **BACK** button returns to main menu
+- Scroll support for long lists
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `src/server/include/application/ports/out/persistence/ILeaderboardRepository.hpp` | Repository interface |
+| `src/server/infrastructure/adapters/out/persistence/MongoDBLeaderboardRepository.cpp` | MongoDB implementation |
+| `src/server/include/application/services/AchievementChecker.hpp` | Achievement logic |
+| `src/client/include/scenes/LeaderboardScene.hpp` | Client scene header |
+| `src/client/src/scenes/LeaderboardScene.cpp` | Client scene implementation |
+| `src/client/include/network/NetworkEvents.hpp` | TCP event types |
+| `src/common/protocol/Protocol.hpp` | Wire format structures |
+
+### Usage Example (Client)
+
+```cpp
+// In MainMenuScene::onLeaderboardClick()
+auto& sceneManager = SceneManager::getInstance();
+sceneManager.pushScene(std::make_unique<LeaderboardScene>());
+
+// In LeaderboardScene - request data
+auto& tcpClient = TCPClient::getInstance();
+tcpClient.sendGetLeaderboard({.period = 0, .limit = 50});
+tcpClient.sendGetPlayerStats();
+tcpClient.sendGetAchievements();
+
+// Handle response events in update()
+while (auto event = tcpClient.pollEvent()) {
+    if (auto* data = std::get_if<LeaderboardDataEvent>(&*event)) {
+        // Update UI with data->response.entries
+    }
+}
+```
+
+### Real-Time Rank Display (GameScene)
+
+During gameplay, the player's global rank and personal best score are displayed in the HUD.
+
+**Features:**
+- **Global rank badge** - Shows current position (e.g., "RANK #42")
+- **Personal best score** - Target to beat (e.g., "BEST: 32.6K")
+- **Real-time updates** - Rank refreshed every 10 seconds
+- **Visual feedback** - Best score turns green when current score exceeds it
+
+**Rank Colors:**
+| Position | Color |
+|----------|-------|
+| #1 | Gold (255, 215, 0) |
+| #2 | Silver (192, 192, 192) |
+| #3 | Bronze (205, 127, 50) |
+| Top 10 | Light Blue (100, 200, 255) |
+| Top 50 | Green (100, 255, 150) |
+| Others | Gray (200, 200, 200) |
+
+**Score Formatting:**
+- `< 1000` → Raw number (e.g., "BEST: 850")
+- `≥ 1000` → K format (e.g., "BEST: 32.6K")
+- `≥ 1000000` → M format (e.g., "BEST: 1.2M")
+
+**Implementation:**
+```cpp
+// GameScene requests rank and stats at start
+_context.tcpClient->sendGetLeaderboard({.period = 0, .limit = 1});
+_context.tcpClient->sendGetPlayerStats();  // For bestScore
+
+// Periodic update every 10 seconds
+if (_rankUpdateTimer >= RANK_UPDATE_INTERVAL) {
+    _context.tcpClient->sendGetLeaderboard({.period = 0, .limit = 1});
+    _rankUpdateTimer = 0.0f;
+}
+```
+
+**Key Files:**
+| File | Description |
+|------|-------------|
+| `src/client/include/scenes/GameScene.hpp` | Rank state variables |
+| `src/client/src/scenes/GameScene.cpp` | `renderGlobalRank()` function |
+
 ## Assets
 
 | Asset | Path | Size |
@@ -587,8 +851,27 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 | **VoiceChatManager** | `src/client/src/audio/VoiceChatManager.cpp` |
 | **OpusCodec** | `src/client/src/audio/OpusCodec.cpp` |
 | **TCPAuthServer** | `src/server/infrastructure/adapters/in/network/TCPAuthServer.cpp` |
+| **TCPAdminServer** | `src/server/infrastructure/adapters/in/network/TCPAdminServer.cpp` |
 | **TCPClient** | `src/client/src/network/TCPClient.cpp` |
 | **SessionManager** | `src/server/infrastructure/session/SessionManager.cpp` |
+| **LeaderboardScene** | `src/client/src/scenes/LeaderboardScene.cpp` |
+| **ILeaderboardRepository** | `src/server/include/application/ports/out/persistence/ILeaderboardRepository.hpp` |
+| **AchievementChecker** | `src/server/application/services/AchievementChecker.cpp` |
+
+### Unit Tests (Leaderboard)
+
+| Test File | Coverage |
+|-----------|----------|
+| `tests/server/application/services/AchievementCheckerTest.cpp` | All 10 achievements, edge cases |
+| `tests/server/application/services/LeaderboardDataTest.cpp` | PlayerStats, GameHistoryEntry, enums |
+
+**Run tests:**
+```bash
+./scripts/compile.sh && ./artifacts/tests/server_tests --gtest_filter="Achievement*:PlayerStats*:Leaderboard*"
+```
+| **ServerConfigManager** | `src/client/src/config/ServerConfigManager.cpp` |
+| **Server wrapper** | `src/server/scripts/server-wrapper.py` |
+| **Systemd service** | `src/server/scripts/rtype_server.service` |
 
 ## TLS Security
 
@@ -622,6 +905,172 @@ Authentication traffic (TCP port 4125) is encrypted using TLS 1.2+.
 - Session tokens are generated using OpenSSL `RAND_bytes()` (CSPRNG)
 - Client uses `verify_none` for self-signed certificates (development only)
 - In production, use `verify_peer` with proper CA certificates
+
+## TCP Admin Server (Remote Administration)
+
+The TCPAdminServer provides remote administration capabilities via a JSON-RPC protocol over TCP.
+
+### Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Port | TCP 4127 |
+| Bind Address | `127.0.0.1` (localhost only - not accessible from outside) |
+| Protocol | JSON-RPC over TCP (newline-delimited) |
+| Authentication | Token-based (ADMIN_TOKEN environment variable) |
+
+### Security
+
+The TCPAdminServer implements multiple security layers:
+
+| Layer | Protection |
+|-------|------------|
+| **Network** | Binds to `127.0.0.1` only - cannot be accessed from external networks |
+| **Authentication** | 256-bit token required (`openssl rand -hex 32`) |
+| **Command filtering** | Dangerous commands blocked: `quit`, `exit`, `zoom`, `interact`, `net` |
+| **Thread safety** | Mutex-protected token validation and connection tracking |
+
+**Security notes:**
+- If `ADMIN_TOKEN` is not set, the server refuses ALL requests
+- Token comparison is exact match (no partial matching)
+- Each connection is logged with source IP/port
+
+### Protocol
+
+**Request format:**
+```json
+{"cmd": "command_name", "args": "optional arguments", "token": "admin_token"}
+```
+
+**Response format:**
+```json
+{"success": true, "output": ["line1", "line2", ...], "error": "if any"}
+```
+
+### Available Commands
+
+All ServerCLI commands are available except interactive ones:
+
+| Command | Description |
+|---------|-------------|
+| `status` | Server status (users, sessions, uptime) |
+| `sessions` | List active sessions |
+| `users` | List registered users |
+| `user <email>` | User details |
+| `kick <email>` | Disconnect a player |
+| `ban <email> [reason]` | Ban a user |
+| `unban <email>` | Unban a user |
+| `bans` | List banned users |
+| `rooms` | List active game rooms |
+| `room <code>` | Room details |
+| `broadcast <msg>` | Send message to all players |
+| `help` | List available commands |
+
+**Blocked commands** (require local TUI): `quit`, `exit`, `zoom`, `interact`, `net`
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_TOKEN` | Yes | Secret token for authentication (min 32 chars recommended) |
+
+**Generate a secure token:**
+```bash
+openssl rand -hex 32
+```
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `src/server/include/infrastructure/adapters/in/network/TCPAdminServer.hpp` | Header |
+| `src/server/infrastructure/adapters/in/network/TCPAdminServer.cpp` | Implementation |
+| `src/server/infrastructure/cli/ServerCLI.cpp` | `executeCommandWithOutput()` method |
+
+## Discord Admin Bot
+
+Python Discord bot that connects to TCPAdminServer for remote server administration.
+
+### Architecture
+
+```
+[Discord] ←→ [Discord Bot (Python)] ←TCP 4127→ [TCPAdminServer (C++)] ←→ [ServerCLI]
+```
+
+### Setup
+
+```bash
+cd discord-bot/admin
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your configuration
+python bot.py
+```
+
+### Configuration (.env)
+
+| Variable | Description |
+|----------|-------------|
+| `DISCORD_TOKEN` | Discord bot token |
+| `ADMIN_CHANNEL_ID` | Channel ID where commands are allowed |
+| `ADMIN_ROLE_ID` | Role ID required to use commands |
+| `RTYPE_SERVER_HOST` | R-Type server hostname (default: localhost) |
+| `RTYPE_ADMIN_PORT` | TCPAdminServer port (default: 4127) |
+| `ADMIN_TOKEN` | Must match server's ADMIN_TOKEN |
+| `LOG_LEVEL` | Logging level (default: INFO) |
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/status` | Show server status |
+| `/sessions` | List active sessions |
+| `/rooms` | List active game rooms |
+| `/room <code>` | Show room details |
+| `/users` | List registered users |
+| `/user <email>` | Show user details |
+| `/kick <email>` | Kick a player |
+| `/ban <email> [reason]` | Ban a user |
+| `/unban <email>` | Unban a user |
+| `/bans` | List banned users |
+| `/broadcast <message>` | Send to all players |
+| `/say <room> <message>` | Send to specific room |
+| `/cli <command>` | Execute any CLI command |
+| `/help` | Show help |
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `discord-bot/admin/bot.py` | Main bot entry point |
+| `discord-bot/admin/tcp_client.py` | Async TCP client for TCPAdminServer |
+| `discord-bot/admin/config.py` | Configuration from environment |
+| `discord-bot/admin/cogs/admin.py` | Server management commands |
+| `discord-bot/admin/cogs/users.py` | User management commands |
+| `discord-bot/admin/cogs/moderation.py` | Ban/kick commands |
+| `discord-bot/admin/utils/embeds.py` | Discord embed generators |
+
+### Systemd Service (VPS)
+
+```ini
+[Unit]
+Description=R-Type Discord Admin Bot
+After=network.target rtype-server.service
+
+[Service]
+Type=simple
+User=alexandre
+WorkingDirectory=/opt/rtype/discord-bot/admin
+ExecStart=/opt/rtype/discord-bot/admin/venv/bin/python bot.py
+Restart=always
+RestartSec=10
+Environment="ADMIN_TOKEN=your_token_here"
+
+[Install]
+WantedBy=multi-user.target
+```
 
 ## Coding Conventions
 
@@ -734,6 +1183,40 @@ python .claude/scripts/bootstrap.py --incremental  # Update
 | ≥60 | 🟡 REVIEW | Human review recommended |
 | ≥40 | 🟠 CAREFUL | Deep review required |
 | <40 | 🔴 REJECT | Do not merge |
+
+## Hidden Features (Developer Only)
+
+### GodMode
+
+Hidden invincibility feature for testing/debugging. Not visible to other players.
+
+| Aspect | Details |
+|--------|---------|
+| **Activation** | Type `/toggleGodMode` in chat during gameplay |
+| **Effect** | Player takes no damage from enemy missiles |
+| **Visibility** | Command not broadcast, other players unaware |
+| **Persistence** | Saved to MongoDB (user_settings.godMode) |
+| **Auto-load** | State restored on login |
+
+**Architecture Flow:**
+```
+[Chat: /toggleGodMode] → TCPAuthServer (intercept, not broadcast)
+        ↓
+SessionManager.toggleGodMode() → GodModeChangedCallback
+        ↓
+UDPServer → GameWorld.setPlayerGodMode()
+        ↓
+checkCollisions() skips damage if player.godMode == true
+```
+
+**Key Files:**
+| File | Role |
+|------|------|
+| `SessionManager.hpp/cpp` | Session state, callbacks, toggle logic |
+| `TCPAuthServer.cpp` | Command interception, DB persistence |
+| `UDPServer.cpp` | Callback registration, initial state on join |
+| `GameWorld.cpp` | Damage bypass in collision checks |
+| `IUserSettingsRepository.hpp` | `godMode` field in UserSettingsData |
 
 ## Notes for Claude
 

@@ -9,6 +9,9 @@
 #include "collision/AABB.hpp"
 #include <algorithm>
 #include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 namespace infrastructure::game {
 
@@ -64,6 +67,7 @@ namespace infrastructure::game {
 
         _players[newId] = player;
         _playerScores[newId] = PlayerScore{};  // Initialize score for new player
+        // Note: Game timer starts on first input (see applyPlayerInput)
         return newId;
     }
 
@@ -98,7 +102,20 @@ namespace infrastructure::game {
         }
     }
 
+    void GameWorld::setPlayerGodMode(uint8_t playerId, bool enabled) {
+        auto it = _players.find(playerId);
+        if (it != _players.end()) {
+            it->second.godMode = enabled;
+        }
+    }
+
     void GameWorld::applyPlayerInput(uint8_t playerId, uint16_t keys, uint16_t sequenceNum) {
+        // Start game timer on first input (game has started for this player)
+        auto scoreIt = _playerScores.find(playerId);
+        if (scoreIt != _playerScores.end() && !scoreIt->second.gameStarted) {
+            scoreIt->second.startGame();
+        }
+
         // Get previous keys to detect weapon switch "just pressed"
         uint16_t prevKeys = 0;
         auto prevIt = _playerInputs.find(playerId);
@@ -167,6 +184,14 @@ namespace infrastructure::game {
         return std::nullopt;
     }
 
+    std::optional<udp::endpoint> GameWorld::getEndpointByPlayerId(uint8_t playerId) const {
+        auto it = _players.find(playerId);
+        if (it == _players.end()) {
+            return std::nullopt;
+        }
+        return it->second.endpoint;
+    }
+
     GameSnapshot GameWorld::getSnapshot() const {
         GameSnapshot snapshot{};
         snapshot.player_count = 0;
@@ -206,7 +231,8 @@ namespace infrastructure::game {
                 .currentWeapon = static_cast<uint8_t>(player.currentWeapon),
                 .chargeLevel = player.chargeLevel,
                 .speedLevel = player.speedLevel,
-                .weaponLevel = player.weaponLevel,
+                // Send the level of the current weapon (for client display)
+                .weaponLevel = player.weaponLevels[static_cast<size_t>(player.currentWeapon)],
                 .hasForce = static_cast<uint8_t>(player.hasForce ? 1 : 0),
                 .shieldTimer = 0  // Reserved field (R-Type has no shield)
             };
@@ -481,6 +507,26 @@ namespace infrastructure::game {
 
         if (_waveTimer >= _currentWaveInterval) {
             _waveTimer = 0.0f;
+
+            // Track wave completion stats for all players BEFORE incrementing wave
+            if (_waveNumber > 0) {
+                for (auto& [playerId, score] : _playerScores) {
+                    // Wave streak: waves completed without dying (already tracked by onPlayerDied reset)
+                    score.currentWaveStreak++;
+                    if (score.currentWaveStreak > score.bestWaveStreak) {
+                        score.bestWaveStreak = score.currentWaveStreak;
+                    }
+
+                    // Perfect wave: no damage taken this wave
+                    if (!score.tookDamageThisWave) {
+                        score.perfectWaves++;
+                    }
+
+                    // Reset damage flag for next wave
+                    score.tookDamageThisWave = false;
+                }
+            }
+
             _waveNumber++;
 
             std::uniform_real_distribution<float> waveIntervalDist(WAVE_INTERVAL_MIN, WAVE_INTERVAL_MAX);
@@ -711,15 +757,22 @@ namespace infrastructure::game {
                     bool wasAlive = enemy.health > 0;
                     // Use weapon-specific damage with level bonus
                     uint8_t damage = Missile::getDamage(missile.weaponType, missile.weaponLevel);
+                    // Calculate actual damage dealt (capped by remaining health)
+                    uint8_t actualDamage = std::min(damage, enemy.health);
                     if (enemy.health > damage) {
                         enemy.health -= damage;
                     } else {
                         enemy.health = 0;
                     }
+                    // Track total damage dealt
+                    auto scoreIt = _playerScores.find(missile.owner_id);
+                    if (scoreIt != _playerScores.end()) {
+                        scoreIt->second.totalDamageDealt += actualDamage;
+                    }
 
                     // Award score if enemy was killed
                     if (wasAlive && enemy.health == 0) {
-                        awardKillScore(missile.owner_id, static_cast<EnemyType>(enemy.enemy_type));
+                        awardKillScore(missile.owner_id, static_cast<EnemyType>(enemy.enemy_type), missile.weaponType);
 
                         // POWArmor always drops power-up, other enemies have a chance
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
@@ -773,6 +826,13 @@ namespace infrastructure::game {
                 );
 
                 if (missileBox.intersects(playerBox)) {
+                    // GodMode: player is invincible, missile still destroyed
+                    if (player.godMode) {
+                        missileIt = _enemyMissiles.erase(missileIt);
+                        missileDestroyed = true;
+                        break;
+                    }
+
                     // R-Type authentic: no shield, player takes damage directly
                     // Defense comes from Force Pod blocking projectiles
 
@@ -791,6 +851,7 @@ namespace infrastructure::game {
 
                     if (!wasDead && !player.alive) {
                         _deadPlayers.push_back(playerId);
+                        onPlayerDied(playerId);  // Track death for leaderboard
                     }
 
                     missileIt = _enemyMissiles.erase(missileIt);
@@ -866,7 +927,7 @@ namespace infrastructure::game {
         }
     }
 
-    void GameWorld::awardKillScore(uint8_t playerId, EnemyType enemyType) {
+    void GameWorld::awardKillScore(uint8_t playerId, EnemyType enemyType, WeaponType weaponUsed) {
         auto it = _playerScores.find(playerId);
         if (it == _playerScores.end()) {
             _playerScores[playerId] = PlayerScore{};
@@ -881,16 +942,43 @@ namespace infrastructure::game {
         score.score += points;
         score.kills++;
 
+        // Track kills per weapon
+        switch (weaponUsed) {
+            case WeaponType::Standard:   score.standardKills++; break;
+            case WeaponType::Spread:     score.spreadKills++; break;
+            case WeaponType::Laser:      score.laserKills++; break;
+            case WeaponType::Missile:    score.missileKills++; break;
+            case WeaponType::WaveCannon: score.waveCannonKills++; break;
+            default: score.standardKills++; break;
+        }
+
         // Increase combo (max 3.0x)
         score.comboMultiplier = std::min(COMBO_MAX, score.comboMultiplier + COMBO_INCREMENT);
         score.comboTimer = 0.0f;  // Reset combo timer
+
+        // Track max combo achieved
+        if (score.comboMultiplier > score.maxCombo) {
+            score.maxCombo = score.comboMultiplier;
+        }
+
+        // Kill streak tracking (consecutive kills without damage)
+        score.currentKillStreak++;
+        if (score.currentKillStreak > score.bestKillStreak) {
+            score.bestKillStreak = score.currentKillStreak;
+        }
     }
 
     void GameWorld::updateComboTimers(float deltaTime) {
         for (auto& [playerId, score] : _playerScores) {
             score.comboTimer += deltaTime;
-            if (score.comboTimer > COMBO_DECAY_TIME) {
-                score.comboMultiplier = 1.0f;  // Reset combo
+
+            // Progressive decay after grace period
+            if (score.comboTimer > COMBO_GRACE_TIME && score.comboMultiplier > 1.0f) {
+                // Calculate how much time has passed since grace period ended
+                float decayTime = score.comboTimer - COMBO_GRACE_TIME;
+                // Apply decay: -0.3x per second
+                float decay = COMBO_DECAY_RATE * deltaTime;
+                score.comboMultiplier = std::max(1.0f, score.comboMultiplier - decay);
             }
         }
     }
@@ -901,6 +989,17 @@ namespace infrastructure::game {
             it->second.tookDamageThisWave = true;
             // Reset combo on damage
             it->second.comboMultiplier = 1.0f;
+            // Reset kill streak on damage
+            it->second.currentKillStreak = 0;
+        }
+    }
+
+    void GameWorld::onPlayerDied(uint8_t playerId) {
+        auto it = _playerScores.find(playerId);
+        if (it != _playerScores.end()) {
+            it->second.deaths++;
+            // Reset wave streak on death
+            it->second.currentWaveStreak = 0;
         }
     }
 
@@ -1522,6 +1621,15 @@ namespace infrastructure::game {
 
         Boss& boss = _boss.value();
 
+        // Calculate actual damage dealt (capped by remaining health)
+        uint8_t actualDamage = std::min(static_cast<uint16_t>(damage), boss.health);
+
+        // Track total damage dealt
+        auto scoreIt = _playerScores.find(playerId);
+        if (scoreIt != _playerScores.end()) {
+            scoreIt->second.totalDamageDealt += actualDamage;
+        }
+
         if (boss.health > damage) {
             boss.health -= damage;
 
@@ -1545,6 +1653,7 @@ namespace infrastructure::game {
                 uint32_t cycleBonus = (_bossDefeatedCount + 1) * 1000;  // +1000 per cycle
                 it->second.score += (POINTS_BOSS * phaseMultiplier) + cycleBonus;
                 it->second.kills++;
+                it->second.bossKills++;  // Track boss kills for leaderboard
                 // Big combo boost
                 it->second.comboMultiplier = COMBO_MAX;
                 it->second.comboTimer = 0.0f;
@@ -1565,7 +1674,7 @@ namespace infrastructure::game {
         if (it == _players.end()) return;
 
         uint8_t current = static_cast<uint8_t>(it->second.currentWeapon);
-        uint8_t count = MAX_WEAPON_TYPES;
+        uint8_t count = MAX_SELECTABLE_WEAPONS;  // Only cycle through selectable weapons (not WaveCannon)
 
         if (next) {
             current = (current + 1) % count;
@@ -1619,7 +1728,8 @@ namespace infrastructure::game {
 
         ConnectedPlayer& player = it->second;
         WeaponType weapon = player.currentWeapon;
-        uint8_t level = player.weaponLevel;
+        // Use the level of the current weapon (not a global level)
+        uint8_t level = player.weaponLevels[static_cast<size_t>(weapon)];
 
         // Set cooldown for this weapon (affected by weapon level)
         player.shootCooldown = Missile::getCooldown(weapon, level);
@@ -1903,13 +2013,23 @@ namespace infrastructure::game {
                     // Mark as hit BEFORE applying damage
                     wc.hitEnemies.insert(enemyId);
 
+                    // Calculate actual damage dealt (capped by remaining health)
+                    uint8_t actualDamage = std::min(static_cast<uint8_t>(wc.damage), enemy.health);
+
                     enemy.health = (enemy.health > wc.damage) ?
                                    enemy.health - wc.damage : 0;
+
+                    // Track total damage dealt by Wave Cannon
+                    auto scoreIt = _playerScores.find(wc.owner_id);
+                    if (scoreIt != _playerScores.end()) {
+                        scoreIt->second.totalDamageDealt += actualDamage;
+                    }
 
                     if (enemy.health == 0) {
                         _destroyedEnemies.push_back(enemyId);
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
-                        awardKillScore(wc.owner_id, enemyType);
+                        // Wave Cannon has its own kill tracking
+                        awardKillScore(wc.owner_id, enemyType, WeaponType::WaveCannon);
 
                         // POWArmor always drops power-up, other enemies have a chance
                         std::uniform_int_distribution<int> dropDist(0, 99);
@@ -2092,10 +2212,17 @@ namespace infrastructure::game {
                 }
                 break;
 
-            case PowerUpType::WeaponCrystal:
-                player.weaponLevel = std::min(static_cast<uint8_t>(3),
-                                              static_cast<uint8_t>(player.weaponLevel + 1));
+            case PowerUpType::WeaponCrystal: {
+                // Upgrade only the current weapon (not all weapons)
+                size_t weaponIdx = static_cast<size_t>(player.currentWeapon);
+                if (weaponIdx < player.weaponLevels.size()) {
+                    player.weaponLevels[weaponIdx] = std::min(
+                        static_cast<uint8_t>(3),
+                        static_cast<uint8_t>(player.weaponLevels[weaponIdx] + 1)
+                    );
+                }
                 break;
+            }
 
             case PowerUpType::ForcePod:
                 giveForceToPlayer(playerId);
@@ -2281,7 +2408,10 @@ namespace infrastructure::game {
                     if (enemy.health == 0) {
                         _destroyedEnemies.push_back(enemyId);
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
-                        awardKillScore(playerId, enemyType);
+                        // Force Pod kills count as player's current weapon
+                        auto playerIt = _players.find(playerId);
+                        WeaponType weapon = playerIt != _players.end() ? playerIt->second.currentWeapon : WeaponType::Standard;
+                        awardKillScore(playerId, enemyType, weapon);
 
                         // POWArmor always drops power-up, other enemies have a chance
                         std::uniform_int_distribution<int> dropDist(0, 99);
@@ -2410,7 +2540,8 @@ namespace infrastructure::game {
         }
 
         WeaponType weapon = playerIt->second.currentWeapon;
-        uint8_t level = playerIt->second.weaponLevel;
+        // Use the level of the current weapon (not a global level)
+        uint8_t level = playerIt->second.weaponLevels[static_cast<size_t>(weapon)];
 
         // Spawn position (from Force Pod, front side)
         float spawnX = force.x + ForcePod::WIDTH;
@@ -2607,7 +2738,10 @@ namespace infrastructure::game {
                         if (enemy.health == 0) {
                             killedEnemies.push_back(enemyId);
                             EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
-                            awardKillScore(playerId, enemyType);
+                            // Bit Device kills count as player's current weapon
+                            auto playerIt = _players.find(playerId);
+                            WeaponType weapon = playerIt != _players.end() ? playerIt->second.currentWeapon : WeaponType::Standard;
+                            awardKillScore(playerId, enemyType, weapon);
 
                             // POWArmor always drops power-up, others have a chance
                             std::uniform_int_distribution<int> dropDist(0, 99);
@@ -2654,7 +2788,8 @@ namespace infrastructure::game {
         if (playerIt == _players.end() || !playerIt->second.alive) return spawnedIds;
 
         WeaponType weapon = playerIt->second.currentWeapon;
-        uint8_t level = playerIt->second.weaponLevel;
+        // Use the level of the current weapon (not a global level)
+        uint8_t level = playerIt->second.weaponLevels[static_cast<size_t>(weapon)];
 
         for (auto& bit : bitsIt->second) {
             if (!bit.isAttached || bit.shootCooldown > 0.0f) continue;

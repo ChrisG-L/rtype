@@ -16,6 +16,7 @@
 #include <vector>
 #include <array>
 #include <cstdint>
+#include "Protocol.hpp"
 
 namespace client::network
 {
@@ -133,6 +134,24 @@ namespace client::network
         std::vector<ChatMessageInfo> messages;
     };
 
+    // Leaderboard events (Phase 3)
+    struct LeaderboardDataEvent {
+        LeaderboardDataResponse response;
+        std::vector<LeaderboardEntryWire> entries;
+    };
+
+    struct PlayerStatsDataEvent {
+        PlayerStatsWire stats;
+    };
+
+    struct AchievementsDataEvent {
+        uint32_t bitfield;
+    };
+
+    struct GameHistoryDataEvent {
+        std::vector<GameHistoryEntryWire> entries;
+    };
+
     // UDP-specific events
     struct UDPConnectedEvent { uint8_t playerId; };
     struct UDPDisconnectedEvent {};
@@ -174,7 +193,12 @@ namespace client::network
         TCPSaveSettingsResultEvent,
         // Chat events (Phase 2)
         TCPChatMessageEvent,
-        TCPChatHistoryEvent
+        TCPChatHistoryEvent,
+        // Leaderboard events (Phase 3)
+        LeaderboardDataEvent,
+        PlayerStatsDataEvent,
+        AchievementsDataEvent,
+        GameHistoryDataEvent
     >;
 
     using UDPEvent = std::variant<

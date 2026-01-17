@@ -28,6 +28,7 @@ class Boot {
 
     private:
         void parseArgs(int argc, char* argv[]);
+        void parseServerArg(const std::string& serverArg);
         void printHelp() const;
 
         std::unique_ptr<core::Engine> engine;  // Must be destroyed first (before network clients)

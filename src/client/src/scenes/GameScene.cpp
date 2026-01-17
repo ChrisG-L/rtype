@@ -12,6 +12,7 @@
 #include "events/Event.hpp"
 #include "utils/Vecs.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
+#include "network/TCPClient.hpp"  // For leaderboard requests
 #include "Protocol.hpp"  // For InputKeys
 #include <variant>
 #include <algorithm>
@@ -40,6 +41,26 @@ GameScene::GameScene(uint16_t roomGameSpeedPercent,
         displayMsg.message = msg.message;
         displayMsg.displayTime = 0.0f;
         displayMsg.expired = true;  // Already in history
+        _chatDisplayMessages.push_back(std::move(displayMsg));
+    }
+}
+
+GameScene::GameScene(uint16_t roomGameSpeedPercent,
+                     const std::vector<client::network::ChatMessageInfo>& initialChatMessages,
+                     const std::unordered_map<uint8_t, std::string>& playerNames)
+    : _roomGameSpeedMultiplier(static_cast<float>(std::clamp(roomGameSpeedPercent, static_cast<uint16_t>(50), static_cast<uint16_t>(200))) / 100.0f),
+      _playerNames(playerNames)
+{
+    client::logging::Logger::getSceneLogger()->debug("GameScene created with room game speed {}%, {} lobby messages, {} player names",
+        roomGameSpeedPercent, initialChatMessages.size(), playerNames.size());
+
+    // Initialize chat display messages from lobby history
+    for (const auto& msg : initialChatMessages) {
+        ChatDisplayMessage displayMsg;
+        displayMsg.displayName = msg.displayName;
+        displayMsg.message = msg.message;
+        displayMsg.displayTime = 0.0f;
+        displayMsg.expired = true;
         _chatDisplayMessages.push_back(std::move(displayMsg));
     }
 }
@@ -351,6 +372,34 @@ void GameScene::update(float deltatime)
         initVoiceChat();
     }
 
+    // Request global rank and player stats (once at start)
+    if (_context.tcpClient && _context.tcpClient->isConnected()) {
+        if (!_globalRankRequested) {
+            GetLeaderboardRequest req;
+            req.period = 0;  // All-time
+            req.limit = 1;   // We only need our rank, not the full list
+            _context.tcpClient->sendGetLeaderboard(req);
+            _globalRankRequested = true;
+            client::logging::Logger::getSceneLogger()->debug("Requested global rank from leaderboard");
+        }
+        if (!_playerStatsRequested) {
+            _context.tcpClient->sendGetPlayerStats();
+            _playerStatsRequested = true;
+            client::logging::Logger::getSceneLogger()->debug("Requested player stats for best score");
+        }
+    }
+
+    // Periodic rank update (every 10 seconds) to show real-time rank changes
+    _rankUpdateTimer += deltatime;
+    if (_rankUpdateTimer >= RANK_UPDATE_INTERVAL && _context.tcpClient && _context.tcpClient->isConnected()) {
+        GetLeaderboardRequest req;
+        req.period = 0;  // All-time
+        req.limit = 1;   // We only need our rank
+        _context.tcpClient->sendGetLeaderboard(req);
+        _rankUpdateTimer = 0.0f;
+        client::logging::Logger::getSceneLogger()->trace("Periodic rank update requested");
+    }
+
     // Update voice chat (process incoming audio)
     audio::VoiceChatManager::getInstance().update();
 
@@ -465,16 +514,32 @@ void GameScene::update(float deltatime)
 
     // R-Type Authentic (Phase 3): Wave Cannon charge system
     // Hold fire to charge, release to fire charged beam OR tap for normal shot
+    // AUTO-FIRE: Before charge starts (< CHARGE_TIME_LV1), holding fire = continuous shooting
     if (shootPressed) {
         if (!_isCharging) {
-            // Start charging
+            // Start charging and fire immediately if cooldown allows
             _isCharging = true;
             _chargeTimer = 0.0f;
             _clientChargeLevel = 0;
             _context.udpClient->startCharging();
+
+            // Fire immediately on first press
+            if (_shootCooldown <= 0.0f) {
+                _context.udpClient->shootMissile();
+                _shootCooldown = SHOOT_COOLDOWN_TIME;
+                audio::AudioManager::getInstance().playSound("shoot");
+            }
         } else {
             // Continue charging
             _chargeTimer += adjustedDeltaTime;
+
+            // AUTO-FIRE: While holding and before charge level 1, keep firing (rapid fire mode)
+            // This allows continuous shooting with weapons like Laser when holding the button
+            if (_chargeTimer < WaveCannon::CHARGE_TIME_LV1 && _shootCooldown <= 0.0f) {
+                _context.udpClient->shootMissile();
+                _shootCooldown = SHOOT_COOLDOWN_TIME;
+                audio::AudioManager::getInstance().playSound("shoot");
+            }
 
             // Update charge level based on time (client-side prediction for UI)
             if (_chargeTimer >= WaveCannon::CHARGE_TIME_LV3) {
@@ -488,19 +553,14 @@ void GameScene::update(float deltatime)
     } else {
         // Fire button released
         if (_isCharging) {
-            if (_chargeTimer < QUICK_TAP_THRESHOLD && _shootCooldown <= 0.0f) {
-                // Quick tap = normal shot (no charge)
-                _context.udpClient->shootMissile();
-                _shootCooldown = SHOOT_COOLDOWN_TIME;
-                audio::AudioManager::getInstance().playSound("shoot");
-                client::logging::Logger::getSceneLogger()->debug("Quick shot fired!");
-            } else if (_clientChargeLevel > 0) {
-                // Charged shot = Wave Cannon
+            if (_clientChargeLevel > 0) {
+                // Charged shot = Wave Cannon (only if we actually charged)
                 _context.udpClient->releaseCharge();
                 _shootCooldown = SHOOT_COOLDOWN_TIME * 2.0f;  // Longer cooldown for Wave Cannon
                 audio::AudioManager::getInstance().playSound("shoot");  // TODO: different sound for Wave Cannon
                 client::logging::Logger::getSceneLogger()->debug("Wave Cannon fired! Level: {}", _clientChargeLevel);
             }
+            // Note: Normal shots are now handled in the holding phase (auto-fire)
             _isCharging = false;
             _chargeTimer = 0.0f;
             _clientChargeLevel = 0;
@@ -644,6 +704,192 @@ void GameScene::renderScoreHUD()
         _context.window->drawRect(waveX - 15.0f, waveY - 5.0f, 130.0f, 35.0f, {20, 20, 40, 180});
 
         _context.window->drawText(FONT_KEY, waveText, waveX, waveY, 22, {255, 220, 100, 255});
+    }
+}
+
+void GameScene::renderGlobalRank()
+{
+    // Position: below the score HUD (score ends at ~95px)
+    float rankX = SCREEN_WIDTH - 280.0f;
+    float rankY = 98.0f;
+
+    // Get current player score for comparison
+    uint32_t currentScore = 0;
+    auto localId = _context.udpClient->getLocalPlayerId();
+    if (localId) {
+        for (const auto& player : _context.udpClient->getPlayers()) {
+            if (player.id == *localId) {
+                currentScore = player.score;
+                break;
+            }
+        }
+    }
+
+    // Background for rank badge (larger to include best score + "NEW!" indicator)
+    _context.window->drawRect(rankX - 10.0f, rankY - 3.0f, 165.0f, 50.0f, {20, 20, 40, 180});
+
+    // Display global rank
+    if (_globalRank == 0) {
+        // Not ranked or loading
+        if (!_globalRankRequested) {
+            _context.window->drawText(FONT_KEY, "RANK: ...", rankX, rankY, 16, {150, 150, 150, 255});
+        } else {
+            _context.window->drawText(FONT_KEY, "RANK: ---", rankX, rankY, 16, {150, 150, 150, 255});
+        }
+    } else {
+        // Display rank with color based on position
+        std::string rankText = "RANK #" + std::to_string(_globalRank);
+
+        rgba rankColor;
+        if (_globalRank == 1) {
+            rankColor = {255, 215, 0, 255};    // Gold for #1
+        } else if (_globalRank == 2) {
+            rankColor = {192, 192, 192, 255};  // Silver for #2
+        } else if (_globalRank == 3) {
+            rankColor = {205, 127, 50, 255};   // Bronze for #3
+        } else if (_globalRank <= 10) {
+            rankColor = {100, 200, 255, 255};  // Light blue for top 10
+        } else if (_globalRank <= 50) {
+            rankColor = {100, 255, 150, 255};  // Green for top 50
+        } else {
+            rankColor = {200, 200, 200, 255};  // Gray for others
+        }
+
+        _context.window->drawText(FONT_KEY, rankText, rankX, rankY, 18, rankColor);
+    }
+
+    // Display best score below rank
+    float bestY = rankY + 24.0f;
+    if (_bestScore > 0 || currentScore > 0) {
+        // Use current score if it beats the saved best score (live update)
+        uint32_t displayBest = (currentScore > _bestScore) ? currentScore : _bestScore;
+        bool isNewRecord = currentScore > _bestScore && _bestScore > 0;
+
+        // Format best score (e.g., "BEST: 32.6K" or "BEST: 1.2M")
+        std::string bestText;
+        if (displayBest >= 1000000) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "BEST: %.1fM", displayBest / 1000000.0f);
+            bestText = buf;
+        } else if (displayBest >= 1000) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "BEST: %.1fK", displayBest / 1000.0f);
+            bestText = buf;
+        } else {
+            bestText = "BEST: " + std::to_string(displayBest);
+        }
+
+        // Add "NEW!" indicator when beating your record
+        if (isNewRecord) {
+            bestText += " NEW!";
+        }
+
+        // Color: green if current score beats best, otherwise cyan
+        rgba bestColor;
+        if (isNewRecord) {
+            bestColor = {100, 255, 100, 255};  // Green - new record!
+        } else {
+            bestColor = {100, 200, 255, 255};  // Cyan - target to beat
+        }
+
+        _context.window->drawText(FONT_KEY, bestText, rankX, bestY, 14, bestColor);
+    } else if (_playerStatsRequested) {
+        _context.window->drawText(FONT_KEY, "BEST: ---", rankX, bestY, 14, {150, 150, 150, 255});
+    } else {
+        _context.window->drawText(FONT_KEY, "BEST: ...", rankX, bestY, 14, {150, 150, 150, 255});
+    }
+}
+
+void GameScene::renderTeamScoreboard()
+{
+    auto localId = _context.udpClient->getLocalPlayerId();
+    auto players = _context.udpClient->getPlayers();
+
+    // Only show if more than 1 player
+    if (players.size() <= 1) return;
+
+    // Sort players by score (descending)
+    std::vector<client::network::NetworkPlayer> sortedPlayers(players.begin(), players.end());
+    std::sort(sortedPlayers.begin(), sortedPlayers.end(),
+              [](const auto& a, const auto& b) { return a.score > b.score; });
+
+    // Position: right side, below the rank badge (moved left to avoid overflow)
+    float boardWidth = 210.0f;
+    float boardX = SCREEN_WIDTH - boardWidth - 15.0f;  // 15px margin from right edge
+    float boardY = 158.0f;  // Below rank badge (which ends ~155px with best score)
+    float rowHeight = 22.0f;
+    float boardHeight = 28.0f + sortedPlayers.size() * rowHeight;
+
+    // Background
+    _context.window->drawRect(boardX - 5.0f, boardY - 5.0f, boardWidth, boardHeight, {20, 20, 40, 200});
+
+    // Header
+    _context.window->drawText(FONT_KEY, "TEAM SCORES", boardX, boardY, 12, {200, 200, 200, 255});
+
+    // Player rows
+    float rowY = boardY + 20.0f;
+    int rank = 1;
+    for (const auto& player : sortedPlayers) {
+        bool isLocal = localId && player.id == *localId;
+
+        // Rank color (gold, silver, bronze, white)
+        rgba rankColor;
+        if (rank == 1) {
+            rankColor = {255, 215, 0, 255};   // Gold
+        } else if (rank == 2) {
+            rankColor = {192, 192, 192, 255}; // Silver
+        } else if (rank == 3) {
+            rankColor = {205, 127, 50, 255};  // Bronze
+        } else {
+            rankColor = {150, 150, 150, 255}; // Gray
+        }
+
+        // Get player name from stored names map, fallback to "P#"
+        std::string playerName;
+        if (isLocal) {
+            playerName = "YOU";
+        } else {
+            auto it = _playerNames.find(player.id);
+            if (it != _playerNames.end() && !it->second.empty()) {
+                // Truncate long names to 10 chars
+                playerName = it->second.substr(0, 10);
+            } else {
+                playerName = "P" + std::to_string(player.id);
+            }
+        }
+        rgba nameColor = isLocal ? rgba{100, 255, 100, 255} : rgba{255, 255, 255, 255};
+
+        // Rank
+        std::string rankStr = std::to_string(rank) + ".";
+        _context.window->drawText(FONT_KEY, rankStr, boardX, rowY, 11, rankColor);
+
+        // Name
+        _context.window->drawText(FONT_KEY, playerName, boardX + 18.0f, rowY, 11, nameColor);
+
+        // Score (right-aligned area)
+        std::string scoreStr = std::to_string(player.score);
+        _context.window->drawText(FONT_KEY, scoreStr, boardX + 95.0f, rowY, 11, {255, 255, 255, 255});
+
+        // Combo multiplier (only if > 1.0x)
+        if (player.combo > 10) {
+            float comboVal = static_cast<float>(player.combo) / 10.0f;
+            char comboBuf[16];
+            std::snprintf(comboBuf, sizeof(comboBuf), "x%.1f", comboVal);
+
+            // Color based on combo
+            rgba comboColor;
+            if (player.combo >= 25) {
+                comboColor = {255, 100, 100, 255};  // Red (2.5x+)
+            } else if (player.combo >= 20) {
+                comboColor = {255, 200, 50, 255};   // Gold (2.0x+)
+            } else {
+                comboColor = {100, 255, 100, 255};  // Green
+            }
+            _context.window->drawText(FONT_KEY, comboBuf, boardX + 160.0f, rowY, 11, comboColor);
+        }
+
+        rowY += rowHeight;
+        ++rank;
     }
 }
 
@@ -1000,9 +1246,9 @@ void GameScene::renderVoiceIndicator()
     auto& voiceMgr = audio::VoiceChatManager::getInstance();
     if (!voiceMgr.isConnected()) return;
 
-    // Position: left side, below the wave indicator to avoid score HUD overlap
+    // Position: left side, below weapon HUD (which ends at ~140px)
     float indicatorX = 20.0f;
-    float indicatorY = 100.0f;
+    float indicatorY = 145.0f;
 
     // Show muted indicator
     if (voiceMgr.isMuted()) {
@@ -1054,6 +1300,8 @@ void GameScene::render()
     renderHUD();
     renderSpeedIndicator(); // Speed upgrade level (Phase 3)
     renderScoreHUD();
+    renderGlobalRank();     // Global rank badge (top-right, below score)
+    renderTeamScoreboard(); // All players' scores in real-time (multiplayer)
     renderWeaponHUD();     // Weapon indicator (Gameplay Phase 2)
     renderChargeGauge();   // Wave Cannon charge gauge (Phase 3)
     renderBossHealthBar(); // Boss HP bar at top (Gameplay Phase 2)
@@ -1632,6 +1880,17 @@ void GameScene::processTCPEvents()
                     event.reason.empty() ? "No reason given" : event.reason);
                 _wasKicked = true;
                 _kickReason = event.reason;
+            }
+            else if constexpr (std::is_same_v<T, client::network::LeaderboardDataEvent>) {
+                // Received leaderboard data - extract our global rank
+                _globalRank = event.response.yourRank;
+                client::logging::Logger::getSceneLogger()->info("Global rank received: {}",
+                    _globalRank > 0 ? std::to_string(_globalRank) : "Unranked");
+            }
+            else if constexpr (std::is_same_v<T, client::network::PlayerStatsDataEvent>) {
+                // Received player stats - extract best score
+                _bestScore = event.stats.bestScore;
+                client::logging::Logger::getSceneLogger()->info("Best score received: {}", _bestScore);
             }
             // Ignore other TCP events during gameplay
         }, *eventOpt);

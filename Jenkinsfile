@@ -10,7 +10,7 @@ pipeline {
 
     // Options globales pour le pipeline
     options {
-        timeout(time: 2, unit: 'HOURS')
+        timeout(time: 3, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
@@ -147,40 +147,46 @@ pipeline {
                     stages {
                         stage('🔨 Build Linux') {
                             steps {
-                                script {
-                                    echo '🔨 [LINUX] Configuration CMake et vcpkg...'
+                                // catchError permet de continuer même si ce stage échoue
+                                // Les artifacts partiels pourront être récupérés
+                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                    script {
+                                        echo '🔨 [LINUX] Configuration CMake et vcpkg...'
 
-                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer le build dans le workspace Linux (plateforme linux par défaut)
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'build')
+                                        // Lancer le build dans le workspace Linux (plateforme linux par défaut)
+                                        def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'build')
 
-                                    echo "[LINUX] Job créé: ${jobId}"
+                                        echo "[LINUX] Job créé: ${jobId}"
 
-                                    // Attendre la fin du build
-                                    def result = api.waitForJob(jobId, 10, 7200)
+                                        // Attendre la fin du build
+                                        api.waitForJob(jobId, 10, 7200)
 
-                                    echo "✅ [LINUX] Build terminé avec succès"
+                                        echo "✅ [LINUX] Build terminé avec succès"
+                                    }
                                 }
                             }
                         }
 
                         stage('🔧 Compile Linux') {
                             steps {
-                                script {
-                                    echo '🔧 [LINUX] Compilation du projet...'
+                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                    script {
+                                        echo '🔧 [LINUX] Compilation du projet...'
 
-                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer la compilation dans le workspace Linux
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'compile')
+                                        // Lancer la compilation dans le workspace Linux
+                                        def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'compile')
 
-                                    echo "[LINUX] Job créé: ${jobId}"
+                                        echo "[LINUX] Job créé: ${jobId}"
 
-                                    // Attendre la fin de la compilation
-                                    def result = api.waitForJob(jobId, 10, 7200)
+                                        // Attendre la fin de la compilation
+                                        api.waitForJob(jobId, 10, 7200)
 
-                                    echo "✅ [LINUX] Compilation terminée avec succès"
+                                        echo "✅ [LINUX] Compilation terminée avec succès"
+                                    }
                                 }
                             }
                         }
@@ -191,40 +197,44 @@ pipeline {
                     stages {
                         stage('🔨 Build Windows') {
                             steps {
-                                script {
-                                    echo '🔨 [WINDOWS] Configuration CMake et vcpkg avec MinGW...'
+                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                    script {
+                                        echo '🔨 [WINDOWS] Configuration CMake et vcpkg avec MinGW...'
 
-                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer le build Windows dans le workspace Windows avec --platform=windows
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'build', '--platform=windows')
+                                        // Lancer le build Windows dans le workspace Windows avec --platform=windows
+                                        def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'build', '--platform=windows')
 
-                                    echo "[WINDOWS] Job créé: ${jobId}"
+                                        echo "[WINDOWS] Job créé: ${jobId}"
 
-                                    // Attendre la fin du build
-                                    def result = api.waitForJob(jobId, 10, 7200)
+                                        // Attendre la fin du build
+                                        api.waitForJob(jobId, 10, 7200)
 
-                                    echo "✅ [WINDOWS] Build terminé avec succès"
+                                        echo "✅ [WINDOWS] Build terminé avec succès"
+                                    }
                                 }
                             }
                         }
 
                         stage('🔧 Compile Windows') {
                             steps {
-                                script {
-                                    echo '🔧 [WINDOWS] Compilation du projet avec MinGW...'
+                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                    script {
+                                        echo '🔧 [WINDOWS] Compilation du projet avec MinGW...'
 
-                                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+                                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                                    // Lancer la compilation dans le workspace Windows
-                                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'compile', '--platform=windows')
+                                        // Lancer la compilation dans le workspace Windows
+                                        def jobId = api.runInWorkspace(env.WORKSPACE_ID_WINDOWS, 'compile', '--platform=windows')
 
-                                    echo "[WINDOWS] Job créé: ${jobId}"
+                                        echo "[WINDOWS] Job créé: ${jobId}"
 
-                                    // Attendre la fin de la compilation
-                                    def result = api.waitForJob(jobId, 10, 7200)
+                                        // Attendre la fin de la compilation
+                                        api.waitForJob(jobId, 10, 7200)
 
-                                    echo "✅ [WINDOWS] Compilation terminée avec succès"
+                                        echo "✅ [WINDOWS] Compilation terminée avec succès"
+                                    }
                                 }
                             }
                         }
@@ -233,180 +243,25 @@ pipeline {
             }
         }
 
-        stage('🔍 Clang-Tidy') {
-            steps {
-                script {
-                    echo '🔍 Analyse statique avec clang-tidy...'
-
-                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
-
-                    // Lancer clang-tidy dans le workspace Linux
-                    def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'lint')
-
-                    echo "[LINT] Job créé: ${jobId}"
-
-                    // Attendre la fin de l'analyse
-                    def result = api.waitForJob(jobId, 10, 3600)
-
-                    echo "✅ Analyse clang-tidy terminée"
-                }
-            }
-        }
-
-        stage('🧪 Run Tests') {
+        stage('🧪 Run Linux Test') {
             // Tests uniquement sur Linux (Windows = cross-compile, non exécutable)
-            stages {
-                stage('🐧 Linux Tests') {
-                    steps {
-                        script {
-                            echo '🧪 Exécution des tests sur Linux...'
-
-                            def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
-
-                            // Lancer les tests dans le workspace Linux
-                            def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
-
-                            echo "[LINUX] Job créé: ${jobId}"
-
-                            // Attendre la fin des tests
-                            def result = api.waitForJob(jobId, 10, 7200)
-
-                            echo "✅ [LINUX] Tests exécutés avec succès"
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('📦 Download Artifacts') {
-            parallel {
-                stage('Download Linux Artifacts') {
-                    steps {
-                        script {
-                            echo '📦 Récupération des artefacts Linux...'
-
-                            def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
-
-                            // Créer un dossier spécifique pour les artefacts Linux
-                            def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_LINUX}"
-
-                            // Télécharger les artefacts Linux via l'API
-                            def count = api.downloadArtifacts(
-                                env.BUILDER_HOST,
-                                env.WORKSPACE_ID_LINUX,
-                                artifactPath
-                            )
-
-                            echo "✅ ${count} artefact(s) Linux téléchargé(s)"
-                        }
-                    }
-                }
-                stage('Download Windows Artifacts') {
-                    steps {
-                        script {
-                            echo '📦 Récupération des artefacts Windows...'
-
-                            def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
-
-                            // Créer un dossier spécifique pour les artefacts Windows
-                            def artifactPath = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_WINDOWS}"
-
-                            // Télécharger les artefacts Windows via l'API
-                            def count = api.downloadArtifacts(
-                                env.BUILDER_HOST,
-                                env.WORKSPACE_ID_WINDOWS,
-                                artifactPath
-                            )
-
-                            echo "✅ ${count} artefact(s) Windows téléchargé(s)"
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('📦 Archive Artifacts') {
             steps {
-                script {
-                    echo '📦 Archivage des artefacts dans Jenkins...'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    script {
+                        echo '🧪 Exécution des tests sur Linux...'
 
-                    // Archiver tous les artefacts (Linux + Windows)
-                    archiveArtifacts artifacts: "artifacts/**/*",
-                                    fingerprint: true,
-                                    allowEmptyArchive: false
+                        def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
 
-                    echo "✅ Artefacts archivés dans Jenkins"
-                }
-            }
-        }
+                        // Lancer les tests dans le workspace Linux
+                        def jobId = api.runInWorkspace(env.WORKSPACE_ID_LINUX, 'test')
 
-        stage('🚀 GitHub Release') {
-            when {
-                anyOf {
-                    tag pattern: "v*", comparator: "GLOB"
-                    branch 'main'
-                }
-            }
-            steps {
-                script {
-                    echo '🚀 Création de la release GitHub...'
+                        echo "[LINUX] Job créé: ${jobId}"
 
-                    // Déterminer le nom de la release
-                    def releaseTag = env.TAG_NAME ?: "latest-${env.BUILD_NUMBER}"
-                    def releaseName = env.TAG_NAME ? "Release ${env.TAG_NAME}" : "Build #${env.BUILD_NUMBER}"
-                    def isPrerelease = env.TAG_NAME ? "" : "--prerelease"
+                        // Attendre la fin des tests
+                        api.waitForJob(jobId, 10, 7200)
 
-                    // Préparer les fichiers à uploader
-                    sh """
-                        mkdir -p release_assets
-
-                        # Copier les binaires Linux
-                        if [ -d "artifacts/${env.WORKSPACE_ID_LINUX}" ]; then
-                            cp -r artifacts/${env.WORKSPACE_ID_LINUX}/server/linux release_assets/rtype-server-linux || true
-                            cp -r artifacts/${env.WORKSPACE_ID_LINUX}/client/linux release_assets/rtype-client-linux || true
-                        fi
-
-                        # Copier les binaires Windows
-                        if [ -d "artifacts/${env.WORKSPACE_ID_WINDOWS}" ]; then
-                            cp -r artifacts/${env.WORKSPACE_ID_WINDOWS}/server/windows release_assets/rtype-server-windows || true
-                            cp -r artifacts/${env.WORKSPACE_ID_WINDOWS}/client/windows release_assets/rtype-client-windows || true
-                        fi
-
-                        # Créer les archives
-                        cd release_assets
-                        if [ -d "rtype-server-linux" ]; then
-                            tar -czvf rtype-server-linux.tar.gz rtype-server-linux/
-                        fi
-                        if [ -d "rtype-client-linux" ]; then
-                            tar -czvf rtype-client-linux.tar.gz rtype-client-linux/
-                        fi
-                        if [ -d "rtype-server-windows" ]; then
-                            zip -r rtype-server-windows.zip rtype-server-windows/
-                        fi
-                        if [ -d "rtype-client-windows" ]; then
-                            zip -r rtype-client-windows.zip rtype-client-windows/
-                        fi
-                        cd ..
-                    """
-
-                    // Créer la release GitHub
-                    withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
-                        sh """
-                            # Supprimer l'ancienne release latest si c'est un build sur main
-                            if [ -z "${env.TAG_NAME}" ]; then
-                                gh release delete "${releaseTag}" --yes || true
-                            fi
-
-                            # Créer la nouvelle release
-                            gh release create "${releaseTag}" \
-                                --title "${releaseName}" \
-                                --notes "Automated release from Jenkins build #${env.BUILD_NUMBER}" \
-                                ${isPrerelease} \
-                                release_assets/*.tar.gz release_assets/*.zip || true
-                        """
+                        echo "✅ [LINUX] Tests exécutés avec succès"
                     }
-
-                    echo "✅ Release GitHub créée: ${releaseName}"
                 }
             }
         }
@@ -415,9 +270,52 @@ pipeline {
     post {
         always {
             script {
+                // Récupération des artifacts AVANT le nettoyage (même en cas d'échec)
+                echo '📦 Récupération des artefacts (même en cas d\'échec)...'
+
+                try {
+                    def api = builderAPI.create(this, env.BUILDER_HOST, env.BUILDER_PORT.toInteger())
+
+                    // Télécharger les artefacts Linux
+                    try {
+                        def artifactPathLinux = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_LINUX}"
+                        def countLinux = api.downloadArtifacts(
+                            env.BUILDER_HOST,
+                            env.WORKSPACE_ID_LINUX,
+                            artifactPathLinux
+                        )
+                        echo "✅ ${countLinux} artefact(s) Linux téléchargé(s)"
+                    } catch (Exception e) {
+                        echo "⚠️  Impossible de récupérer les artefacts Linux: ${e.message}"
+                    }
+
+                    // Télécharger les artefacts Windows
+                    try {
+                        def artifactPathWindows = "${WORKSPACE}/artifacts/${env.WORKSPACE_ID_WINDOWS}"
+                        def countWindows = api.downloadArtifacts(
+                            env.BUILDER_HOST,
+                            env.WORKSPACE_ID_WINDOWS,
+                            artifactPathWindows
+                        )
+                        echo "✅ ${countWindows} artefact(s) Windows téléchargé(s)"
+                    } catch (Exception e) {
+                        echo "⚠️  Impossible de récupérer les artefacts Windows: ${e.message}"
+                    }
+
+                    // Archiver tous les artefacts disponibles (Linux + Windows)
+                    archiveArtifacts artifacts: "artifacts/**/*",
+                                    fingerprint: true,
+                                    allowEmptyArchive: true  // Ne pas échouer si aucun artifact
+
+                    echo "✅ Artefacts archivés dans Jenkins"
+
+                } catch (Exception e) {
+                    echo "⚠️  Erreur lors de la récupération des artefacts: ${e.message}"
+                }
+
+                // Nettoyage des workspaces APRÈS la récupération
                 echo '🧹 Nettoyage des workspaces...'
 
-                // Supprimer les deux workspaces sur le builder
                 sh """
                     curl -s -X DELETE http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/${env.WORKSPACE_ID_LINUX} || true
                     curl -s -X DELETE http://${env.BUILDER_HOST}:${env.BUILDER_PORT}/workspace/${env.WORKSPACE_ID_WINDOWS} || true

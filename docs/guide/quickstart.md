@@ -18,8 +18,8 @@ Lancez votre première partie R-Type en 5 minutes !
 # Compilation + Lancement serveur
 ./scripts/compile.sh
 
-# Dans un autre terminal : Lancement client
-./scripts/compile.sh --client --no-launch && ./artifacts/client/linux/rtype_client
+# Dans un autre terminal : Lancement client (RECOMMANDÉ)
+./scripts/compile.sh --client --no-launch && ./scripts/run-client.sh
 ```
 
 ---
@@ -110,26 +110,36 @@ MONGO_DB=rtype
 Dans un second terminal :
 
 ```bash
-./artifacts/client/linux/rtype_client
+# RECOMMANDÉ : Via le script wrapper (support voice chat sur Linux/PipeWire)
+./scripts/run-client.sh
 ```
 
-Ou avec le script :
+!!! tip "Pourquoi utiliser le script ?"
+    Le script `run-client.sh` détecte automatiquement PipeWire et utilise `pw-jack` pour activer le support du voice chat. Sans ce wrapper, l'audio vocal peut ne pas fonctionner sur les systèmes Linux modernes.
+
+Alternative (compilation + lancement) :
 
 ```bash
 ./scripts/compile.sh --client
+```
+
+Ou binaire direct (voice chat peut ne pas fonctionner) :
+
+```bash
+./artifacts/client/linux/rtype_client
 ```
 
 ### Options du Client
 
 | Option | Description | Défaut |
 |--------|-------------|--------|
+| `--server=<host>` | Adresse du serveur | `127.0.0.1` |
 | `--graphics=<name>` | Backend graphique (`sdl2` ou `sfml`) | `sfml` |
 | `--graphics-path=<path>` | Chemin vers un plugin graphique custom | - |
 | `-h, --help` | Afficher l'aide | - |
 
-!!! note "Adresse serveur"
-    L'adresse du serveur est configurée en dur dans le code (`127.0.0.1`).
-    Pour se connecter à un serveur distant, modifiez `src/client/src/boot/Boot.cpp`.
+!!! note "Connexion à un serveur distant"
+    Utilisez l'option `--server` : `./scripts/run-client.sh --server=51.254.137.175`
 
 ---
 
@@ -156,6 +166,16 @@ Ou avec le script :
 ./artifacts/server/linux/rtype_server
 ```
 
+### Rejoindre une Partie Distante
+
+```bash
+# Via le script (RECOMMANDÉ)
+./scripts/run-client.sh --server=<IP_HOTE>
+
+# Exemple avec le serveur France
+./scripts/run-client.sh --server=51.254.137.175
+```
+
 Le serveur écoute sur les ports :
 - **4124** (UDP) : Game
 - **4125** (TCP) : Auth
@@ -163,16 +183,17 @@ Le serveur écoute sur les ports :
 
 Communiquez votre IP publique aux autres joueurs et ouvrez ces ports sur votre routeur.
 
-### Rejoindre une Partie
+### Rejoindre une Partie Distante
 
-Pour l'instant, l'adresse du serveur est codée en dur. Pour rejoindre un serveur distant :
+Utilisez l'option `--server` pour vous connecter à un serveur distant :
 
-1. Modifiez `src/client/src/boot/Boot.cpp` ligne 82-83 :
-```cpp
-tcpClient->connect("<IP_HOTE>", 4125);
-udpClient->connect("<IP_HOTE>", 4124);
+```bash
+# Via le script (RECOMMANDÉ - support voice chat)
+./scripts/run-client.sh --server=<IP_HOTE>
+
+# Exemple
+./scripts/run-client.sh --server=51.254.137.175
 ```
-2. Recompilez le client
 
 ---
 

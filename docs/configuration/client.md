@@ -10,6 +10,7 @@ tags:
 
 ```bash
 ./rtype_client [OPTIONS]
+  --server=<host[:port]>  Adresse du serveur (défaut: 127.0.0.1:4125)
   --graphics=<name>       Backend graphique (sfml, sdl2)
   --graphics-path=<path>  Chemin vers un plugin graphique custom
   -h, --help              Afficher l'aide
@@ -18,8 +19,14 @@ tags:
 ### Exemples
 
 ```bash
-# Backend SFML (défaut)
+# Backend SFML (défaut), serveur local
 ./rtype_client
+
+# Connexion au serveur France (VPS)
+./rtype_client --server=51.254.137.175
+
+# Serveur personnalisé avec port custom
+./rtype_client --server=myserver.com:4125
 
 # Backend SDL2
 ./rtype_client --graphics=sdl2
@@ -30,9 +37,9 @@ tags:
 
 ---
 
-## Connexion Serveur
+## Configuration Serveur
 
-Le client se connecte automatiquement à `127.0.0.1` sur les ports :
+### Connexion par défaut
 
 | Service | Port | Protocole |
 |---------|------|-----------|
@@ -40,9 +47,41 @@ Le client se connecte automatiquement à `127.0.0.1` sur les ports :
 | Game | 4124 | UDP |
 | Voice | 4126 | UDP |
 
-!!! note "Configuration réseau"
-    L'adresse du serveur est actuellement codée en dur (`Boot.cpp`).
-    Pour se connecter à un autre serveur, il faut modifier le code source.
+### Configuration in-app
+
+Le client permet de configurer l'adresse du serveur directement depuis l'interface :
+
+- **Écran de connexion** : Appuyez sur ++s++ pour ouvrir la configuration
+- **Écran de login** : Cliquez sur le bouton "SERVER" en bas à gauche
+- **Auto-affichage** : Après 3 tentatives de connexion échouées
+
+#### Boutons de connexion rapide
+
+| Bouton | Adresse | Description |
+|--------|---------|-------------|
+| FRANCE | `51.254.137.175` | Serveur VPS France |
+| LOCAL | `127.0.0.1` | Serveur local |
+
+### Fichier de configuration
+
+La configuration est persistée automatiquement :
+
+| OS | Chemin |
+|----|--------|
+| Linux | `~/.config/rtype/rtype_client.json` |
+| Windows | `%APPDATA%/RType/rtype_client.json` |
+
+```json
+{
+    "host": "51.254.137.175",
+    "tcpPort": 4125,
+    "udpPort": 4124,
+    "voicePort": 4126
+}
+```
+
+!!! tip "Sauvegarde automatique"
+    La configuration est sauvegardée automatiquement lors d'une connexion réussie.
 
 ---
 

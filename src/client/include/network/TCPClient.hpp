@@ -93,6 +93,12 @@ namespace client::network
         // Chat System (Phase 2)
         void sendChatMessage(const std::string& message);
 
+        // Leaderboard System (Phase 3)
+        void sendGetLeaderboard(const GetLeaderboardRequest& req);
+        void sendGetPlayerStats();
+        void sendGetAchievements();
+        void sendGetGameHistory();
+
         // Room state
         bool isInRoom() const;
         std::optional<std::string> getCurrentRoomCode() const;
@@ -121,6 +127,15 @@ namespace client::network
 
         // SSL initialization
         void initSSLContext();
+
+        // Generic message sending (reduces code duplication)
+        void sendMessageNoPayload(MessageType type, const char* logName);
+
+        template<typename T>
+        void sendMessageWithPayload(MessageType type, const T& payload, const char* logName);
+
+        // Helper for extracting player list from JoinRoomAck
+        static std::vector<RoomPlayerInfo> extractPlayerList(const JoinRoomAck& ack);
 
         // Contexte et socket (TLS)
         boost::asio::io_context _ioContext;

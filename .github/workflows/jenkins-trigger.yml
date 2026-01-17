@@ -21,13 +21,17 @@ jobs:
         run: |
           set -e
 
-          JENKINS_BASE="https://jenkins.adrienmarette.ovh"
-          JENKINS_JOB="Rtype-killian/job/BuildBranch"
-          JENKINS_USER="killianpluenet"
+          JENKINS_BASE="http://51.254.137.175:8080"
+          JENKINS_JOB="BuildBranch"
+          JENKINS_USER="admin"
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           COMMIT_ID="${GITHUB_SHA}"
 
+          # Encoder le nom de la branche pour Jenkins (/ -> %2F)
+          BRANCH_NAME_ENCODED=$(echo "$BRANCH_NAME" | sed 's/\//%2F/g')
+
           echo "Branch: $BRANCH_NAME"
+          echo "Branch (encoded): $BRANCH_NAME_ENCODED"
           echo "Commit: $COMMIT_ID"
 
           # Helper function to URL encode brackets
@@ -42,7 +46,7 @@ jobs:
           JOBS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$JOBS_API_URL" || echo '{"jobs":[]}')
           echo "Jobs response: $JOBS_JSON"
 
-          BRANCH_JOB_URL=$(echo "$JOBS_JSON" | jq -r --arg branch "$BRANCH_NAME" '.jobs[] | select(.name == $branch) | .url' | head -n 1)
+          BRANCH_JOB_URL=$(echo "$JOBS_JSON" | jq -r --arg branch "$BRANCH_NAME_ENCODED" '.jobs[] | select(.name == $branch) | .url' | head -n 1)
 
           if [ -z "$BRANCH_JOB_URL" ]; then
             echo "::warning::Branch $BRANCH_NAME not found in Jenkins jobs"
@@ -70,7 +74,7 @@ jobs:
           echo "::group::Waiting for new build to appear"
           NEW_BUILD_NUMBER=0
           for i in {1..10}; do
-            POLL_API_URL=$(url_encode_brackets "${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME}/api/json?tree=builds[number,url]")
+            POLL_API_URL=$(url_encode_brackets "${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME_ENCODED}/api/json?tree=builds[number,url]")
             BUILDS_JSON=$(curl -sf -u "$JENKINS_USER:$JENKINS_PASSWORD" "$POLL_API_URL" 2>/dev/null || echo '{"builds":[]}')
             CURRENT_MAX=$(echo "$BUILDS_JSON" | jq -r '[.builds[].number] | max // 0')
 
@@ -96,7 +100,7 @@ jobs:
 
           # Step 5: Wait for build to complete and check result
           echo "::group::Waiting for build #$NEW_BUILD_NUMBER to complete"
-          BUILD_URL="${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME}/${NEW_BUILD_NUMBER}"
+          BUILD_URL="${JENKINS_BASE}/job/${JENKINS_JOB}/job/${BRANCH_NAME_ENCODED}/${NEW_BUILD_NUMBER}"
           RESULT="null"
 
           for i in {1..350}; do

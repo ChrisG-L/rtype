@@ -811,8 +811,7 @@ void VoiceChatManager::sendVoiceJoin(const SessionToken& token, const std::strin
     VoiceJoin join;
     join.token = token;
     std::memset(join.roomCode, 0, ROOM_CODE_LEN);
-    std::strncpy(join.roomCode, roomCode.c_str(), ROOM_CODE_LEN - 1);
-    join.roomCode[ROOM_CODE_LEN - 1] = '\0';
+    std::snprintf(join.roomCode, ROOM_CODE_LEN, "%s", roomCode.c_str());
     join.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
 
     boost::system::error_code ec;

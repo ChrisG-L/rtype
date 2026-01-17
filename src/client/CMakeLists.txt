@@ -217,6 +217,7 @@ add_executable(rtype_client
     src/core/Engine.cpp
     src/core/GameLoop.cpp
     src/core/DynamicLib.cpp
+    src/config/ServerConfigManager.cpp
     src/network/UDPClient.cpp
     src/network/TCPClient.cpp
     src/scenes/SceneManager.cpp
@@ -227,10 +228,12 @@ add_executable(rtype_client
     src/scenes/LobbyScene.cpp
     src/scenes/SettingsScene.cpp
     src/scenes/RoomBrowserScene.cpp
+    src/scenes/LeaderboardScene.cpp
 
     src/ui/Button.cpp
     src/ui/TextInput.cpp
     src/ui/StarfieldBackground.cpp
+    src/ui/ServerConfigPanel.cpp
 
     src/gameplay/GameObject.cpp
     src/gameplay/Missile.cpp

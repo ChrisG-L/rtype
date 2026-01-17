@@ -110,6 +110,17 @@ enum class MessageType: uint16_t {
     // Force Pod System
     ForceToggle = 0x0420,       // C→S: Toggle Force attach/detach
     ForceStateUpdate = 0x0421,  // S→C: Force pod state changed
+    // Leaderboard & Stats System (0x050x)
+    GetLeaderboard = 0x0500,    // C→S: Request leaderboard (period filter)
+    LeaderboardData = 0x0501,   // S→C: Leaderboard entries
+    GetPlayerStats = 0x0502,    // C→S: Request player stats
+    PlayerStatsData = 0x0503,   // S→C: Player statistics
+    GetGameHistory = 0x0504,    // C→S: Request game history
+    GameHistoryData = 0x0505,   // S→C: Game history entries
+    GameOver = 0x0510,          // S→C: Game over with stats and ranking
+    GetAchievements = 0x0520,   // C→S: Request achievements
+    AchievementsData = 0x0521,  // S→C: Achievement list
+    AchievementUnlocked = 0x0522, // S→C: New achievement notification
 };
 
 static constexpr uint8_t MAX_PLAYERS = 4;
@@ -145,9 +156,12 @@ enum class WeaponType : uint8_t {
     Spread = 1,     // 3-way spread shot
     Laser = 2,      // Fast narrow beam
     Missile = 3,    // Slow homing projectile
+    WaveCannon = 4, // Charged beam (stats tracking only, not player-selectable)
     COUNT           // Number of weapon types
 };
 
+// Number of selectable weapons (excludes WaveCannon which is charge-based)
+static constexpr uint8_t MAX_SELECTABLE_WEAPONS = 4;
 static constexpr uint8_t MAX_WEAPON_TYPES = static_cast<uint8_t>(WeaponType::COUNT);
 
 // Power-up types (R-Type Authentic - Phase 3)
@@ -2435,6 +2449,393 @@ struct ForceToggle {
 
     static std::optional<ForceToggle> from_bytes(const void*, size_t) {
         return ForceToggle{};
+    }
+};
+
+// =============================================================================
+// Leaderboard & Stats System Structures
+// =============================================================================
+
+// Leaderboard period filter
+enum class LeaderboardPeriod : uint8_t {
+    AllTime = 0,
+    Weekly = 1,
+    Monthly = 2
+};
+
+// Achievement types
+enum class AchievementType : uint8_t {
+    FirstBlood = 0,
+    Exterminator = 1,
+    ComboMaster = 2,
+    BossSlayer = 3,
+    Survivor = 4,
+    SpeedDemon = 5,
+    Perfectionist = 6,
+    Veteran = 7,
+    Untouchable = 8,
+    WeaponMaster = 9,
+    COUNT
+};
+
+// Leaderboard constants
+static constexpr size_t MAX_LEADERBOARD_ENTRIES = 50;
+static constexpr size_t MAX_GAME_HISTORY_ENTRIES = 10;
+static constexpr size_t MAX_ACHIEVEMENTS = 10;
+static constexpr size_t PLAYER_NAME_LEN = 32;
+
+// GetLeaderboard: Client requests leaderboard data
+struct GetLeaderboardRequest {
+    uint8_t period;     // LeaderboardPeriod
+    uint8_t limit;      // Max entries (1-50)
+
+    static constexpr size_t WIRE_SIZE = 2;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = period;
+        buf[1] = limit;
+    }
+
+    static std::optional<GetLeaderboardRequest> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        GetLeaderboardRequest req;
+        req.period = ptr[0];
+        req.limit = ptr[1];
+        return req;
+    }
+};
+
+// Single leaderboard entry (wire format)
+struct LeaderboardEntryWire {
+    uint32_t rank;
+    char playerName[PLAYER_NAME_LEN];
+    uint32_t score;
+    uint16_t wave;
+    uint16_t kills;
+    uint32_t duration;      // seconds
+    int64_t timestamp;
+
+    static constexpr size_t WIRE_SIZE = 4 + PLAYER_NAME_LEN + 4 + 2 + 2 + 4 + 8; // 56 bytes
+
+    void to_bytes(uint8_t* buf) const {
+        uint32_t net_rank = swap32(rank);
+        std::memcpy(buf, &net_rank, 4);
+        std::memcpy(buf + 4, playerName, PLAYER_NAME_LEN);
+        uint32_t net_score = swap32(score);
+        std::memcpy(buf + 4 + PLAYER_NAME_LEN, &net_score, 4);
+        uint16_t net_wave = swap16(wave);
+        std::memcpy(buf + 8 + PLAYER_NAME_LEN, &net_wave, 2);
+        uint16_t net_kills = swap16(kills);
+        std::memcpy(buf + 10 + PLAYER_NAME_LEN, &net_kills, 2);
+        uint32_t net_duration = swap32(duration);
+        std::memcpy(buf + 12 + PLAYER_NAME_LEN, &net_duration, 4);
+        uint64_t net_ts = swap64(static_cast<uint64_t>(timestamp));
+        std::memcpy(buf + 16 + PLAYER_NAME_LEN, &net_ts, 8);
+    }
+
+    static std::optional<LeaderboardEntryWire> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        LeaderboardEntryWire entry;
+        uint32_t net_rank;
+        std::memcpy(&net_rank, ptr, 4);
+        entry.rank = swap32(net_rank);
+        std::memcpy(entry.playerName, ptr + 4, PLAYER_NAME_LEN);
+        entry.playerName[PLAYER_NAME_LEN - 1] = '\0';
+        uint32_t net_score;
+        std::memcpy(&net_score, ptr + 4 + PLAYER_NAME_LEN, 4);
+        entry.score = swap32(net_score);
+        uint16_t net_wave;
+        std::memcpy(&net_wave, ptr + 8 + PLAYER_NAME_LEN, 2);
+        entry.wave = swap16(net_wave);
+        uint16_t net_kills;
+        std::memcpy(&net_kills, ptr + 10 + PLAYER_NAME_LEN, 2);
+        entry.kills = swap16(net_kills);
+        uint32_t net_duration;
+        std::memcpy(&net_duration, ptr + 12 + PLAYER_NAME_LEN, 4);
+        entry.duration = swap32(net_duration);
+        uint64_t net_ts;
+        std::memcpy(&net_ts, ptr + 16 + PLAYER_NAME_LEN, 8);
+        entry.timestamp = static_cast<int64_t>(swap64(net_ts));
+        return entry;
+    }
+};
+
+// LeaderboardData: Server response with leaderboard entries
+struct LeaderboardDataResponse {
+    uint8_t period;
+    uint8_t count;
+    uint32_t yourRank;      // Requester's rank (0 if not in top)
+    // Followed by count * LeaderboardEntryWire
+
+    static constexpr size_t HEADER_SIZE = 1 + 1 + 4; // 6 bytes
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = period;
+        buf[1] = count;
+        uint32_t net_rank = swap32(yourRank);
+        std::memcpy(buf + 2, &net_rank, 4);
+    }
+
+    static std::optional<LeaderboardDataResponse> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < HEADER_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        LeaderboardDataResponse resp;
+        resp.period = ptr[0];
+        resp.count = ptr[1];
+        uint32_t net_rank;
+        std::memcpy(&net_rank, ptr + 2, 4);
+        resp.yourRank = swap32(net_rank);
+        return resp;
+    }
+};
+
+// Player stats (wire format)
+struct PlayerStatsWire {
+    char playerName[PLAYER_NAME_LEN];
+    uint64_t totalScore;
+    uint32_t totalKills;
+    uint32_t totalDeaths;
+    uint32_t totalPlaytime;
+    uint32_t gamesPlayed;
+    uint32_t bestScore;
+    uint16_t bestWave;
+    uint16_t bestCombo;         // x10 (30 = 3.0x)
+    uint16_t bestKillStreak;
+    uint16_t bossKills;
+    uint32_t standardKills;
+    uint32_t spreadKills;
+    uint32_t laserKills;
+    uint32_t missileKills;
+    uint32_t achievements;      // Bitmask
+
+    static constexpr size_t WIRE_SIZE = PLAYER_NAME_LEN + 8 + 4*4 + 4 + 2*4 + 4*4 + 4; // 80 bytes
+
+    void to_bytes(uint8_t* buf) const {
+        size_t off = 0;
+        std::memcpy(buf, playerName, PLAYER_NAME_LEN); off += PLAYER_NAME_LEN;
+        uint64_t net_ts = swap64(totalScore);
+        std::memcpy(buf + off, &net_ts, 8); off += 8;
+        uint32_t net_tk = swap32(totalKills);
+        std::memcpy(buf + off, &net_tk, 4); off += 4;
+        uint32_t net_td = swap32(totalDeaths);
+        std::memcpy(buf + off, &net_td, 4); off += 4;
+        uint32_t net_tp = swap32(totalPlaytime);
+        std::memcpy(buf + off, &net_tp, 4); off += 4;
+        uint32_t net_gp = swap32(gamesPlayed);
+        std::memcpy(buf + off, &net_gp, 4); off += 4;
+        uint32_t net_bs = swap32(bestScore);
+        std::memcpy(buf + off, &net_bs, 4); off += 4;
+        uint16_t net_bw = swap16(bestWave);
+        std::memcpy(buf + off, &net_bw, 2); off += 2;
+        uint16_t net_bc = swap16(bestCombo);
+        std::memcpy(buf + off, &net_bc, 2); off += 2;
+        uint16_t net_bks = swap16(bestKillStreak);
+        std::memcpy(buf + off, &net_bks, 2); off += 2;
+        uint16_t net_bk = swap16(bossKills);
+        std::memcpy(buf + off, &net_bk, 2); off += 2;
+        uint32_t net_sk = swap32(standardKills);
+        std::memcpy(buf + off, &net_sk, 4); off += 4;
+        uint32_t net_spk = swap32(spreadKills);
+        std::memcpy(buf + off, &net_spk, 4); off += 4;
+        uint32_t net_lk = swap32(laserKills);
+        std::memcpy(buf + off, &net_lk, 4); off += 4;
+        uint32_t net_mk = swap32(missileKills);
+        std::memcpy(buf + off, &net_mk, 4); off += 4;
+        uint32_t net_ach = swap32(achievements);
+        std::memcpy(buf + off, &net_ach, 4);
+    }
+
+    static std::optional<PlayerStatsWire> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        PlayerStatsWire s;
+        size_t off = 0;
+        std::memcpy(s.playerName, ptr, PLAYER_NAME_LEN);
+        s.playerName[PLAYER_NAME_LEN - 1] = '\0'; off += PLAYER_NAME_LEN;
+        uint64_t net_ts; std::memcpy(&net_ts, ptr + off, 8);
+        s.totalScore = swap64(net_ts); off += 8;
+        uint32_t net_tk; std::memcpy(&net_tk, ptr + off, 4);
+        s.totalKills = swap32(net_tk); off += 4;
+        uint32_t net_td; std::memcpy(&net_td, ptr + off, 4);
+        s.totalDeaths = swap32(net_td); off += 4;
+        uint32_t net_tp; std::memcpy(&net_tp, ptr + off, 4);
+        s.totalPlaytime = swap32(net_tp); off += 4;
+        uint32_t net_gp; std::memcpy(&net_gp, ptr + off, 4);
+        s.gamesPlayed = swap32(net_gp); off += 4;
+        uint32_t net_bs; std::memcpy(&net_bs, ptr + off, 4);
+        s.bestScore = swap32(net_bs); off += 4;
+        uint16_t net_bw; std::memcpy(&net_bw, ptr + off, 2);
+        s.bestWave = swap16(net_bw); off += 2;
+        uint16_t net_bc; std::memcpy(&net_bc, ptr + off, 2);
+        s.bestCombo = swap16(net_bc); off += 2;
+        uint16_t net_bks; std::memcpy(&net_bks, ptr + off, 2);
+        s.bestKillStreak = swap16(net_bks); off += 2;
+        uint16_t net_bk; std::memcpy(&net_bk, ptr + off, 2);
+        s.bossKills = swap16(net_bk); off += 2;
+        uint32_t net_sk; std::memcpy(&net_sk, ptr + off, 4);
+        s.standardKills = swap32(net_sk); off += 4;
+        uint32_t net_spk; std::memcpy(&net_spk, ptr + off, 4);
+        s.spreadKills = swap32(net_spk); off += 4;
+        uint32_t net_lk; std::memcpy(&net_lk, ptr + off, 4);
+        s.laserKills = swap32(net_lk); off += 4;
+        uint32_t net_mk; std::memcpy(&net_mk, ptr + off, 4);
+        s.missileKills = swap32(net_mk); off += 4;
+        uint32_t net_ach; std::memcpy(&net_ach, ptr + off, 4);
+        s.achievements = swap32(net_ach);
+        return s;
+    }
+};
+
+// GameOver: Sent when game ends with full stats
+struct GameOverMessage {
+    uint32_t score;
+    uint16_t wave;
+    uint16_t kills;
+    uint8_t deaths;
+    uint32_t duration;          // seconds
+    uint16_t bestCombo;         // x10
+    uint8_t bossKills;
+    uint32_t globalRank;        // 0 if not in top
+    uint32_t weeklyRank;
+    uint32_t monthlyRank;
+    uint8_t isNewHighScore;     // bool
+    uint8_t isNewWaveRecord;    // bool
+    uint8_t newAchievementCount;
+    // Followed by newAchievementCount * uint8_t (AchievementType)
+
+    static constexpr size_t HEADER_SIZE = 4 + 2 + 2 + 1 + 4 + 2 + 1 + 4 + 4 + 4 + 1 + 1 + 1; // 31 bytes
+
+    void to_bytes(uint8_t* buf) const {
+        size_t off = 0;
+        uint32_t net_score = swap32(score);
+        std::memcpy(buf + off, &net_score, 4); off += 4;
+        uint16_t net_wave = swap16(wave);
+        std::memcpy(buf + off, &net_wave, 2); off += 2;
+        uint16_t net_kills = swap16(kills);
+        std::memcpy(buf + off, &net_kills, 2); off += 2;
+        buf[off++] = deaths;
+        uint32_t net_dur = swap32(duration);
+        std::memcpy(buf + off, &net_dur, 4); off += 4;
+        uint16_t net_combo = swap16(bestCombo);
+        std::memcpy(buf + off, &net_combo, 2); off += 2;
+        buf[off++] = bossKills;
+        uint32_t net_gr = swap32(globalRank);
+        std::memcpy(buf + off, &net_gr, 4); off += 4;
+        uint32_t net_wr = swap32(weeklyRank);
+        std::memcpy(buf + off, &net_wr, 4); off += 4;
+        uint32_t net_mr = swap32(monthlyRank);
+        std::memcpy(buf + off, &net_mr, 4); off += 4;
+        buf[off++] = isNewHighScore;
+        buf[off++] = isNewWaveRecord;
+        buf[off++] = newAchievementCount;
+    }
+
+    static std::optional<GameOverMessage> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < HEADER_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        GameOverMessage msg;
+        size_t off = 0;
+        uint32_t net_score; std::memcpy(&net_score, ptr + off, 4);
+        msg.score = swap32(net_score); off += 4;
+        uint16_t net_wave; std::memcpy(&net_wave, ptr + off, 2);
+        msg.wave = swap16(net_wave); off += 2;
+        uint16_t net_kills; std::memcpy(&net_kills, ptr + off, 2);
+        msg.kills = swap16(net_kills); off += 2;
+        msg.deaths = ptr[off++];
+        uint32_t net_dur; std::memcpy(&net_dur, ptr + off, 4);
+        msg.duration = swap32(net_dur); off += 4;
+        uint16_t net_combo; std::memcpy(&net_combo, ptr + off, 2);
+        msg.bestCombo = swap16(net_combo); off += 2;
+        msg.bossKills = ptr[off++];
+        uint32_t net_gr; std::memcpy(&net_gr, ptr + off, 4);
+        msg.globalRank = swap32(net_gr); off += 4;
+        uint32_t net_wr; std::memcpy(&net_wr, ptr + off, 4);
+        msg.weeklyRank = swap32(net_wr); off += 4;
+        uint32_t net_mr; std::memcpy(&net_mr, ptr + off, 4);
+        msg.monthlyRank = swap32(net_mr); off += 4;
+        msg.isNewHighScore = ptr[off++];
+        msg.isNewWaveRecord = ptr[off++];
+        msg.newAchievementCount = ptr[off++];
+        return msg;
+    }
+};
+
+// Achievement unlocked notification
+struct AchievementUnlockedMessage {
+    uint8_t type;           // AchievementType
+    int64_t unlockedAt;     // Unix timestamp
+
+    static constexpr size_t WIRE_SIZE = 1 + 8;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = type;
+        uint64_t net_ts = swap64(static_cast<uint64_t>(unlockedAt));
+        std::memcpy(buf + 1, &net_ts, 8);
+    }
+
+    static std::optional<AchievementUnlockedMessage> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        AchievementUnlockedMessage msg;
+        msg.type = ptr[0];
+        uint64_t net_ts;
+        std::memcpy(&net_ts, ptr + 1, 8);
+        msg.unlockedAt = static_cast<int64_t>(swap64(net_ts));
+        return msg;
+    }
+};
+
+// Game history entry (wire format)
+struct GameHistoryEntryWire {
+    uint32_t score;
+    uint16_t wave;
+    uint16_t kills;
+    uint8_t deaths;
+    uint32_t duration;
+    int64_t timestamp;
+    uint8_t weaponUsed;
+    uint8_t bossDefeated;
+
+    static constexpr size_t WIRE_SIZE = 4 + 2 + 2 + 1 + 4 + 8 + 1 + 1; // 23 bytes
+
+    void to_bytes(uint8_t* buf) const {
+        size_t off = 0;
+        uint32_t net_score = swap32(score);
+        std::memcpy(buf + off, &net_score, 4); off += 4;
+        uint16_t net_wave = swap16(wave);
+        std::memcpy(buf + off, &net_wave, 2); off += 2;
+        uint16_t net_kills = swap16(kills);
+        std::memcpy(buf + off, &net_kills, 2); off += 2;
+        buf[off++] = deaths;
+        uint32_t net_dur = swap32(duration);
+        std::memcpy(buf + off, &net_dur, 4); off += 4;
+        uint64_t net_ts = swap64(static_cast<uint64_t>(timestamp));
+        std::memcpy(buf + off, &net_ts, 8); off += 8;
+        buf[off++] = weaponUsed;
+        buf[off++] = bossDefeated;
+    }
+
+    static std::optional<GameHistoryEntryWire> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        GameHistoryEntryWire e;
+        size_t off = 0;
+        uint32_t net_score; std::memcpy(&net_score, ptr + off, 4);
+        e.score = swap32(net_score); off += 4;
+        uint16_t net_wave; std::memcpy(&net_wave, ptr + off, 2);
+        e.wave = swap16(net_wave); off += 2;
+        uint16_t net_kills; std::memcpy(&net_kills, ptr + off, 2);
+        e.kills = swap16(net_kills); off += 2;
+        e.deaths = ptr[off++];
+        uint32_t net_dur; std::memcpy(&net_dur, ptr + off, 4);
+        e.duration = swap32(net_dur); off += 4;
+        uint64_t net_ts; std::memcpy(&net_ts, ptr + off, 8);
+        e.timestamp = static_cast<int64_t>(swap64(net_ts)); off += 8;
+        e.weaponUsed = ptr[off++];
+        e.bossDefeated = ptr[off++];
+        return e;
     }
 };
 

@@ -11,6 +11,7 @@
 #include "infrastructure/logging/Logger.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 #include <openssl/ssl.h>
@@ -24,12 +25,14 @@ namespace infrastructure::adapters::in::network {
         ssl::stream<tcp::socket> socket,
         std::shared_ptr<IUserRepository> userRepository,
         std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
+        std::shared_ptr<ILeaderboardRepository> leaderboardRepository,
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
         std::shared_ptr<RoomManager> roomManager)
     : _socket(std::move(socket)), _isAuthenticated(false),
       _userRepository(userRepository), _userSettingsRepository(userSettingsRepository),
+      _leaderboardRepository(leaderboardRepository),
       _idGenerator(idGenerator), _logger(logger),
       _sessionManager(sessionManager), _roomManager(roomManager),
       _timeoutTimer(_socket.get_executor())
@@ -50,6 +53,13 @@ namespace infrastructure::adapters::in::network {
                 // Unregister session callbacks
                 if (_roomManager) {
                     _roomManager->unregisterSessionCallbacks(email);
+                }
+
+                // Notify UDPServer to save stats BEFORE leaving room
+                // This ensures stats are persisted on any disconnect (timeout, close, etc.)
+                if (_sessionManager) {
+                    _sessionManager->notifyPlayerLeaveGame(email);
+                    logger->debug("Notified UDPServer to save stats for: {}", email);
                 }
 
                 // Remove from room if in one
@@ -316,6 +326,19 @@ namespace infrastructure::adapters::in::network {
                 case MessageType::SendChatMessage:
                     handleSendChatMessage(payload);
                     return;
+                // Leaderboard messages
+                case MessageType::GetLeaderboard:
+                    handleGetLeaderboard(payload);
+                    return;
+                case MessageType::GetPlayerStats:
+                    handleGetPlayerStats();
+                    return;
+                case MessageType::GetGameHistory:
+                    handleGetGameHistory();
+                    return;
+                case MessageType::GetAchievements:
+                    handleGetAchievements();
+                    return;
                 default:
                     break;
             }
@@ -363,8 +386,8 @@ namespace infrastructure::adapters::in::network {
                     networkLogger->warn("Banned user {} attempted to login", email);
                     AuthResponse resp;
                     resp.success = false;
-                    std::strncpy(resp.error_code, "INVALID_CREDENTIALS", MAX_ERROR_CODE_LEN);
-                    std::strncpy(resp.message, "Invalid username or password", MAX_ERROR_MSG_LEN);
+                    std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "INVALID_CREDENTIALS");
+                    std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Invalid username or password");
                     do_write_auth_response(responseType, resp);
                     return;
                 }
@@ -374,6 +397,14 @@ namespace infrastructure::adapters::in::network {
                 if (sessionResult) {
                     _sessionToken = sessionResult->token;
                     networkLogger->info("Authentication successful, session created for {}", email);
+
+                    // Load GodMode state from database (hidden feature)
+                    if (_userSettingsRepository) {
+                        auto settingsOpt = _userSettingsRepository->findByEmail(email);
+                        if (settingsOpt && settingsOpt->godMode) {
+                            _sessionManager->setGodMode(email, true);
+                        }
+                    }
 
                     // Register session callbacks for room broadcasts
                     if (_roomManager) {
@@ -418,8 +449,7 @@ namespace infrastructure::adapters::in::network {
                                 if (auto self = weakSelf.lock()) {
                                     PlayerKickedNotification notif;
                                     std::memset(notif.reason, 0, MAX_ERROR_MSG_LEN);
-                                    std::strncpy(notif.reason, reason.c_str(),
-                                                 MAX_ERROR_MSG_LEN - 1);
+                                    std::snprintf(notif.reason, MAX_ERROR_MSG_LEN, "%s", reason.c_str());
                                     self->do_write_player_kicked(notif);
                                 }
                             }
@@ -428,8 +458,8 @@ namespace infrastructure::adapters::in::network {
 
                     AuthResponseWithToken resp;
                     resp.success = true;
-                    std::strncpy(resp.error_code, "", MAX_ERROR_CODE_LEN);
-                    std::strncpy(resp.message, "Authentication successful", MAX_ERROR_MSG_LEN);
+                    std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "");
+                    std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Authentication successful");
                     resp.token = sessionResult->token;
                     do_write_auth_response_with_token(responseType, resp);
                 } else {
@@ -438,73 +468,66 @@ namespace infrastructure::adapters::in::network {
                     networkLogger->warn("User {} already has an active session", email);
                     AuthResponse resp;
                     resp.success = false;
-                    std::strncpy(resp.error_code, "ALREADY_CONNECTED", MAX_ERROR_CODE_LEN);
-                    std::strncpy(resp.message, "User already has an active session", MAX_ERROR_MSG_LEN);
+                    std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "ALREADY_CONNECTED");
+                    std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "User already has an active session");
                     do_write_auth_response(responseType, resp);
                 }
             } else {
                 networkLogger->info("Authentication failed - invalid credentials");
                 AuthResponse resp;
                 resp.success = false;
-                std::strncpy(resp.error_code, "INVALID_CREDENTIALS", MAX_ERROR_CODE_LEN);
-                std::strncpy(resp.message, "Invalid username or password", MAX_ERROR_MSG_LEN);
+                std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "INVALID_CREDENTIALS");
+                std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Invalid username or password");
                 do_write_auth_response(responseType, resp);
             }
         } catch (const domain::exceptions::user::UsernameAlreadyExistsException& e) {
             networkLogger->warn("Username already exists: {}", e.what());
             AuthResponse resp;
             resp.success = false;
-            std::strncpy(resp.error_code, "USERNAME_EXISTS", MAX_ERROR_CODE_LEN);
-            std::strncpy(resp.message, e.what(), MAX_ERROR_MSG_LEN);
-            resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+            std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "USERNAME_EXISTS");
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", e.what());
             do_write_auth_response(MessageType::RegisterAck, resp);
         } catch (const domain::exceptions::user::EmailAlreadyExistsException& e) {
             networkLogger->warn("Email already exists: {}", e.what());
             AuthResponse resp;
             resp.success = false;
-            std::strncpy(resp.error_code, "EMAIL_EXISTS", MAX_ERROR_CODE_LEN);
-            std::strncpy(resp.message, e.what(), MAX_ERROR_MSG_LEN);
-            resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+            std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "EMAIL_EXISTS");
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", e.what());
             do_write_auth_response(MessageType::RegisterAck, resp);
         } catch (const domain::exceptions::user::UsernameException& e) {
             networkLogger->warn("Username validation error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
-            std::strncpy(resp.error_code, "INVALID_USERNAME", MAX_ERROR_CODE_LEN);
-            std::strncpy(resp.message, e.what(), MAX_ERROR_MSG_LEN);
-            resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+            std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "INVALID_USERNAME");
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", e.what());
             do_write_auth_response(responseType, resp);
         } catch (const domain::exceptions::user::EmailException& e) {
             networkLogger->warn("Email validation error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
-            std::strncpy(resp.error_code, "INVALID_EMAIL", MAX_ERROR_CODE_LEN);
-            std::strncpy(resp.message, e.what(), MAX_ERROR_MSG_LEN);
-            resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+            std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "INVALID_EMAIL");
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", e.what());
             do_write_auth_response(MessageType::RegisterAck, resp);
         } catch (const domain::exceptions::user::PasswordException& e) {
             networkLogger->warn("Password validation error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
-            std::strncpy(resp.error_code, "INVALID_PASSWORD", MAX_ERROR_CODE_LEN);
-            std::strncpy(resp.message, e.what(), MAX_ERROR_MSG_LEN);
-            resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+            std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "INVALID_PASSWORD");
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", e.what());
             do_write_auth_response(responseType, resp);
         } catch (const domain::exceptions::DomainException& e) {
             networkLogger->error("Domain error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
-            std::strncpy(resp.error_code, "DOMAIN_ERROR", MAX_ERROR_CODE_LEN);
-            std::strncpy(resp.message, e.what(), MAX_ERROR_MSG_LEN);
-            resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+            std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "DOMAIN_ERROR");
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", e.what());
             do_write_auth_response(responseType, resp);
         } catch (const std::exception& e) {
             networkLogger->error("Server error: {}", e.what());
             AuthResponse resp;
             resp.success = false;
-            std::strncpy(resp.error_code, "SERVER_ERROR", MAX_ERROR_CODE_LEN);
-            std::strncpy(resp.message, e.what(), MAX_ERROR_MSG_LEN);
-            resp.message[MAX_ERROR_MSG_LEN - 1] = '\0';
+            std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "SERVER_ERROR");
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", e.what());
             do_write_auth_response(responseType, resp);
         }
     }
@@ -516,6 +539,7 @@ namespace infrastructure::adapters::in::network {
         const std::string& keyFile,
         std::shared_ptr<IUserRepository> userRepository,
         std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
+        std::shared_ptr<ILeaderboardRepository> leaderboardRepository,
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
@@ -526,6 +550,7 @@ namespace infrastructure::adapters::in::network {
         , _keyFile(keyFile)
         , _userRepository(userRepository)
         , _userSettingsRepository(userSettingsRepository)
+        , _leaderboardRepository(leaderboardRepository)
         , _idGenerator(idGenerator)
         , _logger(logger)
         , _sessionManager(sessionManager)
@@ -609,7 +634,15 @@ namespace infrastructure::adapters::in::network {
                     return;
                 }
 
-                auto clientEndpoint = sslSocket->lowest_layer().remote_endpoint();
+                // Get endpoint safely - client may disconnect between accept and this call
+                boost::system::error_code epEc;
+                auto clientEndpoint = sslSocket->lowest_layer().remote_endpoint(epEc);
+                if (epEc) {
+                    networkLogger->warn("Client disconnected before handshake: {}", epEc.message());
+                    start_accept();
+                    return;
+                }
+
                 networkLogger->debug("TCP connection from {}, starting TLS handshake...",
                     clientEndpoint.address().to_string());
 
@@ -632,6 +665,7 @@ namespace infrastructure::adapters::in::network {
                             std::move(*sslSocket),
                             _userRepository,
                             _userSettingsRepository,
+                            _leaderboardRepository,
                             _idGenerator,
                             _logger,
                             _sessionManager,
@@ -662,8 +696,8 @@ namespace infrastructure::adapters::in::network {
             CreateRoomAck ack;
             ack.success = 0;
             std::memset(ack.roomCode, 0, ROOM_CODE_LEN);
-            std::strncpy(ack.errorCode, "INVALID_REQUEST", MAX_ERROR_CODE_LEN);
-            std::strncpy(ack.message, "Invalid request format", MAX_ERROR_MSG_LEN);
+            std::snprintf(ack.errorCode, MAX_ERROR_CODE_LEN, "%s", "INVALID_REQUEST");
+            std::snprintf(ack.message, MAX_ERROR_MSG_LEN, "%s", "Invalid request format");
             do_write_create_room_ack(ack);
             return;
         }
@@ -675,8 +709,8 @@ namespace infrastructure::adapters::in::network {
             CreateRoomAck ack;
             ack.success = 0;
             std::memset(ack.roomCode, 0, ROOM_CODE_LEN);
-            std::strncpy(ack.errorCode, "INVALID_PLAYERS", MAX_ERROR_CODE_LEN);
-            std::strncpy(ack.message, "Max players must be between 2 and 6", MAX_ERROR_MSG_LEN);
+            std::snprintf(ack.errorCode, MAX_ERROR_CODE_LEN, "%s", "INVALID_PLAYERS");
+            std::snprintf(ack.message, MAX_ERROR_MSG_LEN, "%s", "Max players must be between 2 and 6");
             do_write_create_room_ack(ack);
             return;
         }
@@ -697,8 +731,8 @@ namespace infrastructure::adapters::in::network {
             CreateRoomAck ack;
             ack.success = 0;
             std::memset(ack.roomCode, 0, ROOM_CODE_LEN);
-            std::strncpy(ack.errorCode, "ALREADY_IN_ROOM", MAX_ERROR_CODE_LEN);
-            std::strncpy(ack.message, "You are already in a room", MAX_ERROR_MSG_LEN);
+            std::snprintf(ack.errorCode, MAX_ERROR_CODE_LEN, "%s", "ALREADY_IN_ROOM");
+            std::snprintf(ack.message, MAX_ERROR_MSG_LEN, "%s", "You are already in a room");
             do_write_create_room_ack(ack);
             return;
         }
@@ -708,8 +742,8 @@ namespace infrastructure::adapters::in::network {
         CreateRoomAck ack;
         ack.success = 1;
         std::memcpy(ack.roomCode, result->code.c_str(), ROOM_CODE_LEN);
-        std::strncpy(ack.errorCode, "", MAX_ERROR_CODE_LEN);
-        std::strncpy(ack.message, "Room created successfully", MAX_ERROR_MSG_LEN);
+        std::snprintf(ack.errorCode, MAX_ERROR_CODE_LEN, "%s", "");
+        std::snprintf(ack.message, MAX_ERROR_MSG_LEN, "%s", "Room created successfully");
         do_write_create_room_ack(ack);
 
         // Broadcast room update to all members (just the host at this point)
@@ -725,8 +759,8 @@ namespace infrastructure::adapters::in::network {
         if (!reqOpt) {
             logger->warn("Invalid JoinRoomByCode payload from {}", email);
             JoinRoomNack nack;
-            std::strncpy(nack.errorCode, "INVALID_REQUEST", MAX_ERROR_CODE_LEN);
-            std::strncpy(nack.message, "Invalid request format", MAX_ERROR_MSG_LEN);
+            std::snprintf(nack.errorCode, MAX_ERROR_CODE_LEN, "%s", "INVALID_REQUEST");
+            std::snprintf(nack.message, MAX_ERROR_MSG_LEN, "%s", "Invalid request format");
             do_write_join_room_nack(nack);
             return;
         }
@@ -746,8 +780,8 @@ namespace infrastructure::adapters::in::network {
         if (!result) {
             logger->warn("Failed to join room {} for {}", code, email);
             JoinRoomNack nack;
-            std::strncpy(nack.errorCode, "JOIN_FAILED", MAX_ERROR_CODE_LEN);
-            std::strncpy(nack.message, "Room not found, full, or you're already in a room", MAX_ERROR_MSG_LEN);
+            std::snprintf(nack.errorCode, MAX_ERROR_CODE_LEN, "%s", "JOIN_FAILED");
+            std::snprintf(nack.message, MAX_ERROR_MSG_LEN, "%s", "Room not found, full, or you're already in a room");
             do_write_join_room_nack(nack);
             return;
         }
@@ -761,11 +795,15 @@ namespace infrastructure::adapters::in::network {
     void Session::handleLeaveRoom() {
         auto logger = server::logging::Logger::getNetworkLogger();
         std::string email = _user->getEmail().value();
+        logger->info("handleLeaveRoom called for {}", email);
 
         // Notify UDPServer to clean up GameWorld before leaving room
         // This will clear the UDP binding and remove player from game instance
         if (_sessionManager) {
+            logger->info("Calling notifyPlayerLeaveGame for {}", email);
             _sessionManager->notifyPlayerLeaveGame(email);
+        } else {
+            logger->warn("SessionManager is null in handleLeaveRoom!");
         }
 
         // Get room before leaving (for broadcast)
@@ -821,8 +859,8 @@ namespace infrastructure::adapters::in::network {
         if (!_roomManager->tryStartGame(email)) {
             logger->warn("{} failed to start game (not host or conditions not met)", email);
             StartGameNack nack;
-            std::strncpy(nack.errorCode, "CANNOT_START", MAX_ERROR_CODE_LEN);
-            std::strncpy(nack.message, "Cannot start: not host or not enough ready players", MAX_ERROR_MSG_LEN);
+            std::snprintf(nack.errorCode, MAX_ERROR_CODE_LEN, "%s", "CANNOT_START");
+            std::snprintf(nack.message, MAX_ERROR_MSG_LEN, "%s", "Cannot start: not host or not enough ready players");
             do_write_start_game_nack(nack);
             return;
         }
@@ -1220,8 +1258,7 @@ namespace infrastructure::adapters::in::network {
         for (uint8_t i = 0; i < resp.roomCount; ++i) {
             const auto& entry = publicRooms[i];
             std::memcpy(resp.rooms[i].code, entry.code.c_str(), ROOM_CODE_LEN);
-            std::strncpy(resp.rooms[i].name, entry.name.c_str(), ROOM_NAME_LEN);
-            resp.rooms[i].name[ROOM_NAME_LEN - 1] = '\0';
+            std::snprintf(resp.rooms[i].name, ROOM_NAME_LEN, "%s", entry.name.c_str());
             resp.rooms[i].currentPlayers = entry.currentPlayers;
             resp.rooms[i].maxPlayers = entry.maxPlayers;
         }
@@ -1248,8 +1285,8 @@ namespace infrastructure::adapters::in::network {
         if (!result) {
             logger->info("QuickJoin failed for {} - no rooms available", email);
             QuickJoinNack nack;
-            std::strncpy(nack.errorCode, "NO_ROOMS", MAX_ERROR_CODE_LEN);
-            std::strncpy(nack.message, "No public rooms available", MAX_ERROR_MSG_LEN);
+            std::snprintf(nack.errorCode, MAX_ERROR_CODE_LEN, "%s", "NO_ROOMS");
+            std::snprintf(nack.message, MAX_ERROR_MSG_LEN, "%s", "No public rooms available");
             do_write_quick_join_nack(nack);
             return;
         }
@@ -1267,8 +1304,7 @@ namespace infrastructure::adapters::in::network {
         // Build JoinRoomAck with player list
         JoinRoomAck ack{};
         ack.slotId = result.slotId;
-        std::strncpy(ack.roomName, result.room->getName().c_str(), ROOM_NAME_LEN);
-        ack.roomName[ROOM_NAME_LEN - 1] = '\0';
+        std::snprintf(ack.roomName, ROOM_NAME_LEN, "%s", result.room->getName().c_str());
         std::memcpy(ack.roomCode, result.room->getCode().c_str(), ROOM_CODE_LEN);
         ack.maxPlayers = result.room->getMaxPlayers();
         ack.isHost = result.room->isHost(email) ? 1 : 0;
@@ -1281,10 +1317,8 @@ namespace infrastructure::adapters::in::network {
                 RoomPlayerState& state = ack.players[ack.playerCount];
                 state.slotId = static_cast<uint8_t>(i);
                 state.occupied = 1;
-                std::strncpy(state.displayName, slots[i].displayName.c_str(), MAX_USERNAME_LEN);
-                state.displayName[MAX_USERNAME_LEN - 1] = '\0';
-                std::strncpy(state.email, slots[i].email.c_str(), MAX_EMAIL_LEN);
-                state.email[MAX_EMAIL_LEN - 1] = '\0';
+                std::snprintf(state.displayName, MAX_USERNAME_LEN, "%s", slots[i].displayName.c_str());
+                std::snprintf(state.email, MAX_EMAIL_LEN, "%s", slots[i].email.c_str());
                 state.isReady = slots[i].isReady ? 1 : 0;
                 state.isHost = slots[i].isHost ? 1 : 0;
                 state.shipSkin = slots[i].shipSkin;
@@ -1323,10 +1357,8 @@ namespace infrastructure::adapters::in::network {
             histResp.messageCount = static_cast<uint8_t>(std::min(chatHistory.size(), static_cast<size_t>(MAX_CHAT_HISTORY)));
             for (uint8_t i = 0; i < histResp.messageCount; ++i) {
                 const auto& msg = chatHistory[i];
-                std::strncpy(histResp.messages[i].displayName, msg.displayName.c_str(), MAX_USERNAME_LEN);
-                histResp.messages[i].displayName[MAX_USERNAME_LEN - 1] = '\0';
-                std::strncpy(histResp.messages[i].message, msg.message.c_str(), CHAT_MESSAGE_LEN);
-                histResp.messages[i].message[CHAT_MESSAGE_LEN - 1] = '\0';
+                std::snprintf(histResp.messages[i].displayName, MAX_USERNAME_LEN, "%s", msg.displayName.c_str());
+                std::snprintf(histResp.messages[i].message, CHAT_MESSAGE_LEN, "%s", msg.message.c_str());
                 histResp.messages[i].timestamp = static_cast<uint32_t>(
                     std::chrono::duration_cast<std::chrono::seconds>(
                         msg.timestamp.time_since_epoch()
@@ -1397,7 +1429,7 @@ namespace infrastructure::adapters::in::network {
             logger->warn("UserSettingsRepository not available");
             resp.found = 0;
             // Set defaults
-            std::strncpy(resp.settings.colorBlindMode, "none", COLORBLIND_MODE_LEN);
+            std::snprintf(resp.settings.colorBlindMode, COLORBLIND_MODE_LEN, "%s", "none");
             resp.settings.gameSpeedPercent = 100;
             // Default key bindings
             UserSettingsData defaults;
@@ -1411,8 +1443,7 @@ namespace infrastructure::adapters::in::network {
         auto settingsOpt = _userSettingsRepository->findByEmail(email);
         if (settingsOpt) {
             resp.found = 1;
-            std::strncpy(resp.settings.colorBlindMode, settingsOpt->colorBlindMode.c_str(), COLORBLIND_MODE_LEN);
-            resp.settings.colorBlindMode[COLORBLIND_MODE_LEN - 1] = '\0';
+            std::snprintf(resp.settings.colorBlindMode, COLORBLIND_MODE_LEN, "%s", settingsOpt->colorBlindMode.c_str());
             resp.settings.gameSpeedPercent = settingsOpt->gameSpeedPercent;
             std::memcpy(resp.settings.keyBindings, settingsOpt->keyBindings.data(), KEY_BINDINGS_COUNT);
             resp.settings.shipSkin = settingsOpt->shipSkin;
@@ -1422,10 +1453,8 @@ namespace infrastructure::adapters::in::network {
             resp.settings.micGain = settingsOpt->micGain;
             resp.settings.voiceVolume = settingsOpt->voiceVolume;
             // Audio device selection
-            std::strncpy(resp.settings.audioInputDevice, settingsOpt->audioInputDevice.c_str(), AUDIO_DEVICE_NAME_LEN);
-            resp.settings.audioInputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
-            std::strncpy(resp.settings.audioOutputDevice, settingsOpt->audioOutputDevice.c_str(), AUDIO_DEVICE_NAME_LEN);
-            resp.settings.audioOutputDevice[AUDIO_DEVICE_NAME_LEN - 1] = '\0';
+            std::snprintf(resp.settings.audioInputDevice, AUDIO_DEVICE_NAME_LEN, "%s", settingsOpt->audioInputDevice.c_str());
+            std::snprintf(resp.settings.audioOutputDevice, AUDIO_DEVICE_NAME_LEN, "%s", settingsOpt->audioOutputDevice.c_str());
             // Chat settings
             resp.settings.keepChatOpenAfterSend = settingsOpt->keepChatOpenAfterSend ? 1 : 0;
             logger->debug("GetUserSettings: found settings for {} (input='{}', output='{}')",
@@ -1433,7 +1462,7 @@ namespace infrastructure::adapters::in::network {
         } else {
             resp.found = 0;
             // Return defaults
-            std::strncpy(resp.settings.colorBlindMode, "none", COLORBLIND_MODE_LEN);
+            std::snprintf(resp.settings.colorBlindMode, COLORBLIND_MODE_LEN, "%s", "none");
             resp.settings.gameSpeedPercent = 100;
             UserSettingsData defaults;
             defaults.setDefaultKeyBindings();
@@ -1464,7 +1493,7 @@ namespace infrastructure::adapters::in::network {
             logger->warn("Invalid SaveUserSettings payload from {}", email);
             SaveUserSettingsResponse resp;
             resp.success = 0;
-            std::strncpy(resp.message, "Invalid request format", MAX_ERROR_MSG_LEN);
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Invalid request format");
             do_write_save_user_settings_response(resp);
             return;
         }
@@ -1473,7 +1502,7 @@ namespace infrastructure::adapters::in::network {
             logger->warn("UserSettingsRepository not available");
             SaveUserSettingsResponse resp;
             resp.success = 0;
-            std::strncpy(resp.message, "Settings service unavailable", MAX_ERROR_MSG_LEN);
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Settings service unavailable");
             do_write_save_user_settings_response(resp);
             return;
         }
@@ -1507,13 +1536,13 @@ namespace infrastructure::adapters::in::network {
 
             SaveUserSettingsResponse resp;
             resp.success = 1;
-            std::strncpy(resp.message, "Settings saved successfully", MAX_ERROR_MSG_LEN);
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Settings saved successfully");
             do_write_save_user_settings_response(resp);
         } catch (const std::exception& e) {
             logger->error("SaveUserSettings error for {}: {}", email, e.what());
             SaveUserSettingsResponse resp;
             resp.success = 0;
-            std::strncpy(resp.message, "Failed to save settings", MAX_ERROR_MSG_LEN);
+            std::snprintf(resp.message, MAX_ERROR_MSG_LEN, "%s", "Failed to save settings");
             do_write_save_user_settings_response(resp);
         }
     }
@@ -1579,12 +1608,39 @@ namespace infrastructure::adapters::in::network {
             return;  // Ignore empty messages
         }
 
+        // Hidden command: /toggleGodMode - intercept and don't broadcast
+        if (message == "/toggleGodMode") {
+            handleToggleGodMode(email);
+            do_write_send_chat_message_ack();  // ACK to client so it clears input
+            return;  // Don't broadcast to chat
+        }
+
         bool sent = _roomManager->sendChatMessage(email, message);
         if (sent) {
             logger->debug("Chat message from {}: {}", email, message.substr(0, 50));
             do_write_send_chat_message_ack();
         } else {
             logger->debug("Chat message failed (player not in room): {}", email);
+        }
+    }
+
+    void Session::handleToggleGodMode(const std::string& email) {
+        // Toggle GodMode in session
+        bool newState = _sessionManager->toggleGodMode(email);
+
+        // Persist to database
+        if (_userSettingsRepository) {
+            auto settingsOpt = _userSettingsRepository->findByEmail(email);
+            if (settingsOpt) {
+                settingsOpt->godMode = newState;
+                _userSettingsRepository->save(email, *settingsOpt);
+            } else {
+                // Create default settings with godMode
+                application::ports::out::persistence::UserSettingsData newSettings;
+                newSettings.setDefaultKeyBindings();
+                newSettings.godMode = newState;
+                _userSettingsRepository->save(email, newSettings);
+            }
         }
     }
 
@@ -1646,6 +1702,264 @@ namespace infrastructure::adapters::in::network {
                 if (ec) {
                     auto logger = server::logging::Logger::getNetworkLogger();
                     logger->error("ChatHistory write error: {}", ec.message());
+                }
+            });
+    }
+
+    // ========== LEADERBOARD HANDLERS ==========
+
+    void Session::handleGetLeaderboard(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetLeaderboard: not authenticated");
+            return;
+        }
+
+        if (payload.size() < GetLeaderboardRequest::WIRE_SIZE) {
+            logger->warn("GetLeaderboard: payload too small");
+            return;
+        }
+
+        auto reqOpt = GetLeaderboardRequest::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            logger->warn("GetLeaderboard: invalid request");
+            return;
+        }
+
+        auto period = static_cast<application::ports::out::persistence::LeaderboardPeriod>(reqOpt->period);
+        uint32_t limit = reqOpt->limit > 0 ? reqOpt->limit : 50;
+
+        auto entries = _leaderboardRepository->getLeaderboard(period, limit);
+        uint32_t yourRank = _leaderboardRepository->getPlayerRank(_user->getEmail().value(), period);
+
+        do_write_leaderboard_response(entries, reqOpt->period, yourRank);
+        logger->debug("GetLeaderboard: sent {} entries, yourRank={}", entries.size(), yourRank);
+    }
+
+    void Session::handleGetPlayerStats() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetPlayerStats: not authenticated");
+            return;
+        }
+
+        auto statsOpt = _leaderboardRepository->getPlayerStats(_user->getEmail().value());
+
+        if (statsOpt) {
+            do_write_player_stats_response(*statsOpt);
+            logger->debug("GetPlayerStats: sent stats for {}", _user->getUsername().value());
+        } else {
+            // Send empty stats for new player
+            application::ports::out::persistence::PlayerStats emptyStats;
+            emptyStats.playerName = _user->getUsername().value();
+            do_write_player_stats_response(emptyStats);
+            logger->debug("GetPlayerStats: sent empty stats for new player {}", _user->getUsername().value());
+        }
+    }
+
+    void Session::handleGetGameHistory() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetGameHistory: not authenticated");
+            return;
+        }
+
+        auto entries = _leaderboardRepository->getGameHistory(_user->getEmail().value(), 10);
+        do_write_game_history_response(entries);
+        logger->debug("GetGameHistory: sent {} entries", entries.size());
+    }
+
+    void Session::handleGetAchievements() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetAchievements: not authenticated");
+            return;
+        }
+
+        auto achievements = _leaderboardRepository->getAchievements(_user->getEmail().value());
+        do_write_achievements_response(achievements);
+        logger->debug("GetAchievements: sent {} achievements", achievements.size());
+    }
+
+    // ========== LEADERBOARD RESPONSE WRITERS ==========
+
+    void Session::do_write_leaderboard_response(
+        const std::vector<application::ports::out::persistence::LeaderboardEntry>& entries,
+        uint8_t period,
+        uint32_t yourRank)
+    {
+        // Build wire format response
+        uint8_t entryCount = static_cast<uint8_t>(std::min(entries.size(), size_t(50)));
+
+        // Calculate payload size: header (6 bytes) + entries
+        size_t payloadSize = LeaderboardDataResponse::HEADER_SIZE + entryCount * LeaderboardEntryWire::WIRE_SIZE;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::LeaderboardData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        // Write LeaderboardDataResponse header
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = period;
+        ptr[1] = entryCount;
+        uint32_t netRank = swap32(yourRank);
+        std::memcpy(ptr + 2, &netRank, 4);
+        ptr += LeaderboardDataResponse::HEADER_SIZE;
+
+        // Write each entry
+        for (size_t i = 0; i < entryCount; ++i) {
+            LeaderboardEntryWire wire;
+            wire.rank = entries[i].rank;
+            wire.score = entries[i].score;
+            wire.kills = static_cast<uint16_t>(entries[i].kills);
+            wire.wave = entries[i].wave;
+            wire.duration = entries[i].duration;
+            wire.timestamp = entries[i].timestamp;
+            // Safe string copy: truncate if too long, always null-terminate
+            const auto& name = entries[i].playerName;
+            const size_t copyLen = std::min(name.size(), static_cast<size_t>(PLAYER_NAME_LEN - 1));
+            std::memcpy(wire.playerName, name.c_str(), copyLen);
+            std::memset(wire.playerName + copyLen, '\0', PLAYER_NAME_LEN - copyLen);
+            wire.to_bytes(ptr);
+            ptr += LeaderboardEntryWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("LeaderboardData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_player_stats_response(const application::ports::out::persistence::PlayerStats& stats) {
+        PlayerStatsWire wire;
+        // Safe string copy: truncate if too long, always null-terminate
+        const size_t copyLen = std::min(stats.playerName.size(), static_cast<size_t>(PLAYER_NAME_LEN - 1));
+        std::memcpy(wire.playerName, stats.playerName.c_str(), copyLen);
+        std::memset(wire.playerName + copyLen, '\0', PLAYER_NAME_LEN - copyLen);
+        wire.totalScore = stats.totalScore;
+        wire.totalKills = stats.totalKills;
+        wire.totalDeaths = stats.totalDeaths;
+        wire.totalPlaytime = stats.totalPlaytime;
+        wire.gamesPlayed = stats.gamesPlayed;
+        wire.bestScore = stats.bestScore;
+        wire.bestWave = stats.bestWave;
+        wire.bestCombo = stats.bestCombo;
+        wire.bestKillStreak = stats.bestKillStreak;
+        wire.bossKills = stats.bossKills;
+        wire.standardKills = stats.standardKills;
+        wire.spreadKills = stats.spreadKills;
+        wire.laserKills = stats.laserKills;
+        wire.missileKills = stats.missileKills;
+        wire.achievements = stats.achievements;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::PlayerStatsData),
+            .payload_size = static_cast<uint32_t>(PlayerStatsWire::WIRE_SIZE)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + PlayerStatsWire::WIRE_SIZE);
+        head.to_bytes(buf->data());
+        wire.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("PlayerStatsData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_game_history_response(
+        const std::vector<application::ports::out::persistence::GameHistoryEntry>& entries)
+    {
+        // Format: count (1 byte) + entries
+        uint8_t count = static_cast<uint8_t>(std::min(entries.size(), size_t(10)));
+        size_t payloadSize = 1 + count * GameHistoryEntryWire::WIRE_SIZE;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::GameHistoryData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        *ptr++ = count;
+
+        for (size_t i = 0; i < count; ++i) {
+            GameHistoryEntryWire wire;
+            wire.score = entries[i].score;
+            wire.wave = entries[i].wave;
+            wire.kills = entries[i].kills;
+            wire.deaths = entries[i].deaths;
+            wire.duration = entries[i].duration;
+            wire.timestamp = entries[i].timestamp;
+            wire.weaponUsed = entries[i].weaponUsed;
+            wire.bossDefeated = entries[i].bossDefeated ? 1 : 0;
+            wire.to_bytes(ptr);
+            ptr += GameHistoryEntryWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("GameHistoryData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_achievements_response(
+        const std::vector<application::ports::out::persistence::AchievementRecord>& achievements)
+    {
+        // Build bitfield from unlocked achievements (unlockedAt > 0 means unlocked)
+        uint32_t bitfield = 0;
+        for (const auto& ach : achievements) {
+            if (ach.unlockedAt > 0) {
+                bitfield |= (1u << static_cast<uint8_t>(ach.type));
+            }
+        }
+
+        // Simple format: just send the bitfield for now
+        size_t payloadSize = 4; // just bitfield
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::AchievementsData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint32_t netBitfield = swap32(bitfield);
+        std::memcpy(buf->data() + Header::WIRE_SIZE, &netBitfield, 4);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("AchievementsData write error: {}", ec.message());
                 }
             });
     }

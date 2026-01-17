@@ -22,6 +22,7 @@
 
 #include "application/ports/out/persistence/IUserRepository.hpp"
 #include "application/ports/out/persistence/IUserSettingsRepository.hpp"
+#include "application/ports/out/persistence/ILeaderboardRepository.hpp"
 #include "application/ports/out/IIdGenerator.hpp"
 #include "application/ports/out/ILogger.hpp"
 #include "application/use_cases/auth/Login.hpp"
@@ -42,6 +43,7 @@ namespace infrastructure::adapters::in::network {
     namespace ssl = boost::asio::ssl;
     using application::ports::out::persistence::IUserRepository;
     using application::ports::out::persistence::IUserSettingsRepository;
+    using application::ports::out::persistence::ILeaderboardRepository;
     using application::ports::out::persistence::UserSettingsData;
     using application::ports::out::IIdGenerator;
     using application::ports::out::ILogger;
@@ -59,6 +61,7 @@ namespace infrastructure::adapters::in::network {
             std::function<void(const User&)> _onAuthSuccess;
             std::shared_ptr<IUserRepository> _userRepository;
             std::shared_ptr<IUserSettingsRepository> _userSettingsRepository;
+            std::shared_ptr<ILeaderboardRepository> _leaderboardRepository;
             std::shared_ptr<IIdGenerator> _idGenerator;
             std::shared_ptr<ILogger> _logger;
             std::shared_ptr<SessionManager> _sessionManager;
@@ -100,6 +103,21 @@ namespace infrastructure::adapters::in::network {
             // Chat handlers
             void handleSendChatMessage(const std::vector<uint8_t>& payload);
 
+            // Hidden command handlers
+            void handleToggleGodMode(const std::string& email);
+
+            // Leaderboard handlers
+            void handleGetLeaderboard(const std::vector<uint8_t>& payload);
+            void handleGetPlayerStats();
+            void handleGetGameHistory();
+            void handleGetAchievements();
+
+            // Leaderboard response writers
+            void do_write_leaderboard_response(const std::vector<application::ports::out::persistence::LeaderboardEntry>& entries, uint8_t period, uint32_t yourRank);
+            void do_write_player_stats_response(const application::ports::out::persistence::PlayerStats& stats);
+            void do_write_game_history_response(const std::vector<application::ports::out::persistence::GameHistoryEntry>& entries);
+            void do_write_achievements_response(const std::vector<application::ports::out::persistence::AchievementRecord>& achievements);
+
             // Room response writers
             void do_write_create_room_ack(const CreateRoomAck& ack);
             void do_write_join_room_ack(const JoinRoomAck& ack);
@@ -133,6 +151,7 @@ namespace infrastructure::adapters::in::network {
                 Session(ssl::stream<tcp::socket> socket,
                     std::shared_ptr<IUserRepository> userRepository,
                     std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
+                    std::shared_ptr<ILeaderboardRepository> leaderboardRepository,
                     std::shared_ptr<IIdGenerator> idGenerator,
                     std::shared_ptr<ILogger> logger,
                     std::shared_ptr<SessionManager> sessionManager,
@@ -150,6 +169,7 @@ namespace infrastructure::adapters::in::network {
                 std::string _keyFile;
                 std::shared_ptr<IUserRepository> _userRepository;
                 std::shared_ptr<IUserSettingsRepository> _userSettingsRepository;
+                std::shared_ptr<ILeaderboardRepository> _leaderboardRepository;
                 std::shared_ptr<IIdGenerator> _idGenerator;
                 std::shared_ptr<ILogger> _logger;
                 std::shared_ptr<SessionManager> _sessionManager;
@@ -166,6 +186,7 @@ namespace infrastructure::adapters::in::network {
                 const std::string& keyFile,
                 std::shared_ptr<IUserRepository> userRepository,
                 std::shared_ptr<IUserSettingsRepository> userSettingsRepository,
+                std::shared_ptr<ILeaderboardRepository> leaderboardRepository,
                 std::shared_ptr<IIdGenerator> idGenerator,
                 std::shared_ptr<ILogger> logger,
                 std::shared_ptr<SessionManager> sessionManager,
@@ -177,6 +198,7 @@ namespace infrastructure::adapters::in::network {
             // Accessors
             std::shared_ptr<SessionManager> getSessionManager() const { return _sessionManager; }
             std::shared_ptr<RoomManager> getRoomManager() const { return _roomManager; }
+            std::shared_ptr<ILeaderboardRepository> getLeaderboardRepository() const { return _leaderboardRepository; }
         };
 }
 #endif /* !TCPAUTHSERVER_HPP_ */

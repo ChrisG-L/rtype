@@ -225,6 +225,31 @@ artifacts/
 
 ---
 
+## Lancement du Client
+
+!!! warning "Important : Utilisez le script de lancement"
+    Sur Linux avec PipeWire, le binaire client seul ne supporte pas le voice chat correctement. Utilisez **toujours** le script `run-client.sh` qui wrapper le binaire avec les bibliothèques audio nécessaires.
+
+```bash
+# RECOMMANDÉ : Via le script wrapper
+./scripts/run-client.sh
+
+# Avec un serveur distant
+./scripts/run-client.sh --server=51.254.137.175
+
+# NON RECOMMANDÉ : Binaire direct (voice chat peut ne pas fonctionner)
+./artifacts/client/linux/rtype_client
+```
+
+Le script `run-client.sh` :
+
+- Détecte automatiquement si PipeWire est actif
+- Utilise `pw-jack` pour wrapper le binaire avec JACK
+- Transmet tous les arguments au client (`--server`, `--graphics`, etc.)
+- Fonctionne sur Linux, Windows et macOS
+
+---
+
 ## Build Clean
 
 Pour nettoyer complètement et reconfigurer :

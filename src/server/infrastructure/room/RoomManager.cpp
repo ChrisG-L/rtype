@@ -8,6 +8,7 @@
 #include "infrastructure/room/RoomManager.hpp"
 #include "infrastructure/logging/Logger.hpp"  // server::logging::Logger
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <openssl/rand.h>  // RAND_bytes - CSPRNG for room codes
 
@@ -345,8 +346,7 @@ size_t RoomManager::forceCloseRoom(const std::string& code) {
 
     // Send kicked notifications outside lock
     PlayerKickedNotification notif;
-    std::strncpy(notif.reason, "Room closed by administrator", MAX_ERROR_MSG_LEN);
-    notif.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+    std::snprintf(notif.reason, MAX_ERROR_MSG_LEN, "%s", "Room closed by administrator");
     for (const auto& [callback, email] : callbacksToCall) {
         callback(notif);
     }
@@ -399,8 +399,7 @@ std::string RoomManager::adminKickFromRoom(
     if (kickedCallback) {
         PlayerKickedNotification notif;
         std::string reasonStr = reason.empty() ? "Kicked by administrator" : reason;
-        std::strncpy(notif.reason, reasonStr.c_str(), MAX_ERROR_MSG_LEN);
-        notif.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+        std::snprintf(notif.reason, MAX_ERROR_MSG_LEN, "%s", reasonStr.c_str());
         kickedCallback(notif);
     }
 
@@ -572,8 +571,7 @@ std::optional<RoomManager::KickResult> RoomManager::kickPlayer(
     if (kickedCallback) {
         PlayerKickedNotification notif;
         std::string reasonStr = reason.empty() ? "Kicked by room host" : reason;
-        std::strncpy(notif.reason, reasonStr.c_str(), MAX_ERROR_MSG_LEN);
-        notif.reason[MAX_ERROR_MSG_LEN - 1] = '\0';
+        std::snprintf(notif.reason, MAX_ERROR_MSG_LEN, "%s", reasonStr.c_str());
         kickedCallback(notif);
     }
 
@@ -640,8 +638,7 @@ void RoomManager::unregisterSessionCallbacks(const std::string& email) {
 RoomUpdate RoomManager::buildRoomUpdate(const domain::entities::Room* room) const {
     RoomUpdate update{};
 
-    std::strncpy(update.roomName, room->getName().c_str(), ROOM_NAME_LEN);
-    update.roomName[ROOM_NAME_LEN - 1] = '\0';
+    std::snprintf(update.roomName, ROOM_NAME_LEN, "%s", room->getName().c_str());
     std::memcpy(update.roomCode, room->getCode().c_str(), ROOM_CODE_LEN);
     update.maxPlayers = room->getMaxPlayers();
     update.gameSpeedPercent = room->getGameSpeedPercent();
@@ -654,10 +651,8 @@ RoomUpdate RoomManager::buildRoomUpdate(const domain::entities::Room* room) cons
             RoomPlayerState& state = update.players[update.playerCount];
             state.slotId = static_cast<uint8_t>(i);
             state.occupied = 1;
-            std::strncpy(state.displayName, slots[i].displayName.c_str(), MAX_USERNAME_LEN);
-            state.displayName[MAX_USERNAME_LEN - 1] = '\0';
-            std::strncpy(state.email, slots[i].email.c_str(), MAX_EMAIL_LEN);
-            state.email[MAX_EMAIL_LEN - 1] = '\0';
+            std::snprintf(state.displayName, MAX_USERNAME_LEN, "%s", slots[i].displayName.c_str());
+            std::snprintf(state.email, MAX_EMAIL_LEN, "%s", slots[i].email.c_str());
             state.isReady = slots[i].isReady ? 1 : 0;
             state.isHost = slots[i].isHost ? 1 : 0;
             state.shipSkin = slots[i].shipSkin;
@@ -891,10 +886,8 @@ void RoomManager::broadcastChatMessage(domain::entities::Room* room, const std::
 
     // Build the payload
     ChatMessagePayload payload{};
-    std::strncpy(payload.displayName, displayName.c_str(), MAX_USERNAME_LEN);
-    payload.displayName[MAX_USERNAME_LEN - 1] = '\0';
-    std::strncpy(payload.message, message.c_str(), CHAT_MESSAGE_LEN);
-    payload.message[CHAT_MESSAGE_LEN - 1] = '\0';
+    std::snprintf(payload.displayName, MAX_USERNAME_LEN, "%s", displayName.c_str());
+    std::snprintf(payload.message, CHAT_MESSAGE_LEN, "%s", message.c_str());
     payload.timestamp = static_cast<uint32_t>(
         std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()

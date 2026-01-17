@@ -56,6 +56,14 @@ Ces valeurs sont définies dans le code source :
 
 ## MongoDB
 
+### Lancement avec Docker
+
+```bash
+docker run -d --name rtype-mongodb -p 8089:27017 -v rtype_data:/data/db --restart unless-stopped mongo:latest
+```
+
+### Schéma
+
 ```mermaid
 erDiagram
     Users {
@@ -132,3 +140,15 @@ Cela crée le dossier `certs/` avec `server.crt` et `server.key`.
 
 !!! warning "Production"
     En production, utilisez des certificats signés par une CA reconnue.
+
+---
+
+## Déploiement VPS
+
+Pour le déploiement sur le serveur de production (VPS France), consultez la [documentation VPS](../developpement/vps.md).
+
+Le serveur de production utilise :
+
+- **systemd** pour la gestion du service (`rtype_server.service`)
+- **tmux** pour l'accès au TUI serveur multi-utilisateur
+- **Python wrapper** pour les notifications Discord et le monitoring

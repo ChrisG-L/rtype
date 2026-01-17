@@ -7,20 +7,21 @@ tags:
 
 # Backend SFML
 
-Implémentation du backend graphique utilisant SFML.
+Implementation du backend graphique utilisant SFML.
 
 ## Vue d'Ensemble
 
-**SFML** (Simple and Fast Multimedia Library) est une bibliothèque multimédia orientée objet écrite en C++. Elle offre une API de haut niveau, intuitive et moderne.
+**SFML** (Simple and Fast Multimedia Library) est une bibliotheque multimedia orientee objet ecrite en C++. Elle offre une API de haut niveau, intuitive et moderne.
 
-### Caractéristiques
+### Caracteristiques
 
 | Aspect | Description |
 |--------|-------------|
 | **Langage** | C++ natif |
-| **Paradigme** | Orienté objet |
-| **Rendu** | OpenGL (encapsulé) |
+| **Paradigme** | Oriente objet |
+| **Rendu** | OpenGL (encapsule) |
 | **Modules** | Graphics, Window, Audio, Network, System |
+| **Version** | SFML 3.x |
 
 ---
 
@@ -28,449 +29,326 @@ Implémentation du backend graphique utilisant SFML.
 
 ```mermaid
 classDiagram
-    class SFMLBackend {
-        -sf::RenderWindow window_
-        -SFMLWindowWrapper windowWrapper_
-        +initialize(config) bool
-        +shutdown() void
-        +getWindow() IWindow&
-        +loadTexture(path) ITexture*
-        +clear(color) void
-        +draw(drawable) void
-        +present() void
+    class IWindow {
+        <<interface>>
+        +getSize() Vec2u
+        +isOpen() bool
+        +close() void
+        +pollEvent() Event
+        +drawRect() void
+        +drawSprite() void
+        +loadTexture() bool
+        +loadShader() bool
+        +supportsShaders() bool
     }
 
     class SFMLWindow {
-        -sf::RenderWindow* window_
-        +isOpen() bool
-        +close() void
-        +pollEvent(event) bool
+        -sf::RenderWindow _window
+        -unordered_map~string,sf::Texture~ _textures
+        -unordered_map~string,sf::Font~ _fonts
+        -sf::RenderTexture _renderTexture
+        -unordered_map~string,sf::Shader~ _shaders
+        -sf::Shader* _activePostProcessShader
+        +beginFrame() void
+        +endFrame() void
     }
 
-    class SFMLTexture {
-        -sf::Texture texture_
-        +getSize() Vector2u
-        +getNativeHandle() void*
-    }
-
-    SFMLBackend --> SFMLWindow
-    SFMLBackend --> SFMLTexture
+    IWindow <|-- SFMLWindow
 ```
 
 ---
 
-## Implémentation
+## Implementation
 
-### SFMLBackend.hpp
+### SFMLWindow.hpp
 
 ```cpp
-#pragma once
+/*
+** EPITECH PROJECT, 2025
+** rtype [WSL: Ubuntu-24.04]
+** File description:
+** SFMLWindow
+*/
 
-#include "graphics/IGraphicsBackend.hpp"
-#include "SFMLWindow.hpp"
+#ifndef SFMLWINDOW_HPP_
+#define SFMLWINDOW_HPP_
+
+#include <SFML/Graphics/Sprite.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics.hpp>
 
-namespace rtype::graphics::sfml {
+#include <iostream>
+#include <unordered_map>
 
-class SFMLBackend : public IGraphicsBackend {
-public:
-    SFMLBackend() = default;
-    ~SFMLBackend() override;
+#include "graphics/IWindow.hpp"
+#include "graphics/IDrawable.hpp"
+#include "utils/Vecs.hpp"
 
-    // Lifecycle
-    bool initialize(const WindowConfig& config) override;
-    void shutdown() override;
+class SFMLWindow: public graphics::IWindow {
+    public:
+        SFMLWindow(Vec2u winSize, const std::string& name);
+        Vec2u getSize() const override;
+        bool isOpen() override;
+        void close() override;
+        events::Event pollEvent() override;
 
-    // Window
-    IWindow& getWindow() override { return windowWrapper_; }
+        void draw(const graphics::IDrawable& drawable) override;
+        void draw(sf::Sprite& sprite);
+        void drawRect(float x, float y, float width, float height, rgba color) override;
+        void drawImg(graphics::IDrawable, float x, float y, float scaleX, float scaleY) override;
+        bool loadTexture(const std::string& key, const std::string& filepath) override;
+        void drawSprite(const std::string& textureKey, float x, float y, float width, float height) override;
+        bool loadFont(const std::string& key, const std::string& filepath) override;
+        void drawText(const std::string& fontKey, const std::string& text, float x, float y, unsigned int size, rgba color) override;
 
-    // Resources
-    std::unique_ptr<ITexture> loadTexture(
-        const std::filesystem::path& path) override;
-    std::unique_ptr<IFont> loadFont(
-        const std::filesystem::path& path, int size) override;
+        void* getNativeHandle() override;
 
-    // Rendering
-    void clear(Color color) override;
-    void draw(const IDrawable& drawable) override;
-    void drawSprite(
-        const ITexture& texture,
-        const Vector2f& position,
-        const IntRect& sourceRect,
-        float rotation,
-        const Vector2f& scale) override;
-    void drawText(
-        const IFont& font,
-        const std::string& text,
-        const Vector2f& position,
-        Color color) override;
-    void present() override;
+        void clear() override;
+        void display() override;
 
-    // Info
-    std::string getName() const override { return "SFML"; }
+        // Post-processing shader support
+        bool loadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) override;
+        void setPostProcessShader(const std::string& key) override;
+        void clearPostProcessShader() override;
+        void setShaderUniform(const std::string& name, int value) override;
+        bool supportsShaders() const override;
 
-    // SFML-specific
-    sf::RenderWindow& getRenderWindow() { return window_; }
+        // Frame management with post-processing
+        void beginFrame() override;
+        void endFrame() override;
 
-private:
-    sf::RenderWindow window_;
-    SFMLWindow windowWrapper_;
-    bool initialized_ = false;
+    private:
+        sf::RenderWindow _window;
+        std::unordered_map<std::string, sf::Texture> _textures;
+        std::unordered_map<std::string, sf::Font> _fonts;
+
+        // Post-processing pipeline
+        sf::RenderTexture _renderTexture;
+        std::unordered_map<std::string, sf::Shader> _shaders;
+        sf::Shader* _activePostProcessShader = nullptr;
+        bool _renderTextureInitialized = false;
+
+        void initRenderTexture();
+        sf::RenderTarget& getRenderTarget();
 };
 
-} // namespace rtype::graphics::sfml
+#endif /* !SFMLWINDOW_HPP_ */
 ```
 
-### SFMLBackend.cpp
+### SFMLWindow.cpp (extraits)
 
 ```cpp
-#include "SFMLBackend.hpp"
-#include "SFMLTexture.hpp"
-#include "SFMLFont.hpp"
-#include <spdlog/spdlog.h>
+/*
+** EPITECH PROJECT, 2025
+** rtype [WSL: Ubuntu-24.04]
+** File description:
+** SFMLWindow
+*/
 
-namespace rtype::graphics::sfml {
+#include "SFMLWindow.hpp"
+#include "events/Event.hpp"
+#include <SFML/Window/Event.hpp>
+#include <SFML/Window/Keyboard.hpp>
 
-SFMLBackend::~SFMLBackend() {
-    if (initialized_) {
-        shutdown();
+static events::Key scancodeToKey(sf::Keyboard::Scancode scancode)
+{
+    switch (scancode) {
+        case sf::Keyboard::Scancode::A: return events::Key::A;
+        case sf::Keyboard::Scancode::B: return events::Key::B;
+        // ... autres touches
+        case sf::Keyboard::Scancode::Space: return events::Key::Space;
+        case sf::Keyboard::Scancode::Enter: return events::Key::Enter;
+        case sf::Keyboard::Scancode::Escape: return events::Key::Escape;
+        default: return events::Key::Unknown;
     }
 }
 
-bool SFMLBackend::initialize(const WindowConfig& config) {
-    // Window style
-    sf::Uint32 style = sf::Style::Close | sf::Style::Resize;
-    if (config.fullscreen) {
-        style = sf::Style::Fullscreen;
+SFMLWindow::SFMLWindow(Vec2u winSize, const std::string& name) {
+    _window.create(sf::VideoMode({winSize.x, winSize.y}), name);
+}
+
+Vec2u SFMLWindow::getSize() const {
+    return Vec2u(_window.getSize().x, _window.getSize().y);
+}
+
+bool SFMLWindow::isOpen() {
+    return _window.isOpen();
+}
+
+void SFMLWindow::close() {
+    return _window.close();
+}
+
+events::Event SFMLWindow::pollEvent() {
+    if (auto ev = _window.pollEvent()) {
+        if (ev->is<sf::Event::Closed>()) {
+            _window.close();
+            return events::WindowClosed{};
+        }
+        if (const auto* keyPressed = ev->getIf<sf::Event::KeyPressed>()) {
+            return events::KeyPressed{scancodeToKey(keyPressed->scancode)};
+        }
+        if (const auto* keyReleased = ev->getIf<sf::Event::KeyReleased>()) {
+            return events::KeyReleased{scancodeToKey(keyReleased->scancode)};
+        }
+        // ... autres evenements
+    }
+    return events::None{};
+}
+```
+
+### Chargement de ressources
+
+```cpp
+bool SFMLWindow::loadTexture(const std::string& key, const std::string& filepath) {
+    if (_textures.count(key)) {
+        return true;  // Deja charge
     }
 
-    // Create window
-    window_.create(
-        sf::VideoMode(config.width, config.height),
-        config.title,
-        style
-    );
-
-    if (!window_.isOpen()) {
-        spdlog::error("Failed to create SFML window");
+    sf::Texture texture;
+    if (!texture.loadFromFile(filepath)) {
         return false;
     }
 
-    // Configure
-    window_.setVerticalSyncEnabled(config.vsync);
-    window_.setFramerateLimit(config.vsync ? 0 : 144);
-
-    // Setup wrapper
-    windowWrapper_.setRenderWindow(&window_);
-
-    initialized_ = true;
-    spdlog::info("SFML backend initialized successfully");
+    _textures[key] = std::move(texture);
     return true;
 }
 
-void SFMLBackend::shutdown() {
-    if (window_.isOpen()) {
-        window_.close();
-    }
-    initialized_ = false;
-    spdlog::info("SFML backend shutdown");
-}
-
-std::unique_ptr<ITexture> SFMLBackend::loadTexture(
-    const std::filesystem::path& path)
-{
-    auto texture = std::make_unique<SFMLTexture>();
-    if (!texture->loadFromFile(path.string())) {
-        spdlog::error("Failed to load texture: {}", path.string());
-        return nullptr;
-    }
-    return texture;
-}
-
-std::unique_ptr<IFont> SFMLBackend::loadFont(
-    const std::filesystem::path& path, int size)
-{
-    auto font = std::make_unique<SFMLFont>();
-    if (!font->loadFromFile(path.string())) {
-        spdlog::error("Failed to load font: {}", path.string());
-        return nullptr;
-    }
-    font->setCharacterSize(size);
-    return font;
-}
-
-void SFMLBackend::clear(Color color) {
-    window_.clear(sf::Color(color.r, color.g, color.b, color.a));
-}
-
-void SFMLBackend::draw(const IDrawable& drawable) {
-    drawable.draw(*this);
-}
-
-void SFMLBackend::drawSprite(
-    const ITexture& texture,
-    const Vector2f& position,
-    const IntRect& sourceRect,
-    float rotation,
-    const Vector2f& scale)
-{
-    auto* sfmlTexture = static_cast<const sf::Texture*>(
-        texture.getNativeHandle());
-
-    sf::Sprite sprite(*sfmlTexture);
-    sprite.setPosition(position.x, position.y);
-
-    if (sourceRect.width > 0 && sourceRect.height > 0) {
-        sprite.setTextureRect(sf::IntRect(
-            sourceRect.x, sourceRect.y,
-            sourceRect.width, sourceRect.height
-        ));
+void SFMLWindow::drawSprite(const std::string& textureKey, float x, float y, float width, float height) {
+    auto it = _textures.find(textureKey);
+    if (it == _textures.end()) {
+        drawRect(x, y, width, height, {255, 0, 255, 255});  // Magenta = texture manquante
+        return;
     }
 
-    sprite.setRotation(rotation);
-    sprite.setScale(scale.x, scale.y);
+    sf::Sprite sprite(it->second);
+    sprite.setPosition({x, y});
 
-    window_.draw(sprite);
+    sf::Vector2u texSize = it->second.getSize();
+    if (texSize.x > 0 && texSize.y > 0) {
+        float scaleX = width / static_cast<float>(texSize.x);
+        float scaleY = height / static_cast<float>(texSize.y);
+        sprite.setScale({scaleX, scaleY});
+    }
+
+    getRenderTarget().draw(sprite);
 }
-
-void SFMLBackend::drawText(
-    const IFont& font,
-    const std::string& text,
-    const Vector2f& position,
-    Color color)
-{
-    auto* sfmlFont = static_cast<const SFMLFont*>(&font);
-
-    sf::Text sfText;
-    sfText.setFont(sfmlFont->getFont());
-    sfText.setString(text);
-    sfText.setPosition(position.x, position.y);
-    sfText.setFillColor(sf::Color(color.r, color.g, color.b, color.a));
-    sfText.setCharacterSize(sfmlFont->getCharacterSize());
-
-    window_.draw(sfText);
-}
-
-void SFMLBackend::present() {
-    window_.display();
-}
-
-// Auto-registration
-REGISTER_GRAPHICS_BACKEND("sfml", SFMLBackend);
-
-} // namespace rtype::graphics::sfml
 ```
 
 ---
 
-## SFMLTexture
+## Pipeline Post-Processing
+
+SFML supporte les shaders GLSL pour le post-processing (ex: modes daltoniens).
+
+### Initialisation
 
 ```cpp
-#pragma once
+void SFMLWindow::initRenderTexture() {
+    if (_renderTextureInitialized) return;
 
-#include "graphics/ITexture.hpp"
-#include <SFML/Graphics/Texture.hpp>
-
-namespace rtype::graphics::sfml {
-
-class SFMLTexture : public ITexture {
-public:
-    SFMLTexture() = default;
-
-    bool loadFromFile(const std::string& path) {
-        return texture_.loadFromFile(path);
+    auto size = _window.getSize();
+    if (!_renderTexture.resize({size.x, size.y})) {
+        return;
     }
+    _renderTextureInitialized = true;
+}
 
-    Vector2u getSize() const override {
-        auto size = texture_.getSize();
-        return {size.x, size.y};
+sf::RenderTarget& SFMLWindow::getRenderTarget() {
+    if (_renderTextureInitialized && _activePostProcessShader) {
+        return _renderTexture;  // Render to texture
     }
-
-    void* getNativeHandle() const override {
-        return const_cast<sf::Texture*>(&texture_);
-    }
-
-    const sf::Texture& getTexture() const { return texture_; }
-
-private:
-    sf::Texture texture_;
-};
-
-} // namespace rtype::graphics::sfml
+    return _window;  // Render direct
+}
 ```
 
----
-
-## SFMLWindow
+### Chargement et application
 
 ```cpp
-#pragma once
-
-#include "graphics/IWindow.hpp"
-#include <SFML/Graphics/RenderWindow.hpp>
-
-namespace rtype::graphics::sfml {
-
-class SFMLWindow : public IWindow {
-public:
-    void setRenderWindow(sf::RenderWindow* window) {
-        window_ = window;
-    }
-
-    bool isOpen() const override {
-        return window_ && window_->isOpen();
-    }
-
-    void close() override {
-        if (window_) {
-            window_->close();
-        }
-    }
-
-    Vector2u getSize() const override {
-        auto size = window_->getSize();
-        return {size.x, size.y};
-    }
-
-    void setTitle(const std::string& title) override {
-        window_->setTitle(title);
-    }
-
-    void setFullscreen(bool enabled) override {
-        // SFML requires recreating the window for fullscreen toggle
-        auto size = window_->getSize();
-        auto title = "R-Type"; // Store title somewhere
-
-        window_->close();
-        window_->create(
-            enabled ? sf::VideoMode::getDesktopMode()
-                    : sf::VideoMode(size.x, size.y),
-            title,
-            enabled ? sf::Style::Fullscreen
-                    : (sf::Style::Close | sf::Style::Resize)
-        );
-    }
-
-    bool pollEvent(Event& event) override {
-        sf::Event sfEvent;
-        if (!window_->pollEvent(sfEvent)) {
-            return false;
-        }
-
-        switch (sfEvent.type) {
-            case sf::Event::Closed:
-                event.type = EventType::Closed;
-                break;
-            case sf::Event::Resized:
-                event.type = EventType::Resized;
-                event.size.width = sfEvent.size.width;
-                event.size.height = sfEvent.size.height;
-                break;
-            case sf::Event::KeyPressed:
-                event.type = EventType::KeyPressed;
-                event.key.code = mapSFMLKey(sfEvent.key.code);
-                event.key.alt = sfEvent.key.alt;
-                event.key.ctrl = sfEvent.key.control;
-                event.key.shift = sfEvent.key.shift;
-                break;
-            case sf::Event::KeyReleased:
-                event.type = EventType::KeyReleased;
-                event.key.code = mapSFMLKey(sfEvent.key.code);
-                break;
-            default:
-                return pollEvent(event);
-        }
+bool SFMLWindow::loadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) {
+    if (_shaders.count(key)) {
         return true;
     }
 
-    bool hasFocus() const override {
-        return window_->hasFocus();
+    sf::Shader shader;
+    if (!shader.loadFromFile(vertexPath, fragmentPath)) {
+        return false;
     }
 
-private:
-    KeyCode mapSFMLKey(sf::Keyboard::Key key);
+    _shaders[key] = std::move(shader);
+    return true;
+}
 
-    sf::RenderWindow* window_ = nullptr;
-};
-
-} // namespace rtype::graphics::sfml
-```
-
----
-
-## Spécificités SFML
-
-### API Orientée Objet
-
-SFML utilise un paradigme OOP natif :
-
-```cpp
-// Création directe d'objets
-sf::Texture texture;
-texture.loadFromFile("sprite.png");
-
-sf::Sprite sprite(texture);
-sprite.setPosition(100.f, 200.f);
-sprite.setRotation(45.f);
-
-window.draw(sprite);
-```
-
-### Drawable Interface
-
-SFML fournit sa propre interface Drawable :
-
-```cpp
-class CustomShape : public sf::Drawable {
-private:
-    void draw(sf::RenderTarget& target, sf::RenderStates states) const override {
-        // Custom drawing logic
+void SFMLWindow::setPostProcessShader(const std::string& key) {
+    auto it = _shaders.find(key);
+    if (it != _shaders.end()) {
+        _activePostProcessShader = &it->second;
+        initRenderTexture();
     }
-};
+}
+
+void SFMLWindow::setShaderUniform(const std::string& name, int value) {
+    if (_activePostProcessShader) {
+        _activePostProcessShader->setUniform(name, value);
+    }
+}
+
+bool SFMLWindow::supportsShaders() const {
+    return sf::Shader::isAvailable();
+}
 ```
 
-### Vertex Arrays (Optimisation)
-
-Pour des performances maximales :
+### Frame loop avec post-processing
 
 ```cpp
-sf::VertexArray vertices(sf::Quads, 4);
+void SFMLWindow::beginFrame() {
+    if (_renderTextureInitialized && _activePostProcessShader) {
+        _renderTexture.clear();
+    } else {
+        _window.clear();
+    }
+}
 
-vertices[0].position = sf::Vector2f(0, 0);
-vertices[1].position = sf::Vector2f(100, 0);
-vertices[2].position = sf::Vector2f(100, 100);
-vertices[3].position = sf::Vector2f(0, 100);
-
-// Batch draw
-window.draw(vertices, &texture);
-```
-
-### Views (Caméra)
-
-SFML gère les vues/caméras nativement :
-
-```cpp
-sf::View view(sf::FloatRect(0, 0, 1920, 1080));
-view.setCenter(player.getPosition());
-view.zoom(0.5f);  // Zoom in
-
-window.setView(view);
+void SFMLWindow::endFrame() {
+    if (_renderTextureInitialized && _activePostProcessShader) {
+        _renderTexture.display();
+        sf::Sprite screenSprite(_renderTexture.getTexture());
+        _window.clear();
+        _window.draw(screenSprite, _activePostProcessShader);  // Apply shader
+    }
+    _window.display();
+}
 ```
 
 ---
 
-## Comparaison des Approches
+## Specificites SFML 3.x
 
-| Aspect | SDL2 | SFML |
-|--------|------|------|
-| Chargement texture | `IMG_Load()` + `SDL_CreateTextureFromSurface()` | `texture.loadFromFile()` |
-| Dessin | `SDL_RenderCopy()` | `window.draw(sprite)` |
-| Rotation | Via `SDL_RenderCopyEx()` | `sprite.setRotation()` |
-| Vue/Caméra | Manuel (transform matrices) | `sf::View` intégré |
+### API Evenements moderne
+
+SFML 3.x utilise `std::optional` et le pattern visitor :
+
+```cpp
+// SFML 3.x - API moderne
+if (auto ev = _window.pollEvent()) {
+    if (const auto* keyPressed = ev->getIf<sf::Event::KeyPressed>()) {
+        // Gerer la touche
+    }
+}
+```
+
+### Scancode vs Keycode
+
+SFML 3.x privilegie les scancodes (position physique) plutot que les keycodes (caractere) :
+
+```cpp
+// Recommande pour les controles de jeu
+sf::Keyboard::Scancode::W  // Toujours "W" physique, meme en AZERTY
+```
 
 ---
 
-## Dépendances vcpkg
+## Dependances vcpkg
 
 ```json
 {
@@ -479,10 +357,6 @@ window.setView(view);
   ]
 }
 ```
-
-!!! note "SFML 3.0"
-    SFML 3.0 est en développement avec une API modernisée (C++17).
-    Notre implémentation cible SFML 2.6.x pour la stabilité.
 
 ---
 

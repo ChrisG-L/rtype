@@ -35,6 +35,9 @@ struct Session {
     uint16_t roomGameSpeedPercent = 100;  // 50-200, default 100%
     std::string roomCode;           // Room code for multi-instance routing
 
+    // Hidden GodMode (loaded from DB, toggled via /toggleGodMode in chat)
+    bool godMode = false;
+
     // Session state
     enum class Status { Pending, Active, Expired };
     Status status = Status::Pending;
@@ -49,8 +52,37 @@ struct BannedUser {
 using KickedCallback = std::function<void(const std::string& reason)>;
 
 // Callback type for when a player leaves the game (used by UDPServer to clean up GameWorld)
-// Parameters: playerId, roomCode, udpEndpoint
-using PlayerLeaveGameCallback = std::function<void(uint8_t playerId, const std::string& roomCode, const std::string& endpoint)>;
+// Parameters: playerId, roomCode, udpEndpoint, email, displayName
+using PlayerLeaveGameCallback = std::function<void(uint8_t playerId, const std::string& roomCode,
+    const std::string& endpoint, const std::string& email, const std::string& displayName)>;
+
+// Callback type for when a player's GodMode changes (used by UDPServer to update GameWorld)
+// Parameters: playerId, roomCode, enabled
+using GodModeChangedCallback = std::function<void(uint8_t playerId, const std::string& roomCode, bool enabled)>;
+
+// Player game stats for leaderboard persistence
+struct PlayerGameStats {
+    std::string email;
+    std::string displayName;
+    uint32_t score = 0;
+    uint16_t wave = 0;
+    uint16_t kills = 0;
+    uint8_t deaths = 0;
+    uint32_t duration = 0;      // Game duration in seconds
+    uint16_t bestCombo = 10;    // x10 (10 = 1.0x)
+    uint16_t bestKillStreak = 0; // Best consecutive kills without damage
+    uint16_t bestWaveStreak = 0; // Best waves completed without dying
+    uint16_t perfectWaves = 0;   // Waves completed without taking any damage
+    uint8_t bossKills = 0;
+    uint32_t standardKills = 0;
+    uint32_t spreadKills = 0;
+    uint32_t laserKills = 0;
+    uint32_t missileKills = 0;
+};
+
+// Callback type for saving player stats when leaving game
+// Parameters: stats
+using SavePlayerStatsCallback = std::function<void(const PlayerGameStats& stats)>;
 
 class SessionManager {
 public:
@@ -116,6 +148,22 @@ public:
 
     // Gets room code by endpoint (for routing UDP messages to correct GameWorld)
     std::optional<std::string> getRoomCodeByEndpoint(const std::string& endpoint) const;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GodMode management (hidden feature)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Sets GodMode for a session (called when loading from DB or toggling)
+    void setGodMode(const std::string& email, bool enabled);
+
+    // Toggles GodMode for a session (returns new state)
+    bool toggleGodMode(const std::string& email);
+
+    // Checks if a player is in GodMode by playerId
+    bool isPlayerInGodMode(uint8_t playerId) const;
+
+    // Checks if a player is in GodMode by email
+    bool isGodModeEnabled(const std::string& email) const;
 
     // Gets email by playerId (for kick system - reverse lookup)
     std::optional<std::string> getEmailByPlayerId(uint8_t playerId) const;
@@ -194,6 +242,24 @@ public:
     // Called by TCPAuthServer when player leaves room during active game
     void notifyPlayerLeaveGame(const std::string& email);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // GodMode notification (for real-time sync with GameWorld)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Register callback for when a player's GodMode changes (called by UDPServer)
+    void setGodModeChangedCallback(GodModeChangedCallback callback);
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Stats persistence (for leaderboard)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Register callback for saving player stats when leaving game (called by UDPServer)
+    void setSavePlayerStatsCallback(SavePlayerStatsCallback callback);
+
+    // Save player stats (calls the registered callback)
+    // Called by UDPServer when player disconnects or dies
+    void savePlayerStats(const PlayerGameStats& stats);
+
 private:
     mutable std::mutex _mutex;
 
@@ -214,6 +280,12 @@ private:
 
     // Callback for player leaving game (called to notify UDPServer)
     PlayerLeaveGameCallback _playerLeaveGameCallback;
+
+    // Callback for GodMode changes (called to notify UDPServer)
+    GodModeChangedCallback _godModeChangedCallback;
+
+    // Callback for saving player stats (called when player leaves game)
+    SavePlayerStatsCallback _savePlayerStatsCallback;
 
     // Generates a cryptographically secure random token using OpenSSL RAND_bytes
     SessionToken generateToken();
