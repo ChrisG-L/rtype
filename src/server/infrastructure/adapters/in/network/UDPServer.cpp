@@ -100,6 +100,17 @@ namespace infrastructure::adapters::in::network {
         }
     }
 
+    UDPServer::~UDPServer() {
+        // Clear callbacks to prevent use-after-free during shutdown
+        // When io_context is destroyed, it may trigger Session destructors which call
+        // notifyPlayerLeaveGame(). If the callback still references this UDPServer,
+        // it would cause a stack-use-after-scope error.
+        if (_sessionManager) {
+            _sessionManager->setPlayerLeaveGameCallback(nullptr);
+            _sessionManager->setGodModeChangedCallback(nullptr);
+        }
+    }
+
     std::string UDPServer::endpointToString(const udp::endpoint& ep) const {
         return ep.address().to_string() + ":" + std::to_string(ep.port());
     }
