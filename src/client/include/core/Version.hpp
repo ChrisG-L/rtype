@@ -16,6 +16,29 @@
 
 namespace client::core {
 
+// Check if running in dev mode (version.dev file exists)
+inline bool isDevMode() {
+    // Check multiple locations for version.dev:
+    // 1. Current working directory
+    // 2. Next to executable (if we can determine it)
+    // 3. Project root (for development)
+
+    const std::array<std::string, 4> paths = {
+        "version.dev",
+        "./version.dev",
+        "../version.dev",
+        "../../version.dev"  // When running from build directory
+    };
+
+    for (const auto& path : paths) {
+        if (std::filesystem::exists(path)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Get the client version info
 inline VersionInfo getClientVersion() {
     VersionInfo version;
@@ -39,29 +62,6 @@ inline VersionInfo getClientVersion() {
     }
 
     return version;
-}
-
-// Check if running in dev mode (version.dev file exists)
-inline bool isDevMode() {
-    // Check multiple locations for version.dev:
-    // 1. Current working directory
-    // 2. Next to executable (if we can determine it)
-    // 3. Project root (for development)
-
-    const std::array<std::string, 4> paths = {
-        "version.dev",
-        "./version.dev",
-        "../version.dev",
-        "../../version.dev"  // When running from build directory
-    };
-
-    for (const auto& path : paths) {
-        if (std::filesystem::exists(path)) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 // Format version for display (e.g., "1.0.0 (abc12345)")
