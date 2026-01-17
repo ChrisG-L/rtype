@@ -37,6 +37,7 @@ add_executable(rtype_server
     infrastructure/adapters/in/network/UDPServer.cpp
     infrastructure/adapters/in/network/VoiceUDPServer.cpp
     infrastructure/adapters/in/network/TCPAuthServer.cpp
+    infrastructure/adapters/in/network/TCPAdminServer.cpp
 
     # Infrastructure - Adapters Out (Persistence)
     infrastructure/adapters/out/persistence/MongoDBConfiguration.cpp

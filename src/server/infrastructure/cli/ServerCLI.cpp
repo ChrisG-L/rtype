@@ -19,6 +19,8 @@
 #include <iomanip>
 #include <cstdio>
 #include <set>
+#include <algorithm>
+#include <mutex>
 
 #ifdef _WIN32
 // WIN32_LEAN_AND_MEAN prevents windows.h from including winsock.h
@@ -131,11 +133,50 @@ void ServerCLI::join() {
 }
 
 void ServerCLI::output(const std::string& text) {
+    // If output callback is set (remote admin), use it
+    if (_outputCallback) {
+        _outputCallback(text);
+        return;
+    }
+    // Otherwise use TUI or stdout
     if (_terminalUI && _terminalUI->isRunning()) {
         _terminalUI->printToCommandPane(text);
     } else {
         std::cout << text << std::endl;
     }
+}
+
+std::vector<std::string> ServerCLI::executeCommandWithOutput(const std::string& command) {
+    std::vector<std::string> outputLines;
+
+    // Set output callback to capture output
+    {
+        std::lock_guard<std::mutex> lock(_outputMutex);
+        _outputCallback = [&outputLines](const std::string& text) {
+            outputLines.push_back(text);
+        };
+    }
+
+    // Execute the command
+    executeCommand(command);
+
+    // Clear the callback
+    {
+        std::lock_guard<std::mutex> lock(_outputMutex);
+        _outputCallback = nullptr;
+    }
+
+    return outputLines;
+}
+
+std::vector<std::string> ServerCLI::getAvailableCommands() const {
+    std::vector<std::string> cmds;
+    cmds.reserve(_commands.size());
+    for (const auto& [name, _] : _commands) {
+        cmds.push_back(name);
+    }
+    std::sort(cmds.begin(), cmds.end());
+    return cmds;
 }
 
 void ServerCLI::runLoop() {

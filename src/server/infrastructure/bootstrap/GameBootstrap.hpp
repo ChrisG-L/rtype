@@ -11,6 +11,7 @@
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
 #include "infrastructure/adapters/in/network/VoiceUDPServer.hpp"
 #include "infrastructure/adapters/in/network/TCPAuthServer.hpp"
+#include "infrastructure/adapters/in/network/TCPAdminServer.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBConfiguration.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserRepository.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.hpp"
@@ -27,6 +28,7 @@
 
 #include <memory>
 #include <cstdlib>
+#include <cstring>
 #include <csignal>
 #include <vector>
 #include <thread>
@@ -122,11 +124,13 @@ namespace infrastructure::bootstrap {
                 mainLogger->info("Serveur UDP prêt. En attente de connexions...");
                 mainLogger->info("Appuyez sur Ctrl+C pour arrêter le serveur proprement.");
 
-                // Start CLI with TUI support
-                cli::ServerCLI serverCLI(sessionManager, udpServer, logBuffer, userRepo, roomManager);
+                // Start CLI with TUI support (shared_ptr for TCPAdminServer)
+                auto serverCLI = std::make_shared<cli::ServerCLI>(
+                    sessionManager, udpServer, logBuffer, userRepo, roomManager
+                );
 
                 // Set shutdown callback so CLI can stop the server via exit/quit commands
-                serverCLI.setShutdownCallback([&]() {
+                serverCLI->setShutdownCallback([&]() {
                     mainLogger->info("CLI requested shutdown");
                     voiceServer.stop();
                     udpServer.stop();
@@ -135,12 +139,24 @@ namespace infrastructure::bootstrap {
                     io_ctx.stop();
                 });
 
-                serverCLI.start();
+                serverCLI->start();
+
+                // Start TCP Admin Server on port 4127 for remote administration
+                const char* adminToken = std::getenv("ADMIN_TOKEN");
+                adapters::in::network::TCPAdminServer tcpAdminServer(io_ctx, 4127, serverCLI);
+                if (adminToken != nullptr && adminToken[0] != '\0') {
+                    tcpAdminServer.setAdminToken(adminToken);
+                    tcpAdminServer.start();
+                    mainLogger->info("TCP Admin Server started on port 4127");
+                } else {
+                    mainLogger->warn("ADMIN_TOKEN not set - TCP Admin Server disabled");
+                }
 
                 boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
                 signals.async_wait([&](const boost::system::error_code&, int signum) {
                     mainLogger->info("Signal reçu ({}), arrêt du serveur...", signum);
-                    serverCLI.stop();
+                    tcpAdminServer.stop();
+                    serverCLI->stop();
                     voiceServer.stop();
                     udpServer.stop();
                     tcpAuthServer.stop();
@@ -166,7 +182,7 @@ namespace infrastructure::bootstrap {
                 // std::jthread automatically joins on destruction when threadPool goes out of scope
 
                 // Wait for CLI to finish
-                serverCLI.join();
+                serverCLI->join();
 
                 // Note: Logger::shutdown() is called in main() after all components are destroyed
             }

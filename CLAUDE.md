@@ -8,9 +8,10 @@ R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **H
 
 | Component | Technology | Port |
 |-----------|------------|------|
-| Server | C++23, Boost.ASIO | TCP 4125 (auth/TLS), UDP 4124 (game), UDP 4126 (voice) |
+| Server | C++23, Boost.ASIO | TCP 4125 (auth/TLS), UDP 4124 (game), UDP 4126 (voice), TCP 4127 (admin) |
 | Client | C++23, SFML/SDL2 (multi-backend) | - |
 | Build | CMake 3.30+, Ninja, vcpkg, Nix | - |
+| Discord Bot (Admin) | Python 3.12, discord.py | TCP 4127 (connects to server) |
 
 ## Project Structure
 
@@ -74,6 +75,9 @@ rtype/
 ├── tests/                               # Google Test tests
 ├── docs/                                # MkDocs documentation
 ├── scripts/                             # Build scripts
+├── discord-bot/                         # Discord bots
+│   ├── admin/                           # Admin bot (TCPAdminServer client)
+│   └── leaderboard/                     # Leaderboard bot (MongoDB client)
 ├── third_party/vcpkg/                   # Package manager
 ├── .mcp.json                            # MCP server configuration
 └── .claude/                             # Claude Code tooling
@@ -847,6 +851,7 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 | **VoiceChatManager** | `src/client/src/audio/VoiceChatManager.cpp` |
 | **OpusCodec** | `src/client/src/audio/OpusCodec.cpp` |
 | **TCPAuthServer** | `src/server/infrastructure/adapters/in/network/TCPAuthServer.cpp` |
+| **TCPAdminServer** | `src/server/infrastructure/adapters/in/network/TCPAdminServer.cpp` |
 | **TCPClient** | `src/client/src/network/TCPClient.cpp` |
 | **SessionManager** | `src/server/infrastructure/session/SessionManager.cpp` |
 | **LeaderboardScene** | `src/client/src/scenes/LeaderboardScene.cpp` |
@@ -900,6 +905,172 @@ Authentication traffic (TCP port 4125) is encrypted using TLS 1.2+.
 - Session tokens are generated using OpenSSL `RAND_bytes()` (CSPRNG)
 - Client uses `verify_none` for self-signed certificates (development only)
 - In production, use `verify_peer` with proper CA certificates
+
+## TCP Admin Server (Remote Administration)
+
+The TCPAdminServer provides remote administration capabilities via a JSON-RPC protocol over TCP.
+
+### Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Port | TCP 4127 |
+| Bind Address | `127.0.0.1` (localhost only - not accessible from outside) |
+| Protocol | JSON-RPC over TCP (newline-delimited) |
+| Authentication | Token-based (ADMIN_TOKEN environment variable) |
+
+### Security
+
+The TCPAdminServer implements multiple security layers:
+
+| Layer | Protection |
+|-------|------------|
+| **Network** | Binds to `127.0.0.1` only - cannot be accessed from external networks |
+| **Authentication** | 256-bit token required (`openssl rand -hex 32`) |
+| **Command filtering** | Dangerous commands blocked: `quit`, `exit`, `zoom`, `interact`, `net` |
+| **Thread safety** | Mutex-protected token validation and connection tracking |
+
+**Security notes:**
+- If `ADMIN_TOKEN` is not set, the server refuses ALL requests
+- Token comparison is exact match (no partial matching)
+- Each connection is logged with source IP/port
+
+### Protocol
+
+**Request format:**
+```json
+{"cmd": "command_name", "args": "optional arguments", "token": "admin_token"}
+```
+
+**Response format:**
+```json
+{"success": true, "output": ["line1", "line2", ...], "error": "if any"}
+```
+
+### Available Commands
+
+All ServerCLI commands are available except interactive ones:
+
+| Command | Description |
+|---------|-------------|
+| `status` | Server status (users, sessions, uptime) |
+| `sessions` | List active sessions |
+| `users` | List registered users |
+| `user <email>` | User details |
+| `kick <email>` | Disconnect a player |
+| `ban <email> [reason]` | Ban a user |
+| `unban <email>` | Unban a user |
+| `bans` | List banned users |
+| `rooms` | List active game rooms |
+| `room <code>` | Room details |
+| `broadcast <msg>` | Send message to all players |
+| `help` | List available commands |
+
+**Blocked commands** (require local TUI): `quit`, `exit`, `zoom`, `interact`, `net`
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_TOKEN` | Yes | Secret token for authentication (min 32 chars recommended) |
+
+**Generate a secure token:**
+```bash
+openssl rand -hex 32
+```
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `src/server/include/infrastructure/adapters/in/network/TCPAdminServer.hpp` | Header |
+| `src/server/infrastructure/adapters/in/network/TCPAdminServer.cpp` | Implementation |
+| `src/server/infrastructure/cli/ServerCLI.cpp` | `executeCommandWithOutput()` method |
+
+## Discord Admin Bot
+
+Python Discord bot that connects to TCPAdminServer for remote server administration.
+
+### Architecture
+
+```
+[Discord] ←→ [Discord Bot (Python)] ←TCP 4127→ [TCPAdminServer (C++)] ←→ [ServerCLI]
+```
+
+### Setup
+
+```bash
+cd discord-bot/admin
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your configuration
+python bot.py
+```
+
+### Configuration (.env)
+
+| Variable | Description |
+|----------|-------------|
+| `DISCORD_TOKEN` | Discord bot token |
+| `ADMIN_CHANNEL_ID` | Channel ID where commands are allowed |
+| `ADMIN_ROLE_ID` | Role ID required to use commands |
+| `RTYPE_SERVER_HOST` | R-Type server hostname (default: localhost) |
+| `RTYPE_ADMIN_PORT` | TCPAdminServer port (default: 4127) |
+| `ADMIN_TOKEN` | Must match server's ADMIN_TOKEN |
+| `LOG_LEVEL` | Logging level (default: INFO) |
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/status` | Show server status |
+| `/sessions` | List active sessions |
+| `/rooms` | List active game rooms |
+| `/room <code>` | Show room details |
+| `/users` | List registered users |
+| `/user <email>` | Show user details |
+| `/kick <email>` | Kick a player |
+| `/ban <email> [reason]` | Ban a user |
+| `/unban <email>` | Unban a user |
+| `/bans` | List banned users |
+| `/broadcast <message>` | Send to all players |
+| `/say <room> <message>` | Send to specific room |
+| `/cli <command>` | Execute any CLI command |
+| `/help` | Show help |
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `discord-bot/admin/bot.py` | Main bot entry point |
+| `discord-bot/admin/tcp_client.py` | Async TCP client for TCPAdminServer |
+| `discord-bot/admin/config.py` | Configuration from environment |
+| `discord-bot/admin/cogs/admin.py` | Server management commands |
+| `discord-bot/admin/cogs/users.py` | User management commands |
+| `discord-bot/admin/cogs/moderation.py` | Ban/kick commands |
+| `discord-bot/admin/utils/embeds.py` | Discord embed generators |
+
+### Systemd Service (VPS)
+
+```ini
+[Unit]
+Description=R-Type Discord Admin Bot
+After=network.target rtype-server.service
+
+[Service]
+Type=simple
+User=alexandre
+WorkingDirectory=/opt/rtype/discord-bot/admin
+ExecStart=/opt/rtype/discord-bot/admin/venv/bin/python bot.py
+Restart=always
+RestartSec=10
+Environment="ADMIN_TOKEN=your_token_here"
+
+[Install]
+WantedBy=multi-user.target
+```
 
 ## Coding Conventions
 
