@@ -142,7 +142,7 @@ void MainMenuScene::initUI()
         FONT_KEY
     );
     _maxPlayersDecBtn->setOnClick([this]() {
-        if (_maxPlayers > 2) _maxPlayers--;
+        if (_maxPlayers > 1) _maxPlayers--;
     });
 
     _maxPlayersIncBtn = std::make_unique<ui::Button>(

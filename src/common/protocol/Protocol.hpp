@@ -133,7 +133,7 @@ static constexpr uint8_t ENEMY_OWNER_ID = 0xFF;
 static constexpr size_t ROOM_NAME_LEN = 32;
 static constexpr size_t ROOM_CODE_LEN = 6;
 static constexpr uint8_t MAX_ROOM_PLAYERS = 6;
-static constexpr uint8_t MIN_ROOM_PLAYERS = 2;
+static constexpr uint8_t MIN_ROOM_PLAYERS = 1;
 
 // Session token size (256 bits = 32 bytes)
 static constexpr size_t TOKEN_SIZE = 32;

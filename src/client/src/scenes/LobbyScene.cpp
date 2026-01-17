@@ -183,8 +183,8 @@ void LobbyScene::onStartClick()
         }
     }
 
-    if (readyCount < 2) {
-        showError("Need at least 2 ready players");
+    if (readyCount < 1) {
+        showError("Need at least 1 ready player");
         return;
     }
 

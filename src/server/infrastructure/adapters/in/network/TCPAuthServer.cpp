@@ -710,7 +710,7 @@ namespace infrastructure::adapters::in::network {
             ack.success = 0;
             std::memset(ack.roomCode, 0, ROOM_CODE_LEN);
             std::snprintf(ack.errorCode, MAX_ERROR_CODE_LEN, "%s", "INVALID_PLAYERS");
-            std::snprintf(ack.message, MAX_ERROR_MSG_LEN, "%s", "Max players must be between 2 and 6");
+            std::snprintf(ack.message, MAX_ERROR_MSG_LEN, "%s", "Max players must be between 1 and 6");
             do_write_create_room_ack(ack);
             return;
         }

@@ -50,7 +50,7 @@ static constexpr uint8_t MAX_ENEMY_MISSILES = 32;
 static constexpr size_t ROOM_NAME_LEN = 32;
 static constexpr size_t ROOM_CODE_LEN = 6;
 static constexpr uint8_t MAX_ROOM_PLAYERS = 6;
-static constexpr uint8_t MIN_ROOM_PLAYERS = 2;
+static constexpr uint8_t MIN_ROOM_PLAYERS = 1;
 
 // Session token (256 bits)
 static constexpr size_t TOKEN_SIZE = 32;

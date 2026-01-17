@@ -36,7 +36,7 @@ struct RoomSlot {
 class Room {
 public:
     static constexpr size_t MAX_SLOTS = 6;
-    static constexpr size_t MIN_PLAYERS_TO_START = 2;
+    static constexpr size_t MIN_PLAYERS_TO_START = 1;
     static constexpr uint16_t MIN_GAME_SPEED_PERCENT = 50;
     static constexpr uint16_t MAX_GAME_SPEED_PERCENT = 200;
     static constexpr uint16_t DEFAULT_GAME_SPEED_PERCENT = 100;
