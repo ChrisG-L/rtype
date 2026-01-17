@@ -641,7 +641,15 @@ namespace infrastructure::adapters::in::network {
                     return;
                 }
 
-                auto clientEndpoint = sslSocket->lowest_layer().remote_endpoint();
+                // Get endpoint safely - client may disconnect between accept and this call
+                boost::system::error_code epEc;
+                auto clientEndpoint = sslSocket->lowest_layer().remote_endpoint(epEc);
+                if (epEc) {
+                    networkLogger->warn("Client disconnected before handshake: {}", epEc.message());
+                    start_accept();
+                    return;
+                }
+
                 networkLogger->debug("TCP connection from {}, starting TLS handshake...",
                     clientEndpoint.address().to_string());
 

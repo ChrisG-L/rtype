@@ -10,6 +10,7 @@ from .parser import (
     parse_rooms_output,
     parse_bans_output,
     parse_user_output,
+    parse_room_details_output,
     clean_cli_prefix,
 )
 
@@ -26,5 +27,6 @@ __all__ = [
     "parse_rooms_output",
     "parse_bans_output",
     "parse_user_output",
+    "parse_room_details_output",
     "clean_cli_prefix",
 ]

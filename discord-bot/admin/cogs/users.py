@@ -24,11 +24,36 @@ class UsersCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._users_cache: list[dict[str, str]] = []
 
     @property
     def tcp(self) -> TCPAdminClient:
         """Get the TCP client from bot."""
         return self.bot.tcp_client
+
+    async def _get_users_list(self) -> list[dict[str, str]]:
+        """Fetch and cache users list for autocomplete."""
+        try:
+            result = await self.tcp.users()
+            if result.success:
+                self._users_cache = parse_users_output(result.output)
+        except Exception:
+            pass
+        return self._users_cache
+
+    async def user_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        """Autocomplete for user emails."""
+        users = await self._get_users_list()
+        choices = []
+        for user in users[:25]:
+            email = user.get('email', '')
+            username = user.get('username', '')
+            label = f"{username} ({email})" if username else email
+            if current.lower() in email.lower() or current.lower() in username.lower():
+                choices.append(app_commands.Choice(name=label[:100], value=email))
+        return choices[:25]
 
     @app_commands.command(name="users", description="List all registered users")
     @is_admin_channel()
@@ -57,6 +82,7 @@ class UsersCog(commands.Cog):
 
     @app_commands.command(name="user", description="Show details for a specific user")
     @app_commands.describe(email="User email address")
+    @app_commands.autocomplete(email=user_autocomplete)
     @is_admin_channel()
     @has_admin_role()
     async def user(self, interaction: discord.Interaction, email: str):

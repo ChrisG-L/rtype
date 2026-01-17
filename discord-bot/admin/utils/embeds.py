@@ -113,10 +113,23 @@ class AdminEmbeds:
             return embed
 
         lines = []
-        for i, session in enumerate(sessions[:20], 1):
+        for session in sessions[:20]:
             email = session.get('email', 'Unknown')
+            display_name = session.get('display_name', '')
+            status = session.get('status', 'Unknown')
             room = session.get('room', 'N/A')
-            lines.append(f"\U0001F7E2 **{email}** - Room: `{room}`")
+
+            # Status emoji
+            if status == "Active":
+                emoji = "\U0001F7E2"  # 🟢
+            elif status == "Pending":
+                emoji = "\U0001F7E1"  # 🟡
+            else:
+                emoji = "\u26AB"  # ⚫
+
+            name_part = f" ({display_name})" if display_name else ""
+            room_part = f" - Room: `{room}`" if room != "N/A" else ""
+            lines.append(f"{emoji} **{email}**{name_part}{room_part}")
 
         embed.description = "\n".join(lines)
         embed.set_footer(text=f"Total: {len(sessions)} sessions | R-Type Admin")
@@ -139,9 +152,25 @@ class AdminEmbeds:
         lines = []
         for room in rooms[:20]:
             code = room.get('code', 'Unknown')
+            name = room.get('name', '')
             players = room.get('players', '0')
-            status = room.get('status', 'Active')
-            lines.append(f"\U0001F3AE **{code}** - {players} players ({status})")
+            status = room.get('status', 'Unknown')
+            host = room.get('host', '')
+
+            # Status emoji
+            if status == "InGame":
+                emoji = "\U0001F3AE"  # 🎮
+            elif status == "Waiting":
+                emoji = "\u23F3"  # ⏳
+            elif status == "Starting":
+                emoji = "\U0001F680"  # 🚀
+            else:
+                emoji = "\U0001F3AE"
+
+            line = f"{emoji} **{name}** (`{code}`) - {players} ({status})"
+            if host:
+                line += f" - Host: `{host}`"
+            lines.append(line)
 
         embed.description = "\n".join(lines)
         embed.set_footer(text=f"Total: {len(rooms)} rooms | R-Type Admin")
@@ -164,8 +193,9 @@ class AdminEmbeds:
         lines = []
         for ban in bans[:20]:
             email = ban.get('email', 'Unknown')
-            reason = ban.get('reason', 'No reason')
-            lines.append(f"\U0001F6AB **{email}**\n   Reason: _{reason}_")
+            display_name = ban.get('display_name', '-')
+            name_part = f" ({display_name})" if display_name and display_name != "-" else ""
+            lines.append(f"\U0001F6AB **{email}**{name_part}")
 
         embed.description = "\n".join(lines)
         embed.set_footer(text=f"Total: {len(bans)} bans | R-Type Admin")
@@ -202,6 +232,67 @@ class AdminEmbeds:
             embed.add_field(name="Best Score", value=user['best_score'], inline=True)
         if user.get('total_kills'):
             embed.add_field(name="Total Kills", value=user['total_kills'], inline=True)
+
+        embed.set_footer(text="R-Type Admin")
+        return embed
+
+    @staticmethod
+    def room_details(room: dict[str, Any]) -> discord.Embed:
+        """Create room details embed with parsed data."""
+        name = room.get('name', 'Unknown')
+        code = room.get('code', 'Unknown')
+        state = room.get('state', 'Unknown')
+
+        # Color based on state
+        if state == "InGame":
+            color = AdminEmbeds.COLOR_ONLINE
+        elif state == "Waiting":
+            color = AdminEmbeds.COLOR_INFO
+        else:
+            color = AdminEmbeds.COLOR_WARNING
+
+        embed = discord.Embed(
+            title=f"\U0001F3AE Room: {name}",
+            color=color,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        # Room info
+        embed.add_field(name="Code", value=f"`{code}`", inline=True)
+        embed.add_field(name="Players", value=room.get('players', '0/4'), inline=True)
+
+        # State emoji
+        if state == "InGame":
+            state_display = "\U0001F3AE InGame"
+        elif state == "Waiting":
+            state_display = "\u23F3 Waiting"
+        elif state == "Starting":
+            state_display = "\U0001F680 Starting"
+        else:
+            state_display = state
+        embed.add_field(name="State", value=state_display, inline=True)
+
+        embed.add_field(name="Host", value=f"`{room.get('host', 'N/A')}`", inline=True)
+
+        private = room.get('private', 'No')
+        private_emoji = "\U0001F512" if private == "Yes" else "\U0001F513"
+        embed.add_field(name="Private", value=f"{private_emoji} {private}", inline=True)
+
+        # Players list
+        player_list = room.get('player_list', [])
+        if player_list:
+            lines = []
+            for p in player_list:
+                ready_emoji = "\u2705" if p.get('ready') == "Yes" else "\u274C"
+                host_emoji = "\U0001F451" if p.get('is_host') == "Yes" else ""
+                display = p.get('display_name', 'Unknown')
+                lines.append(f"{ready_emoji} {host_emoji} **{display}**")
+
+            embed.add_field(
+                name=f"Players ({len(player_list)})",
+                value="\n".join(lines),
+                inline=False
+            )
 
         embed.set_footer(text="R-Type Admin")
         return embed
