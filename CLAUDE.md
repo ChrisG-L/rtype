@@ -898,6 +898,82 @@ _context.window->loadTexture("missile", "assets/spaceship/missile.png");
 | **ServerConfigManager** | `src/client/src/config/ServerConfigManager.cpp` |
 | **Server wrapper** | `src/server/scripts/server-wrapper.py` |
 | **Systemd service** | `src/server/scripts/rtype_server.service` |
+| **Version (client)** | `src/client/include/core/Version.hpp` |
+| **VersionHistoryManager** | `src/server/include/infrastructure/version/VersionHistoryManager.hpp` |
+| **Platform utils** | `src/client/include/utils/Platform.hpp` |
+
+## Version Checking System
+
+Le système de vérification de version compare les hash git entre le client et le serveur à la connexion.
+
+### Architecture
+
+```
+[Client: LoginScene] ←TCP→ [TCPAuthServer]
+        ↓                        ↓
+  Version.hpp            VersionHistoryManager
+  (getClientVersion)      (loadFromFile)
+        ↓                        ↓
+   VersionInfo    ←────→   VersionHistory
+   (13 bytes)              (451 bytes)
+```
+
+### Structures Wire
+
+```cpp
+// VersionInfo (13 bytes) - Envoyé dans AuthResponseWithToken
+struct VersionInfo {
+    uint8_t major, minor, patch;
+    uint8_t flags;              // Bit 0: isDev
+    char gitHash[9];            // 8 chars + null
+};
+
+// VersionHistory (451 bytes) - 50 derniers commits
+struct VersionHistory {
+    uint8_t count;
+    char hashes[50][9];         // Newest first
+};
+```
+
+### Flux de Vérification
+
+1. **Login** → Client envoie credentials
+2. **Auth Success** → Serveur répond avec `serverVersion` + `versionHistory`
+3. **Client compare** → `isVersionCompatible(client, server)`
+4. **Si mismatch** → Popup avec nombre de commits de retard + bouton JENKINS
+
+### Mode Développement
+
+Créer un fichier `version.dev` à la racine pour bypasser la vérification :
+
+```bash
+touch version.dev    # Active le mode dev (gitignored)
+```
+
+### Variable d'Environnement
+
+```bash
+RTYPE_TEST_HASH=abc1234 ./rtype_client   # Simule un hash différent
+```
+
+### Fichiers Clés
+
+| Fichier | Description |
+|---------|-------------|
+| `src/client/include/core/Version.hpp` | getClientVersion(), isDevMode(), formatVersion() |
+| `src/server/include/infrastructure/version/VersionHistoryManager.hpp` | Singleton, loadFromFile(), getCommitsBehind() |
+| `src/common/protocol/Protocol.hpp` | VersionInfo, VersionHistory structs |
+| `src/client/src/scenes/LoginScene.cpp` | Popup mismatch, bouton JENKINS |
+| `scripts/generate_version_history.sh` | Script helper pour générer l'historique |
+
+### CI/CD
+
+**Jenkinsfile** génère `version_history.txt` au checkout :
+```groovy
+sh 'git log --format="%h" -n 50 > version_history.txt'
+```
+
+**deploy-service.py** régénère l'historique à chaque déploiement VPS.
 
 ## TLS Security
 
