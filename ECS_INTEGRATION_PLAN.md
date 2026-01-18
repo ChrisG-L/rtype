@@ -15,7 +15,7 @@
 | Phase 2 | ✅ | 5 Systems (Movement, Collision, Damage, Lifetime, Cleanup) |
 | Phase 3 | ✅ | Player/Enemy Systems (PlayerInput, Weapon, Score, EnemyAI) |
 | Phase 4 | ✅ | GameWorld Migration (entities, runECSUpdate, getSnapshot) |
-| **Phase 5** | 🔄 | Activation progressive des Systems |
+| **Phase 5** | ✅ | Activation progressive des Systems (5.1-5.6 complete) |
 
 **Tests**: 643 tests passent (6 obsolètes supprimés)
 
@@ -90,7 +90,28 @@ Les Systems ne contiennent **aucune logique métier** - ils délèguent au Domai
 | 5.4 | ScoreSystem (combo decay) | ✅ |
 | 5.5 | EnemyAISystem (movement patterns) | ✅ |
 | 5.6 | WeaponSystem (cooldowns) | ✅ |
-| 5.7 | Integration finale | ❌ Pending |
+| 5.7 | Tests cleanup (6 obsolètes supprimés) | ✅ |
+
+### Design Decisions (Phase 5)
+
+| Decision | Détail |
+|----------|--------|
+| **NO player↔enemy contact damage** | R-Type design confirmé dans legacy `checkCollisions()` |
+| Enemy OOB: legacy | `updateEnemies()` gère OOB après sync ECS (shooting dépend du legacy) |
+| CleanupSystem: missiles seulement | Ennemis OOB gérés par legacy pour consistance sync |
+| Bomber drift dans ECS | `baseY += 10.0f × dt`, clampé à spawn range |
+| gameSpeedMultiplier global | Appliqué à tous les systèmes via `runECSUpdate()` |
+
+### Tests Supprimés (6)
+
+| Test | Raison |
+|------|--------|
+| `CleanupSystemTest.EntityOutOfBoundsLeftDeleted` | Legacy gère OOB ennemis |
+| `CleanupSystemTest.MixedEntitiesOnlyNonPlayersDeleted` | Idem |
+| `CleanupSystemTest.EnemyLeavingScreenLeft` | Idem |
+| `DamageSystemTest.PlayerTakesContactDamageFromEnemy` | Pas de contact damage R-Type |
+| `ECSPhase2IntegrationTest.EnemySpawnMoveOffScreenDeleted` | Legacy gère OOB |
+| `ECSPhase48IntegrationTest.PlayerEnemyCollisionIntegration` | Pas de contact damage |
 
 ### Current Architecture (Phase 5.5)
 
@@ -123,21 +144,16 @@ UDPServer.updateAndBroadcastRoom()
     └── getSnapshot()                       # Players from ECS, rest from legacy
 ```
 
-### Remaining
+### Phase 6 Preparation
 
-| Step | Description | Complexity | Status |
-|------|-------------|------------|--------|
-| 5.7 | Integration finale | Moyenne | ❌ Pending |
+Phase 5 est complète. Prochaines étapes optionnelles :
 
-### Phase 5.7 - Integration Finale
-
-**Objectif**: Nettoyage final et optimisations.
-
-**Tâches restantes**:
-- Migrer enemy missiles vers ECS (optionnel)
-- Migrer Boss vers ECS (optionnel)
-- Supprimer les fonctions sync redondantes
-- Optimiser les requêtes ECS (batch queries)
+| Tâche | Priorité | Complexité |
+|-------|----------|------------|
+| Migrer enemy missiles vers ECS | Moyenne | Haute |
+| Migrer Boss vers ECS | Basse | Haute |
+| Supprimer les fonctions sync redondantes | Moyenne | Faible |
+| Optimiser les requêtes ECS (batch queries) | Basse | Moyenne |
 
 ---
 
@@ -193,4 +209,4 @@ cmake -B build -DUSE_ECS_BACKEND=ON
 - **Original ECS**: `src/ECS/` (Guillaume's Blob ECS)
 - **Project Context**: `CLAUDE.md`
 
-*Updated: 2026-01-18*
+*Updated: 2026-01-18 - Phase 5 complete, 643 tests*
