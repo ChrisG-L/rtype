@@ -40,6 +40,9 @@
 #include "System.hpp"
 
 namespace ECS {
+    // Number of entity groups (must match EntityGroup enum size)
+    constexpr std::size_t MAX_ENTITY_GROUPS = 10;
+
     class ECS {
         public:
             /**
@@ -134,7 +137,7 @@ namespace ECS {
 
             /**
              * @brief Set the group of an entity
-             * 
+             *
              * @param id The ID of the entity
              * @param group The new group the entity should belong to
              */
@@ -142,12 +145,22 @@ namespace ECS {
             {
                 if (m_entities.size() <= id)
                     return;
+                EntityGroup oldGroup = m_entities[id].group;
+                if (oldGroup == group)
+                    return; // No change
+                // Update cache: remove from old, add to new
+                if (m_entities[id].isActive && oldGroup != NONE) {
+                    removeFromGroupCache(id, oldGroup);
+                }
                 m_entities[id].group = group;
+                if (m_entities[id].isActive && group != NONE) {
+                    addToGroupCache(id, group);
+                }
             }
             
             /**
              * @brief Delete an entity corresponding to an ID
-             * 
+             *
              * @param e EntityID
              */
             void entityDelete(EntityID e)
@@ -156,7 +169,13 @@ namespace ECS {
                     return;
                 if (!entityIsActive(e))
                     return;
+                // Remove from group cache before marking inactive
+                EntityGroup group = m_entities[e].group;
+                if (group != NONE) {
+                    removeFromGroupCache(e, group);
+                }
                 m_entities[e].isActive = false;
+                m_entities[e].group = NONE;
                 m_available_ids.push(e);
                 m_active_entities--;
                 registry.disableEntity(e);
@@ -164,19 +183,16 @@ namespace ECS {
 
             /**
              * @brief Returns a vector containing the IDs of entities belonging to group 'group'
-             * 
+             *
              * @param group The group to target
-             * @return std::vector<EntityID> The list of entities
+             * @return const std::vector<EntityID>& Reference to cached entity list (O(1))
              */
-            std::vector<EntityID> getEntityGroup(EntityGroup group)
+            const std::vector<EntityID>& getEntityGroup(EntityGroup group)
             {
-                std::vector<EntityID> grp;
-
-                for (std::size_t i = 0; i < m_entities.size(); i++) {
-                    if (m_entities[i].isActive && m_entities[i].group == group)
-                        grp.push_back(i);
-                }
-                return grp;
+                static const std::vector<EntityID> empty;
+                if (group >= MAX_ENTITY_GROUPS)
+                    return empty;
+                return m_group_cache[group];
             }
 
             /**
@@ -440,6 +456,27 @@ namespace ECS {
             std::size_t m_active_entities = 0;
             std::vector<Entity> m_entities;
             std::vector<SystemData> m_systems;
+
+            // Group cache: O(1) access to entities by group
+            std::vector<EntityID> m_group_cache[MAX_ENTITY_GROUPS];
+
+            // Helper: remove entity from its current group cache
+            void removeFromGroupCache(EntityID id, EntityGroup group) {
+                if (group >= MAX_ENTITY_GROUPS) return;
+                auto& cache = m_group_cache[group];
+                auto it = std::find(cache.begin(), cache.end(), id);
+                if (it != cache.end()) {
+                    // Swap with last element and pop (O(1) removal)
+                    *it = cache.back();
+                    cache.pop_back();
+                }
+            }
+
+            // Helper: add entity to group cache
+            void addToGroupCache(EntityID id, EntityGroup group) {
+                if (group >= MAX_ENTITY_GROUPS) return;
+                m_group_cache[group].push_back(id);
+            }
     };
 }
 
