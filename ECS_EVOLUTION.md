@@ -338,7 +338,7 @@ Priority 250: HomingSystem           # Homing missile tracking
 Priority 300: MovementSystem         # Position += Velocity × dt
 Priority 350: ForcePodSystem         # Force pod logic
 Priority 360: BitDeviceSystem        # Bit device orbit
-Priority 400: CollisionSystem        # AABB detection
+Priority 400: CollisionSystem        # Pair-based AABB detection (optimized)
 Priority 450: PowerUpSystem          # Power-up collection
 Priority 500: DamageSystem           # Apply damage
 Priority 600: LifetimeSystem         # Expire entities
@@ -379,12 +379,12 @@ Priority 800: ScoreSystem            # Combo decay
 
 ## Risques et Mitigations
 
-| Risque | Impact | Mitigation |
-|--------|--------|------------|
-| Régression gameplay | Haut | Tests exhaustifs à chaque phase |
-| Performance queries ECS | Moyen | Profiling, spatial hashing si besoin |
-| Synchronisation réseau | Moyen | Garder même format snapshot |
-| Complexité Boss AI | Moyen | Implémenter pattern par pattern |
+| Risque | Impact | Mitigation | Status |
+|--------|--------|------------|--------|
+| Régression gameplay | Haut | Tests exhaustifs à chaque phase | En cours |
+| Performance queries ECS | Moyen | Pair-based collision detection | ✅ Résolu |
+| Synchronisation réseau | Moyen | Garder même format snapshot | En cours |
+| Complexité Boss AI | Moyen | Implémenter pattern par pattern | Futur |
 
 ---
 

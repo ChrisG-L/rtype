@@ -54,7 +54,7 @@ Les Systems ne contiennent **aucune logique métier** - ils délèguent au Domai
 | 100 | EnemyAISystem | ✅ Active | Movement patterns (Phase 5.5) |
 | 200 | WeaponSystem | ✅ Active | Cooldowns (Phase 5.6) |
 | 300 | MovementSystem | ✅ Active | `pos += vel × dt` |
-| 400 | CollisionSystem | ✅ Active | AABB collision detection |
+| 400 | CollisionSystem | ✅ Active | Optimized pair-based AABB detection |
 | 500 | DamageSystem | ✅ Active | Apply damage from collisions |
 | 600 | LifetimeSystem | ✅ Active | Decrement, delete expired |
 | 700 | CleanupSystem | ✅ Active | Remove OOB entities |
@@ -153,7 +153,8 @@ Phase 5 est complète. Prochaines étapes optionnelles :
 | Migrer enemy missiles vers ECS | Moyenne | Haute |
 | Migrer Boss vers ECS | Basse | Haute |
 | Supprimer les fonctions sync redondantes | Moyenne | Faible |
-| Optimiser les requêtes ECS (batch queries) | Basse | Moyenne |
+
+**Optimisation CollisionSystem** ✅ : Passage de O(n²) all-vs-all à pair-based detection (seulement paires pertinentes).
 
 ---
 

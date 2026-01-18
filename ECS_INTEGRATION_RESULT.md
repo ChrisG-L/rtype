@@ -140,7 +140,7 @@ UDPServer.updateAndBroadcastRoom()
 | 100 | `EnemyAISystem` | `<EnemyTag, EnemyAIComp, Position, Velocity>` | Movement patterns, shooting |
 | 200 | `WeaponSystem` | `<PlayerTag, WeaponComp, Position>` | Cooldowns, missile spawn |
 | 300 | `MovementSystem` | `<Position, Velocity>` | `pos += vel × dt` |
-| 400 | `CollisionSystem` | `<Position, Hitbox>` | O(n²) AABB detection |
+| 400 | `CollisionSystem` | By EntityGroup | Optimized pair-based AABB detection |
 | 500 | `DamageSystem` | Consumes `CollisionEvent` | Apply damage via DomainBridge |
 | 600 | `LifetimeSystem` | `<Lifetime>` | Decrement, mark expired |
 | 700 | `CleanupSystem` | `<Position, Hitbox>` | Remove OOB (not players) |
@@ -188,7 +188,7 @@ class DomainBridge {
 
 | Decision | Rationale |
 |----------|-----------|
-| O(n²) collision | <100 entities typical, spatial hash if >500 |
+| Pair-based collision | Only relevant pairs checked (MISSILES↔ENEMIES, etc.), like legacy |
 | CollisionEvent with groups | DamageSystem filters without re-query |
 | KillEvent for score | Decouples DamageSystem from ScoreSystem |
 | Players excluded from Cleanup | Death/respawn managed by GameWorld |
@@ -280,8 +280,9 @@ cmake -B build -DUSE_ECS_BACKEND=ON
 | Medium | Phase 5.7: Final integration, remove redundant legacy code |
 | Medium | Migrate enemy missiles to ECS (optional) |
 | Medium | Remove legacy `_players`, `_missiles`, `_enemies` maps |
-| Low | Spatial hashing for CollisionSystem |
 | Low | ForcePodSystem, BitDeviceSystem, BossSystem |
+
+**Optimisation CollisionSystem** ✅ : Pair-based detection au lieu de O(n²) all-vs-all.
 
 ---
 
