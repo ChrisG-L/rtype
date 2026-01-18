@@ -151,6 +151,16 @@ namespace infrastructure::adapters::in::network {
                     }
 
                     do_read();
+                } else {
+                    // Read error (client disconnected, connection reset, etc.)
+                    // Unregister from TCPAuthServer to allow Session destruction
+                    // which will clean up SessionManager
+                    if (ec != boost::asio::error::operation_aborted) {
+                        logger->debug("TCP session read error: {} - cleaning up", ec.message());
+                    }
+                    if (_onClose) {
+                        _onClose(this);
+                    }
                 }
             }
         );
@@ -283,6 +293,12 @@ namespace infrastructure::adapters::in::network {
             if (elapsed > CLIENT_TIMEOUT_MS) {
                 auto logger = server::logging::Logger::getNetworkLogger();
                 logger->warn("TCP Client heartbeat timeout ({}ms) - closing session", elapsed);
+
+                // Unregister from TCPAuthServer BEFORE closing socket
+                // This allows the Session to be destroyed and cleanup SessionManager
+                if (_onClose) {
+                    _onClose(this);
+                }
 
                 boost::system::error_code closeEc;
                 _socket.lowest_layer().close(closeEc);
