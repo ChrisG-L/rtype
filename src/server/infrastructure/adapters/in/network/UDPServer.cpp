@@ -991,7 +991,7 @@ namespace infrastructure::adapters::in::network {
                             // This only updates the current_game_sessions collection
                             _leaderboardRepository->saveCurrentGameSession(
                                 session->email, session->displayName, roomCode, historyEntry);
-                            logger->info("Auto-saved session for {} ({}): score={}, kills={}, wave={}, stdKills={}, spreadKills={}, laserKills={}, missileKills={}, waveCannonKills={}, dmg={}",
+                            logger->debug("Auto-saved session for {} ({}): score={}, kills={}, wave={}, stdKills={}, spreadKills={}, laserKills={}, missileKills={}, waveCannonKills={}, dmg={}",
                                          session->displayName, static_cast<int>(playerId),
                                          scoreData.score, scoreData.kills, gameWorld->getWaveNumber(),
                                          scoreData.standardKills, scoreData.spreadKills, scoreData.laserKills,

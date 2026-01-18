@@ -1,8 +1,8 @@
 # R-Type - ECS Integration Plan
 
-> **Version**: 3.0
+> **Version**: 3.1
 > **Branche**: `ECS_realImpl`
-> **Status**: Phase 5 en cours (6/9 systèmes actifs)
+> **Status**: Phase 5.5 complète (9/9 systèmes actifs)
 
 ---
 
@@ -51,7 +51,7 @@ Les Systems ne contiennent **aucune logique métier** - ils délèguent au Domai
 | Priority | System | Status | Responsibility |
 |----------|--------|--------|----------------|
 | 0 | PlayerInputSystem | ✅ Active | Input → Velocity, screen clamp |
-| 100 | EnemyAISystem | ❌ Disabled | Movement patterns, shooting |
+| 100 | EnemyAISystem | ✅ Active | Movement patterns (Phase 5.5) |
 | 200 | WeaponSystem | ✅ Active | Cooldowns (Phase 5.6) |
 | 300 | MovementSystem | ✅ Active | `pos += vel × dt` |
 | 400 | CollisionSystem | ✅ Active | AABB collision detection |
@@ -78,95 +78,66 @@ Les Systems ne contiennent **aucune logique métier** - ils délèguent au Domai
 
 ---
 
-## Phase 5 - System Activation 🔄 IN PROGRESS
+## Phase 5 - System Activation ✅ COMPLETE
 
-### Completed
+### Status
 
 | Step | Description | Status |
 |------|-------------|--------|
 | 5.1 | LifetimeSystem + CleanupSystem | ✅ |
 | 5.2 | CollisionSystem (detection) | ✅ |
 | 5.3 | DamageSystem (missiles ↔ enemies) | ✅ |
+| 5.4 | ScoreSystem (combo decay) | ✅ |
+| 5.5 | EnemyAISystem (movement patterns) | ✅ |
+| 5.6 | WeaponSystem (cooldowns) | ✅ |
+| 5.7 | Integration finale | ❌ Pending |
 
-### Current Architecture (Phase 5.3)
+### Current Architecture (Phase 5.5)
 
 ```
 UDPServer.updateAndBroadcastRoom()
     │
-    ├── runECSUpdate(deltaTime)           # ECS drives core gameplay
-    │   ├── _ecs.Update(msecs)            # All active systems
-    │   │   ├── PlayerInputSystem         # Input → Velocity
-    │   │   ├── MovementSystem            # Position += Velocity × dt
-    │   │   ├── CollisionSystem           # Detect AABB collisions
-    │   │   ├── DamageSystem              # Apply damage, delete dead entities
-    │   │   ├── LifetimeSystem            # Expire timed entities
-    │   │   └── CleanupSystem             # Remove OOB entities
-    │   ├── syncPlayersFromECS()          # ECS positions → legacy _players
-    │   ├── syncDeletedMissilesFromECS()  # Remove destroyed missiles from legacy
-    │   ├── processECSKillEvents()        # Award score, spawn power-ups
-    │   └── syncDeletedEnemiesFromECS()   # Remove dead enemies from legacy
+    ├── runECSUpdate(deltaTime × gameSpeedMultiplier)  # ECS drives core gameplay
+    │   ├── _ecs.Update(msecs)              # All 9 systems active
+    │   │   ├── PlayerInputSystem           # Input → Velocity
+    │   │   ├── EnemyAISystem               # Movement patterns (Basic, Tracker, Zigzag, etc.)
+    │   │   ├── WeaponSystem                # Cooldown decay
+    │   │   ├── MovementSystem              # Position += Velocity × dt
+    │   │   ├── CollisionSystem             # Detect AABB collisions
+    │   │   ├── DamageSystem                # Apply damage, delete dead entities
+    │   │   ├── LifetimeSystem              # Expire timed entities
+    │   │   ├── CleanupSystem               # Remove OOB entities
+    │   │   └── ScoreSystem                 # Combo decay
+    │   ├── syncPlayersFromECS()            # ECS positions → legacy _players
+    │   ├── syncDeletedMissilesFromECS()    # Remove destroyed missiles from legacy
+    │   ├── processECSKillEvents()          # Award score, spawn power-ups
+    │   ├── syncDeletedEnemiesFromECS()     # Remove dead enemies from legacy
+    │   ├── syncComboFromECS()              # ECS combo → legacy _playerScores
+    │   └── syncCooldownsFromECS()          # ECS cooldowns → legacy _players
     │
-    ├── updateShootCooldowns()            # Legacy (→ WeaponSystem)
-    ├── updateMissiles()                  # Homing velocity + sync from ECS
-    ├── updateEnemies()                   # Legacy patterns (→ EnemyAISystem)
-    ├── checkCollisions()                 # Legacy: enemy missiles→players, missiles→boss
-    └── getSnapshot()                     # Players from ECS, rest from legacy
+    ├── updateShootCooldowns()              # No-op (ECS handles)
+    ├── updateComboTimers()                 # No-op (ECS handles)
+    ├── updateMissiles()                    # Homing velocity + sync positions from ECS
+    ├── updateEnemies()                     # Sync FROM ECS, legacy shooting + OOB check
+    ├── checkCollisions()                   # Legacy: enemy missiles→players, missiles→boss
+    └── getSnapshot()                       # Players from ECS, rest from legacy
 ```
 
 ### Remaining
 
 | Step | Description | Complexity | Status |
 |------|-------------|------------|--------|
-| 5.4 | ScoreSystem (combo decay) | Faible | ✅ Complete |
-| 5.5 | EnemyAISystem (patterns) | Haute | ❌ Pending |
-| 5.6 | WeaponSystem (cooldowns) | Moyenne | ✅ Complete |
 | 5.7 | Integration finale | Moyenne | ❌ Pending |
 
-### Phase 5.4 - ScoreSystem
+### Phase 5.7 - Integration Finale
 
-**Objectif**: Migrer combo decay de `updateComboTimers()` vers ScoreSystem.
+**Objectif**: Nettoyage final et optimisations.
 
-```cpp
-// Activer le système
-// Dans registerSystems(): ne pas désactiver ScoreSystem
-
-// ScoreSystem gère:
-// - Combo decay (grace time + decay rate)
-// - Score calculation via DomainBridge
-```
-
-**Legacy à supprimer**: `updateComboTimers()`
-
-### Phase 5.5 - EnemyAISystem
-
-**Objectif**: Migrer mouvement ennemis de `updateEnemyMovement()` vers EnemyAISystem.
-
-**Patterns à migrer**:
-- Basic: mouvement linéaire
-- Tracker: suit la position Y du joueur
-- Zigzag: oscillation verticale
-- Fast: mouvement rapide
-- Bomber: lent mais résistant
-- POWArmor: drop power-up garanti
-
-**Legacy à supprimer**: `updateEnemyMovement()`, partie de `updateEnemies()`
-
-### Phase 5.6 - WeaponSystem
-
-**Objectif**: Migrer cooldowns et tir de `spawnMissile()` vers WeaponSystem.
-
-```cpp
-// WeaponSystem gère:
-// - Cooldown per-player (WeaponComp.shootCooldown)
-// - Validation tir (canShoot)
-// - Création entités missiles via callback
-
-weaponSystem->setMissileSpawnCallback([this](auto& req) {
-    return createMissileEntity(req);
-});
-```
-
-**Legacy à supprimer**: `updateShootCooldowns()`, `canPlayerShoot()`
+**Tâches restantes**:
+- Migrer enemy missiles vers ECS (optionnel)
+- Migrer Boss vers ECS (optionnel)
+- Supprimer les fonctions sync redondantes
+- Optimiser les requêtes ECS (batch queries)
 
 ---
 

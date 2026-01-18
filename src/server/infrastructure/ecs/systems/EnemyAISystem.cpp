@@ -130,6 +130,17 @@ namespace infrastructure::ecs::systems {
         ai.zigzagTimer = zigzag.timer;
         ai.zigzagUp = zigzag.goingUp;
 
+        // Bomber special: apply baseY drift (downward movement)
+        // Bomber drifts downward at 10 px/s, clamped to spawn range
+        if (tag.type == 4) {  // Bomber
+            ai.baseY += 10.0f * deltaTime;
+            // Clamp to spawn Y range (using hardcoded values from domain::constants::wave)
+            constexpr float SPAWN_Y_MIN = 100.0f;
+            constexpr float SPAWN_Y_MAX = 900.0f;
+            if (ai.baseY < SPAWN_Y_MIN) ai.baseY = SPAWN_Y_MIN;
+            if (ai.baseY > SPAWN_Y_MAX) ai.baseY = SPAWN_Y_MAX;
+        }
+
         // Apply movement - set velocity for MovementSystem
         if (ecs.entityHasComponent<components::VelocityComp>(entityId)) {
             auto& vel = ecs.entityGetComponent<components::VelocityComp>(entityId);

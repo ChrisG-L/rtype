@@ -102,10 +102,11 @@ namespace infrastructure::game {
         _scoreSystemId = _ecs.addSystemWithArgs<ScoreSystem>(0, *_domainBridge);
 
         // ═══════════════════════════════════════════════════════════════════
-        // Phase 5.6: Enable WeaponSystem for cooldown management
-        // WeaponSystem handles cooldowns, legacy still handles missile spawning
+        // Phase 5.5: All 9 systems active
+        // EnemyAISystem handles enemy movement patterns (Basic, Tracker, Zigzag, etc.)
+        // Legacy updateEnemies() still handles: shooting (enemy missiles not ECS), OOB check
         // ═══════════════════════════════════════════════════════════════════
-        _ecs.toggleSystem(_enemyAISystemId);    // OFF - Legacy updateEnemies handles AI
+        // All systems now active - no toggles needed
         // _ecs.toggleSystem(_weaponSystemId);     // ON - Phase 5.6: ECS handles cooldowns
         // _ecs.toggleSystem(_collisionSystemId);  // ON - Phase 5.2: ECS detects collisions
         // _ecs.toggleSystem(_damageSystemId);     // ON - Phase 5.3: ECS handles damage
@@ -397,8 +398,12 @@ namespace infrastructure::game {
         _destroyedMissiles.clear();
         _destroyedEnemies.clear();
 
-        // Convert delta time from seconds to milliseconds for ECS
-        uint32_t msecs = static_cast<uint32_t>(deltaTime * 1000.0f);
+        // Apply game speed multiplier to ECS update
+        // This affects all systems: movement, lifetime, cooldowns, enemy AI, etc.
+        float adjustedDelta = deltaTime * _gameSpeedMultiplier;
+
+        // Convert adjusted delta time from seconds to milliseconds for ECS
+        uint32_t msecs = static_cast<uint32_t>(adjustedDelta * 1000.0f);
 
         // Run all ECS systems (PlayerInput, Movement, Collision, Damage, etc.)
         _ecs.Update(msecs);
@@ -1375,21 +1380,27 @@ namespace infrastructure::game {
         for (auto it = _enemies.begin(); it != _enemies.end();) {
             Enemy& enemy = it->second;
             uint16_t enemyId = it->first;
-            enemy.aliveTime += adjustedDelta;
-
-            // Calculate movement (velocity) based on enemy type pattern
-            // Note: Enemy movement patterns are complex (zigzag, tracker, etc.)
-            // We keep this in legacy for now. EnemyAISystem will handle this in Phase 5.5
-            updateEnemyMovement(enemy, adjustedDelta);
 
 #ifdef USE_ECS_BACKEND
-            // Sync position to ECS for consistency (snapshot reads from ECS)
+            // ═══════════════════════════════════════════════════════════════════════
+            // Phase 5.5: EnemyAISystem handles movement patterns
+            // Sync position, baseY, aliveTime FROM ECS to legacy
+            // ═══════════════════════════════════════════════════════════════════════
             auto ecsIt = _enemyEntityIds.find(enemyId);
             if (ecsIt != _enemyEntityIds.end() && _ecs.entityIsActive(ecsIt->second)) {
-                auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(ecsIt->second);
-                pos.x = enemy.x;
-                pos.y = enemy.y;
+                const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(ecsIt->second);
+                const auto& ai = _ecs.entityGetComponent<ecs::components::EnemyAIComp>(ecsIt->second);
+                enemy.x = pos.x;
+                enemy.y = pos.y;
+                enemy.baseY = ai.baseY;           // Bomber drift synced from ECS
+                enemy.aliveTime = ai.aliveTime;   // Keep legacy in sync
+                enemy.zigzagTimer = ai.zigzagTimer;
+                enemy.zigzagUp = ai.zigzagUp;
             }
+#else
+            // Legacy: calculate movement directly
+            enemy.aliveTime += adjustedDelta;
+            updateEnemyMovement(enemy, adjustedDelta);
 #endif
 
             // Handle enemy shooting (enemy missiles are NOT ECS entities)
