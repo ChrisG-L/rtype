@@ -222,7 +222,11 @@ namespace infrastructure::game {
     void GameWorld::deleteMissileEntity(uint16_t missileId) {
         auto it = _missileEntityIds.find(missileId);
         if (it != _missileEntityIds.end()) {
-            _ecs.entityDelete(it->second);
+            // Guard: Only delete if entity is still active
+            // DamageSystem may have already deleted the missile on collision
+            if (_ecs.entityIsActive(it->second)) {
+                _ecs.entityDelete(it->second);
+            }
             _missileEntityIds.erase(it);
         }
     }
@@ -284,7 +288,11 @@ namespace infrastructure::game {
     void GameWorld::deleteEnemyEntity(uint16_t enemyId) {
         auto it = _enemyEntityIds.find(enemyId);
         if (it != _enemyEntityIds.end()) {
-            _ecs.entityDelete(it->second);
+            // Guard: Only delete if entity is still active
+            // DamageSystem may have already deleted the entity via KillEvent
+            if (_ecs.entityIsActive(it->second)) {
+                _ecs.entityDelete(it->second);
+            }
             _enemyEntityIds.erase(it);
         }
     }
@@ -305,7 +313,9 @@ namespace infrastructure::game {
     }
 
     void GameWorld::syncPlayersFromECS() {
-        // Query all player entities and sync their positions back to legacy map
+        // Query all player entities and sync positions from ECS to legacy
+        // NOTE: Health is synced Legacy → ECS (not ECS → Legacy)
+        // because legacy checkCollisions() is source of truth for player damage
         auto playerEntities = _ecs.getEntitiesByComponentsAllOf<
             ecs::components::PlayerTag,
             ecs::components::PositionComp,
@@ -315,17 +325,19 @@ namespace infrastructure::game {
         for (auto entityId : playerEntities) {
             const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
             const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
-            const auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+            auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+            auto& playerTagMut = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
 
             auto it = _players.find(playerTag.playerId);
             if (it != _players.end()) {
-                // Sync position
+                // Sync position: ECS → Legacy (ECS is source of truth for movement)
                 it->second.x = static_cast<uint16_t>(pos.x);
                 it->second.y = static_cast<uint16_t>(pos.y);
 
-                // Sync health
-                it->second.health = health.current;
-                it->second.alive = playerTag.isAlive && health.current > 0;
+                // Sync health: Legacy → ECS (Legacy checkCollisions is source of truth)
+                // This ensures ECS HealthComp stays in sync for snapshot generation
+                health.current = it->second.health;
+                playerTagMut.isAlive = it->second.alive;
             }
         }
     }
@@ -382,9 +394,10 @@ namespace infrastructure::game {
     }
 
     void GameWorld::runECSUpdate(float deltaTime) {
-        // Clear destroyed missiles list (accumulates per frame from CleanupSystem)
-        // Note: Enemies clear in updateEnemies() as they use legacy OOB checks
+        // Clear destroyed lists at start of frame
+        // Both ECS (DamageSystem, CleanupSystem) and Legacy (updateEnemies OOB) can add to these
         _destroyedMissiles.clear();
+        _destroyedEnemies.clear();
 
         // Convert delta time from seconds to milliseconds for ECS
         uint32_t msecs = static_cast<uint32_t>(deltaTime * 1000.0f);
@@ -398,12 +411,6 @@ namespace infrastructure::game {
         // Phase 5.1: Sync deleted missiles from ECS to legacy maps
         // CleanupSystem removes OOB missiles, LifetimeSystem removes expired ones
         syncDeletedMissilesFromECS();
-
-        // Phase 5.2: Retrieve collision events from CollisionSystem
-        auto* collisionSystem = _ecs.getSystem<ecs::systems::CollisionSystem>(_collisionSystemId);
-        if (collisionSystem) {
-            _ecsCollisions = collisionSystem->getCollisions();
-        }
 
         // Phase 5.3: Process KillEvents from DamageSystem
         // DamageSystem deletes missile and enemy entities, we sync to legacy and handle score/power-ups
@@ -1309,7 +1316,8 @@ namespace infrastructure::game {
     }
 
     void GameWorld::updateEnemies(float deltaTime) {
-        _destroyedEnemies.clear();
+        // Note: _destroyedEnemies cleared in runECSUpdate() at start of frame
+        // Both ECS (DamageSystem) and Legacy (OOB check below) can add to the list
 
         // Apply game speed multiplier to enemy updates
         float adjustedDelta = deltaTime * _gameSpeedMultiplier;
@@ -1524,7 +1532,8 @@ namespace infrastructure::game {
                     }
 
 #ifdef USE_ECS_BACKEND
-                    // Sync damage to ECS HealthComp to prevent syncPlayersFromECS() from reverting it
+                    // Sync damage to ECS immediately for getSnapshot() (called later this frame)
+                    // Note: syncPlayersFromECS() also syncs Legacy → ECS at start of next frame
                     auto entityIt = _playerEntityIds.find(playerId);
                     if (entityIt != _playerEntityIds.end()) {
                         auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityIt->second);
