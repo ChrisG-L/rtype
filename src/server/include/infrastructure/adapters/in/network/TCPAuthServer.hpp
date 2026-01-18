@@ -17,6 +17,9 @@
 #include <optional>
 #include <functional>
 #include <chrono>
+#include <mutex>
+#include <set>
+#include <map>
 
 #include "Protocol.hpp"
 
@@ -72,6 +75,9 @@ namespace infrastructure::adapters::in::network {
 
             boost::asio::steady_timer _timeoutTimer;
             std::chrono::steady_clock::time_point _lastActivity;
+
+            // Callback to notify TCPAuthServer when session closes (receives Session* this)
+            std::function<void(Session*)> _onClose;
 
             void do_read();
             void do_write(const MessageType&, const std::string& message);
@@ -155,10 +161,14 @@ namespace infrastructure::adapters::in::network {
                     std::shared_ptr<IIdGenerator> idGenerator,
                     std::shared_ptr<ILogger> logger,
                     std::shared_ptr<SessionManager> sessionManager,
-                    std::shared_ptr<RoomManager> roomManager);
+                    std::shared_ptr<RoomManager> roomManager,
+                    std::function<void(Session*)> onClose = nullptr);
                 ~Session() noexcept;
 
                 void start();
+
+                // Close the session (cancel timer and close socket)
+                void close();
         };
 
     class TCPAuthServer {
@@ -175,6 +185,11 @@ namespace infrastructure::adapters::in::network {
                 std::shared_ptr<SessionManager> _sessionManager;
                 std::shared_ptr<RoomManager> _roomManager;
                 tcp::acceptor _acceptor;
+
+                // Track active sessions for graceful shutdown
+                // Map raw pointer -> shared_ptr for efficient lookup during unregister
+                mutable std::mutex _sessionsMutex;
+                std::map<Session*, std::shared_ptr<Session>> _activeSessions;
 
                 void initSSLContext();
                 void start_accept();
@@ -199,6 +214,10 @@ namespace infrastructure::adapters::in::network {
             std::shared_ptr<SessionManager> getSessionManager() const { return _sessionManager; }
             std::shared_ptr<RoomManager> getRoomManager() const { return _roomManager; }
             std::shared_ptr<ILeaderboardRepository> getLeaderboardRepository() const { return _leaderboardRepository; }
+
+            // Session tracking for graceful shutdown
+            void registerSession(std::shared_ptr<Session> session);
+            void unregisterSession(Session* session);  // Takes raw pointer (called from destructor)
         };
 }
 #endif /* !TCPAUTHSERVER_HPP_ */

@@ -197,11 +197,14 @@ void ServerCLI::runLoop() {
                 continue;
             }
         } else {
-            // Fallback: standard input (shouldn't happen normally)
-            std::cout << "rtype> " << std::flush;
-            if (!std::getline(std::cin, command)) {
+            // TUI stopped or not available - check if we're shutting down
+            if (!_running) {
                 break;
             }
+            // Fallback: standard input - sleep briefly and continue to avoid blocking
+            // Note: std::getline blocks, so we just exit the loop when TUI stops
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
         }
 
         // Skip empty commands

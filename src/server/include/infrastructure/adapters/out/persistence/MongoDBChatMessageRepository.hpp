@@ -23,7 +23,7 @@ using application::ports::out::persistence::ChatMessageData;
 class MongoDBChatMessageRepository : public IChatMessageRepository {
 private:
     std::shared_ptr<MongoDBConfiguration> _mongoDB;
-    std::unique_ptr<mongocxx::v_noabi::collection> _collection;
+    static constexpr const char* COLLECTION_NAME = "chat_messages";
 
     ChatMessageData documentToMessage(const bsoncxx::document::view& doc);
     bsoncxx::types::b_date timePointToDate(const std::chrono::system_clock::time_point& tp);

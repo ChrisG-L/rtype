@@ -5,10 +5,15 @@ export VCPKG_FORCE_SYSTEM_BINARIES=1
 
 # Parse arguments
 PLATFORM="linux"  # Default platform
+USE_ECS=0         # ECS backend disabled by default
 for arg in "$@"; do
     case $arg in
         --platform=*)
             PLATFORM="${arg#*=}"
+            shift
+            ;;
+        --ecs)
+            USE_ECS=1
             shift
             ;;
         *)
@@ -166,11 +171,21 @@ case $PLATFORM in
         ;;
 esac
 
+# ECS Backend configuration
+if [[ $USE_ECS -eq 1 ]]; then
+    ECS_FLAG="-DUSE_ECS_BACKEND=ON"
+    ECS_STATUS="ON (experimental)"
+else
+    ECS_FLAG=""
+    ECS_STATUS="OFF (default)"
+fi
+
 echo "📋 Configuration CMake:"
 echo "   - Dossier de build: $BUILD_DIR"
 echo "   - Triplet vcpkg: $VCPKG_TRIPLET"
 echo "   - Compilateur C++: $CMAKE_CXX_COMPILER"
 echo "   - Compilateur C: $CMAKE_C_COMPILER"
+echo "   - ECS Backend: $ECS_STATUS"
 
 echo "⚙️  Configuration du projet CMake..."
 mkdir -p "$BUILD_DIR"
@@ -182,8 +197,13 @@ cmake -S . -B "$BUILD_DIR" \
     -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER \
     -DVCPKG_TARGET_TRIPLET=$VCPKG_TRIPLET \
     $CMAKE_EXTRA_FLAGS \
+    $ECS_FLAG \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
     -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
     -DCMAKE_TOOLCHAIN_FILE=third_party/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-echo "✅ Configuration terminée pour plateforme: $PLATFORM dans $BUILD_DIR"
+if [[ $USE_ECS -eq 1 ]]; then
+    echo "✅ Configuration terminée pour plateforme: $PLATFORM dans $BUILD_DIR (ECS activé)"
+else
+    echo "✅ Configuration terminée pour plateforme: $PLATFORM dans $BUILD_DIR"
+fi

@@ -20,6 +20,41 @@ set(TEST_SOURCES
     # Tests Entities
     domain/entities/PlayerTest.cpp
 
+    # Tests Domain Services (ECS Integration - Phase 0)
+    domain/services/GameRuleTest.cpp
+    domain/services/CollisionRuleTest.cpp
+    domain/services/EnemyBehaviorTest.cpp
+
+    # Tests ECS Infrastructure (ECS Integration - Phase 1)
+    ecs/ComponentPoolTest.cpp
+    ecs/ECSIntegrationTest.cpp
+    ecs/DomainBridgeTest.cpp
+
+    # Tests ECS Components (ECS Integration - Phase 2)
+    ecs/ComponentTagsTest.cpp
+
+    # Tests ECS Components (ECS Integration - Phase 3)
+    ecs/PlayerComponentsTest.cpp
+
+    # Tests ECS Systems (ECS Integration - Phase 2)
+    ecs/systems/MovementSystemTest.cpp
+    ecs/systems/LifetimeSystemTest.cpp
+    ecs/systems/CleanupSystemTest.cpp
+    ecs/systems/CollisionSystemTest.cpp
+    ecs/systems/DamageSystemTest.cpp
+
+    # Tests ECS Integration (Phase 2)
+    ecs/ECSPhase2IntegrationTest.cpp
+
+    # Tests ECS Integration (Phase 4.8)
+    ecs/ECSPhase48IntegrationTest.cpp
+
+    # Tests ECS Systems (ECS Integration - Phase 3)
+    ecs/systems/PlayerInputSystemTest.cpp
+    ecs/systems/WeaponSystemTest.cpp
+    ecs/systems/ScoreSystemTest.cpp
+    ecs/systems/EnemyAISystemTest.cpp
+
     # Tests Network - Integration UDP
     network/UDPIntegrationTest.cpp
 
@@ -67,6 +102,27 @@ set(SERVER_SOURCES
     ${CMAKE_SOURCE_DIR}/src/server/domain/entities/Player.cpp
     ${CMAKE_SOURCE_DIR}/src/server/domain/entities/User.cpp
 
+    # Domain - Services (ECS Integration - Phase 0)
+    ${CMAKE_SOURCE_DIR}/src/server/domain/services/GameRule.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/domain/services/CollisionRule.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/domain/services/EnemyBehavior.cpp
+
+    # Infrastructure - ECS Bridge (ECS Integration - Phase 1)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/bridge/DomainBridge.cpp
+
+    # Infrastructure - ECS Systems (ECS Integration - Phase 2)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/MovementSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/LifetimeSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/CleanupSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/CollisionSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/DamageSystem.cpp
+
+    # Infrastructure - ECS Systems (ECS Integration - Phase 3)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/PlayerInputSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/WeaponSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/ScoreSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs/systems/EnemyAISystem.cpp
+
     # Infrastructure - Session (for CSPRNG tests)
     ${CMAKE_SOURCE_DIR}/src/server/infrastructure/session/SessionManager.cpp
 
@@ -101,6 +157,7 @@ endif()
 target_include_directories(server_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/server
     ${CMAKE_SOURCE_DIR}/src/server/include
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/ecs  # ECS components and bridge
     ${CMAKE_SOURCE_DIR}/src/common/protocol  # Protocol.hpp
     ${CMAKE_SOURCE_DIR}/src/common           # collision/AABB.hpp
     ${CMAKE_BINARY_DIR}  # Pour les headers Protobuf générés

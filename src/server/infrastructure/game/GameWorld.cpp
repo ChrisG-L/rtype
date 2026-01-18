@@ -20,7 +20,534 @@ namespace infrastructure::game {
         , _nextPlayerId(1)
     {
         // RNG initialized in header with std::random_device
+
+#ifdef USE_ECS_BACKEND
+        initializeECS();
+#endif
     }
+
+#ifdef USE_ECS_BACKEND
+    void GameWorld::initializeECS() {
+        // Create the DomainBridge with references to Domain services
+        _domainBridge = std::make_unique<ecs::bridge::DomainBridge>(
+            _gameRule,
+            _collisionRule,
+            _enemyBehavior
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Register all 15 ECS components
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Phase 1: Base Components (6)
+        _ecs.registerComponent<ecs::components::PositionComp>();
+        _ecs.registerComponent<ecs::components::VelocityComp>();
+        _ecs.registerComponent<ecs::components::HealthComp>();
+        _ecs.registerComponent<ecs::components::HitboxComp>();
+        _ecs.registerComponent<ecs::components::LifetimeComp>();
+        _ecs.registerComponent<ecs::components::OwnerComp>();
+
+        // Phase 2: Entity Tags & AI (5)
+        _ecs.registerComponent<ecs::components::MissileTag>();
+        _ecs.registerComponent<ecs::components::EnemyTag>();
+        _ecs.registerComponent<ecs::components::EnemyAIComp>();
+        _ecs.registerComponent<ecs::components::PowerUpTag>();
+        _ecs.registerComponent<ecs::components::WaveCannonTag>();
+
+        // Phase 3: Player Components (4)
+        _ecs.registerComponent<ecs::components::PlayerTag>();
+        _ecs.registerComponent<ecs::components::ScoreComp>();
+        _ecs.registerComponent<ecs::components::WeaponComp>();
+        _ecs.registerComponent<ecs::components::SpeedLevelComp>();
+
+        // Register all systems
+        registerSystems();
+    }
+
+    void GameWorld::registerSystems() {
+        // ═══════════════════════════════════════════════════════════════════
+        // Register all 9 ECS systems in priority order
+        // Lower priority = runs earlier in the update cycle
+        // ═══════════════════════════════════════════════════════════════════
+
+        using namespace ecs::systems;
+
+        // Priority 0: PlayerInputSystem - Process inputs first
+        _playerInputSystemId = _ecs.addSystemWithArgs<PlayerInputSystem>(0, *_domainBridge);
+
+        // Priority 100: EnemyAISystem - AI decisions
+        _enemyAISystemId = _ecs.addSystemWithArgs<EnemyAISystem>(0, *_domainBridge);
+
+        // Priority 200: WeaponSystem - Weapon cooldowns and missile spawning
+        _weaponSystemId = _ecs.addSystemWithArgs<WeaponSystem>(0, *_domainBridge);
+
+        // Priority 300: MovementSystem - Apply velocities to positions
+        _movementSystemId = _ecs.addSystem<MovementSystem>(0);
+
+        // Priority 400: CollisionSystem - Detect collisions (runs after movement)
+        _collisionSystemId = _ecs.addSystemWithArgs<CollisionSystem>(0, *_domainBridge);
+
+        // Priority 500: DamageSystem - Apply damage from collisions
+        // Note: DamageSystem needs reference to CollisionSystem
+        auto* collisionSystem = _ecs.getSystem<CollisionSystem>(_collisionSystemId);
+        _damageSystemId = _ecs.addSystemWithArgs<DamageSystem>(0, *_domainBridge, *collisionSystem);
+
+        // Priority 600: LifetimeSystem - Expire timed entities
+        _lifetimeSystemId = _ecs.addSystem<LifetimeSystem>(0);
+
+        // Priority 700: CleanupSystem - Remove out-of-bounds entities
+        _cleanupSystemId = _ecs.addSystemWithArgs<CleanupSystem>(0, *_domainBridge);
+
+        // Priority 800: ScoreSystem - Score calculations and combo decay
+        _scoreSystemId = _ecs.addSystemWithArgs<ScoreSystem>(0, *_domainBridge);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Phase 5.5: All 9 systems active
+        // EnemyAISystem handles enemy movement patterns (Basic, Tracker, Zigzag, etc.)
+        // Legacy updateEnemies() still handles: shooting (enemy missiles not ECS), OOB check
+        // ═══════════════════════════════════════════════════════════════════
+        // All systems now active - no toggles needed
+        // _ecs.toggleSystem(_weaponSystemId);     // ON - Phase 5.6: ECS handles cooldowns
+        // _ecs.toggleSystem(_collisionSystemId);  // ON - Phase 5.2: ECS detects collisions
+        // _ecs.toggleSystem(_damageSystemId);     // ON - Phase 5.3: ECS handles damage
+        // _ecs.toggleSystem(_lifetimeSystemId);   // ON - Phase 5.1: ECS handles lifetime
+        // _ecs.toggleSystem(_cleanupSystemId);    // ON - Phase 5.1: ECS handles OOB cleanup
+        // _ecs.toggleSystem(_scoreSystemId);      // ON - Phase 5.4: ECS handles combo decay
+    }
+
+    ECS::EntityID GameWorld::createPlayerEntity(uint8_t playerId, float x, float y, uint8_t health,
+                                                 uint8_t shipSkin, bool godMode) {
+        // Create entity with PLAYERS group
+        ECS::EntityID entity = _ecs.entityCreate(ECS::EntityGroup::PLAYERS);
+
+        // Add all player components
+        auto& pos = _ecs.entityAddComponent<ecs::components::PositionComp>(entity);
+        pos.x = x;
+        pos.y = y;
+
+        auto& vel = _ecs.entityAddComponent<ecs::components::VelocityComp>(entity);
+        vel.x = 0.0f;
+        vel.y = 0.0f;
+
+        auto& hp = _ecs.entityAddComponent<ecs::components::HealthComp>(entity);
+        hp.current = health;
+        hp.max = DEFAULT_HEALTH;
+        hp.invulnerable = godMode;
+
+        auto& hitbox = _ecs.entityAddComponent<ecs::components::HitboxComp>(entity);
+        hitbox.width = PLAYER_SHIP_WIDTH;
+        hitbox.height = PLAYER_SHIP_HEIGHT;
+        hitbox.offsetX = 0.0f;
+        hitbox.offsetY = 0.0f;
+
+        auto& playerTag = _ecs.entityAddComponent<ecs::components::PlayerTag>(entity);
+        playerTag.playerId = playerId;
+        playerTag.shipSkin = shipSkin;
+        playerTag.isAlive = true;
+
+        auto& score = _ecs.entityAddComponent<ecs::components::ScoreComp>(entity);
+        score.total = 0;
+        score.kills = 0;
+        score.comboMultiplier = 1.0f;
+        score.comboTimer = 0.0f;
+        score.maxCombo = 1.0f;
+        score.deaths = 0;
+
+        auto& weapon = _ecs.entityAddComponent<ecs::components::WeaponComp>(entity);
+        weapon.currentType = 0;  // WeaponType::Standard
+        weapon.shootCooldown = 0.0f;
+        weapon.isCharging = false;
+        weapon.chargeTime = 0.0f;
+        weapon.weaponLevels = {0, 0, 0, 0};
+
+        auto& speedLevel = _ecs.entityAddComponent<ecs::components::SpeedLevelComp>(entity);
+        speedLevel.level = 0;
+
+        // Store mapping for later lookup
+        _playerEntityIds[playerId] = entity;
+
+        return entity;
+    }
+
+    void GameWorld::deletePlayerEntity(uint8_t playerId) {
+        auto it = _playerEntityIds.find(playerId);
+        if (it != _playerEntityIds.end()) {
+            _ecs.entityDelete(it->second);
+            _playerEntityIds.erase(it);
+        }
+    }
+
+    ECS::EntityID GameWorld::createMissileEntity(uint16_t missileId, uint8_t ownerId, float x, float y,
+                                                  float velX, float velY, uint8_t weaponType, uint8_t damage,
+                                                  bool isHoming, uint32_t targetId) {
+        // Create entity with MISSILES group (player missiles)
+        ECS::EntityID entity = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+
+        // Position
+        auto& pos = _ecs.entityAddComponent<ecs::components::PositionComp>(entity);
+        pos.x = x;
+        pos.y = y;
+
+        // Velocity
+        auto& vel = _ecs.entityAddComponent<ecs::components::VelocityComp>(entity);
+        vel.x = velX;
+        vel.y = velY;
+
+        // Hitbox
+        auto& hitbox = _ecs.entityAddComponent<ecs::components::HitboxComp>(entity);
+        hitbox.width = Missile::WIDTH;
+        hitbox.height = Missile::HEIGHT;
+        hitbox.offsetX = 0.0f;
+        hitbox.offsetY = 0.0f;
+
+        // Missile tag
+        auto& missileTag = _ecs.entityAddComponent<ecs::components::MissileTag>(entity);
+        missileTag.weaponType = weaponType;
+        missileTag.baseDamage = damage;
+        missileTag.isHoming = isHoming;
+        missileTag.targetId = targetId;
+
+        // Owner
+        auto& owner = _ecs.entityAddComponent<ecs::components::OwnerComp>(entity);
+        owner.ownerId = ownerId;
+        owner.isPlayerOwned = true;
+
+        // Store mapping for later lookup
+        _missileEntityIds[missileId] = entity;
+
+        return entity;
+    }
+
+    void GameWorld::deleteMissileEntity(uint16_t missileId) {
+        auto it = _missileEntityIds.find(missileId);
+        if (it != _missileEntityIds.end()) {
+            // Guard: Only delete if entity is still active
+            // DamageSystem may have already deleted the missile on collision
+            if (_ecs.entityIsActive(it->second)) {
+                _ecs.entityDelete(it->second);
+            }
+            _missileEntityIds.erase(it);
+        }
+    }
+
+    ECS::EntityID GameWorld::createEnemyEntity(uint16_t enemyId, float x, float y, uint8_t health,
+                                                uint8_t enemyType, uint16_t points, float baseY,
+                                                float phaseOffset, float shootCooldown, float shootInterval,
+                                                float targetY, bool zigzagUp) {
+        // Create entity with ENEMIES group
+        ECS::EntityID entity = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
+
+        // Position
+        auto& pos = _ecs.entityAddComponent<ecs::components::PositionComp>(entity);
+        pos.x = x;
+        pos.y = y;
+
+        // Velocity (will be set by EnemyAISystem based on type)
+        auto& vel = _ecs.entityAddComponent<ecs::components::VelocityComp>(entity);
+        vel.x = 0.0f;
+        vel.y = 0.0f;
+
+        // Health
+        auto& hp = _ecs.entityAddComponent<ecs::components::HealthComp>(entity);
+        hp.current = health;
+        hp.max = health;
+        hp.invulnerable = false;
+
+        // Hitbox
+        auto& hitbox = _ecs.entityAddComponent<ecs::components::HitboxComp>(entity);
+        hitbox.width = Enemy::WIDTH;
+        hitbox.height = Enemy::HEIGHT;
+        hitbox.offsetX = 0.0f;
+        hitbox.offsetY = 0.0f;
+
+        // Enemy tag
+        auto& enemyTag = _ecs.entityAddComponent<ecs::components::EnemyTag>(entity);
+        enemyTag.type = enemyType;
+        enemyTag.points = points;
+
+        // Enemy AI
+        auto& ai = _ecs.entityAddComponent<ecs::components::EnemyAIComp>(entity);
+        ai.shootCooldown = shootCooldown;
+        ai.shootInterval = shootInterval;
+        ai.movementPattern = enemyType;  // Movement pattern matches enemy type
+        ai.patternTimer = 0.0f;
+        ai.baseY = baseY;
+        ai.aliveTime = 0.0f;
+        ai.phaseOffset = phaseOffset;
+        ai.targetY = targetY;
+        ai.zigzagTimer = 0.0f;
+        ai.zigzagUp = zigzagUp;
+
+        // Store mapping
+        _enemyEntityIds[enemyId] = entity;
+
+        return entity;
+    }
+
+    void GameWorld::deleteEnemyEntity(uint16_t enemyId) {
+        auto it = _enemyEntityIds.find(enemyId);
+        if (it != _enemyEntityIds.end()) {
+            // Guard: Only delete if entity is still active
+            // DamageSystem may have already deleted the entity via KillEvent
+            if (_ecs.entityIsActive(it->second)) {
+                _ecs.entityDelete(it->second);
+            }
+            _enemyEntityIds.erase(it);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Phase 4.7: ECS as primary driver
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    void GameWorld::queueInputToECS(uint8_t playerId, uint16_t keys, uint16_t sequenceNum) {
+        auto* playerInputSystem = _ecs.getSystem<ecs::systems::PlayerInputSystem>(_playerInputSystemId);
+        if (playerInputSystem) {
+            ecs::systems::PlayerInputEvent event;
+            event.playerId = playerId;
+            event.keys = keys;
+            event.sequenceNum = sequenceNum;
+            playerInputSystem->queueInput(event);
+        }
+    }
+
+    void GameWorld::syncPlayersFromECS() {
+        // Query all player entities and sync positions from ECS to legacy
+        // NOTE: Health is synced Legacy → ECS (not ECS → Legacy)
+        // because legacy checkCollisions() is source of truth for player damage
+        auto playerEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::PositionComp,
+            ecs::components::HealthComp
+        >();
+
+        for (auto entityId : playerEntities) {
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+            auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+            auto& playerTagMut = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+
+            auto it = _players.find(playerTag.playerId);
+            if (it != _players.end()) {
+                // Sync position: ECS → Legacy (ECS is source of truth for movement)
+                it->second.x = static_cast<uint16_t>(pos.x);
+                it->second.y = static_cast<uint16_t>(pos.y);
+
+                // Sync health: Legacy → ECS (Legacy checkCollisions is source of truth)
+                // This ensures ECS HealthComp stays in sync for snapshot generation
+                health.current = it->second.health;
+                playerTagMut.isAlive = it->second.alive;
+            }
+        }
+    }
+
+    void GameWorld::syncMissilesFromECS() {
+        // Query all missile entities and sync their positions back to legacy map
+        auto missileEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::MissileTag,
+            ecs::components::PositionComp
+        >();
+
+        for (auto entityId : missileEntities) {
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+
+            // Find the missile ID from our mapping (reverse lookup)
+            for (const auto& [missileId, ecsId] : _missileEntityIds) {
+                if (ecsId == entityId) {
+                    auto it = _missiles.find(missileId);
+                    if (it != _missiles.end()) {
+                        it->second.x = pos.x;
+                        it->second.y = pos.y;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    void GameWorld::syncEnemiesFromECS() {
+        // Query all enemy entities and sync their positions back to legacy map
+        auto enemyEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::EnemyTag,
+            ecs::components::PositionComp,
+            ecs::components::HealthComp
+        >();
+
+        for (auto entityId : enemyEntities) {
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+            const auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+
+            // Find the enemy ID from our mapping (reverse lookup)
+            for (const auto& [enemyId, ecsId] : _enemyEntityIds) {
+                if (ecsId == entityId) {
+                    auto it = _enemies.find(enemyId);
+                    if (it != _enemies.end()) {
+                        it->second.x = pos.x;
+                        it->second.y = pos.y;
+                        it->second.health = health.current;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    void GameWorld::runECSUpdate(float deltaTime) {
+        // Clear destroyed lists at start of frame
+        // Both ECS (DamageSystem, CleanupSystem) and Legacy (updateEnemies OOB) can add to these
+        _destroyedMissiles.clear();
+        _destroyedEnemies.clear();
+
+        // Apply game speed multiplier to ECS update
+        // This affects all systems: movement, lifetime, cooldowns, enemy AI, etc.
+        float adjustedDelta = deltaTime * _gameSpeedMultiplier;
+
+        // Convert adjusted delta time from seconds to milliseconds for ECS
+        uint32_t msecs = static_cast<uint32_t>(adjustedDelta * 1000.0f);
+
+        // Run all ECS systems (PlayerInput, Movement, Collision, Damage, etc.)
+        _ecs.Update(msecs);
+
+        // Sync player positions from ECS to legacy
+        syncPlayersFromECS();
+
+        // Phase 5.1: Sync deleted missiles from ECS to legacy maps
+        // CleanupSystem removes OOB missiles, LifetimeSystem removes expired ones
+        syncDeletedMissilesFromECS();
+
+        // Phase 5.3: Process KillEvents from DamageSystem
+        // DamageSystem deletes missile and enemy entities, we sync to legacy and handle score/power-ups
+        auto* damageSystem = _ecs.getSystem<ecs::systems::DamageSystem>(_damageSystemId);
+        if (damageSystem) {
+            processECSKillEvents(damageSystem->getKillEvents());
+        }
+
+        // Sync deleted enemies from ECS (killed by DamageSystem)
+        syncDeletedEnemiesFromECS();
+
+        // Phase 5.4: Sync combo data from ECS to legacy
+        // ScoreSystem handles combo decay, we need combo in legacy for awardKillScore()
+        syncComboFromECS();
+
+        // Phase 5.6: Sync weapon cooldowns from ECS to legacy
+        // WeaponSystem handles cooldown decay, we need cooldown in legacy for canPlayerShoot()
+        syncCooldownsFromECS();
+
+        // Note: Enemies still use legacy OOB checks in updateEnemies()
+        // because movement patterns run AFTER ECS Update
+    }
+
+    void GameWorld::processECSKillEvents(const std::vector<ecs::systems::KillEvent>& killEvents) {
+        for (const auto& kill : killEvents) {
+            // Find enemy ID from entity ID
+            uint16_t enemyId = 0;
+            for (const auto& [id, entityId] : _enemyEntityIds) {
+                if (entityId == kill.killedEntity) {
+                    enemyId = id;
+                    break;
+                }
+            }
+
+            if (enemyId == 0) continue;  // Enemy not found in legacy map
+
+            // Get enemy data before removal (for power-up spawning)
+            auto enemyIt = _enemies.find(enemyId);
+            if (enemyIt == _enemies.end()) continue;
+
+            const Enemy& enemy = enemyIt->second;
+
+            // Award score (uses legacy score system)
+            awardKillScore(kill.killerPlayerId,
+                           static_cast<EnemyType>(kill.killedType),
+                           WeaponType::Standard);  // TODO: Get actual weapon type from missile
+
+            // Spawn power-up chance
+            EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
+            std::uniform_int_distribution<int> dropDist(0, 99);
+            if (enemyType == EnemyType::POWArmor ||
+                dropDist(_rng) < POWERUP_DROP_CHANCE) {
+                spawnPowerUp(enemy.x, enemy.y);
+            }
+
+            // Mark enemy as destroyed (for network broadcast)
+            _destroyedEnemies.push_back(enemyId);
+        }
+    }
+
+    void GameWorld::syncDeletedMissilesFromECS() {
+        // Check each missile entity - if ECS deleted it, remove from legacy map
+        for (auto it = _missileEntityIds.begin(); it != _missileEntityIds.end();) {
+            if (!_ecs.entityIsActive(it->second)) {
+                // ECS has deleted this entity (OOB or lifetime expired)
+                uint16_t missileId = it->first;
+                _destroyedMissiles.push_back(missileId);
+                _missiles.erase(missileId);
+                it = _missileEntityIds.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    void GameWorld::syncDeletedEnemiesFromECS() {
+        // Check each enemy entity - if ECS deleted it, remove from legacy map
+        for (auto it = _enemyEntityIds.begin(); it != _enemyEntityIds.end();) {
+            if (!_ecs.entityIsActive(it->second)) {
+                // ECS has deleted this entity (OOB or lifetime expired)
+                uint16_t enemyId = it->first;
+                _destroyedEnemies.push_back(enemyId);
+                _enemies.erase(enemyId);
+                it = _enemyEntityIds.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    void GameWorld::syncComboFromECS() {
+        // Phase 5.4: Sync combo data from ECS ScoreComp → legacy _playerScores
+        // ScoreSystem handles combo decay, we sync the results to legacy for awardKillScore()
+        auto players = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::ScoreComp
+        >();
+
+        for (auto entityId : players) {
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& scoreComp = _ecs.entityGetComponent<ecs::components::ScoreComp>(entityId);
+
+            auto it = _playerScores.find(playerTag.playerId);
+            if (it != _playerScores.end()) {
+                // Sync combo data from ECS to legacy
+                it->second.comboMultiplier = scoreComp.comboMultiplier;
+                it->second.comboTimer = scoreComp.comboTimer;
+                if (scoreComp.maxCombo > it->second.maxCombo) {
+                    it->second.maxCombo = scoreComp.maxCombo;
+                }
+            }
+        }
+    }
+
+    void GameWorld::syncCooldownsFromECS() {
+        // Phase 5.6: Sync weapon cooldowns from ECS WeaponComp → legacy _players
+        // WeaponSystem handles cooldown decay, we sync to legacy for canPlayerShoot()
+        auto players = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::WeaponComp
+        >();
+
+        for (auto entityId : players) {
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& weaponComp = _ecs.entityGetComponent<ecs::components::WeaponComp>(entityId);
+
+            auto it = _players.find(playerTag.playerId);
+            if (it != _players.end()) {
+                // Sync cooldown from ECS to legacy
+                it->second.shootCooldown = weaponComp.shootCooldown;
+            }
+        }
+    }
+#endif
 
     void GameWorld::setGameSpeedPercent(uint16_t percent) {
         _gameSpeedPercent = std::clamp(percent, static_cast<uint16_t>(50), static_cast<uint16_t>(200));
@@ -68,6 +595,13 @@ namespace infrastructure::game {
         _players[newId] = player;
         _playerScores[newId] = PlayerScore{};  // Initialize score for new player
         // Note: Game timer starts on first input (see applyPlayerInput)
+
+#ifdef USE_ECS_BACKEND
+        // Create corresponding ECS entity (dual-running with legacy code)
+        createPlayerEntity(newId, static_cast<float>(startX), static_cast<float>(startY),
+                          DEFAULT_HEALTH, 1, false);
+#endif
+
         return newId;
     }
 
@@ -78,16 +612,26 @@ namespace infrastructure::game {
         _playerScores.erase(playerId);        // Clean up scores
         _forcePods.erase(playerId);           // Clean up Force Pod
         _bitDevices.erase(playerId);          // Clean up Bit Devices
+
+#ifdef USE_ECS_BACKEND
+        deletePlayerEntity(playerId);
+#endif
     }
 
     void GameWorld::removePlayerByEndpoint(const udp::endpoint& endpoint) {
         for (auto it = _players.begin(); it != _players.end(); ++it) {
             if (it->second.endpoint == endpoint) {
-                _playerInputs.erase(it->first);        // Clean up inputs
-                _playerLastInputSeq.erase(it->first);  // Clean up sequence tracking
-                _playerScores.erase(it->first);        // Clean up scores
-                _forcePods.erase(it->first);           // Clean up Force Pod
-                _bitDevices.erase(it->first);          // Clean up Bit Devices
+                uint8_t playerId = it->first;
+                _playerInputs.erase(playerId);        // Clean up inputs
+                _playerLastInputSeq.erase(playerId);  // Clean up sequence tracking
+                _playerScores.erase(playerId);        // Clean up scores
+                _forcePods.erase(playerId);           // Clean up Force Pod
+                _bitDevices.erase(playerId);          // Clean up Bit Devices
+
+#ifdef USE_ECS_BACKEND
+                deletePlayerEntity(playerId);
+#endif
+
                 _players.erase(it);
                 return;
             }
@@ -98,7 +642,17 @@ namespace infrastructure::game {
         auto it = _players.find(playerId);
         if (it != _players.end()) {
             // Clamp to valid range (1-6)
-            it->second.shipSkin = std::clamp(skinId, static_cast<uint8_t>(1), static_cast<uint8_t>(6));
+            uint8_t clampedSkin = std::clamp(skinId, static_cast<uint8_t>(1), static_cast<uint8_t>(6));
+            it->second.shipSkin = clampedSkin;
+
+#ifdef USE_ECS_BACKEND
+            // Update ECS PlayerTag component
+            auto entityIt = _playerEntityIds.find(playerId);
+            if (entityIt != _playerEntityIds.end()) {
+                auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityIt->second);
+                playerTag.shipSkin = clampedSkin;
+            }
+#endif
         }
     }
 
@@ -106,6 +660,15 @@ namespace infrastructure::game {
         auto it = _players.find(playerId);
         if (it != _players.end()) {
             it->second.godMode = enabled;
+
+#ifdef USE_ECS_BACKEND
+            // Update ECS HealthComp invulnerable flag
+            auto entityIt = _playerEntityIds.find(playerId);
+            if (entityIt != _playerEntityIds.end()) {
+                auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityIt->second);
+                health.invulnerable = enabled;
+            }
+#endif
         }
     }
 
@@ -135,6 +698,11 @@ namespace infrastructure::game {
 
         _playerInputs[playerId] = keys;
         _playerLastInputSeq[playerId] = sequenceNum;
+
+#ifdef USE_ECS_BACKEND
+        // Queue input to ECS PlayerInputSystem for ECS-driven movement
+        queueInputToECS(playerId, keys, sequenceNum);
+#endif
     }
 
     uint16_t GameWorld::getPlayerLastInputSeq(uint8_t playerId) const {
@@ -194,8 +762,84 @@ namespace infrastructure::game {
 
     GameSnapshot GameWorld::getSnapshot() const {
         GameSnapshot snapshot{};
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Phase 4.6: Read players from ECS (positions are authoritative)
+        // Other entities (missiles, enemies) still read from legacy maps
+        // ═══════════════════════════════════════════════════════════════════
+
         snapshot.player_count = 0;
 
+#ifdef USE_ECS_BACKEND
+        // Query all player entities from ECS
+        auto playerEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::PositionComp,
+            ecs::components::HealthComp
+        >();
+
+        for (auto entityId : playerEntities) {
+            if (snapshot.player_count >= MAX_PLAYERS) break;
+
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+            const auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+
+            // Get last acked input sequence from legacy map
+            uint16_t lastSeq = 0;
+            auto seqIt = _playerLastInputSeq.find(playerTag.playerId);
+            if (seqIt != _playerLastInputSeq.end()) {
+                lastSeq = seqIt->second;
+            }
+
+            // Get score data from legacy map (ScoreComp exists but legacy has more data)
+            uint32_t score = 0;
+            uint16_t kills = 0;
+            uint8_t combo = 10;  // 1.0x default
+            auto scoreIt = _playerScores.find(playerTag.playerId);
+            if (scoreIt != _playerScores.end()) {
+                score = scoreIt->second.score;
+                kills = scoreIt->second.kills;
+                combo = scoreIt->second.getComboEncoded();
+            }
+
+            // Get weapon/charge data from legacy player (WeaponComp exists but legacy is authoritative)
+            uint8_t currentWeapon = 0;
+            uint8_t chargeLevel = 0;
+            uint8_t speedLevel = 0;
+            uint8_t weaponLevel = 0;
+            bool hasForce = false;
+            auto playerIt = _players.find(playerTag.playerId);
+            if (playerIt != _players.end()) {
+                currentWeapon = static_cast<uint8_t>(playerIt->second.currentWeapon);
+                chargeLevel = playerIt->second.chargeLevel;
+                speedLevel = playerIt->second.speedLevel;
+                weaponLevel = playerIt->second.weaponLevels[static_cast<size_t>(playerIt->second.currentWeapon)];
+                hasForce = playerIt->second.hasForce;
+            }
+
+            snapshot.players[snapshot.player_count] = PlayerState{
+                .id = playerTag.playerId,
+                .x = static_cast<uint16_t>(pos.x),
+                .y = static_cast<uint16_t>(pos.y),
+                .health = static_cast<uint8_t>(health.current),
+                .alive = static_cast<uint8_t>(playerTag.isAlive && health.current > 0 ? 1 : 0),
+                .lastAckedInputSeq = lastSeq,
+                .shipSkin = playerTag.shipSkin,
+                .score = score,
+                .kills = kills,
+                .combo = combo,
+                .currentWeapon = currentWeapon,
+                .chargeLevel = chargeLevel,
+                .speedLevel = speedLevel,
+                .weaponLevel = weaponLevel,
+                .hasForce = static_cast<uint8_t>(hasForce ? 1 : 0),
+                .shieldTimer = 0  // Reserved field (R-Type has no shield)
+            };
+            snapshot.player_count++;
+        }
+#else
+        // Legacy path: Read from _players map
         for (const auto& [id, player] : _players) {
             if (snapshot.player_count >= MAX_PLAYERS) break;
 
@@ -238,6 +882,7 @@ namespace infrastructure::game {
             };
             snapshot.player_count++;
         }
+#endif
 
         snapshot.missile_count = 0;
         for (const auto& [id, missile] : _missiles) {
@@ -340,28 +985,44 @@ namespace infrastructure::game {
         const auto& player = it->second;
         uint16_t missileId = _nextMissileId++;
 
+        float spawnX = static_cast<float>(player.x) + MISSILE_SPAWN_OFFSET_X;
+        float spawnY = static_cast<float>(player.y) + MISSILE_SPAWN_OFFSET_Y;
+
         Missile missile{
             .id = missileId,
             .owner_id = playerId,
-            .x = static_cast<float>(player.x) + MISSILE_SPAWN_OFFSET_X,
-            .y = static_cast<float>(player.y) + MISSILE_SPAWN_OFFSET_Y,
+            .x = spawnX,
+            .y = spawnY,
             .velocityX = Missile::SPEED
         };
 
         _missiles[missileId] = missile;
+
+#ifdef USE_ECS_BACKEND
+        // Create corresponding ECS entity (dual-running)
+        createMissileEntity(missileId, playerId, spawnX, spawnY,
+                           Missile::SPEED, 0.0f,
+                           static_cast<uint8_t>(WeaponType::Standard),
+                           Missile::DAMAGE_STANDARD, false, 0);
+#endif
+
         return missileId;
     }
 
     void GameWorld::updateMissiles(float deltaTime) {
+        // Note: _destroyedMissiles is populated by syncDeletedMissilesFromECS() when ECS is enabled
+#ifndef USE_ECS_BACKEND
         _destroyedMissiles.clear();
+#endif
 
         // Apply game speed multiplier to missile movement
         float adjustedDelta = deltaTime * _gameSpeedMultiplier;
 
         for (auto it = _missiles.begin(); it != _missiles.end();) {
             Missile& missile = it->second;
+            uint16_t missileId = it->first;
 
-            // Handle homing missiles
+            // Handle homing missiles - update velocity towards target
             if (missile.weaponType == WeaponType::Missile && missile.targetEnemyId != 0) {
                 float targetX = 0.0f, targetY = 0.0f;
                 bool hasTarget = false;
@@ -392,24 +1053,47 @@ namespace infrastructure::game {
                         float speed = Missile::getSpeed(WeaponType::Missile, missile.weaponLevel);
                         missile.velocityX = (dx / dist) * speed;
                         missile.velocityY = (dy / dist) * speed;
+
+#ifdef USE_ECS_BACKEND
+                        // Sync updated velocity to ECS entity
+                        auto ecsIt = _missileEntityIds.find(missileId);
+                        if (ecsIt != _missileEntityIds.end() && _ecs.entityIsActive(ecsIt->second)) {
+                            auto& vel = _ecs.entityGetComponent<ecs::components::VelocityComp>(ecsIt->second);
+                            vel.x = missile.velocityX;
+                            vel.y = missile.velocityY;
+                        }
+#endif
                     }
                 }
             }
 
-            // Update position
+#ifdef USE_ECS_BACKEND
+            // Phase 5.1: ECS handles movement and OOB cleanup
+            // MovementSystem updates positions, CleanupSystem removes OOB entities
+            // Just sync positions from ECS to legacy for snapshot consistency
+            auto ecsIt = _missileEntityIds.find(missileId);
+            if (ecsIt != _missileEntityIds.end() && _ecs.entityIsActive(ecsIt->second)) {
+                const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(ecsIt->second);
+                missile.x = pos.x;
+                missile.y = pos.y;
+            }
+            ++it;
+#else
+            // Legacy: Update position
             missile.x += missile.velocityX * adjustedDelta;
             missile.y += missile.velocityY * adjustedDelta;
 
-            // Check bounds (remove if off-screen)
+            // Legacy: Check bounds (remove if off-screen)
             bool outOfBounds = missile.x > SCREEN_WIDTH || missile.x < -50.0f ||
                                missile.y > SCREEN_HEIGHT + 50.0f || missile.y < -50.0f;
 
             if (outOfBounds) {
-                _destroyedMissiles.push_back(it->first);
+                _destroyedMissiles.push_back(missileId);
                 it = _missiles.erase(it);
             } else {
                 ++it;
             }
+#endif
         }
     }
 
@@ -464,6 +1148,10 @@ namespace infrastructure::game {
                 std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
                 std::uniform_int_distribution<int> distBool(0, 1);
 
+                float phaseOffset = dist01(_rng) * 6.28f;
+                float shootCooldown = shootInterval * (0.3f + 0.7f * dist01(_rng));
+                bool zigzagUp = distBool(_rng) == 0;
+
                 Enemy enemy{
                     .id = enemyId,
                     .x = SPAWN_X,
@@ -471,15 +1159,24 @@ namespace infrastructure::game {
                     .health = health,
                     .enemy_type = typeValue,
                     .baseY = it->spawnY,
-                    .phaseOffset = dist01(_rng) * 6.28f,
+                    .phaseOffset = phaseOffset,
                     .aliveTime = 0.0f,
-                    .shootCooldown = shootInterval * (0.3f + 0.7f * dist01(_rng)),
+                    .shootCooldown = shootCooldown,
                     .targetY = it->spawnY,
                     .zigzagTimer = 0.0f,
-                    .zigzagUp = distBool(_rng) == 0
+                    .zigzagUp = zigzagUp
                 };
 
                 _enemies[enemyId] = enemy;
+
+#ifdef USE_ECS_BACKEND
+                // Create corresponding ECS entity (dual-running)
+                createEnemyEntity(enemyId, SPAWN_X, it->spawnY, health,
+                                 typeValue, getEnemyPointValue(it->type), it->spawnY,
+                                 phaseOffset, shootCooldown, shootInterval,
+                                 it->spawnY, zigzagUp);
+#endif
+
                 it = _spawnQueue.erase(it);
             } else {
                 ++it;
@@ -674,17 +1371,39 @@ namespace infrastructure::game {
     }
 
     void GameWorld::updateEnemies(float deltaTime) {
-        _destroyedEnemies.clear();
+        // Note: _destroyedEnemies cleared in runECSUpdate() at start of frame
+        // Both ECS (DamageSystem) and Legacy (OOB check below) can add to the list
 
         // Apply game speed multiplier to enemy updates
         float adjustedDelta = deltaTime * _gameSpeedMultiplier;
 
         for (auto it = _enemies.begin(); it != _enemies.end();) {
             Enemy& enemy = it->second;
+            uint16_t enemyId = it->first;
+
+#ifdef USE_ECS_BACKEND
+            // ═══════════════════════════════════════════════════════════════════════
+            // Phase 5.5: EnemyAISystem handles movement patterns
+            // Sync position, baseY, aliveTime FROM ECS to legacy
+            // ═══════════════════════════════════════════════════════════════════════
+            auto ecsIt = _enemyEntityIds.find(enemyId);
+            if (ecsIt != _enemyEntityIds.end() && _ecs.entityIsActive(ecsIt->second)) {
+                const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(ecsIt->second);
+                const auto& ai = _ecs.entityGetComponent<ecs::components::EnemyAIComp>(ecsIt->second);
+                enemy.x = pos.x;
+                enemy.y = pos.y;
+                enemy.baseY = ai.baseY;           // Bomber drift synced from ECS
+                enemy.aliveTime = ai.aliveTime;   // Keep legacy in sync
+                enemy.zigzagTimer = ai.zigzagTimer;
+                enemy.zigzagUp = ai.zigzagUp;
+            }
+#else
+            // Legacy: calculate movement directly
             enemy.aliveTime += adjustedDelta;
-
             updateEnemyMovement(enemy, adjustedDelta);
+#endif
 
+            // Handle enemy shooting (enemy missiles are NOT ECS entities)
             enemy.shootCooldown -= adjustedDelta;
             if (enemy.shootCooldown <= 0.0f && enemy.x < SCREEN_WIDTH && enemy.x > 0.0f) {
                 enemy.shootCooldown = enemy.getShootInterval();
@@ -715,11 +1434,20 @@ namespace infrastructure::game {
                 }
             }
 
+            // Check OOB and health (legacy handles this for now)
+            // Note: CleanupSystem could handle OOB but execution order is tricky
+            // Enemy patterns run AFTER ECS Update, so we keep legacy OOB check
             if (enemy.x < -Enemy::WIDTH) {
-                _destroyedEnemies.push_back(it->first);
+                _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                deleteEnemyEntity(enemyId);
+#endif
                 it = _enemies.erase(it);
             } else if (enemy.health == 0) {
-                _destroyedEnemies.push_back(it->first);
+                _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                deleteEnemyEntity(enemyId);
+#endif
                 it = _enemies.erase(it);
             } else {
                 ++it;
@@ -727,6 +1455,7 @@ namespace infrastructure::game {
         }
 
         // Update enemy missiles with game speed multiplier
+        // Note: Enemy missiles are NOT ECS entities yet
         for (auto it = _enemyMissiles.begin(); it != _enemyMissiles.end();) {
             it->second.x += it->second.velocityX * adjustedDelta;
             it->second.y += it->second.velocityY * adjustedDelta;
@@ -746,10 +1475,24 @@ namespace infrastructure::game {
 
         for (auto missileIt = _missiles.begin(); missileIt != _missiles.end();) {
             const auto& missile = missileIt->second;
+            uint16_t missileId = missileIt->first;
             collision::AABB missileBox(missile.x, missile.y, Missile::WIDTH, Missile::HEIGHT);
 
             bool missileDestroyed = false;
 
+#ifdef USE_ECS_BACKEND
+            // Phase 5.3: Skip missiles already deleted by DamageSystem
+            auto ecsIt = _missileEntityIds.find(missileId);
+            if (ecsIt == _missileEntityIds.end() || !_ecs.entityIsActive(ecsIt->second)) {
+                // Missile was deleted by DamageSystem, remove from legacy map
+                missileIt = _missiles.erase(missileIt);
+                continue;
+            }
+
+            // Phase 5.3: DamageSystem handles MISSILES + ENEMIES collisions
+            // Skip to boss check (Boss is not an ECS entity yet)
+#else
+            // Legacy: Check missile vs enemies
             for (auto& [enemyId, enemy] : _enemies) {
                 collision::AABB enemyBox(enemy.x, enemy.y, Enemy::WIDTH, Enemy::HEIGHT);
 
@@ -783,14 +1526,16 @@ namespace infrastructure::game {
                         }
                     }
 
-                    _destroyedMissiles.push_back(missileIt->first);
+                    _destroyedMissiles.push_back(missileId);
                     missileIt = _missiles.erase(missileIt);
                     missileDestroyed = true;
                     break;
                 }
             }
+#endif
 
             // Check boss collision if not already destroyed
+            // Boss is NOT an ECS entity, so legacy handles this in both modes
             if (!missileDestroyed && _boss.has_value() && _boss->isActive) {
                 collision::AABB bossBox(_boss->x, _boss->y, Boss::WIDTH, Boss::HEIGHT);
                 if (missileBox.intersects(bossBox)) {
@@ -798,7 +1543,10 @@ namespace infrastructure::game {
                     uint8_t damage = Missile::getDamage(missile.weaponType, missile.weaponLevel);
                     damageBoss(damage, missile.owner_id);
 
-                    _destroyedMissiles.push_back(missileIt->first);
+                    _destroyedMissiles.push_back(missileId);
+#ifdef USE_ECS_BACKEND
+                    deleteMissileEntity(missileId);
+#endif
                     missileIt = _missiles.erase(missileIt);
                     missileDestroyed = true;
                 }
@@ -843,6 +1591,20 @@ namespace infrastructure::game {
                         player.health = 0;
                         player.alive = false;
                     }
+
+#ifdef USE_ECS_BACKEND
+                    // Sync damage to ECS immediately for getSnapshot() (called later this frame)
+                    // Note: syncPlayersFromECS() also syncs Legacy → ECS at start of next frame
+                    auto entityIt = _playerEntityIds.find(playerId);
+                    if (entityIt != _playerEntityIds.end()) {
+                        auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityIt->second);
+                        health.current = player.health;
+                        if (!player.alive) {
+                            auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityIt->second);
+                            playerTag.isAlive = false;
+                        }
+                    }
+#endif
 
                     _playerDamageEvents.push_back({playerId, PLAYER_DAMAGE});
 
@@ -966,9 +1728,29 @@ namespace infrastructure::game {
         if (score.currentKillStreak > score.bestKillStreak) {
             score.bestKillStreak = score.currentKillStreak;
         }
+
+#ifdef USE_ECS_BACKEND
+        // Phase 5.4: Sync combo changes back to ECS ScoreComp
+        // This ensures ScoreSystem sees updated combo after kills
+        auto entityIt = _playerEntityIds.find(playerId);
+        if (entityIt != _playerEntityIds.end() && _ecs.entityIsActive(entityIt->second)) {
+            if (_ecs.entityHasComponent<ecs::components::ScoreComp>(entityIt->second)) {
+                auto& scoreComp = _ecs.entityGetComponent<ecs::components::ScoreComp>(entityIt->second);
+                scoreComp.comboMultiplier = score.comboMultiplier;
+                scoreComp.comboTimer = score.comboTimer;
+                scoreComp.kills = score.kills;
+                scoreComp.total = score.score;
+                if (score.maxCombo > scoreComp.maxCombo) {
+                    scoreComp.maxCombo = score.maxCombo;
+                }
+            }
+        }
+#endif
     }
 
-    void GameWorld::updateComboTimers(float deltaTime) {
+    void GameWorld::updateComboTimers([[maybe_unused]] float deltaTime) {
+#ifndef USE_ECS_BACKEND
+        // Legacy combo decay - only used when ECS is disabled
         for (auto& [playerId, score] : _playerScores) {
             score.comboTimer += deltaTime;
 
@@ -981,6 +1763,9 @@ namespace infrastructure::game {
                 score.comboMultiplier = std::max(1.0f, score.comboMultiplier - decay);
             }
         }
+#endif
+        // Phase 5.4: When ECS is enabled, ScoreSystem handles combo decay
+        // syncComboFromECS() copies the results to _playerScores
     }
 
     void GameWorld::onPlayerDamaged(uint8_t playerId) {
@@ -1575,22 +2360,38 @@ namespace infrastructure::game {
             uint8_t health = Enemy::getHealthForType(type);
 
             std::uniform_real_distribution<float> phaseDist(0.0f, 6.28f);
+            float phaseOffset = phaseDist(_rng);
+            bool zigzagUp = (i % 2 == 0);
+            float shootInterval = (type == EnemyType::Tracker)
+                                 ? Enemy::SHOOT_INTERVAL_TRACKER
+                                 : Enemy::SHOOT_INTERVAL_FAST;
+            float spawnX = boss.x - 50.0f;
+
             Enemy enemy{
                 .id = enemyId,
-                .x = boss.x - 50.0f,
+                .x = spawnX,
                 .y = spawnY,
                 .health = health,
                 .enemy_type = static_cast<uint8_t>(type),
                 .baseY = spawnY,
-                .phaseOffset = phaseDist(_rng),
+                .phaseOffset = phaseOffset,
                 .aliveTime = 0.0f,
                 .shootCooldown = Enemy::SHOOT_INTERVAL_FAST,
                 .targetY = spawnY,
                 .zigzagTimer = 0.0f,
-                .zigzagUp = (i % 2 == 0)
+                .zigzagUp = zigzagUp
             };
 
             _enemies[enemyId] = enemy;
+
+#ifdef USE_ECS_BACKEND
+            // Create ECS entity for boss minion
+            createEnemyEntity(enemyId, spawnX, spawnY, health,
+                             static_cast<uint8_t>(type), getEnemyPointValue(type), spawnY,
+                             phaseOffset, Enemy::SHOOT_INTERVAL_FAST, shootInterval,
+                             spawnY, zigzagUp);
+#endif
+
             boss.minionsSpawned++;
         }
     }
@@ -1693,7 +2494,9 @@ namespace infrastructure::game {
         return WeaponType::Standard;
     }
 
-    void GameWorld::updateShootCooldowns(float deltaTime) {
+    void GameWorld::updateShootCooldowns([[maybe_unused]] float deltaTime) {
+#ifndef USE_ECS_BACKEND
+        // Legacy cooldown decay - only used when ECS is disabled
         float adjustedDelta = deltaTime * _gameSpeedMultiplier;
         for (auto& [id, player] : _players) {
             if (player.shootCooldown > 0.0f) {
@@ -1703,6 +2506,9 @@ namespace infrastructure::game {
                 }
             }
         }
+#endif
+        // Phase 5.6: When ECS is enabled, WeaponSystem handles cooldown decay
+        // syncCooldownsFromECS() copies the results to _players
     }
 
     bool GameWorld::canPlayerShoot(uint8_t playerId) const {
@@ -1851,6 +2657,33 @@ namespace infrastructure::game {
             default:
                 break;
         }
+
+#ifdef USE_ECS_BACKEND
+        // Create ECS entities for all missiles spawned by the player (before Force/Bit missiles)
+        uint8_t damage = Missile::getDamage(weapon, level);
+        for (uint16_t id : spawnedIds) {
+            auto missileIt = _missiles.find(id);
+            if (missileIt != _missiles.end()) {
+                const Missile& m = missileIt->second;
+                createMissileEntity(m.id, m.owner_id, m.x, m.y,
+                                   m.velocityX, m.velocityY,
+                                   static_cast<uint8_t>(m.weaponType),
+                                   damage,
+                                   m.weaponType == WeaponType::Missile,
+                                   m.targetEnemyId);
+            }
+        }
+
+        // Phase 5.6: Sync cooldown back to ECS WeaponComp
+        // This ensures WeaponSystem sees the new cooldown after shooting
+        auto entityIt = _playerEntityIds.find(playerId);
+        if (entityIt != _playerEntityIds.end() && _ecs.entityIsActive(entityIt->second)) {
+            if (_ecs.entityHasComponent<ecs::components::WeaponComp>(entityIt->second)) {
+                auto& weaponComp = _ecs.entityGetComponent<ecs::components::WeaponComp>(entityIt->second);
+                weaponComp.shootCooldown = player.shootCooldown;
+            }
+        }
+#endif
 
         // R-Type Authentic: Force Pod also shoots when player shoots
         auto forceIt = _forcePods.find(playerId);
@@ -2003,7 +2836,7 @@ namespace infrastructure::game {
 
             for (auto& [enemyId, enemy] : _enemies) {
                 // Skip if already hit this enemy (piercing beams only damage once)
-                if (wc.hitEnemies.contains(enemyId)) {
+                if (wc.hitEnemies.find(enemyId) != wc.hitEnemies.end()) {
                     continue;
                 }
 
@@ -2027,6 +2860,9 @@ namespace infrastructure::game {
 
                     if (enemy.health == 0) {
                         _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                        deleteEnemyEntity(enemyId);
+#endif
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
                         // Wave Cannon has its own kill tracking
                         awardKillScore(wc.owner_id, enemyType, WeaponType::WaveCannon);
@@ -2198,6 +3034,16 @@ namespace infrastructure::game {
         switch (type) {
             case PowerUpType::Health:
                 player.health = std::min(100, static_cast<int>(player.health) + 25);
+#ifdef USE_ECS_BACKEND
+                // Sync health increase to ECS
+                {
+                    auto entityIt = _playerEntityIds.find(playerId);
+                    if (entityIt != _playerEntityIds.end()) {
+                        auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityIt->second);
+                        health.current = player.health;
+                    }
+                }
+#endif
                 break;
 
             case PowerUpType::SpeedUp:
@@ -2209,6 +3055,14 @@ namespace infrastructure::game {
                     }
                 } else {
                     player.speedLevel = static_cast<uint8_t>(player.speedLevel + 1);
+#ifdef USE_ECS_BACKEND
+                    // Sync speedLevel to ECS for PlayerInputSystem
+                    auto entityIt = _playerEntityIds.find(playerId);
+                    if (entityIt != _playerEntityIds.end()) {
+                        auto& speed = _ecs.entityGetComponent<ecs::components::SpeedLevelComp>(entityIt->second);
+                        speed.level = player.speedLevel;
+                    }
+#endif
                 }
                 break;
 
@@ -2241,9 +3095,10 @@ namespace infrastructure::game {
         // Spawn a special enemy that guarantees a power-up drop
         std::uniform_real_distribution<float> yDist(100.0f, 900.0f);
         float y = yDist(_rng);
+        uint16_t enemyId = _nextEnemyId++;
 
         Enemy powArmor{
-            .id = _nextEnemyId++,
+            .id = enemyId,
             .x = SPAWN_X,
             .y = y,
             .health = Enemy::HEALTH_POW_ARMOR,  // Use defined constant
@@ -2257,7 +3112,16 @@ namespace infrastructure::game {
             .zigzagUp = false
         };
 
-        _enemies[powArmor.id] = powArmor;
+        _enemies[enemyId] = powArmor;
+
+#ifdef USE_ECS_BACKEND
+        // Create ECS entity for POW Armor enemy
+        createEnemyEntity(enemyId, SPAWN_X, y, Enemy::HEALTH_POW_ARMOR,
+                         static_cast<uint8_t>(EnemyType::POWArmor),
+                         POINTS_POW_ARMOR, y, 0.0f,
+                         Enemy::SHOOT_INTERVAL_POW_ARMOR, Enemy::SHOOT_INTERVAL_POW_ARMOR,
+                         y, false);
+#endif
     }
 
     std::vector<PowerUpCollected> GameWorld::getCollectedPowerUps() {
@@ -2407,6 +3271,9 @@ namespace infrastructure::game {
 
                     if (enemy.health == 0) {
                         _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                        deleteEnemyEntity(enemyId);
+#endif
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
                         // Force Pod kills count as player's current weapon
                         auto playerIt = _players.find(playerId);
@@ -2495,13 +3362,15 @@ namespace infrastructure::game {
                                            WeaponType weapon, uint8_t level) {
         uint16_t id = _nextMissileId++;
 
+        float velY = speed * angleY;
+
         Missile missile{
             .id = id,
             .owner_id = playerId,
             .x = x,
             .y = y,
             .velocityX = speed,
-            .velocityY = speed * angleY,
+            .velocityY = velY,
             .weaponType = weapon,
             .weaponLevel = level,
             .targetEnemyId = 0,
@@ -2509,6 +3378,15 @@ namespace infrastructure::game {
         };
 
         _missiles[id] = missile;
+
+#ifdef USE_ECS_BACKEND
+        // Create ECS entity for Force missile
+        uint8_t damage = Missile::getDamage(weapon, level);
+        createMissileEntity(id, playerId, x, y, speed, velY,
+                           static_cast<uint8_t>(weapon), damage,
+                           weapon == WeaponType::Missile, 0);
+#endif
+
         return id;
     }
 
@@ -2769,6 +3647,9 @@ namespace infrastructure::game {
         for (uint16_t id : killedEnemies) {
             if (std::find(_destroyedEnemies.begin(), _destroyedEnemies.end(), id) == _destroyedEnemies.end()) {
                 _destroyedEnemies.push_back(id);
+#ifdef USE_ECS_BACKEND
+                deleteEnemyEntity(id);
+#endif
             }
             _enemies.erase(id);
         }
@@ -2828,6 +3709,14 @@ namespace infrastructure::game {
         };
 
         _missiles[id] = missile;
+
+#ifdef USE_ECS_BACKEND
+        // Create ECS entity for Bit missile
+        uint8_t damage = Missile::getDamage(weapon, level);
+        createMissileEntity(id, playerId, x, y, speed, 0.0f,
+                           static_cast<uint8_t>(weapon), damage, false, 0);
+#endif
+
         return id;
     }
 }

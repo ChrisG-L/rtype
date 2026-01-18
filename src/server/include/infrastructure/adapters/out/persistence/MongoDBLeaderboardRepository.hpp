@@ -29,11 +29,13 @@ using application::ports::out::persistence::AchievementRecord;
 class MongoDBLeaderboardRepository : public ILeaderboardRepository {
 private:
     std::shared_ptr<MongoDBConfiguration> _mongoDB;
-    std::unique_ptr<mongocxx::v_noabi::collection> _leaderboardCollection;
-    std::unique_ptr<mongocxx::v_noabi::collection> _playerStatsCollection;
-    std::unique_ptr<mongocxx::v_noabi::collection> _gameHistoryCollection;
-    std::unique_ptr<mongocxx::v_noabi::collection> _achievementsCollection;
-    std::unique_ptr<mongocxx::v_noabi::collection> _currentGameSessionsCollection;
+
+    // Collection names (no longer storing collection objects)
+    static constexpr const char* LEADERBOARD_COLLECTION = "leaderboard";
+    static constexpr const char* PLAYER_STATS_COLLECTION = "player_stats";
+    static constexpr const char* GAME_HISTORY_COLLECTION = "game_history";
+    static constexpr const char* ACHIEVEMENTS_COLLECTION = "achievements";
+    static constexpr const char* CURRENT_GAME_SESSIONS_COLLECTION = "current_game_sessions";
 
     LeaderboardEntry documentToLeaderboardEntry(const bsoncxx::document::view& doc) const;
     PlayerStats documentToPlayerStats(const bsoncxx::document::view& doc) const;

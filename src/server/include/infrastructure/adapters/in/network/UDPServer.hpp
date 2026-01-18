@@ -112,6 +112,7 @@ namespace infrastructure::adapters::in::network {
             UDPServer(boost::asio::io_context& io_ctx,
                       std::shared_ptr<SessionManager> sessionManager,
                       std::shared_ptr<ILeaderboardRepository> leaderboardRepository);
+            ~UDPServer();
             void start();
             void run();
             void stop();
