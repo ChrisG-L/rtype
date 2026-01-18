@@ -162,31 +162,6 @@ class AdminCog(commands.Cog):
                 embed=AdminEmbeds.error(f"Failed to get room: {e}")
             )
 
-    @app_commands.command(name="broadcast", description="Broadcast a message to all players")
-    @app_commands.describe(message="Message to broadcast")
-    @is_admin_channel()
-    @has_admin_role()
-    async def broadcast(self, interaction: discord.Interaction, message: str):
-        """Broadcast a message to all players."""
-        await interaction.response.defer()
-
-        try:
-            result = await self.tcp.broadcast(message)
-            if not result.success:
-                await interaction.followup.send(
-                    embed=AdminEmbeds.error(result.error or "Failed to broadcast")
-                )
-                return
-
-            await interaction.followup.send(
-                embed=AdminEmbeds.success(f"Broadcast sent: {message}")
-            )
-        except Exception as e:
-            logger.error(f"Error broadcasting: {e}")
-            await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to broadcast: {e}")
-            )
-
     @app_commands.command(name="cli", description="Execute any CLI command")
     @app_commands.describe(command="Full CLI command to execute")
     @is_admin_channel()
@@ -231,9 +206,6 @@ class AdminCog(commands.Cog):
 `/sessions` - List active sessions
 `/rooms` - List active game rooms
 `/room <code>` - Show room details
-
-**Communication**
-`/broadcast <message>` - Send to all players
 
 **User Management**
 `/users` - List all registered users

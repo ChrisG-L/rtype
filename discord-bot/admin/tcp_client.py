@@ -215,10 +215,6 @@ class TCPAdminClient:
         """Get room details."""
         return await self.execute("room", room_code)
 
-    async def broadcast(self, message: str) -> CommandResult:
-        """Broadcast a message to all players."""
-        return await self.execute("broadcast", message)
-
     async def help(self) -> CommandResult:
         """Get list of available commands."""
         return await self.execute("help")
