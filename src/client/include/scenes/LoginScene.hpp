@@ -45,7 +45,7 @@ private:
     // Version popup
     void renderVersionPopup();
     void onVersionPopupClose();
-    void onVersionPopupUpdate();
+    void onVersionPopupUpdate() const;
 
     bool _assetsLoaded = false;
     bool _uiInitialized = false;

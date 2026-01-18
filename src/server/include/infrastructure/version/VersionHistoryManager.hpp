@@ -40,7 +40,7 @@ public:
      * @return true if loaded successfully
      */
     bool loadFromFile(const std::string& filepath = "version_history.txt") {
-        std::lock_guard<std::mutex> lock(_mutex);
+        std::scoped_lock lock(_mutex);
 
         // Initialize with current version as first entry
         _history.count = 0;

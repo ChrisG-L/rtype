@@ -595,7 +595,7 @@ void LoginScene::onVersionPopupClose()
     }
 }
 
-void LoginScene::onVersionPopupUpdate()
+void LoginScene::onVersionPopupUpdate() const
 {
     // Open Jenkins artifacts page (latest successful build)
     client::utils::openUrlInBrowser(
