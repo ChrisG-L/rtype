@@ -208,11 +208,11 @@ static constexpr size_t MAX_VERSION_HISTORY = 50;
 
 // Version info structure for version checking
 struct VersionInfo {
-    uint8_t major;
-    uint8_t minor;
-    uint8_t patch;
-    uint8_t flags;        // Bit 0: isDev (compiled with version.dev bypass)
-    char gitHash[GIT_HASH_LEN];  // Short git hash (8 chars + null)
+    uint8_t major = 0;
+    uint8_t minor = 0;
+    uint8_t patch = 0;
+    uint8_t flags = 0;    // Bit 0: isDev (compiled with version.dev bypass)
+    char gitHash[GIT_HASH_LEN] = {};  // Short git hash (8 chars + null)
 
     static constexpr size_t WIRE_SIZE = 4 + GIT_HASH_LEN;
 

@@ -25,7 +25,7 @@ TEST_F(VersionInfoTest, BasicConstruction) {
     info.minor = 2;
     info.patch = 3;
     info.flags = 0;
-    std::strncpy(info.gitHash, "abc12345", GIT_HASH_LEN);
+    std::snprintf(info.gitHash, GIT_HASH_LEN, "%s", "abc12345");
 
     EXPECT_EQ(info.major, 1);
     EXPECT_EQ(info.minor, 2);
@@ -62,8 +62,8 @@ TEST_F(VersionInfoTest, DevModeFlagPreservesOtherFlags) {
 
 TEST_F(VersionInfoTest, ExactMatchSameHash) {
     VersionInfo v1, v2;
-    std::strncpy(v1.gitHash, "abc12345", GIT_HASH_LEN);
-    std::strncpy(v2.gitHash, "abc12345", GIT_HASH_LEN);
+    std::snprintf(v1.gitHash, GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(v2.gitHash, GIT_HASH_LEN, "%s", "abc12345");
 
     EXPECT_TRUE(v1.isExactMatch(v2));
     EXPECT_TRUE(v2.isExactMatch(v1));
@@ -71,8 +71,8 @@ TEST_F(VersionInfoTest, ExactMatchSameHash) {
 
 TEST_F(VersionInfoTest, ExactMatchDifferentHash) {
     VersionInfo v1, v2;
-    std::strncpy(v1.gitHash, "abc12345", GIT_HASH_LEN);
-    std::strncpy(v2.gitHash, "def67890", GIT_HASH_LEN);
+    std::snprintf(v1.gitHash, GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(v2.gitHash, GIT_HASH_LEN, "%s", "def67890");
 
     EXPECT_FALSE(v1.isExactMatch(v2));
     EXPECT_FALSE(v2.isExactMatch(v1));
@@ -102,7 +102,7 @@ TEST_F(VersionInfoTest, SerializationRoundTrip) {
     original.minor = 2;
     original.patch = 3;
     original.flags = 0x01;
-    std::strncpy(original.gitHash, "abc12345", GIT_HASH_LEN);
+    std::snprintf(original.gitHash, GIT_HASH_LEN, "%s", "abc12345");
 
     std::array<uint8_t, VersionInfo::WIRE_SIZE> buffer{};
     original.to_bytes(buffer.data());
@@ -153,9 +153,9 @@ TEST_F(VersionHistoryTest, BasicConstruction) {
 TEST_F(VersionHistoryTest, FindPositionFirstEntry) {
     VersionHistory hist;
     hist.count = 3;
-    std::strncpy(hist.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[2], "ghi11111", GIT_HASH_LEN);
+    std::snprintf(hist.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(hist.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(hist.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
 
     EXPECT_EQ(hist.findPosition("abc12345"), 0);
 }
@@ -163,9 +163,9 @@ TEST_F(VersionHistoryTest, FindPositionFirstEntry) {
 TEST_F(VersionHistoryTest, FindPositionMiddleEntry) {
     VersionHistory hist;
     hist.count = 3;
-    std::strncpy(hist.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[2], "ghi11111", GIT_HASH_LEN);
+    std::snprintf(hist.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(hist.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(hist.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
 
     EXPECT_EQ(hist.findPosition("def67890"), 1);
 }
@@ -173,9 +173,9 @@ TEST_F(VersionHistoryTest, FindPositionMiddleEntry) {
 TEST_F(VersionHistoryTest, FindPositionLastEntry) {
     VersionHistory hist;
     hist.count = 3;
-    std::strncpy(hist.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[2], "ghi11111", GIT_HASH_LEN);
+    std::snprintf(hist.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(hist.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(hist.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
 
     EXPECT_EQ(hist.findPosition("ghi11111"), 2);
 }
@@ -183,9 +183,9 @@ TEST_F(VersionHistoryTest, FindPositionLastEntry) {
 TEST_F(VersionHistoryTest, FindPositionNotFound) {
     VersionHistory hist;
     hist.count = 3;
-    std::strncpy(hist.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[2], "ghi11111", GIT_HASH_LEN);
+    std::snprintf(hist.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(hist.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(hist.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
 
     EXPECT_EQ(hist.findPosition("zzz99999"), -1);
 }
@@ -200,8 +200,8 @@ TEST_F(VersionHistoryTest, FindPositionEmptyHistory) {
 TEST_F(VersionHistoryTest, FindPositionPartialMatch) {
     VersionHistory hist;
     hist.count = 2;
-    std::strncpy(hist.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(hist.hashes[1], "abc12346", GIT_HASH_LEN);  // Similar but different
+    std::snprintf(hist.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(hist.hashes[1], GIT_HASH_LEN, "%s", "abc12346");  // Similar but different
 
     // Should find exact match only
     EXPECT_EQ(hist.findPosition("abc12345"), 0);
@@ -212,9 +212,9 @@ TEST_F(VersionHistoryTest, FindPositionPartialMatch) {
 TEST_F(VersionHistoryTest, SerializationRoundTrip) {
     VersionHistory original;
     original.count = 3;
-    std::strncpy(original.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(original.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(original.hashes[2], "ghi11111", GIT_HASH_LEN);
+    std::snprintf(original.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(original.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(original.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
 
     std::array<uint8_t, VersionHistory::WIRE_SIZE> buffer{};
     original.to_bytes(buffer.data());
@@ -276,16 +276,16 @@ protected:
 
 TEST_F(VersionIntegrationTest, ClientUpToDate) {
     VersionInfo client, server;
-    std::strncpy(client.gitHash, "abc12345", GIT_HASH_LEN);
-    std::strncpy(server.gitHash, "abc12345", GIT_HASH_LEN);
+    std::snprintf(client.gitHash, GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(server.gitHash, GIT_HASH_LEN, "%s", "abc12345");
 
     VersionHistory history;
     history.count = 5;
-    std::strncpy(history.hashes[0], "abc12345", GIT_HASH_LEN);  // Current
-    std::strncpy(history.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(history.hashes[2], "ghi11111", GIT_HASH_LEN);
-    std::strncpy(history.hashes[3], "jkl22222", GIT_HASH_LEN);
-    std::strncpy(history.hashes[4], "mno33333", GIT_HASH_LEN);
+    std::snprintf(history.hashes[0], GIT_HASH_LEN, "%s", "abc12345");  // Current
+    std::snprintf(history.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(history.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
+    std::snprintf(history.hashes[3], GIT_HASH_LEN, "%s", "jkl22222");
+    std::snprintf(history.hashes[4], GIT_HASH_LEN, "%s", "mno33333");
 
     EXPECT_TRUE(client.isExactMatch(server));
     EXPECT_EQ(history.findPosition(client.gitHash), 0);  // Up to date
@@ -293,53 +293,53 @@ TEST_F(VersionIntegrationTest, ClientUpToDate) {
 
 TEST_F(VersionIntegrationTest, ClientOneCommitBehind) {
     VersionInfo client;
-    std::strncpy(client.gitHash, "def67890", GIT_HASH_LEN);
+    std::snprintf(client.gitHash, GIT_HASH_LEN, "%s", "def67890");
 
     VersionHistory history;
     history.count = 5;
-    std::strncpy(history.hashes[0], "abc12345", GIT_HASH_LEN);  // Current
-    std::strncpy(history.hashes[1], "def67890", GIT_HASH_LEN);  // Client's version
-    std::strncpy(history.hashes[2], "ghi11111", GIT_HASH_LEN);
-    std::strncpy(history.hashes[3], "jkl22222", GIT_HASH_LEN);
-    std::strncpy(history.hashes[4], "mno33333", GIT_HASH_LEN);
+    std::snprintf(history.hashes[0], GIT_HASH_LEN, "%s", "abc12345");  // Current
+    std::snprintf(history.hashes[1], GIT_HASH_LEN, "%s", "def67890");  // Client's version
+    std::snprintf(history.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
+    std::snprintf(history.hashes[3], GIT_HASH_LEN, "%s", "jkl22222");
+    std::snprintf(history.hashes[4], GIT_HASH_LEN, "%s", "mno33333");
 
     EXPECT_EQ(history.findPosition(client.gitHash), 1);  // 1 commit behind
 }
 
 TEST_F(VersionIntegrationTest, ClientFiveCommitsBehind) {
     VersionInfo client;
-    std::strncpy(client.gitHash, "mno33333", GIT_HASH_LEN);
+    std::snprintf(client.gitHash, GIT_HASH_LEN, "%s", "mno33333");
 
     VersionHistory history;
     history.count = 5;
-    std::strncpy(history.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(history.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(history.hashes[2], "ghi11111", GIT_HASH_LEN);
-    std::strncpy(history.hashes[3], "jkl22222", GIT_HASH_LEN);
-    std::strncpy(history.hashes[4], "mno33333", GIT_HASH_LEN);  // Client's version
+    std::snprintf(history.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(history.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(history.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
+    std::snprintf(history.hashes[3], GIT_HASH_LEN, "%s", "jkl22222");
+    std::snprintf(history.hashes[4], GIT_HASH_LEN, "%s", "mno33333");  // Client's version
 
     EXPECT_EQ(history.findPosition(client.gitHash), 4);  // 4 commits behind
 }
 
 TEST_F(VersionIntegrationTest, ClientTooOld) {
     VersionInfo client;
-    std::strncpy(client.gitHash, "old12345", GIT_HASH_LEN);
+    std::snprintf(client.gitHash, GIT_HASH_LEN, "%s", "old12345");
 
     VersionHistory history;
     history.count = 5;
-    std::strncpy(history.hashes[0], "abc12345", GIT_HASH_LEN);
-    std::strncpy(history.hashes[1], "def67890", GIT_HASH_LEN);
-    std::strncpy(history.hashes[2], "ghi11111", GIT_HASH_LEN);
-    std::strncpy(history.hashes[3], "jkl22222", GIT_HASH_LEN);
-    std::strncpy(history.hashes[4], "mno33333", GIT_HASH_LEN);
+    std::snprintf(history.hashes[0], GIT_HASH_LEN, "%s", "abc12345");
+    std::snprintf(history.hashes[1], GIT_HASH_LEN, "%s", "def67890");
+    std::snprintf(history.hashes[2], GIT_HASH_LEN, "%s", "ghi11111");
+    std::snprintf(history.hashes[3], GIT_HASH_LEN, "%s", "jkl22222");
+    std::snprintf(history.hashes[4], GIT_HASH_LEN, "%s", "mno33333");
 
     EXPECT_EQ(history.findPosition(client.gitHash), -1);  // Not found
 }
 
 TEST_F(VersionIntegrationTest, DevModeBypassesVersionCheck) {
     VersionInfo client, server;
-    std::strncpy(client.gitHash, "old12345", GIT_HASH_LEN);
-    std::strncpy(server.gitHash, "abc12345", GIT_HASH_LEN);
+    std::snprintf(client.gitHash, GIT_HASH_LEN, "%s", "old12345");
+    std::snprintf(server.gitHash, GIT_HASH_LEN, "%s", "abc12345");
     client.setDev(true);
 
     // Version mismatch, but dev mode should bypass
