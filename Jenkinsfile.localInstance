@@ -74,6 +74,11 @@ pipeline {
             steps {
                 echo '📥 Récupération du code source...'
                 checkout scm
+
+                // Générer version_history.txt pour le système de version checking
+                echo '📋 Génération de version_history.txt...'
+                sh 'git log --format="%h" -n 50 > version_history.txt'
+                sh 'echo "Version history generated with $(wc -l < version_history.txt) entries"'
             }
         }
 
@@ -426,6 +431,40 @@ pipeline {
                     } catch (Exception e) {
                         echo "⚠️  Impossible de récupérer les artefacts Windows: ${e.message}"
                     }
+
+                    // Copier version_history.txt et generate_dev_certs.sh dans les artifacts
+                    echo "📋 Ajout des fichiers utilitaires aux artifacts..."
+                    sh """
+                        # Trouver les dossiers artifacts
+                        LINUX_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "server" -type d 2>/dev/null | head -1)
+                        LINUX_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "client" -type d 2>/dev/null | head -1)
+                        WIN_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "server" -type d 2>/dev/null | head -1)
+                        WIN_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "client" -type d 2>/dev/null | head -1)
+
+                        # Copier version_history.txt
+                        if [ -f "${WORKSPACE}/version_history.txt" ]; then
+                            for dir in "\$LINUX_SERVER_DIR" "\$LINUX_CLIENT_DIR" "\$WIN_SERVER_DIR" "\$WIN_CLIENT_DIR"; do
+                                if [ -n "\$dir" ] && [ -d "\$dir" ]; then
+                                    cp ${WORKSPACE}/version_history.txt \$dir/
+                                    echo "✅ version_history.txt copié vers \$dir"
+                                fi
+                            done
+                        else
+                            echo "⚠️  version_history.txt non trouvé"
+                        fi
+
+                        # Copier generate_dev_certs.sh (uniquement pour server)
+                        if [ -f "${WORKSPACE}/scripts/generate_dev_certs.sh" ]; then
+                            for dir in "\$LINUX_SERVER_DIR" "\$WIN_SERVER_DIR"; do
+                                if [ -n "\$dir" ] && [ -d "\$dir" ]; then
+                                    cp ${WORKSPACE}/scripts/generate_dev_certs.sh \$dir/
+                                    echo "✅ generate_dev_certs.sh copié vers \$dir"
+                                fi
+                            done
+                        else
+                            echo "⚠️  generate_dev_certs.sh non trouvé"
+                        fi
+                    """
 
                     // Archiver tous les artefacts disponibles (Linux + Windows)
                     archiveArtifacts artifacts: "artifacts/**/*",
