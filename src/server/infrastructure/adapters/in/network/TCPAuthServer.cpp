@@ -114,10 +114,10 @@ namespace infrastructure::adapters::in::network {
     void Session::close()
     {
         // Cancel the timeout timer to stop the async loop
-        boost::system::error_code ec;
-        _timeoutTimer.cancel(ec);
+        _timeoutTimer.cancel();
 
         // Close the underlying socket
+        boost::system::error_code ec;
         _socket.lowest_layer().close(ec);
     }
 
