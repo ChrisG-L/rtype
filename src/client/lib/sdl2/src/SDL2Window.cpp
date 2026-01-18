@@ -212,6 +212,13 @@ events::Event SDL2Window::pollEvent()
                     };
                 }
                 break;
+            case SDL_WINDOWEVENT:
+                if (sdlEvent.window.event == SDL_WINDOWEVENT_RESIZED ||
+                    sdlEvent.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                    // Réappliquer le logical size pour maintenir le scaling 1920x1080
+                    SDL_RenderSetLogicalSize(_renderer, 1920, 1080);
+                }
+                break;
             default:
                 break;
         }

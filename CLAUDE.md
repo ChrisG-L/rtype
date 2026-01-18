@@ -390,6 +390,24 @@ class IWindow {
 // - SDL2Window (lib/sdl2/)
 ```
 
+### Fullscreen & Window Resize
+
+The client supports fullscreen toggle and automatic window resize handling with letterboxing.
+
+| Feature | Key/Trigger | Description |
+|---------|-------------|-------------|
+| Toggle Fullscreen | F11 | Switches between windowed (1920x1080) and fullscreen desktop mode |
+| Letterboxing | Automatic | Maintains 16:9 aspect ratio with black bars on non-16:9 screens |
+| Mouse Mapping | Automatic | Mouse coordinates are converted to logical 1920x1080 space |
+
+**Implementation:**
+- SFML: Uses `sf::View` with viewport adjustment and `mapPixelToCoords()` for mouse
+- SDL2: Uses `SDL_RenderSetLogicalSize()` which handles both scaling and mouse mapping
+
+**Platform Notes:**
+- Ubuntu/Linux: Window may be resized by window manager (taskbar), letterboxing handles this
+- Windows/macOS: Fullscreen desktop mode (borderless) for fast Alt+Tab
+
 ### Scene System
 
 ```cpp

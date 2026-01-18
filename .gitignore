@@ -48,6 +48,9 @@ test.wav
 # Environment files (contains secrets)
 .env
 .env.local
+
+# Dev mode marker file (local development only)
+version.dev
 .claude/agentdb/db.sqlite
 .claude/agentdb/db.sqlite-shm
 .claude/agentdb/db.sqlite-wal

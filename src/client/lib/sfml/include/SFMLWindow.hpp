@@ -72,6 +72,7 @@ class SFMLWindow: public graphics::IWindow {
 
         void initRenderTexture();
         sf::RenderTarget& getRenderTarget();
+        void handleResize(unsigned int newWidth, unsigned int newHeight);
 };
 
 #endif /* !SFMLWINDOW_HPP_ */
