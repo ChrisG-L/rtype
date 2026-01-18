@@ -160,7 +160,7 @@ void LoginScene::initUI()
     });
 
     // Server config button (bottom left)
-    constexpr float UBUNTU_OFFSET = 30.0f;
+    constexpr float UBUNTU_OFFSET = 0.0f;  // Removed: fullscreen mode handles this
     _serverConfigButton = std::make_unique<ui::Button>(
         Vec2f{20, SCREEN_HEIGHT - 70 - UBUNTU_OFFSET},
         Vec2f{120, 40},
@@ -451,7 +451,7 @@ void LoginScene::render()
     }
 
     // Draw connection status (next to SERVER button)
-    constexpr float UBUNTU_OFFSET = 30.0f;
+    constexpr float UBUNTU_OFFSET = 0.0f;  // Removed: fullscreen mode handles this
     std::string connStatus = (_context.tcpClient && _context.tcpClient->isConnected())
         ? "Connected" : "Disconnected";
     rgba connColor = (_context.tcpClient && _context.tcpClient->isConnected())

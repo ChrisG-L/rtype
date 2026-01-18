@@ -76,12 +76,29 @@ static events::Key scancodeToKey(sf::Keyboard::Scancode scancode)
         case sf::Keyboard::Scancode::RControl: return events::Key::RCtrl;
         case sf::Keyboard::Scancode::LAlt: return events::Key::LAlt;
         case sf::Keyboard::Scancode::RAlt: return events::Key::RAlt;
+        case sf::Keyboard::Scancode::F1: return events::Key::F1;
+        case sf::Keyboard::Scancode::F2: return events::Key::F2;
+        case sf::Keyboard::Scancode::F3: return events::Key::F3;
+        case sf::Keyboard::Scancode::F4: return events::Key::F4;
+        case sf::Keyboard::Scancode::F5: return events::Key::F5;
+        case sf::Keyboard::Scancode::F6: return events::Key::F6;
+        case sf::Keyboard::Scancode::F7: return events::Key::F7;
+        case sf::Keyboard::Scancode::F8: return events::Key::F8;
+        case sf::Keyboard::Scancode::F9: return events::Key::F9;
+        case sf::Keyboard::Scancode::F10: return events::Key::F10;
+        case sf::Keyboard::Scancode::F11: return events::Key::F11;
+        case sf::Keyboard::Scancode::F12: return events::Key::F12;
         default: return events::Key::Unknown;
     }
 }
 
-SFMLWindow::SFMLWindow(Vec2u winSize, const std::string& name) {
+SFMLWindow::SFMLWindow(Vec2u winSize, const std::string& name)
+    : _windowTitle(name)
+{
     _window.create(sf::VideoMode({winSize.x, winSize.y}), name);
+
+    // Appliquer le letterboxing pour la taille initiale (gère Ubuntu avec barre de tâches)
+    handleResize(winSize.x, winSize.y);
 }
 
 Vec2u SFMLWindow::getSize() const {
@@ -113,29 +130,40 @@ events::Event SFMLWindow::pollEvent()
             return events::KeyReleased{scancodeToKey(keyReleased->scancode)};
         }
         if (const auto* mousePressed = ev->getIf<sf::Event::MouseButtonPressed>()) {
+            // Convertir les coordonnées pixel en coordonnées logiques (view 1920x1080)
+            sf::Vector2f worldPos = _window.mapPixelToCoords(mousePressed->position);
             return events::MouseButtonPressed{
                 sfmlButtonToMouseButton(mousePressed->button),
-                static_cast<int>(mousePressed->position.x),
-                static_cast<int>(mousePressed->position.y)
+                static_cast<int>(worldPos.x),
+                static_cast<int>(worldPos.y)
             };
         }
         if (const auto* mouseReleased = ev->getIf<sf::Event::MouseButtonReleased>()) {
+            // Convertir les coordonnées pixel en coordonnées logiques (view 1920x1080)
+            sf::Vector2f worldPos = _window.mapPixelToCoords(mouseReleased->position);
             return events::MouseButtonReleased{
                 sfmlButtonToMouseButton(mouseReleased->button),
-                static_cast<int>(mouseReleased->position.x),
-                static_cast<int>(mouseReleased->position.y)
+                static_cast<int>(worldPos.x),
+                static_cast<int>(worldPos.y)
             };
         }
         if (const auto* mouseMoved = ev->getIf<sf::Event::MouseMoved>()) {
+            // Convertir les coordonnées pixel en coordonnées logiques (view 1920x1080)
+            sf::Vector2f worldPos = _window.mapPixelToCoords(mouseMoved->position);
             return events::MouseMoved{
-                static_cast<int>(mouseMoved->position.x),
-                static_cast<int>(mouseMoved->position.y)
+                static_cast<int>(worldPos.x),
+                static_cast<int>(worldPos.y)
             };
         }
         if (const auto* textEntered = ev->getIf<sf::Event::TextEntered>()) {
             return events::TextEntered{textEntered->unicode};
         }
-        // Événement non géré (Resized, FocusGained, etc.) → continuer à vider la queue
+        if (const auto* resized = ev->getIf<sf::Event::Resized>()) {
+            // Adapter la view pour maintenir le ratio 1920x1080 centré
+            handleResize(resized->size.x, resized->size.y);
+            return pollEvent();  // Continue polling, resize is handled internally
+        }
+        // Événement non géré (FocusGained, etc.) → continuer à vider la queue
         return pollEvent();
     }
     return events::None{};
@@ -301,4 +329,61 @@ void SFMLWindow::endFrame() {
         _window.draw(screenSprite, _activePostProcessShader);
     }
     _window.display();
+}
+
+// Fullscreen support implementation
+
+void SFMLWindow::setFullscreen(bool enabled) {
+    if (enabled) {
+        // Fullscreen desktop (borderless) - prend toute la résolution sans changer le mode vidéo
+        _window.create(sf::VideoMode::getDesktopMode(), _windowTitle, sf::Style::None);
+        _window.setPosition({0, 0});
+    } else {
+        // Mode fenêtré standard 1920x1080
+        _window.create(sf::VideoMode({1920, 1080}), _windowTitle, sf::Style::Default);
+    }
+
+    // Appliquer le letterboxing pour la nouvelle taille
+    auto size = _window.getSize();
+    handleResize(size.x, size.y);
+
+    // Réinitialiser la RenderTexture si nécessaire (pour les shaders)
+    if (_renderTextureInitialized) {
+        _renderTexture.resize({size.x, size.y});
+    }
+
+    _isFullscreen = enabled;
+}
+
+void SFMLWindow::toggleFullscreen() {
+    setFullscreen(!_isFullscreen);
+}
+
+bool SFMLWindow::isFullscreen() const {
+    return _isFullscreen;
+}
+
+void SFMLWindow::handleResize(unsigned int newWidth, unsigned int newHeight) {
+    // Calculer le viewport pour maintenir l'aspect ratio 16:9 (1920x1080)
+    constexpr float targetRatio = 1920.f / 1080.f;
+    float windowRatio = static_cast<float>(newWidth) / static_cast<float>(newHeight);
+
+    sf::View view(sf::FloatRect({0.f, 0.f}, {1920.f, 1080.f}));
+
+    if (windowRatio > targetRatio) {
+        // Fenêtre plus large que 16:9 → barres noires sur les côtés (letterboxing horizontal)
+        float viewportWidth = targetRatio / windowRatio;
+        view.setViewport(sf::FloatRect({(1.f - viewportWidth) / 2.f, 0.f}, {viewportWidth, 1.f}));
+    } else {
+        // Fenêtre plus haute que 16:9 → barres noires en haut/bas (letterboxing vertical)
+        float viewportHeight = windowRatio / targetRatio;
+        view.setViewport(sf::FloatRect({0.f, (1.f - viewportHeight) / 2.f}, {1.f, viewportHeight}));
+    }
+
+    _window.setView(view);
+
+    // Mettre à jour la RenderTexture si nécessaire
+    if (_renderTextureInitialized) {
+        _renderTexture.resize({newWidth, newHeight});
+    }
 }

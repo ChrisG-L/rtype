@@ -52,7 +52,14 @@ class SFMLWindow: public graphics::IWindow {
         void beginFrame() override;
         void endFrame() override;
 
+        // Fullscreen support
+        void setFullscreen(bool enabled) override;
+        void toggleFullscreen() override;
+        bool isFullscreen() const override;
+
     private:
+        bool _isFullscreen = false;
+        std::string _windowTitle;
         sf::RenderWindow _window;
         std::unordered_map<std::string, sf::Texture> _textures;
         std::unordered_map<std::string, sf::Font> _fonts;
@@ -65,6 +72,7 @@ class SFMLWindow: public graphics::IWindow {
 
         void initRenderTexture();
         sf::RenderTarget& getRenderTarget();
+        void handleResize(unsigned int newWidth, unsigned int newHeight);
 };
 
 #endif /* !SFMLWINDOW_HPP_ */
