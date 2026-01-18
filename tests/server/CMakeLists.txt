@@ -46,6 +46,9 @@ set(TEST_SOURCES
     # Tests ECS Integration (Phase 2)
     ecs/ECSPhase2IntegrationTest.cpp
 
+    # Tests ECS Integration (Phase 4.8)
+    ecs/ECSPhase48IntegrationTest.cpp
+
     # Tests ECS Systems (ECS Integration - Phase 3)
     ecs/systems/PlayerInputSystemTest.cpp
     ecs/systems/WeaponSystemTest.cpp

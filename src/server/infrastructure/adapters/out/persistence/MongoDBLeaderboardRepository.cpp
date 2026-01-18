@@ -3,6 +3,7 @@
 ** rtype
 ** File description:
 ** MongoDBLeaderboardRepository - MongoDB implementation for leaderboard and stats
+** Thread-safe implementation using connection pooling
 */
 
 #include "infrastructure/adapters/out/persistence/MongoDBLeaderboardRepository.hpp"
@@ -42,12 +43,7 @@ MongoDBLeaderboardRepository::MongoDBLeaderboardRepository(
     std::shared_ptr<MongoDBConfiguration> mongoDB)
     : _mongoDB(mongoDB)
 {
-    auto db = _mongoDB->getDatabaseConfig();
-    _leaderboardCollection = std::make_unique<mongocxx::v_noabi::collection>(db["leaderboard"]);
-    _playerStatsCollection = std::make_unique<mongocxx::v_noabi::collection>(db["player_stats"]);
-    _gameHistoryCollection = std::make_unique<mongocxx::v_noabi::collection>(db["game_history"]);
-    _achievementsCollection = std::make_unique<mongocxx::v_noabi::collection>(db["achievements"]);
-    _currentGameSessionsCollection = std::make_unique<mongocxx::v_noabi::collection>(db["current_game_sessions"]);
+    // No longer store collection objects - acquire from pool for each operation
 }
 
 std::string MongoDBLeaderboardRepository::periodToString(LeaderboardPeriod period) const {
@@ -159,6 +155,11 @@ GameHistoryEntry MongoDBLeaderboardRepository::documentToGameHistory(
 std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
     LeaderboardPeriod period, uint32_t limit)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto leaderboardCollection = db[LEADERBOARD_COLLECTION];
+
     std::vector<LeaderboardEntry> entries;
 
     try {
@@ -192,7 +193,7 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
         // Stage 5: Limit results
         pipeline.limit(static_cast<int32_t>(limit));
 
-        auto cursor = _leaderboardCollection->aggregate(pipeline);
+        auto cursor = leaderboardCollection.aggregate(pipeline);
 
         uint32_t rank = 1;
         for (auto&& doc : cursor) {
@@ -220,6 +221,11 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
 uint32_t MongoDBLeaderboardRepository::getPlayerRank(
     const std::string& email, LeaderboardPeriod period)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto leaderboardCollection = db[LEADERBOARD_COLLECTION];
+
     try {
         // Get player's best score for this period
         bsoncxx::builder::basic::document filter;
@@ -233,7 +239,7 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
         opts.sort(make_document(kvp("score", -1)));
         opts.limit(1);
 
-        auto result = _leaderboardCollection->find_one(filter.view(), opts);
+        auto result = leaderboardCollection.find_one(filter.view(), opts);
         if (!result) return 0;
 
         uint32_t playerScore = static_cast<uint32_t>(getInt64Safe(result->view()["score"]));
@@ -263,7 +269,7 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
         // Count the results
         pipe.count("count");
 
-        auto cursor = _leaderboardCollection->aggregate(pipe);
+        auto cursor = leaderboardCollection.aggregate(pipe);
         uint32_t count = 0;
         for (auto&& doc : cursor) {
             count = static_cast<uint32_t>(getInt64Safe(doc["count"]));
@@ -281,6 +287,11 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
 bool MongoDBLeaderboardRepository::submitScore(
     const std::string& email, const std::string& playerName, const LeaderboardEntry& entry)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto leaderboardCollection = db[LEADERBOARD_COLLECTION];
+
     auto now = std::chrono::system_clock::now();
     auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
         now.time_since_epoch()).count();
@@ -296,7 +307,7 @@ bool MongoDBLeaderboardRepository::submitScore(
         kvp("timestamp", timestamp)
     );
 
-    auto result = _leaderboardCollection->insert_one(doc.view());
+    auto result = leaderboardCollection.insert_one(doc.view());
     return result.has_value();
 }
 
@@ -306,7 +317,12 @@ bool MongoDBLeaderboardRepository::submitScore(
 
 std::optional<PlayerStats> MongoDBLeaderboardRepository::getPlayerStats(const std::string& email)
 {
-    auto result = _playerStatsCollection->find_one(make_document(kvp("email", email)));
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto playerStatsCollection = db[PLAYER_STATS_COLLECTION];
+
+    auto result = playerStatsCollection.find_one(make_document(kvp("email", email)));
     if (result.has_value()) {
         return documentToPlayerStats(result->view());
     }
@@ -316,9 +332,18 @@ std::optional<PlayerStats> MongoDBLeaderboardRepository::getPlayerStats(const st
 void MongoDBLeaderboardRepository::updatePlayerStats(
     const std::string& email, const std::string& playerName, const GameHistoryEntry& gameStats)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto playerStatsCollection = db[PLAYER_STATS_COLLECTION];
+    auto gameHistoryCollection = db[GAME_HISTORY_COLLECTION];
+
     // First, get existing stats or create new
-    auto existing = getPlayerStats(email);
-    PlayerStats stats = existing.value_or(PlayerStats{});
+    auto existingResult = playerStatsCollection.find_one(make_document(kvp("email", email)));
+    PlayerStats stats;
+    if (existingResult) {
+        stats = documentToPlayerStats(existingResult->view());
+    }
     stats.odId = email;
     stats.playerName = playerName;
 
@@ -398,7 +423,7 @@ void MongoDBLeaderboardRepository::updatePlayerStats(
     mongocxx::options::update options;
     options.upsert(true);
 
-    _playerStatsCollection->update_one(
+    playerStatsCollection.update_one(
         make_document(kvp("email", email)),
         make_document(kvp("$set", doc)),
         options
@@ -422,19 +447,24 @@ void MongoDBLeaderboardRepository::updatePlayerStats(
         kvp("bossDefeated", gameStats.bossDefeated)
     );
 
-    _gameHistoryCollection->insert_one(historyDoc.view());
+    gameHistoryCollection.insert_one(historyDoc.view());
 }
 
 std::vector<GameHistoryEntry> MongoDBLeaderboardRepository::getGameHistory(
     const std::string& email, uint32_t limit)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto gameHistoryCollection = db[GAME_HISTORY_COLLECTION];
+
     std::vector<GameHistoryEntry> entries;
 
     mongocxx::options::find opts;
     opts.sort(make_document(kvp("timestamp", -1)));
     opts.limit(static_cast<int64_t>(limit));
 
-    auto cursor = _gameHistoryCollection->find(
+    auto cursor = gameHistoryCollection.find(
         make_document(kvp("email", email)), opts);
 
     for (auto&& doc : cursor) {
@@ -450,9 +480,14 @@ std::vector<GameHistoryEntry> MongoDBLeaderboardRepository::getGameHistory(
 
 std::vector<AchievementRecord> MongoDBLeaderboardRepository::getAchievements(const std::string& email)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto achievementsCollection = db[ACHIEVEMENTS_COLLECTION];
+
     std::vector<AchievementRecord> records;
 
-    auto cursor = _achievementsCollection->find(make_document(kvp("email", email)));
+    auto cursor = achievementsCollection.find(make_document(kvp("email", email)));
 
     for (auto&& doc : cursor) {
         AchievementRecord record;
@@ -470,8 +505,14 @@ std::vector<AchievementRecord> MongoDBLeaderboardRepository::getAchievements(con
 
 bool MongoDBLeaderboardRepository::unlockAchievement(const std::string& email, AchievementType type)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto achievementsCollection = db[ACHIEVEMENTS_COLLECTION];
+    auto playerStatsCollection = db[PLAYER_STATS_COLLECTION];
+
     // Check if already unlocked
-    auto existing = _achievementsCollection->find_one(
+    auto existing = achievementsCollection.find_one(
         make_document(
             kvp("email", email),
             kvp("type", static_cast<int32_t>(type))
@@ -491,11 +532,11 @@ bool MongoDBLeaderboardRepository::unlockAchievement(const std::string& email, A
         kvp("unlockedAt", timestamp)
     );
 
-    auto result = _achievementsCollection->insert_one(doc.view());
+    auto result = achievementsCollection.insert_one(doc.view());
 
     // Also update the bitmask in player_stats
     if (result) {
-        _playerStatsCollection->update_one(
+        playerStatsCollection.update_one(
             make_document(kvp("email", email)),
             make_document(kvp("$bit", make_document(
                 kvp("achievements", make_document(
@@ -533,6 +574,11 @@ void MongoDBLeaderboardRepository::saveCurrentGameSession(
     const std::string& email, const std::string& playerName,
     const std::string& roomCode, const GameHistoryEntry& gameStats)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto currentGameSessionsCollection = db[CURRENT_GAME_SESSIONS_COLLECTION];
+
     auto now = std::chrono::system_clock::now();
     auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
         now.time_since_epoch()).count();
@@ -566,7 +612,7 @@ void MongoDBLeaderboardRepository::saveCurrentGameSession(
     mongocxx::options::update options;
     options.upsert(true);
 
-    _currentGameSessionsCollection->update_one(
+    currentGameSessionsCollection.update_one(
         make_document(kvp("email", email)),
         make_document(kvp("$set", doc)),
         options
@@ -576,29 +622,153 @@ void MongoDBLeaderboardRepository::saveCurrentGameSession(
 void MongoDBLeaderboardRepository::finalizeGameSession(
     const std::string& email, const std::string& playerName)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto currentGameSessionsCollection = db[CURRENT_GAME_SESSIONS_COLLECTION];
+    auto playerStatsCollection = db[PLAYER_STATS_COLLECTION];
+    auto gameHistoryCollection = db[GAME_HISTORY_COLLECTION];
+
     auto logger = server::logging::Logger::getGameLogger();
     logger->debug("[MongoDB] finalizeGameSession: email={}, playerName={}", email, playerName);
 
     // Find the current game session
-    auto sessionOpt = getCurrentGameSession(email);
-    if (!sessionOpt) {
+    auto sessionResult = currentGameSessionsCollection.find_one(
+        make_document(kvp("email", email))
+    );
+
+    if (!sessionResult) {
         logger->debug("[MongoDB] finalizeGameSession: No current_game_session found for email={}", email);
         return;  // No session to finalize
     }
 
-    const auto& session = *sessionOpt;
+    auto sessionDoc = sessionResult->view();
+    GameHistoryEntry session;
+    if (sessionDoc["email"]) session.odId = std::string(sessionDoc["email"].get_string().value);
+    if (sessionDoc["playerName"]) session.playerName = std::string(sessionDoc["playerName"].get_string().value);
+    if (sessionDoc["score"]) session.score = static_cast<uint32_t>(getInt64Safe(sessionDoc["score"]));
+    if (sessionDoc["wave"]) session.wave = static_cast<uint16_t>(getInt32Safe(sessionDoc["wave"]));
+    if (sessionDoc["kills"]) session.kills = static_cast<uint16_t>(getInt32Safe(sessionDoc["kills"]));
+    if (sessionDoc["deaths"]) session.deaths = static_cast<uint8_t>(getInt32Safe(sessionDoc["deaths"]));
+    if (sessionDoc["duration"]) session.duration = static_cast<uint32_t>(getInt64Safe(sessionDoc["duration"]));
+    if (sessionDoc["standardKills"]) session.standardKills = static_cast<uint32_t>(getInt64Safe(sessionDoc["standardKills"]));
+    if (sessionDoc["spreadKills"]) session.spreadKills = static_cast<uint32_t>(getInt64Safe(sessionDoc["spreadKills"]));
+    if (sessionDoc["laserKills"]) session.laserKills = static_cast<uint32_t>(getInt64Safe(sessionDoc["laserKills"]));
+    if (sessionDoc["missileKills"]) session.missileKills = static_cast<uint32_t>(getInt64Safe(sessionDoc["missileKills"]));
+    if (sessionDoc["waveCannonKills"]) session.waveCannonKills = static_cast<uint32_t>(getInt64Safe(sessionDoc["waveCannonKills"]));
+    if (sessionDoc["bossKills"]) session.bossKills = static_cast<uint8_t>(getInt32Safe(sessionDoc["bossKills"]));
+    if (sessionDoc["bestCombo"]) session.bestCombo = static_cast<uint16_t>(getInt32Safe(sessionDoc["bestCombo"]));
+    if (sessionDoc["bestKillStreak"]) session.bestKillStreak = static_cast<uint16_t>(getInt32Safe(sessionDoc["bestKillStreak"]));
+    if (sessionDoc["bestWaveStreak"]) session.bestWaveStreak = static_cast<uint16_t>(getInt32Safe(sessionDoc["bestWaveStreak"]));
+    if (sessionDoc["perfectWaves"]) session.perfectWaves = static_cast<uint16_t>(getInt32Safe(sessionDoc["perfectWaves"]));
+    if (sessionDoc["totalDamageDealt"]) session.totalDamageDealt = static_cast<uint64_t>(getInt64Safe(sessionDoc["totalDamageDealt"]));
+    if (sessionDoc["bossDefeated"]) session.bossDefeated = sessionDoc["bossDefeated"].get_bool().value;
 
     // Only finalize if there's actual game data
     if (session.score == 0 && session.kills == 0) {
-        _currentGameSessionsCollection->delete_one(make_document(kvp("email", email)));
+        currentGameSessionsCollection.delete_one(make_document(kvp("email", email)));
         return;
     }
 
-    // Transfer to updatePlayerStats (which adds to cumulative stats and game_history)
-    updatePlayerStats(email, playerName, session);
+    // Get existing stats or create new
+    auto existingResult = playerStatsCollection.find_one(make_document(kvp("email", email)));
+    PlayerStats stats;
+    if (existingResult) {
+        stats = documentToPlayerStats(existingResult->view());
+    }
+    stats.odId = email;
+    stats.playerName = playerName;
+
+    // Update cumulative stats
+    stats.totalScore += session.score;
+    stats.totalKills += session.kills;
+    stats.totalDeaths += session.deaths;
+    stats.totalPlaytime += session.duration;
+    stats.gamesPlayed++;
+
+    // Update best records
+    if (session.score > stats.bestScore) stats.bestScore = session.score;
+    if (session.wave > stats.bestWave) stats.bestWave = session.wave;
+    if (session.bestKillStreak > stats.bestKillStreak) stats.bestKillStreak = session.bestKillStreak;
+    if (session.bestWaveStreak > stats.bestWaveStreak) stats.bestWaveStreak = session.bestWaveStreak;
+    if (session.bestCombo > stats.bestCombo) stats.bestCombo = session.bestCombo;
+    stats.totalPerfectWaves += session.perfectWaves;
+
+    // Update weapon kills
+    if (session.standardKills > 0 || session.spreadKills > 0 ||
+        session.laserKills > 0 || session.missileKills > 0 || session.waveCannonKills > 0) {
+        stats.standardKills += session.standardKills;
+        stats.spreadKills += session.spreadKills;
+        stats.laserKills += session.laserKills;
+        stats.missileKills += session.missileKills;
+        stats.waveCannonKills += session.waveCannonKills;
+    }
+
+    if (session.bossKills > 0) {
+        stats.bossKills += session.bossKills;
+    } else if (session.bossDefeated) {
+        stats.bossKills++;
+    }
+
+    stats.totalDamageDealt += session.totalDamageDealt;
+
+    // Save updated stats
+    auto statsDoc = make_document(
+        kvp("email", email),
+        kvp("playerName", playerName),
+        kvp("totalScore", static_cast<int64_t>(stats.totalScore)),
+        kvp("totalKills", static_cast<int64_t>(stats.totalKills)),
+        kvp("totalDeaths", static_cast<int64_t>(stats.totalDeaths)),
+        kvp("totalPlaytime", static_cast<int64_t>(stats.totalPlaytime)),
+        kvp("gamesPlayed", static_cast<int64_t>(stats.gamesPlayed)),
+        kvp("bestScore", static_cast<int64_t>(stats.bestScore)),
+        kvp("bestWave", static_cast<int32_t>(stats.bestWave)),
+        kvp("bestCombo", static_cast<int32_t>(stats.bestCombo)),
+        kvp("bestKillStreak", static_cast<int32_t>(stats.bestKillStreak)),
+        kvp("bestWaveStreak", static_cast<int32_t>(stats.bestWaveStreak)),
+        kvp("totalPerfectWaves", static_cast<int64_t>(stats.totalPerfectWaves)),
+        kvp("bossKills", static_cast<int32_t>(stats.bossKills)),
+        kvp("standardKills", static_cast<int64_t>(stats.standardKills)),
+        kvp("spreadKills", static_cast<int64_t>(stats.spreadKills)),
+        kvp("laserKills", static_cast<int64_t>(stats.laserKills)),
+        kvp("missileKills", static_cast<int64_t>(stats.missileKills)),
+        kvp("waveCannonKills", static_cast<int64_t>(stats.waveCannonKills)),
+        kvp("totalDamageDealt", static_cast<int64_t>(stats.totalDamageDealt)),
+        kvp("achievements", static_cast<int64_t>(stats.achievements)),
+        kvp("updatedAt", bsoncxx::types::b_date{std::chrono::system_clock::now()})
+    );
+
+    mongocxx::options::update options;
+    options.upsert(true);
+
+    playerStatsCollection.update_one(
+        make_document(kvp("email", email)),
+        make_document(kvp("$set", statsDoc)),
+        options
+    );
+
+    // Also save to game history
+    auto now = std::chrono::system_clock::now();
+    auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+        now.time_since_epoch()).count();
+
+    auto historyDoc = make_document(
+        kvp("email", email),
+        kvp("playerName", playerName),
+        kvp("score", static_cast<int64_t>(session.score)),
+        kvp("wave", static_cast<int32_t>(session.wave)),
+        kvp("kills", static_cast<int32_t>(session.kills)),
+        kvp("deaths", static_cast<int32_t>(session.deaths)),
+        kvp("duration", static_cast<int64_t>(session.duration)),
+        kvp("timestamp", timestamp),
+        kvp("weaponUsed", static_cast<int32_t>(session.weaponUsed)),
+        kvp("bossDefeated", session.bossDefeated)
+    );
+
+    gameHistoryCollection.insert_one(historyDoc.view());
 
     // Delete the current session
-    _currentGameSessionsCollection->delete_one(make_document(kvp("email", email)));
+    currentGameSessionsCollection.delete_one(make_document(kvp("email", email)));
     logger->info("[Leaderboard] Stats saved for {} (score={}, kills={}, wave={})",
                 playerName, session.score, session.kills, session.wave);
 }
@@ -606,7 +776,12 @@ void MongoDBLeaderboardRepository::finalizeGameSession(
 std::optional<GameHistoryEntry> MongoDBLeaderboardRepository::getCurrentGameSession(
     const std::string& email)
 {
-    auto result = _currentGameSessionsCollection->find_one(
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto currentGameSessionsCollection = db[CURRENT_GAME_SESSIONS_COLLECTION];
+
+    auto result = currentGameSessionsCollection.find_one(
         make_document(kvp("email", email))
     );
 

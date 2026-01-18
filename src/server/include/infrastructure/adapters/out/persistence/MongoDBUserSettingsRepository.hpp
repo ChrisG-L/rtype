@@ -23,7 +23,7 @@ using application::ports::out::persistence::UserSettingsData;
 class MongoDBUserSettingsRepository : public IUserSettingsRepository {
 private:
     std::shared_ptr<MongoDBConfiguration> _mongoDB;
-    std::unique_ptr<mongocxx::v_noabi::collection> _collection;
+    static constexpr const char* COLLECTION_NAME = "user_settings";
 
     UserSettingsData documentToSettings(const bsoncxx::document::view& doc);
 

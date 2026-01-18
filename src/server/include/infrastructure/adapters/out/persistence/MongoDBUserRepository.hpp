@@ -23,8 +23,12 @@ namespace infrastructure::adapters::out::persistence {
 
     class MongoDBUserRepository: public IUserRepository {
         private:
-            static std::shared_ptr<MongoDBConfiguration> _mongoDB;
-            std::unique_ptr<mongocxx::v_noabi::collection> _collection;
+            std::shared_ptr<MongoDBConfiguration> _mongoDB;
+            static constexpr const char* COLLECTION_NAME = "user";
+
+            // Helper to get collection from a pooled client (thread-safe)
+            mongocxx::collection getCollection();
+
         public:
             explicit MongoDBUserRepository(std::shared_ptr<MongoDBConfiguration> mongoDB);
             ~MongoDBUserRepository();

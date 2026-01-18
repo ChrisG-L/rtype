@@ -45,14 +45,13 @@ namespace infrastructure::adapters::in::network {
 
     Session::~Session() noexcept
     {
-        // Notify TCPAuthServer to unregister this session from tracking
-        if (_onClose) {
-            try {
-                _onClose(this);
-            } catch (...) {
-                // Ignore exceptions in callback
-            }
-        }
+        // NOTE: Do NOT call _onClose here!
+        // _onClose is already called in timeout/read-error handlers when the session
+        // needs to be removed from TCPAuthServer's _activeSessions.
+        // If we're in the destructor, either:
+        // 1. _onClose was already called (session closed normally)
+        // 2. TCPAuthServer is being destroyed (shutdown) and _activeSessions is gone
+        // Calling _onClose here would cause use-after-free during server shutdown.
 
         try {
             auto logger = server::logging::Logger::getNetworkLogger();
@@ -155,11 +154,15 @@ namespace infrastructure::adapters::in::network {
                     // Read error (client disconnected, connection reset, etc.)
                     // Unregister from TCPAuthServer to allow Session destruction
                     // which will clean up SessionManager
+                    //
+                    // IMPORTANT: Don't call _onClose for operation_aborted!
+                    // operation_aborted means close() was called (intentional shutdown).
+                    // In that case, TCPAuthServer may already be destroyed.
                     if (ec != boost::asio::error::operation_aborted) {
                         logger->debug("TCP session read error: {} - cleaning up", ec.message());
-                    }
-                    if (_onClose) {
-                        _onClose(this);
+                        if (_onClose) {
+                            _onClose(this);
+                        }
                     }
                 }
             }

@@ -13,7 +13,7 @@
 | **Phase 1** | ✅ | ECS Core + Components + DomainBridge (80 tests) |
 | **Phase 2** | ✅ | Systems de base (80 tests) |
 | **Phase 3** | ✅ | Systems avancés (90 tests) |
-| **Phase 4** | 🔄 | GameWorld migration (4.6 ✅, 4.8 pending) |
+| **Phase 4** | ✅ | GameWorld migration (4.6 ✅, 4.8 ✅) |
 
 **Total**: 310+ tests | **Branch**: `ECS_realImpl` | **Updated**: 2026-01-18
 
@@ -33,7 +33,7 @@
 | 4.5 | CMakeLists.txt updated | ✅ |
 | 4.6 | `getSnapshot()` from ECS | ✅ Complete |
 | 4.7 | `runECSUpdate()` drives movement | ✅ |
-| 4.8 | Integration tests | ❌ Pending |
+| 4.8 | Integration tests | ✅ Complete |
 
 ### Current Architecture (Phase 4.6+)
 
@@ -221,14 +221,14 @@ cmake -B build -DUSE_ECS_BACKEND=ON
 
 ## Next Steps
 
-### Immediate (Phase 4)
+### Phase 4 Complete
 
-| Priority | Task | Status |
-|----------|------|--------|
-| ~~High~~ | ~~Phase 4.6: `getSnapshot()` reads from ECS~~ | ✅ Complete |
-| Medium | Phase 4.8: Integration tests | ❌ Pending |
+| Task | Status |
+|------|--------|
+| Phase 4.6: `getSnapshot()` reads from ECS | ✅ Complete |
+| Phase 4.8: Integration tests | ✅ Complete |
 
-### Future (Phase 5+)
+### Next: Phase 5+
 
 | Priority | Task |
 |----------|------|
@@ -246,6 +246,9 @@ cmake -B build -DUSE_ECS_BACKEND=ON
 | `ECS::ECS` incomplete type | Added `#include "core/ECS.hpp"` to .cpp files |
 | Entity ID 0 as "not found" | `findPlayerByID()` returns `std::optional<EntityID>` |
 | Screen width 800 in tests | Updated to 1920 from Constants.hpp |
+| MongoDB socket crash on reconnect | Migrated from single `mongocxx::client` to `mongocxx::pool` for thread-safety |
+| Session use-after-free on shutdown | Removed `_onClose` from Session destructor, only call on real errors |
+| ECS memory leak on shutdown | Fixed `ECS::shutdown()` to properly delete heap-allocated components |
 
 ---
 

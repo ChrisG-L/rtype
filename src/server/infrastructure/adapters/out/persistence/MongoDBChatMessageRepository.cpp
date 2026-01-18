@@ -18,16 +18,17 @@ MongoDBChatMessageRepository::MongoDBChatMessageRepository(
     std::shared_ptr<MongoDBConfiguration> mongoDB)
     : _mongoDB(mongoDB)
 {
-    auto db = _mongoDB->getDatabaseConfig();
-    _collection = std::make_unique<mongocxx::v_noabi::collection>(db["chat_messages"]);
-
     // Create index for efficient queries (room_code + timestamp)
     // This is idempotent - MongoDB won't create duplicate indexes
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
     auto indexKeys = make_document(
         kvp("room_code", 1),
         kvp("timestamp", 1)
     );
-    _collection->create_index(indexKeys.view());
+    collection.create_index(indexKeys.view());
 }
 
 bsoncxx::types::b_date MongoDBChatMessageRepository::timePointToDate(
@@ -67,6 +68,11 @@ ChatMessageData MongoDBChatMessageRepository::documentToMessage(
 
 void MongoDBChatMessageRepository::save(const ChatMessageData& message)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
     auto logger = server::logging::Logger::getMainLogger();
     logger->debug("MongoDBChatMessageRepository::save - room_code={}, display_name={}, message={}",
                   message.roomCode, message.displayName, message.message);
@@ -78,7 +84,7 @@ void MongoDBChatMessageRepository::save(const ChatMessageData& message)
         kvp("timestamp", timePointToDate(message.timestamp))
     );
 
-    auto result = _collection->insert_one(doc.view());
+    auto result = collection.insert_one(doc.view());
     if (result) {
         logger->debug("MongoDBChatMessageRepository::save - Insert successful");
     } else {
@@ -89,6 +95,11 @@ void MongoDBChatMessageRepository::save(const ChatMessageData& message)
 std::vector<ChatMessageData> MongoDBChatMessageRepository::findByRoomCode(
     const std::string& roomCode, size_t limit)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
     auto logger = server::logging::Logger::getMainLogger();
     logger->debug("MongoDBChatMessageRepository::findByRoomCode - room_code={}, limit={}", roomCode, limit);
 
@@ -101,7 +112,7 @@ std::vector<ChatMessageData> MongoDBChatMessageRepository::findByRoomCode(
     opts.sort(sort.view());
     opts.limit(static_cast<int64_t>(limit));
 
-    auto cursor = _collection->find(filter.view(), opts);
+    auto cursor = collection.find(filter.view(), opts);
     for (auto&& doc : cursor) {
         messages.push_back(documentToMessage(doc));
     }
@@ -112,19 +123,34 @@ std::vector<ChatMessageData> MongoDBChatMessageRepository::findByRoomCode(
 
 bool MongoDBChatMessageRepository::hasHistoryForCode(const std::string& roomCode)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
     auto filter = make_document(kvp("room_code", roomCode));
-    auto count = _collection->count_documents(filter.view());
+    auto count = collection.count_documents(filter.view());
     return count > 0;
 }
 
 void MongoDBChatMessageRepository::deleteByRoomCode(const std::string& roomCode)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
     auto filter = make_document(kvp("room_code", roomCode));
-    _collection->delete_many(filter.view());
+    collection.delete_many(filter.view());
 }
 
 void MongoDBChatMessageRepository::deleteOldestRoomHistory()
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
     // Find the oldest message across all rooms
     auto sort = make_document(kvp("timestamp", 1));  // Ascending (oldest first)
 
@@ -132,11 +158,11 @@ void MongoDBChatMessageRepository::deleteOldestRoomHistory()
     opts.sort(sort.view());
     opts.limit(1);
 
-    auto cursor = _collection->find(make_document().view(), opts);
+    auto cursor = collection.find(make_document().view(), opts);
     for (auto&& doc : cursor) {
         if (doc["room_code"]) {
             std::string oldestRoomCode = std::string(doc["room_code"].get_string().value);
-            // Delete all messages for this room
+            // Delete all messages for this room (uses its own pooled connection)
             deleteByRoomCode(oldestRoomCode);
             return;
         }

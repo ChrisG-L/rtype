@@ -10,17 +10,22 @@
 #include "domain/exceptions/user/EmailAlreadyExistsException.hpp"
 
 namespace infrastructure::adapters::out::persistence {
-    static std::unique_ptr<mongocxx::instance> _instance;
-    std::shared_ptr<MongoDBConfiguration> MongoDBUserRepository::_mongoDB = nullptr;
 
     MongoDBUserRepository::MongoDBUserRepository(std::shared_ptr<MongoDBConfiguration> mongoDB)
+        : _mongoDB(mongoDB)
     {
-        _mongoDB = mongoDB;
-        auto db = _mongoDB->getDatabaseConfig();
-        _collection = std::make_unique<mongocxx::v_noabi::collection>(db["user"]);
+        // No longer store collection - acquire from pool for each operation
     }
 
     MongoDBUserRepository::~MongoDBUserRepository() = default;
+
+    mongocxx::collection MongoDBUserRepository::getCollection() {
+        // Note: This acquires a temporary client. The caller must ensure
+        // the client stays alive by calling acquireClient() separately.
+        // This method is kept for backward compatibility but should not be used.
+        auto client = _mongoDB->acquireClient();
+        return _mongoDB->getDatabase(client)[COLLECTION_NAME];
+    }
 
     bsoncxx::types::b_date MongoDBUserRepository::timePointToDate(
         const std::chrono::system_clock::time_point& tp) const {
@@ -55,11 +60,16 @@ namespace infrastructure::adapters::out::persistence {
     }
 
     void MongoDBUserRepository::save(const User& user) const {
-        auto isUserExist = _collection->find_one(make_document(kvp("username", user.getUsername().value())));
+        // Acquire client from pool (thread-safe) - stays alive for this method
+        auto client = const_cast<MongoDBUserRepository*>(this)->_mongoDB->acquireClient();
+        auto db = const_cast<MongoDBUserRepository*>(this)->_mongoDB->getDatabase(client);
+        auto collection = db[COLLECTION_NAME];
+
+        auto isUserExist = collection.find_one(make_document(kvp("username", user.getUsername().value())));
         if (isUserExist.has_value()) {
             throw domain::exceptions::user::UsernameAlreadyExistsException(user.getUsername().value());
         }
-        auto isEmailExist = _collection->find_one(make_document(kvp("email", user.getEmail().value())));
+        auto isEmailExist = collection.find_one(make_document(kvp("email", user.getEmail().value())));
         if (isEmailExist.has_value()) {
             throw domain::exceptions::user::EmailAlreadyExistsException(user.getEmail().value());
         }
@@ -69,10 +79,15 @@ namespace infrastructure::adapters::out::persistence {
             kvp("password", user.getPasswordHash().value()),
             kvp("lastLogin", timePointToDate(user.getLastLogin())),
             kvp("createAt", timePointToDate(user.getCreatedAt())));
-        _collection->insert_one(user_doc.view());
+        collection.insert_one(user_doc.view());
     }
 
     void MongoDBUserRepository::update(const User& user) {
+        // Acquire client from pool (thread-safe) - stays alive for this method
+        auto client = _mongoDB->acquireClient();
+        auto db = _mongoDB->getDatabase(client);
+        auto collection = db[COLLECTION_NAME];
+
         // Find by ObjectId and update the fields
         bsoncxx::oid oid(user.getId().value());
 
@@ -86,40 +101,59 @@ namespace infrastructure::adapters::out::persistence {
             ))
         );
 
-        _collection->update_one(filter.view(), update.view());
+        collection.update_one(filter.view(), update.view());
     }
 
     std::optional<User> MongoDBUserRepository::findById(const std::string& id) {
+        // Acquire client from pool (thread-safe) - stays alive for this method
+        auto client = _mongoDB->acquireClient();
+        auto db = _mongoDB->getDatabase(client);
+        auto collection = db[COLLECTION_NAME];
+
         std::optional<User> user;
-        auto result = _collection->find_one(make_document(kvp("_id", id)));
+        auto result = collection.find_one(make_document(kvp("_id", id)));
         if (result.has_value())
             user = documentToUser(result->view());
         return user;
     }
 
     std::optional<User> MongoDBUserRepository::findByName(const std::string& username) {
+        // Acquire client from pool (thread-safe) - stays alive for this method
+        auto client = _mongoDB->acquireClient();
+        auto db = _mongoDB->getDatabase(client);
+        auto collection = db[COLLECTION_NAME];
+
         std::optional<User> user;
-        auto result = _collection->find_one(make_document(kvp("username", username)));
+        auto result = collection.find_one(make_document(kvp("username", username)));
         if (result.has_value())
             user = documentToUser(result->view());
         return user;
     }
 
     std::optional<User> MongoDBUserRepository::findByEmail(const std::string& email) {
+        // Acquire client from pool (thread-safe) - stays alive for this method
+        auto client = _mongoDB->acquireClient();
+        auto db = _mongoDB->getDatabase(client);
+        auto collection = db[COLLECTION_NAME];
+
         std::optional<User> user;
-        auto result = _collection->find_one(make_document(kvp("email", email)));
+        auto result = collection.find_one(make_document(kvp("email", email)));
         if (result.has_value())
             user = documentToUser(result->view());
         return user;
     }
 
     std::vector<User> MongoDBUserRepository::findAll() {
+        // Acquire client from pool (thread-safe) - stays alive for this method
+        auto client = _mongoDB->acquireClient();
+        auto db = _mongoDB->getDatabase(client);
+        auto collection = db[COLLECTION_NAME];
+
         std::vector<User> users;
-        auto cursor = _collection->find({});
+        auto cursor = collection.find({});
         for (auto&& doc : cursor) {
             users.push_back(documentToUser(doc));
         }
         return users;
     }
 }
-

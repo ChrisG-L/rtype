@@ -40,8 +40,7 @@ MongoDBUserSettingsRepository::MongoDBUserSettingsRepository(
     std::shared_ptr<MongoDBConfiguration> mongoDB)
     : _mongoDB(mongoDB)
 {
-    auto db = _mongoDB->getDatabaseConfig();
-    _collection = std::make_unique<mongocxx::v_noabi::collection>(db["user_settings"]);
+    // No longer store collection - acquire from pool for each operation
 }
 
 UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
@@ -113,7 +112,12 @@ UserSettingsData MongoDBUserSettingsRepository::documentToSettings(
 std::optional<UserSettingsData> MongoDBUserSettingsRepository::findByEmail(
     const std::string& email)
 {
-    auto result = _collection->find_one(make_document(kvp("email", email)));
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
+    auto result = collection.find_one(make_document(kvp("email", email)));
     if (result.has_value()) {
         return documentToSettings(result->view());
     }
@@ -124,6 +128,11 @@ void MongoDBUserSettingsRepository::save(
     const std::string& email,
     const UserSettingsData& settings)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
     // Build key bindings array
     bsoncxx::builder::basic::array keyBindingsArray;
     for (const auto& key : settings.keyBindings) {
@@ -152,7 +161,7 @@ void MongoDBUserSettingsRepository::save(
     mongocxx::options::update options;
     options.upsert(true);
 
-    _collection->update_one(
+    collection.update_one(
         filter.view(),
         make_document(kvp("$set", doc)),
         options
@@ -161,7 +170,12 @@ void MongoDBUserSettingsRepository::save(
 
 void MongoDBUserSettingsRepository::remove(const std::string& email)
 {
-    _collection->delete_one(make_document(kvp("email", email)));
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto collection = db[COLLECTION_NAME];
+
+    collection.delete_one(make_document(kvp("email", email)));
 }
 
 } // namespace infrastructure::adapters::out::persistence
