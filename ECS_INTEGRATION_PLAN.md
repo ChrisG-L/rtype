@@ -1714,4 +1714,278 @@ namespace ECSConstants {
 
 ---
 
-*Document généré pour le projet R-Type - Janvier 2026*
+## 10. État d'Avancement Actuel (Janvier 2026)
+
+> **Mise à jour** : 2026-01-18
+> **Branche** : `ECS_realImpl`
+> **Tests** : 310+ passent
+
+### 10.1 Récapitulatif des Phases Complétées
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 PHASES COMPLÉTÉES (0-3 Core)                │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ✅ Phase 0 - Domain Services                               │
+│     └─ GameRule, CollisionRule, EnemyBehavior (96 tests)   │
+│                                                              │
+│  ✅ Phase 1 - ECS Core & Components                         │
+│     ├─ ECS Blob intégré dans infrastructure/ecs/           │
+│     ├─ DomainBridge créé (32 tests)                        │
+│     └─ 6 Components base: Position, Velocity, Health,      │
+│        Hitbox, Lifetime, Owner                              │
+│                                                              │
+│  ✅ Phase 2 - Systems de Base                               │
+│     ├─ MovementSystem (pos += vel × dt)                    │
+│     ├─ LifetimeSystem (expiration)                         │
+│     ├─ CleanupSystem (OOB removal)                         │
+│     ├─ CollisionSystem (O(n²) AABB)                        │
+│     ├─ DamageSystem (collision → damage → death)           │
+│     └─ 5 Components: MissileTag, EnemyTag, EnemyAIComp,    │
+│        PowerUpTag, WaveCannonTag                            │
+│                                                              │
+│  ✅ Phase 3 Core - Systems Avancés                          │
+│     ├─ PlayerInputSystem (input → velocity, clamp)         │
+│     ├─ WeaponSystem (cooldowns, missile spawn)             │
+│     ├─ ScoreSystem (combo decay, kill score)               │
+│     ├─ EnemyAISystem (patterns, shooting)                  │
+│     └─ 4 Components: PlayerTag, ScoreComp, WeaponComp,     │
+│        SpeedLevelComp                                       │
+│                                                              │
+│  Total: 9 Systems, 15 Components, 310+ tests               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 10.2 Écart Critique : Migration Non Effectuée
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ⚠️  ÉCART CRITIQUE                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Les Systems ECS sont CRÉÉS mais PAS INTÉGRÉS.              │
+│                                                              │
+│  GameWorld.cpp utilise toujours :                           │
+│    - std::unordered_map<uint8_t, PlayerData> _players      │
+│    - std::unordered_map<uint16_t, EnemyData> _enemies      │
+│    - std::unordered_map<uint16_t, MissileData> _missiles   │
+│    - ... autres maps legacy                                 │
+│                                                              │
+│  Les Systems ECS ne sont PAS appelés dans update().         │
+│                                                              │
+│  → Prochaine étape : Migration GameWorld                   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 10.3 Plan Révisé des Phases Restantes
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PHASES RESTANTES                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Phase 4 - Migration GameWorld (PRIORITÉ HAUTE)            │
+│  ───────────────────────────────────────────────            │
+│  Objectif: Remplacer les maps legacy par l'ECS              │
+│                                                              │
+│  4.1 Infrastructure ECS dans GameWorld                      │
+│      ☐ Ajouter ECS::ECS _ecs membre                        │
+│      ☐ Ajouter DomainBridge _domainBridge membre           │
+│      ☐ Créer initializeECS() pour enregistrer components   │
+│      ☐ Créer registerSystems() avec priorités              │
+│                                                              │
+│  4.2 Migration Joueurs                                      │
+│      ☐ addPlayer() → créer entité ECS                      │
+│      ☐ removePlayer() → supprimer entité ECS               │
+│      ☐ updatePlayerPosition() → modifier PositionComp      │
+│      ☐ Supprimer _players map                               │
+│      ☐ Test: addPlayer + getSnapshot                       │
+│                                                              │
+│  4.3 Migration Missiles                                     │
+│      ☐ spawnMissile() → créer entité ECS via WeaponSystem  │
+│      ☐ Supprimer _missiles map                              │
+│      ☐ Test: spawnMissile + movement + collision           │
+│                                                              │
+│  4.4 Migration Ennemis                                      │
+│      ☐ spawnEnemy() → créer entité ECS                     │
+│      ☐ spawnWave() → créer multiple entités                │
+│      ☐ Supprimer _enemies map                               │
+│      ☐ Test: spawnWave + AI + collision                    │
+│                                                              │
+│  4.5 Migration PowerUps & WaveCannons                       │
+│      ☐ spawnPowerUp() → créer entité ECS                   │
+│      ☐ handleWaveCannonCharge() → via WeaponSystem         │
+│      ☐ Supprimer _powerups, _waveCannons maps              │
+│                                                              │
+│  4.6 Adaptation getSnapshot()                               │
+│      ☐ Query ECS pour construire GameSnapshot              │
+│      ☐ Conversion ECS Components → Protocol structs        │
+│      ☐ Test: snapshot sérialization                        │
+│                                                              │
+│  4.7 Remplacement update()                                  │
+│      ☐ update() appelle _ecs.Update()                      │
+│      ☐ Supprimer boucles legacy                            │
+│      ☐ Supprimer checkCollisions() legacy                  │
+│                                                              │
+│  Critère Go: Gameplay identique, snapshot compatible        │
+│  Durée estimée: 2-3 sessions                                │
+│                                                              │
+│  ─────────────────────────────────────────────────────────  │
+│                                                              │
+│  Phase 5 - Systems Auxiliaires (PRIORITÉ MOYENNE)          │
+│  ─────────────────────────────────────────────────          │
+│  Objectif: Compléter les entités spéciales R-Type           │
+│                                                              │
+│  5.1 Force Pod                                              │
+│      ☐ Créer ForcePodTag component                         │
+│      ☐ Créer ForcePodSystem (attach/detach, follow)        │
+│      ☐ Migrer _forcePods map                               │
+│      ☐ Tests: attach, detach, collision                    │
+│                                                              │
+│  5.2 Bit Devices                                            │
+│      ☐ Créer BitDeviceTag component                        │
+│      ☐ Créer BitDeviceSystem (orbit, auto-shoot)           │
+│      ☐ Migrer _bitDevices map                              │
+│      ☐ Tests: orbit, shooting                              │
+│                                                              │
+│  5.3 Boss                                                   │
+│      ☐ Créer BossTag component                             │
+│      ☐ Créer BossSystem (phases, patterns)                 │
+│      ☐ Migrer _boss state                                  │
+│      ☐ Tests: phases, attacks, death                       │
+│                                                              │
+│  Critère Go: Tous les types d'entités gérés par ECS        │
+│  Durée estimée: 1-2 sessions                                │
+│                                                              │
+│  ─────────────────────────────────────────────────────────  │
+│                                                              │
+│  Phase 6 - Optimisation & Finalisation (PRIORITÉ BASSE)    │
+│  ───────────────────────────────────────────────────────    │
+│  Objectif: Performance et polish                            │
+│                                                              │
+│  6.1 NetworkSyncSystem                                      │
+│      ☐ Créer NetworkSyncSystem (ECS → GameSnapshot)        │
+│      ☐ Callback pour broadcast                              │
+│      ☐ Tests: sérialisation, compatibilité protocol        │
+│                                                              │
+│  6.2 Optimisations                                          │
+│      ☐ Spatial hashing pour CollisionSystem (si besoin)    │
+│      ☐ Profiling et benchmarks                             │
+│      ☐ Memory pool tuning                                   │
+│                                                              │
+│  6.3 Cleanup                                                │
+│      ☐ Supprimer tout le code legacy mort                  │
+│      ☐ Documenter les APIs ECS                             │
+│      ☐ Mettre à jour CLAUDE.md                             │
+│                                                              │
+│  Critère Go: Performance ≥ legacy, code propre             │
+│  Durée estimée: 1 session                                   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 10.4 Checklist de Migration Mise à Jour
+
+```
+Phase 0 - Domain Services
+  ✅ Créer domain/services/GameRule.hpp
+  ✅ Créer domain/services/CollisionRule.hpp
+  ✅ Créer domain/services/EnemyBehavior.hpp
+  ✅ Tests unitaires (96 tests)
+
+Phase 1 - Fondations
+  ✅ Copie ECS dans infrastructure/ecs/
+  ✅ Adaptation CMakeLists.txt
+  ✅ Création DomainBridge.hpp
+  ✅ Création 6 Components base
+  ✅ Tests (32 tests DomainBridge)
+
+Phase 2 - Systems de Base
+  ✅ MovementSystem
+  ✅ LifetimeSystem
+  ✅ CleanupSystem
+  ✅ CollisionSystem
+  ✅ DamageSystem
+  ✅ 5 Components Tags
+  ✅ Tests (~80 tests)
+
+Phase 3 Core - Systems Avancés
+  ✅ PlayerInputSystem
+  ✅ WeaponSystem
+  ✅ ScoreSystem
+  ✅ EnemyAISystem
+  ✅ 4 Components Player
+  ✅ Tests (~90 tests)
+
+Phase 4 - Migration GameWorld (⏳ PROCHAINE)
+  ☐ Infrastructure ECS dans GameWorld
+  ☐ Migration _players → ECS
+  ☐ Migration _missiles → ECS
+  ☐ Migration _enemies → ECS
+  ☐ Migration _powerups → ECS
+  ☐ Migration _waveCannons → ECS
+  ☐ Adaptation getSnapshot()
+  ☐ Remplacement update()
+  ☐ Tests intégration
+
+Phase 5 - Systems Auxiliaires
+  ☐ ForcePodTag + ForcePodSystem
+  ☐ BitDeviceTag + BitDeviceSystem
+  ☐ BossTag + BossSystem
+  ☐ Migration maps correspondantes
+  ☐ Tests
+
+Phase 6 - Optimisation & Finalisation
+  ☐ NetworkSyncSystem
+  ☐ Spatial hashing (si besoin)
+  ☐ Suppression code legacy
+  ☐ Documentation finale
+```
+
+### 10.5 Priorités et Dépendances
+
+```
+                    ┌─────────────┐
+                    │  Phase 4    │ ← BLOQUANT
+                    │  Migration  │
+                    │  GameWorld  │
+                    └──────┬──────┘
+                           │
+           ┌───────────────┼───────────────┐
+           │               │               │
+           ▼               ▼               ▼
+    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+    │  Phase 5.1  │ │  Phase 5.2  │ │  Phase 5.3  │
+    │  ForcePod   │ │  BitDevice  │ │    Boss     │
+    └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
+           │               │               │
+           └───────────────┼───────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  Phase 6    │
+                    │  NetworkSync│
+                    │  + Cleanup  │
+                    └─────────────┘
+```
+
+**Phase 4 est BLOQUANTE** : Sans elle, les Systems créés ne sont pas utilisés.
+
+### 10.6 Estimation Révisée
+
+| Phase | Durée | Risque | Dépendances |
+|-------|-------|--------|-------------|
+| Phase 4 | 2-3 sessions | **Élevé** | Aucune |
+| Phase 5.1 (ForcePod) | 0.5 session | Moyen | Phase 4 |
+| Phase 5.2 (BitDevice) | 0.5 session | Moyen | Phase 4 |
+| Phase 5.3 (Boss) | 0.5 session | Moyen | Phase 4 |
+| Phase 6 | 1 session | Faible | Phase 5 |
+| **Total restant** | **~5 sessions** | - | - |
+
+---
+
+*Document mis à jour le 2026-01-18 - Branche ECS_realImpl*
+*Phases 0-3 Core complètes, 310+ tests passent*
