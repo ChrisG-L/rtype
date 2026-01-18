@@ -307,39 +307,37 @@ pipeline {
                         echo "⚠️  Impossible de récupérer les artefacts Windows: ${e.message}"
                     }
 
-                    // Copier version_history.txt dans les artifacts client ET serveur
-                    echo "📋 Ajout de version_history.txt aux artifacts..."
+                    // Copier version_history.txt et generate_dev_certs.sh dans les artifacts
+                    echo "📋 Ajout des fichiers utilitaires aux artifacts..."
                     sh """
+                        # Trouver les dossiers artifacts
+                        LINUX_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "server" -type d 2>/dev/null | head -1)
+                        LINUX_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "client" -type d 2>/dev/null | head -1)
+                        WIN_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "server" -type d 2>/dev/null | head -1)
+                        WIN_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "client" -type d 2>/dev/null | head -1)
+
+                        # Copier version_history.txt
                         if [ -f "${WORKSPACE}/version_history.txt" ]; then
-                            # Linux server
-                            LINUX_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "server" -type d 2>/dev/null | head -1)
-                            if [ -n "\$LINUX_SERVER_DIR" ]; then
-                                cp ${WORKSPACE}/version_history.txt \$LINUX_SERVER_DIR/
-                                echo "✅ version_history.txt copié vers \$LINUX_SERVER_DIR"
-                            fi
-
-                            # Linux client
-                            LINUX_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "client" -type d 2>/dev/null | head -1)
-                            if [ -n "\$LINUX_CLIENT_DIR" ]; then
-                                cp ${WORKSPACE}/version_history.txt \$LINUX_CLIENT_DIR/
-                                echo "✅ version_history.txt copié vers \$LINUX_CLIENT_DIR"
-                            fi
-
-                            # Windows server
-                            WIN_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "server" -type d 2>/dev/null | head -1)
-                            if [ -n "\$WIN_SERVER_DIR" ]; then
-                                cp ${WORKSPACE}/version_history.txt \$WIN_SERVER_DIR/
-                                echo "✅ version_history.txt copié vers \$WIN_SERVER_DIR"
-                            fi
-
-                            # Windows client
-                            WIN_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "client" -type d 2>/dev/null | head -1)
-                            if [ -n "\$WIN_CLIENT_DIR" ]; then
-                                cp ${WORKSPACE}/version_history.txt \$WIN_CLIENT_DIR/
-                                echo "✅ version_history.txt copié vers \$WIN_CLIENT_DIR"
-                            fi
+                            for dir in "\$LINUX_SERVER_DIR" "\$LINUX_CLIENT_DIR" "\$WIN_SERVER_DIR" "\$WIN_CLIENT_DIR"; do
+                                if [ -n "\$dir" ] && [ -d "\$dir" ]; then
+                                    cp ${WORKSPACE}/version_history.txt \$dir/
+                                    echo "✅ version_history.txt copié vers \$dir"
+                                fi
+                            done
                         else
-                            echo "⚠️  version_history.txt non trouvé dans le workspace"
+                            echo "⚠️  version_history.txt non trouvé"
+                        fi
+
+                        # Copier generate_dev_certs.sh (uniquement pour server)
+                        if [ -f "${WORKSPACE}/scripts/generate_dev_certs.sh" ]; then
+                            for dir in "\$LINUX_SERVER_DIR" "\$WIN_SERVER_DIR"; do
+                                if [ -n "\$dir" ] && [ -d "\$dir" ]; then
+                                    cp ${WORKSPACE}/scripts/generate_dev_certs.sh \$dir/
+                                    echo "✅ generate_dev_certs.sh copié vers \$dir"
+                                fi
+                            done
+                        else
+                            echo "⚠️  generate_dev_certs.sh non trouvé"
                         fi
                     """
 
