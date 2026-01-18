@@ -23,9 +23,13 @@
 #ifndef SYSTEM_HPP_
     #define SYSTEM_HPP_
 
-#include "ECS.hpp"
+#include <cstdint>
+#include "Includes.hpp"  // For SystemID typedef
 
 namespace ECS {
+
+    // Forward declaration to break circular dependency
+    class ECS;
 
     /**
      * @brief System Interface, every system should inherit from this class
