@@ -227,32 +227,8 @@ TEST_F(ECSPhase2IntegrationTest, PowerUpSpawnLifetimeExpireDeleted) {
     EXPECT_FALSE(_ecs.entityIsActive(powerup));
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Integration Test: Enemy -> Move Off Screen -> Deleted by Cleanup
-// ═══════════════════════════════════════════════════════════════════════════
-
-TEST_F(ECSPhase2IntegrationTest, EnemySpawnMoveOffScreenDeleted) {
-    DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
-
-    MovementSystem movementSystem;
-    CleanupSystem cleanupSystem(bridge);
-
-    // Create an enemy near the left edge
-    auto enemy = createEnemy(50.0f, 300.0f, -120.0f, 40, 0, 100);
-
-    EXPECT_TRUE(_ecs.entityIsActive(enemy));
-
-    // Move for 1 second: 50 - 120 = -70 (off screen)
-    movementSystem.Update(_ecs, 0, 1000);
-
-    auto& pos = _ecs.entityGetComponent<PositionComp>(enemy);
-    EXPECT_NEAR(pos.x, -70.0f, 1.0f);
-
-    // Cleanup should remove it
-    cleanupSystem.Update(_ecs, 0, 0);
-
-    EXPECT_FALSE(_ecs.entityIsActive(enemy));
-}
+// NOTE: EnemySpawnMoveOffScreenDeleted test removed
+// Legacy updateEnemies() handles enemy OOB removal, not CleanupSystem
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Integration Test: Multiple Entities, Correct Collisions

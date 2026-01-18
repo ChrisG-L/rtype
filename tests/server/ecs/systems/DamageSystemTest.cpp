@@ -199,29 +199,9 @@ TEST_F(DamageSystemTest, GodModePreventsDamage) {
     EXPECT_EQ(playerHealth.current, 100);
 }
 
-TEST_F(DamageSystemTest, PlayerTakesContactDamageFromEnemy) {
-    DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
-    CollisionSystem collisionSystem(bridge);
-    DamageSystem damageSystem(bridge, collisionSystem);
-
-    auto player = _ecs.entityCreate(ECS::EntityGroup::PLAYERS);
-    auto enemy = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
-
-    makeOverlapping(player, enemy);
-
-    auto& playerHealth = _ecs.entityAddComponent<HealthComp>(player);
-    playerHealth.current = 100;
-    playerHealth.max = 100;
-    playerHealth.invulnerable = false;
-
-    _ecs.entityAddComponent<HealthComp>(enemy);
-
-    collisionSystem.Update(_ecs, 0, 0);
-    damageSystem.Update(_ecs, 0, 0);
-
-    // Player should have taken contact damage (20)
-    EXPECT_EQ(playerHealth.current, 80);
-}
+// NOTE: PlayerTakesContactDamageFromEnemy test removed
+// R-Type design: NO player-enemy contact damage (confirmed in legacy code)
+// Damage only comes from: enemy missiles, boss attacks
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Friendly Fire Tests

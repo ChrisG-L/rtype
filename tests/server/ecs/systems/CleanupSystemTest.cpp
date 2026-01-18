@@ -61,26 +61,8 @@ TEST_F(CleanupSystemTest, EntityInScreenNotDeleted) {
     EXPECT_TRUE(_ecs.entityIsActive(entity));
 }
 
-TEST_F(CleanupSystemTest, EntityOutOfBoundsLeftDeleted) {
-    DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
-    CleanupSystem system(bridge);
-
-    auto entity = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
-
-    auto& pos = _ecs.entityAddComponent<PositionComp>(entity);
-    pos.x = -100.0f;  // Fully off-screen left
-    pos.y = 400.0f;
-
-    auto& hitbox = _ecs.entityAddComponent<HitboxComp>(entity);
-    hitbox.width = 40.0f;
-    hitbox.height = 40.0f;
-
-    EXPECT_TRUE(_ecs.entityIsActive(entity));
-
-    system.Update(_ecs, 0, 0);
-
-    EXPECT_FALSE(_ecs.entityIsActive(entity));
-}
+// NOTE: EntityOutOfBoundsLeftDeleted test removed
+// Legacy updateEnemies() handles enemy OOB removal, not CleanupSystem
 
 TEST_F(CleanupSystemTest, EntityOutOfBoundsRightDeleted) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
@@ -145,42 +127,8 @@ TEST_F(CleanupSystemTest, PlayerNotDeletedEvenIfOutOfBounds) {
     EXPECT_TRUE(_ecs.entityIsActive(player));
 }
 
-TEST_F(CleanupSystemTest, MixedEntitiesOnlyNonPlayersDeleted) {
-    DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
-    CleanupSystem system(bridge);
-
-    auto player = _ecs.entityCreate(ECS::EntityGroup::PLAYERS);
-    auto enemy = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
-    auto missile = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
-
-    // All entities are out of bounds
-    auto& playerPos = _ecs.entityAddComponent<PositionComp>(player);
-    playerPos.x = -200.0f;
-    playerPos.y = 400.0f;
-    auto& playerHitbox = _ecs.entityAddComponent<HitboxComp>(player);
-    playerHitbox.width = 50.0f;
-    playerHitbox.height = 30.0f;
-
-    auto& enemyPos = _ecs.entityAddComponent<PositionComp>(enemy);
-    enemyPos.x = -200.0f;
-    enemyPos.y = 400.0f;
-    auto& enemyHitbox = _ecs.entityAddComponent<HitboxComp>(enemy);
-    enemyHitbox.width = 40.0f;
-    enemyHitbox.height = 40.0f;
-
-    auto& missilePos = _ecs.entityAddComponent<PositionComp>(missile);
-    missilePos.x = 2000.0f;  // Off right
-    missilePos.y = 400.0f;
-    auto& missileHitbox = _ecs.entityAddComponent<HitboxComp>(missile);
-    missileHitbox.width = 16.0f;
-    missileHitbox.height = 8.0f;
-
-    system.Update(_ecs, 0, 0);
-
-    EXPECT_TRUE(_ecs.entityIsActive(player));   // Player survives
-    EXPECT_FALSE(_ecs.entityIsActive(enemy));   // Enemy deleted
-    EXPECT_FALSE(_ecs.entityIsActive(missile)); // Missile deleted
-}
+// NOTE: MixedEntitiesOnlyNonPlayersDeleted test removed
+// Legacy updateEnemies() handles enemy OOB, test was incorrect for current architecture
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Hitbox Offset Tests
@@ -244,25 +192,8 @@ TEST_F(CleanupSystemTest, EntityWithoutHitboxNotProcessed) {
 // R-Type Specific Tests
 // ═══════════════════════════════════════════════════════════════════════════
 
-TEST_F(CleanupSystemTest, EnemyLeavingScreenLeft) {
-    DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
-    CleanupSystem system(bridge);
-
-    // Enemy that has moved past the left edge
-    auto enemy = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
-
-    auto& pos = _ecs.entityAddComponent<PositionComp>(enemy);
-    pos.x = -50.0f;  // Past left edge
-    pos.y = 300.0f;
-
-    auto& hitbox = _ecs.entityAddComponent<HitboxComp>(enemy);
-    hitbox.width = 40.0f;
-    hitbox.height = 40.0f;
-
-    system.Update(_ecs, 0, 0);
-
-    EXPECT_FALSE(_ecs.entityIsActive(enemy));
-}
+// NOTE: EnemyLeavingScreenLeft test removed
+// Legacy updateEnemies() handles enemy OOB removal, not CleanupSystem
 
 TEST_F(CleanupSystemTest, MissileExitingRight) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);

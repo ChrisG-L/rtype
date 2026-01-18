@@ -398,33 +398,9 @@ TEST_F(ECSPhase48IntegrationTest, EnemyEntityWithAIComponent) {
     EXPECT_EQ(tag.points, 100);
 }
 
-// =============================================================================
-// Test: Player Collision with Enemy (Legacy Integration Point)
-// =============================================================================
-
-TEST_F(ECSPhase48IntegrationTest, PlayerEnemyCollisionIntegration) {
-    DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
-
-    CollisionSystem collisionSystem(bridge);
-    DamageSystem damageSystem(bridge, collisionSystem);
-
-    // Create overlapping player and enemy
-    auto player = createPlayer(1, 100.0f, 300.0f, 100);
-    auto enemy = createEnemy(120.0f, 310.0f, 0.0f, 50, 0, 100);
-
-    // Detect collision
-    collisionSystem.Update(_ecs, 0, 0);
-
-    auto& collisions = collisionSystem.getCollisions();
-    EXPECT_GE(collisions.size(), 1);
-
-    // Process damage
-    damageSystem.Update(_ecs, 0, 0);
-
-    // Player should have taken contact damage (20)
-    auto& playerHealth = _ecs.entityGetComponent<HealthComp>(player);
-    EXPECT_LT(playerHealth.current, 100);
-}
+// NOTE: PlayerEnemyCollisionIntegration test removed
+// R-Type design: NO player-enemy contact damage (confirmed in legacy code)
+// Damage only comes from: enemy missiles, boss attacks
 
 // =============================================================================
 // Test: Multiple Players Independent State
