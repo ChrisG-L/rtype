@@ -13,7 +13,7 @@
 | **Phase 1** | ✅ | ECS Core + Components + DomainBridge (80 tests) |
 | **Phase 2** | ✅ | Systems de base (80 tests) |
 | **Phase 3** | ✅ | Systems avancés (90 tests) |
-| **Phase 4** | 🔄 | GameWorld migration |
+| **Phase 4** | 🔄 | GameWorld migration (4.6 ✅, 4.8 pending) |
 
 **Total**: 310+ tests | **Branch**: `ECS_realImpl` | **Updated**: 2026-01-18
 
@@ -59,7 +59,7 @@ UDPServer.updateAndBroadcastRoom()
 2. `runECSUpdate()` → Systems process → positions update in ECS
 3. `syncPlayersFromECS()` → copies ECS positions to legacy `_players` map
 4. Legacy `checkCollisions()` operates on synced `_players`
-5. `getSnapshot()` reads from legacy (Phase 4.6 will read from ECS)
+5. `getSnapshot()` reads players from ECS, missiles/enemies from legacy
 
 ---
 
@@ -225,7 +225,7 @@ cmake -B build -DUSE_ECS_BACKEND=ON
 
 | Priority | Task | Status |
 |----------|------|--------|
-| **High** | Phase 4.6: `getSnapshot()` reads from ECS | ❌ Next |
+| ~~High~~ | ~~Phase 4.6: `getSnapshot()` reads from ECS~~ | ✅ Complete |
 | Medium | Phase 4.8: Integration tests | ❌ Pending |
 
 ### Future (Phase 5+)
