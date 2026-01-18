@@ -6,8 +6,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import logging
+from datetime import datetime, timezone
 
 from tcp_client import TCPAdminClient
+from database import MongoDB
 from utils import (
     AdminEmbeds,
     is_admin_channel,
@@ -39,8 +41,8 @@ class AdminCog(commands.Cog):
             result = await self.tcp.rooms()
             if result.success:
                 self._rooms_cache = parse_rooms_output(result.output)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to fetch rooms for autocomplete: {e}")
         return self._rooms_cache
 
     async def room_autocomplete(
@@ -77,9 +79,9 @@ class AdminCog(commands.Cog):
             embed = AdminEmbeds.server_status(data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error getting status: {e}")
+            logger.error(f"Error getting status: {e}", exc_info=True)
             await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to get status: {e}")
+                embed=AdminEmbeds.error("Failed to get status. Check logs for details.")
             )
 
     @app_commands.command(name="sessions", description="List active sessions")
@@ -102,9 +104,9 @@ class AdminCog(commands.Cog):
             embed = AdminEmbeds.sessions_list(sessions_data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error getting sessions: {e}")
+            logger.error(f"Error getting sessions: {e}", exc_info=True)
             await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to get sessions: {e}")
+                embed=AdminEmbeds.error("Failed to get sessions. Check logs for details.")
             )
 
     @app_commands.command(name="rooms", description="List active game rooms")
@@ -127,9 +129,9 @@ class AdminCog(commands.Cog):
             embed = AdminEmbeds.rooms_list(rooms_data)
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error getting rooms: {e}")
+            logger.error(f"Error getting rooms: {e}", exc_info=True)
             await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to get rooms: {e}")
+                embed=AdminEmbeds.error("Failed to get rooms. Check logs for details.")
             )
 
     @app_commands.command(name="room", description="Show details for a specific room")
@@ -157,10 +159,75 @@ class AdminCog(commands.Cog):
                 embed = AdminEmbeds.cli_output(f"Room: {room_code}", result.output)
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error getting room: {e}")
+            logger.error(f"Error getting room: {e}", exc_info=True)
             await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to get room: {e}")
+                embed=AdminEmbeds.error("Failed to get room. Check logs for details.")
             )
+
+    @app_commands.command(name="server-info", description="Show extended server information")
+    @is_admin_channel()
+    @has_admin_role()
+    async def server_info(self, interaction: discord.Interaction):
+        """Show extended server information including MongoDB stats."""
+        await interaction.response.defer()
+
+        try:
+            # Get basic status from TCP
+            result = await self.tcp.status()
+            status_data = parse_status_output(result.output) if result.success else {}
+
+            # Get MongoDB stats
+            mongo_stats = await self._get_mongo_stats()
+
+            embed = AdminEmbeds.server_info(status_data, mongo_stats, self.bot.user)
+            await interaction.followup.send(embed=embed)
+        except Exception as e:
+            logger.error(f"Error getting server info: {e}", exc_info=True)
+            await interaction.followup.send(
+                embed=AdminEmbeds.error("Failed to get server info. Check logs for details.")
+            )
+
+    async def _get_mongo_stats(self) -> dict:
+        """Get aggregated stats from MongoDB."""
+        db = MongoDB.get()
+        if db is None:
+            return {}
+
+        try:
+            # Count total games played
+            total_games = await db.db["player_stats"].aggregate([
+                {"$group": {"_id": None, "total": {"$sum": "$gamesPlayed"}}}
+            ]).to_list(1)
+
+            # Count total kills
+            total_kills = await db.db["player_stats"].aggregate([
+                {"$group": {"_id": None, "total": {"$sum": "$totalKills"}}}
+            ]).to_list(1)
+
+            # Count total playtime
+            total_playtime = await db.db["player_stats"].aggregate([
+                {"$group": {"_id": None, "total": {"$sum": "$totalPlaytime"}}}
+            ]).to_list(1)
+
+            # Get top score
+            top_score = await db.db["leaderboard"].find_one(
+                sort=[("score", -1)]
+            )
+
+            # Count players with stats
+            players_with_stats = await db.db["player_stats"].count_documents({})
+
+            return {
+                "total_games": total_games[0]["total"] if total_games else 0,
+                "total_kills": total_kills[0]["total"] if total_kills else 0,
+                "total_playtime": total_playtime[0]["total"] if total_playtime else 0,
+                "top_score": top_score.get("score", 0) if top_score else 0,
+                "top_player": top_score.get("playerName", "N/A") if top_score else "N/A",
+                "players_with_stats": players_with_stats,
+            }
+        except Exception as e:
+            logger.error(f"Error fetching MongoDB stats: {e}")
+            return {}
 
     @app_commands.command(name="cli", description="Execute any CLI command")
     @app_commands.describe(command="Full CLI command to execute")
@@ -186,9 +253,9 @@ class AdminCog(commands.Cog):
             embed = AdminEmbeds.cli_output(f"CLI: {command}", result.output)
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error executing CLI command: {e}")
+            logger.error(f"Error executing CLI command: {e}", exc_info=True)
             await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Command failed: {e}")
+                embed=AdminEmbeds.error("Command failed. Check logs for details.")
             )
 
     @app_commands.command(name="help", description="Show admin bot help")
@@ -203,19 +270,22 @@ class AdminCog(commands.Cog):
         commands_list = """
 **Server Management**
 `/status` - Show server status
+`/server-info` - Show extended server info with global stats
 `/sessions` - List active sessions
 `/rooms` - List active game rooms
 `/room <code>` - Show room details
 
 **User Management**
-`/users` - List all registered users
-`/user <email>` - Show user details
+`/users [status]` - List users (filter: all/online/offline/banned)
+`/user <email>` - Show user details with MongoDB stats
 
 **Moderation**
 `/kick <email>` - Kick a player (disconnect)
-`/ban <email> [reason]` - Ban a user
+`/ban <email> [reason]` - Ban a user permanently
+`/tempban <email> <duration> [reason]` - Temporarily ban a user
 `/unban <email>` - Unban a user
 `/bans` - List all banned users
+`/modhistory [user] [moderator] [action]` - View moderation history
 
 **Advanced**
 `/cli <command>` - Execute any CLI command

@@ -23,6 +23,10 @@ class Config:
     server_admin_port: int = int(os.getenv("RTYPE_ADMIN_PORT", "4127"))
     admin_token: str = os.getenv("ADMIN_TOKEN", "")
 
+    # MongoDB (for extended user stats)
+    mongodb_uri: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+    mongodb_db: str = os.getenv("MONGODB_DB", "rtype")
+
     # Logging
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
 

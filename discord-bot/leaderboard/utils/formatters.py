@@ -1,6 +1,6 @@
 """Formatting utilities for R-Type Discord Bot."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def format_number(n: int) -> str:
@@ -24,8 +24,8 @@ def format_duration(seconds: int) -> str:
 
 def format_timestamp(ts: int) -> str:
     """Format timestamp as relative time (Il y a 2h, Hier, etc.)."""
-    now = datetime.utcnow()
-    dt = datetime.utcfromtimestamp(ts)
+    now = datetime.now(timezone.utc)
+    dt = datetime.fromtimestamp(ts, tz=timezone.utc)
     diff = now - dt
 
     if diff.days == 0:

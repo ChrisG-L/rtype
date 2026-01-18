@@ -32,9 +32,7 @@ class AchievementsCog(commands.Cog):
         """Display player achievements."""
         await interaction.response.defer()
 
-        achievements = await PlayerStatsRepository.get_achievements(player)
-
-        # Check if player exists (all achievements are False means not found or new player)
+        # Check if player exists
         stats = await PlayerStatsRepository.get_by_name(player)
         if not stats:
             await interaction.followup.send(
@@ -42,7 +40,11 @@ class AchievementsCog(commands.Cog):
             )
             return
 
-        embed = create_achievements_embed(achievements, player)
+        # Get achievements with unlock dates and rarity
+        achievements = await PlayerStatsRepository.get_achievements_with_dates(player)
+        rarity = await PlayerStatsRepository.get_achievement_rarity()
+
+        embed = create_achievements_embed(achievements, player, rarity)
         await interaction.followup.send(embed=embed)
 
 

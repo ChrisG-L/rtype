@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import config
 from tcp_client import TCPAdminClient
 from cogs import setup_cogs
+from database import MongoDB
 
 # Configure logging
 logging.basicConfig(
@@ -67,6 +68,13 @@ class RTypeAdminBot(commands.Bot):
         except Exception as e:
             logger.warning(f"Initial connection to R-Type server failed: {e}")
 
+        # Connect to MongoDB (for extended stats)
+        try:
+            await MongoDB.connect(config.mongodb_uri, config.mongodb_db)
+            logger.info(f"Connected to MongoDB ({config.mongodb_db})")
+        except Exception as e:
+            logger.warning(f"MongoDB connection failed (extended stats unavailable): {e}")
+
         # Load cogs
         await setup_cogs(self)
         logger.info("Cogs loaded")
@@ -101,6 +109,7 @@ class RTypeAdminBot(commands.Bot):
         """Clean up when bot is closing."""
         logger.info("Shutting down...")
         await self.tcp_client.disconnect()
+        await MongoDB.close()
         await super().close()
 
 

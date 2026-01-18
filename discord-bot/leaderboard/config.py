@@ -20,10 +20,22 @@ class Config:
     STATS_CHANNEL_ID: int | None = (
         int(os.getenv("STATS_CHANNEL_ID")) if os.getenv("STATS_CHANNEL_ID") else None
     )
+    # Allowed channels (comma-separated IDs) - if empty, all channels are allowed
+    ALLOWED_CHANNEL_IDS: list[int] = [
+        int(x.strip()) for x in os.getenv("ALLOWED_CHANNEL_IDS", "").split(",")
+        if x.strip().isdigit()
+    ]
 
     # MongoDB
     MONGODB_URI: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
     MONGODB_DB: str = os.getenv("MONGODB_DB", "rtype")
+
+    # Auto-announce records channel (optional)
+    RECORDS_CHANNEL_ID: int | None = (
+        int(os.getenv("RECORDS_CHANNEL_ID")) if os.getenv("RECORDS_CHANNEL_ID") else None
+    )
+    # Interval in seconds for polling new records (default: 30s)
+    RECORDS_POLL_INTERVAL: int = int(os.getenv("RECORDS_POLL_INTERVAL", "30"))
 
     # Optional
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

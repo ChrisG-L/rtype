@@ -3,6 +3,7 @@ Player stats repository for MongoDB queries.
 Handles player statistics and achievements.
 """
 
+import re
 from typing import Optional
 
 from .mongodb import MongoDB
@@ -32,6 +33,10 @@ class PlayerStatsRepository:
 
         First searches in player_stats, then falls back to user collection.
         """
+        # Defense in depth: validate input type
+        if not isinstance(player_name, str) or len(player_name) > 100:
+            return None
+
         db = MongoDB.get()
 
         # Try player_stats first
@@ -98,6 +103,38 @@ class PlayerStatsRepository:
         return {name: bool(bitfield & (1 << bit)) for name, bit in ACHIEVEMENTS.items()}
 
     @staticmethod
+    async def get_achievements_with_dates(player_name: str) -> dict[str, int]:
+        """Get achievements with unlock timestamps.
+
+        Returns dict of achievement_name -> unlockedAt timestamp (0 if not unlocked).
+        """
+        db = MongoDB.get()
+
+        # Get email from player_stats
+        stats = await db.player_stats.find_one({"playerName": player_name})
+        if not stats:
+            return {name: 0 for name in ACHIEVEMENTS}
+
+        email = stats.get("email")
+        if not email:
+            return {name: 0 for name in ACHIEVEMENTS}
+
+        # Query achievements collection
+        result = {name: 0 for name in ACHIEVEMENTS}
+        cursor = db.achievements.find({"email": email})
+
+        # Map type (int) back to achievement name
+        type_to_name = {bit: name for name, bit in ACHIEVEMENTS.items()}
+
+        async for doc in cursor:
+            ach_type = doc.get("type")
+            unlocked_at = doc.get("unlockedAt") or 0
+            if ach_type is not None and ach_type in type_to_name:
+                result[type_to_name[ach_type]] = unlocked_at
+
+        return result
+
+    @staticmethod
     async def get_weapon_stats(player_name: str) -> dict[str, int]:
         """Get kills per weapon for a player."""
         db = MongoDB.get()
@@ -132,8 +169,10 @@ class PlayerStatsRepository:
 
         # Build filter - empty query matches all
         if query:
-            player_filter = {"playerName": {"$regex": f"^{query}", "$options": "i"}}
-            user_filter = {"username": {"$regex": f"^{query}", "$options": "i"}}
+            # Escape regex special characters to prevent injection
+            safe_query = re.escape(query)
+            player_filter = {"playerName": {"$regex": f"^{safe_query}", "$options": "i"}}
+            user_filter = {"username": {"$regex": f"^{safe_query}", "$options": "i"}}
         else:
             player_filter = {}
             user_filter = {}
@@ -155,3 +194,78 @@ class PlayerStatsRepository:
                     names.add(doc["username"])
 
         return list(names)[:limit]
+
+    @staticmethod
+    async def get_achievement_rarity() -> dict[str, float]:
+        """Get the rarity (% of players who have it) for each achievement.
+
+        Returns:
+            Dict of achievement_name -> percentage (0-100)
+        """
+        db = MongoDB.get()
+
+        # Count total players with stats
+        total_players = await db.player_stats.count_documents({})
+        if total_players == 0:
+            return {name: 0.0 for name in ACHIEVEMENTS}
+
+        # Count players with each achievement using bitwise check
+        rarity = {}
+        for name, bit in ACHIEVEMENTS.items():
+            # Count players where the achievement bit is set
+            # MongoDB $bitsAllSet checks if specific bits are set
+            count = await db.player_stats.count_documents({
+                "achievements": {"$bitsAllSet": [bit]}
+            })
+            rarity[name] = (count / total_players) * 100
+
+        return rarity
+
+    @staticmethod
+    async def get_server_stats() -> dict:
+        """Get server-wide aggregated statistics."""
+        db = MongoDB.get()
+
+        # Count total players
+        total_players = await db.player_stats.count_documents({})
+
+        # Aggregate stats from player_stats
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "totalGames": {"$sum": "$gamesPlayed"},
+                    "totalKills": {"$sum": "$totalKills"},
+                    "totalDeaths": {"$sum": "$totalDeaths"},
+                    "totalPlaytime": {"$sum": "$totalPlaytime"},
+                    "totalBossKills": {"$sum": "$bossKills"},
+                    "highestScore": {"$max": "$bestScore"},
+                    "highestWave": {"$max": "$bestWave"},
+                    "highestCombo": {"$max": "$bestCombo"},
+                }
+            }
+        ]
+
+        cursor = db.player_stats.aggregate(pipeline)
+        result = await cursor.to_list(1)
+
+        if not result:
+            return {"totalPlayers": total_players}
+
+        stats = result[0]
+        stats["totalPlayers"] = total_players
+
+        # Find record holders
+        score_holder = await db.player_stats.find_one(
+            {"bestScore": stats.get("highestScore")}, {"playerName": 1}
+        )
+        if score_holder:
+            stats["scoreHolder"] = score_holder.get("playerName")
+
+        wave_holder = await db.player_stats.find_one(
+            {"bestWave": stats.get("highestWave")}, {"playerName": 1}
+        )
+        if wave_holder:
+            stats["waveHolder"] = wave_holder.get("playerName")
+
+        return stats

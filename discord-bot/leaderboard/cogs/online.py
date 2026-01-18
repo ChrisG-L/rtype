@@ -3,7 +3,7 @@ Online cog - /online command.
 Shows currently connected players.
 
 NOTE: This requires the R-Type server to persist session data
-to MongoDB collection 'current_game_sessions'.
+to MongoDB collection 'current_sessions'.
 """
 
 import discord

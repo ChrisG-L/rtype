@@ -6,6 +6,8 @@ EXTENSIONS = [
     "cogs.achievements",
     "cogs.online",
     "cogs.history",
+    "cogs.records",
+    "cogs.help",
 ]
 
 __all__ = ["EXTENSIONS"]

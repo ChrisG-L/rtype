@@ -3,9 +3,9 @@ MongoDB client singleton for async operations.
 Uses motor for async MongoDB access.
 """
 
-import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from typing import Optional
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +20,8 @@ class MongoDB:
         self.db: AsyncIOMotorDatabase = client[db_name]
 
         # Collections (matching R-Type server)
-        self.leaderboard = self.db["leaderboard"]
         self.player_stats = self.db["player_stats"]
-        self.game_history = self.db["game_history"]
-        self.achievements = self.db["achievements"]
         self.users = self.db["user"]
-        self.user_settings = self.db["user_settings"]
-        self.current_sessions = self.db["current_game_sessions"]
 
     @classmethod
     async def connect(cls, uri: str, db_name: str) -> "MongoDB":
@@ -40,10 +35,8 @@ class MongoDB:
         return cls._instance
 
     @classmethod
-    def get(cls) -> "MongoDB":
-        """Get the singleton instance. Raises if not connected."""
-        if cls._instance is None:
-            raise RuntimeError("MongoDB not connected. Call connect() first.")
+    def get(cls) -> Optional["MongoDB"]:
+        """Get the singleton instance. Returns None if not connected."""
         return cls._instance
 
     @classmethod

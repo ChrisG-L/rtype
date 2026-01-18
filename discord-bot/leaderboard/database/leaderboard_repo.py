@@ -3,7 +3,7 @@ Leaderboard repository for MongoDB queries.
 Handles all leaderboard-related database operations.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from .mongodb import MongoDB
@@ -15,8 +15,11 @@ class LeaderboardRepository:
     @staticmethod
     def _get_period_filter(period: str) -> dict:
         """Return timestamp filter for the given period."""
-        now = datetime.utcnow()
-        if period == "weekly":
+        now = datetime.now(timezone.utc)
+        if period == "daily":
+            start = now - timedelta(days=1)
+            return {"timestamp": {"$gte": int(start.timestamp())}}
+        elif period == "weekly":
             # Start of the week (Monday)
             start = now - timedelta(days=now.weekday())
             start = start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -27,12 +30,25 @@ class LeaderboardRepository:
         return {}  # All-time
 
     @staticmethod
-    async def get_top_scores(period: str = "all", limit: int = 10) -> list[dict]:
-        """Get top N players by best score (grouped by email, one entry per player)."""
+    async def get_top_scores(
+        period: str = "all", limit: int = 10, player_count: int = 0
+    ) -> list[dict]:
+        """Get top N players by best score, optionally filtered by player count.
+
+        Args:
+            period: Time period filter (all, daily, weekly, monthly)
+            limit: Max number of results
+            player_count: Filter by game mode (0=All, 1=Solo, 2=Duo, 3=Trio, 4+=4P+)
+        """
         db = MongoDB.get()
 
+        # Build match filter
+        match_filter = LeaderboardRepository._get_period_filter(period)
+        if player_count > 0:
+            match_filter["playerCount"] = player_count
+
         pipeline = [
-            {"$match": LeaderboardRepository._get_period_filter(period)},
+            {"$match": match_filter},
             {"$sort": {"score": -1}},
             {
                 "$group": {
@@ -43,6 +59,7 @@ class LeaderboardRepository:
                     "kills": {"$first": "$kills"},
                     "duration": {"$first": "$duration"},
                     "timestamp": {"$first": "$timestamp"},
+                    "playerCount": {"$first": "$playerCount"},
                 }
             },
             {"$sort": {"score": -1}},
@@ -103,22 +120,28 @@ class LeaderboardRepository:
 
     @staticmethod
     async def get_player_rank(
-        player_name: str, period: str = "all"
+        player_name: str, period: str = "all", player_count: int = 0
     ) -> Optional[tuple[int, int]]:
         """
         Get a player's rank and total player count.
         Returns (rank, total_players) or None if not found.
+
+        Args:
+            player_name: Name of the player
+            period: Time period filter (all, daily, weekly, monthly)
+            player_count: Filter by game mode (0=All, 1=Solo, 2=Duo, 3=Trio, 4+=4P+)
         """
         db = MongoDB.get()
 
+        # Build base match filter
+        base_filter = LeaderboardRepository._get_period_filter(period)
+        if player_count > 0:
+            base_filter["playerCount"] = player_count
+
         # Get the player's best score
+        player_filter = {"playerName": player_name, **base_filter}
         pipeline = [
-            {
-                "$match": {
-                    "playerName": player_name,
-                    **LeaderboardRepository._get_period_filter(period),
-                }
-            },
+            {"$match": player_filter},
             {"$group": {"_id": "$playerName", "bestScore": {"$max": "$score"}}},
         ]
         cursor = db.leaderboard.aggregate(pipeline)
@@ -131,7 +154,7 @@ class LeaderboardRepository:
 
         # Count players with higher score
         count_pipeline = [
-            {"$match": LeaderboardRepository._get_period_filter(period)},
+            {"$match": base_filter},
             {"$group": {"_id": "$email", "bestScore": {"$max": "$score"}}},
             {"$match": {"bestScore": {"$gt": player_best}}},
             {"$count": "higher"},
@@ -142,7 +165,7 @@ class LeaderboardRepository:
 
         # Count total players
         total_pipeline = [
-            {"$match": LeaderboardRepository._get_period_filter(period)},
+            {"$match": base_filter},
             {"$group": {"_id": "$email"}},
             {"$count": "total"},
         ]

@@ -1,5 +1,5 @@
 """
-Stats cog - /stats, /kills commands.
+Stats cog - /stats, /kills, /compare, /server-stats commands.
 """
 
 import discord
@@ -7,7 +7,12 @@ from discord import app_commands
 from discord.ext import commands
 
 from database.player_stats_repo import PlayerStatsRepository
-from utils.embeds import create_stats_embed, create_kills_embed
+from utils.embeds import (
+    create_stats_embed,
+    create_kills_embed,
+    create_compare_embed,
+    create_server_stats_embed,
+)
 
 
 class StatsCog(commands.Cog):
@@ -59,6 +64,52 @@ class StatsCog(commands.Cog):
             return
 
         embed = create_kills_embed(stats, player)
+        await interaction.followup.send(embed=embed)
+
+    @app_commands.command(
+        name="compare", description="Compare les stats de deux joueurs"
+    )
+    @app_commands.describe(player1="Premier joueur", player2="Deuxieme joueur")
+    @app_commands.autocomplete(player1=player_autocomplete, player2=player_autocomplete)
+    async def compare(
+        self, interaction: discord.Interaction, player1: str, player2: str
+    ):
+        """Compare two players' statistics."""
+        await interaction.response.defer()
+
+        if player1.lower() == player2.lower():
+            await interaction.followup.send(
+                "❌ Tu ne peux pas comparer un joueur avec lui-meme!", ephemeral=True
+            )
+            return
+
+        stats1 = await PlayerStatsRepository.get_by_name(player1)
+        stats2 = await PlayerStatsRepository.get_by_name(player2)
+
+        if not stats1:
+            await interaction.followup.send(
+                f"❌ Joueur **{player1}** non trouve.", ephemeral=True
+            )
+            return
+
+        if not stats2:
+            await interaction.followup.send(
+                f"❌ Joueur **{player2}** non trouve.", ephemeral=True
+            )
+            return
+
+        embed = create_compare_embed(stats1, stats2, player1, player2)
+        await interaction.followup.send(embed=embed)
+
+    @app_commands.command(
+        name="server-stats", description="Affiche les statistiques globales du serveur"
+    )
+    async def server_stats(self, interaction: discord.Interaction):
+        """Display server-wide statistics."""
+        await interaction.response.defer()
+
+        stats = await PlayerStatsRepository.get_server_stats()
+        embed = create_server_stats_embed(stats)
         await interaction.followup.send(embed=embed)
 
 

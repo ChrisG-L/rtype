@@ -70,32 +70,42 @@ class AdminEmbeds:
         return embed
 
     @staticmethod
-    def users_list(users: list[dict[str, str]]) -> discord.Embed:
+    def users_list(users: list[dict[str, str]], status_filter: str = "all") -> discord.Embed:
         """Create users list embed with parsed data."""
+        # Title based on filter
+        filter_names = {"all": "Registered Users", "online": "Online Users", "offline": "Offline Users", "banned": "Banned Users"}
+        title = filter_names.get(status_filter, "Registered Users")
+
         embed = discord.Embed(
-            title="Registered Users",
+            title=title,
             color=AdminEmbeds.COLOR_INFO,
             timestamp=datetime.now(timezone.utc)
         )
 
         if not users:
-            embed.description = "*No registered users*"
+            embed.description = f"*No {status_filter} users*" if status_filter != "all" else "*No registered users*"
             return embed
 
         lines = []
         for i, user in enumerate(users[:25], 1):
             status = user.get('status', 'Unknown')
-            status_emoji = "\U0001F7E2" if status.lower() == 'online' else "\u26AB"
+            if status.lower() == 'online':
+                status_emoji = "\U0001F7E2"  # 🟢
+            elif status.lower() == 'banned':
+                status_emoji = "\U0001F6AB"  # 🚫
+            else:
+                status_emoji = "\u26AB"  # ⚫
             email = user.get('email', 'Unknown')
             username = user.get('username', 'N/A')
             lines.append(f"{status_emoji} **{username}** - `{email}`")
 
         embed.description = "\n".join(lines)
 
+        filter_text = f" ({status_filter})" if status_filter != "all" else ""
         if len(users) > 25:
-            embed.set_footer(text=f"Showing 25/{len(users)} users | R-Type Admin")
+            embed.set_footer(text=f"Showing 25/{len(users)} users{filter_text} | R-Type Admin")
         else:
-            embed.set_footer(text=f"Total: {len(users)} users | R-Type Admin")
+            embed.set_footer(text=f"Total: {len(users)} users{filter_text} | R-Type Admin")
 
         return embed
 
@@ -203,8 +213,8 @@ class AdminEmbeds:
         return embed
 
     @staticmethod
-    def user_details(user: dict[str, str]) -> discord.Embed:
-        """Create user details embed with parsed data."""
+    def user_details(user: dict[str, str], mongo_stats: dict | None = None) -> discord.Embed:
+        """Create user details embed with parsed data and MongoDB stats."""
         username = user.get('username', 'Unknown')
         status = user.get('status', 'Unknown')
 
@@ -225,13 +235,54 @@ class AdminEmbeds:
         if user.get('created'):
             embed.add_field(name="Created", value=user['created'], inline=True)
 
-        # Stats if available
-        if user.get('games_played'):
-            embed.add_field(name="Games Played", value=user['games_played'], inline=True)
-        if user.get('best_score'):
-            embed.add_field(name="Best Score", value=user['best_score'], inline=True)
-        if user.get('total_kills'):
-            embed.add_field(name="Total Kills", value=user['total_kills'], inline=True)
+        # MongoDB extended stats
+        if mongo_stats:
+            # Games & Score
+            games = mongo_stats.get('gamesPlayed', 0)
+            best_score = mongo_stats.get('bestScore', 0)
+            total_score = mongo_stats.get('totalScore', 0)
+            embed.add_field(name="Games Played", value=f"**{games:,}**", inline=True)
+            embed.add_field(name="Best Score", value=f"**{best_score:,}**", inline=True)
+            embed.add_field(name="Total Score", value=f"**{total_score:,}**", inline=True)
+
+            # Combat stats
+            kills = mongo_stats.get('totalKills', 0)
+            deaths = mongo_stats.get('totalDeaths', 0)
+            kd_ratio = kills / deaths if deaths > 0 else kills
+            embed.add_field(name="Kills", value=f"**{kills:,}**", inline=True)
+            embed.add_field(name="Deaths", value=f"**{deaths:,}**", inline=True)
+            embed.add_field(name="K/D Ratio", value=f"**{kd_ratio:.2f}**", inline=True)
+
+            # Best records
+            best_wave = mongo_stats.get('bestWave', 0)
+            best_combo = mongo_stats.get('bestCombo', 0) / 10.0 if mongo_stats.get('bestCombo') else 0
+            boss_kills = mongo_stats.get('bossKills', 0)
+            embed.add_field(name="Best Wave", value=f"**{best_wave}**", inline=True)
+            embed.add_field(name="Best Combo", value=f"**{best_combo:.1f}x**", inline=True)
+            embed.add_field(name="Boss Kills", value=f"**{boss_kills:,}**", inline=True)
+
+            # Playtime
+            playtime_secs = mongo_stats.get('totalPlaytime', 0)
+            hours = playtime_secs // 3600
+            minutes = (playtime_secs % 3600) // 60
+            playtime_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
+            embed.add_field(name="Playtime", value=f"**{playtime_str}**", inline=True)
+
+            # Weapon kills breakdown
+            standard = mongo_stats.get('standardKills', 0)
+            spread = mongo_stats.get('spreadKills', 0)
+            laser = mongo_stats.get('laserKills', 0)
+            missile = mongo_stats.get('missileKills', 0)
+            weapon_str = f"Standard: {standard:,} | Spread: {spread:,}\nLaser: {laser:,} | Missile: {missile:,}"
+            embed.add_field(name="Weapon Kills", value=weapon_str, inline=False)
+        else:
+            # Fallback to TUI stats if available
+            if user.get('games_played'):
+                embed.add_field(name="Games Played", value=user['games_played'], inline=True)
+            if user.get('best_score'):
+                embed.add_field(name="Best Score", value=user['best_score'], inline=True)
+            if user.get('total_kills'):
+                embed.add_field(name="Total Kills", value=user['total_kills'], inline=True)
 
         embed.set_footer(text="R-Type Admin")
         return embed
@@ -450,6 +501,72 @@ class AdminEmbeds:
             color=AdminEmbeds.COLOR_WARNING,
             timestamp=datetime.now(timezone.utc)
         )
+
+    @staticmethod
+    def server_info(status_data: dict, mongo_stats: dict, bot_user) -> discord.Embed:
+        """Create server info embed with extended MongoDB statistics."""
+        embed = discord.Embed(
+            title="R-Type Server Information",
+            color=AdminEmbeds.COLOR_INFO,
+            timestamp=datetime.now(timezone.utc)
+        )
+
+        # Server status section
+        if status_data:
+            sessions = status_data.get('active_sessions', 0)
+            players = status_data.get('players_in_game', 0)
+            rooms = status_data.get('active_rooms', 0)
+            users = status_data.get('users_in_db', 0)
+            banned = status_data.get('banned_users', 0)
+
+            status_text = (
+                f"**Sessions:** {sessions} active\n"
+                f"**Players:** {players} in game\n"
+                f"**Rooms:** {rooms} active\n"
+                f"**Users:** {users} registered\n"
+                f"**Banned:** {banned} users"
+            )
+            embed.add_field(name="Server Status", value=status_text, inline=True)
+        else:
+            embed.add_field(name="Server Status", value="*Unavailable*", inline=True)
+
+        # MongoDB global stats
+        if mongo_stats:
+            total_games = mongo_stats.get('total_games', 0)
+            total_kills = mongo_stats.get('total_kills', 0)
+            playtime_secs = mongo_stats.get('total_playtime', 0)
+            players_tracked = mongo_stats.get('players_with_stats', 0)
+
+            # Format playtime
+            hours = playtime_secs // 3600
+            playtime_str = f"{hours:,}h" if hours > 0 else "0h"
+
+            stats_text = (
+                f"**Total Games:** {total_games:,}\n"
+                f"**Total Kills:** {total_kills:,}\n"
+                f"**Total Playtime:** {playtime_str}\n"
+                f"**Players Tracked:** {players_tracked:,}"
+            )
+            embed.add_field(name="Global Statistics", value=stats_text, inline=True)
+
+            # Top player
+            top_score = mongo_stats.get('top_score', 0)
+            top_player = mongo_stats.get('top_player', 'N/A')
+            if top_score > 0:
+                embed.add_field(
+                    name="Top Score",
+                    value=f"**{top_player}**\n{top_score:,} pts",
+                    inline=True
+                )
+        else:
+            embed.add_field(name="Global Statistics", value="*MongoDB unavailable*", inline=True)
+
+        # Bot info
+        if bot_user:
+            embed.set_thumbnail(url=bot_user.display_avatar.url)
+
+        embed.set_footer(text="R-Type Admin Bot")
+        return embed
 
     @staticmethod
     def cli_output(title: str, output: list[str]) -> discord.Embed:

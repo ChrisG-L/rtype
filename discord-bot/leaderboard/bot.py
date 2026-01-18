@@ -9,11 +9,42 @@ import logging
 import sys
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from config import Config
 from database.mongodb import MongoDB
 from cogs import EXTENSIONS
+
+
+def channel_check():
+    """Check if command is used in an allowed channel.
+
+    Fails closed: denies access if ALLOWED_CHANNEL_IDS is not configured.
+    """
+    async def predicate(interaction: discord.Interaction) -> bool:
+        # Fail closed: deny if not configured
+        if not Config.ALLOWED_CHANNEL_IDS:
+            await interaction.response.send_message(
+                "⚠️ Channels non configurés. Contactez l'administrateur.",
+                ephemeral=True,
+            )
+            return False
+
+        # Check if current channel is in allowed list
+        if interaction.channel_id in Config.ALLOWED_CHANNEL_IDS:
+            return True
+
+        # Send ephemeral error message
+        await interaction.response.send_message(
+            "❌ Cette commande n'est disponible que dans <#"
+            + str(Config.ALLOWED_CHANNEL_IDS[0])
+            + ">",
+            ephemeral=True,
+        )
+        return False
+
+    return app_commands.check(predicate)
 
 
 class RTypeBot(commands.Bot):
@@ -32,6 +63,13 @@ class RTypeBot(commands.Bot):
         """Setup hook called before the bot starts."""
         # Connect to MongoDB
         self.db = await MongoDB.connect(Config.MONGODB_URI, Config.MONGODB_DB)
+
+        # Add global check for allowed channels (fail closed)
+        self.tree.interaction_check = self._global_channel_check
+        if Config.ALLOWED_CHANNEL_IDS:
+            logging.info(f"Restricted to channels: {Config.ALLOWED_CHANNEL_IDS}")
+        else:
+            logging.warning("ALLOWED_CHANNEL_IDS not configured - bot will deny all commands")
 
         # Load all cogs
         for extension in EXTENSIONS:
@@ -52,6 +90,25 @@ class RTypeBot(commands.Bot):
             # Global sync (takes up to 1 hour to propagate)
             await self.tree.sync()
             logging.info("Synced commands globally")
+
+    async def _global_channel_check(self, interaction: discord.Interaction) -> bool:
+        """Global check for allowed channels. Fails closed."""
+        # Fail closed: deny if not configured
+        if not Config.ALLOWED_CHANNEL_IDS:
+            await interaction.response.send_message(
+                "⚠️ Channels non configurés. Contactez l'administrateur.",
+                ephemeral=True,
+            )
+            return False
+
+        if interaction.channel_id in Config.ALLOWED_CHANNEL_IDS:
+            return True
+
+        await interaction.response.send_message(
+            f"❌ Cette commande n'est disponible que dans <#{Config.ALLOWED_CHANNEL_IDS[0]}>",
+            ephemeral=True,
+        )
+        return False
 
     async def on_ready(self):
         """Called when bot is ready."""

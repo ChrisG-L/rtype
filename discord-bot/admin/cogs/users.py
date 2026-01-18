@@ -8,12 +8,15 @@ from discord.ext import commands
 import logging
 
 from tcp_client import TCPAdminClient
+from database import PlayerStatsRepository
 from utils import (
     AdminEmbeds,
     is_admin_channel,
     has_admin_role,
     parse_users_output,
     parse_user_output,
+    PaginatedView,
+    paginate_items,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,8 +40,8 @@ class UsersCog(commands.Cog):
             result = await self.tcp.users()
             if result.success:
                 self._users_cache = parse_users_output(result.output)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to fetch users for autocomplete: {e}")
         return self._users_cache
 
     async def user_autocomplete(
@@ -56,10 +59,19 @@ class UsersCog(commands.Cog):
         return choices[:25]
 
     @app_commands.command(name="users", description="List all registered users")
+    @app_commands.describe(status="Filter by status")
+    @app_commands.choices(
+        status=[
+            app_commands.Choice(name="All", value="all"),
+            app_commands.Choice(name="Online", value="online"),
+            app_commands.Choice(name="Offline", value="offline"),
+            app_commands.Choice(name="Banned", value="banned"),
+        ]
+    )
     @is_admin_channel()
     @has_admin_role()
-    async def users(self, interaction: discord.Interaction):
-        """List all registered users."""
+    async def users(self, interaction: discord.Interaction, status: str = "all"):
+        """List all registered users with pagination."""
         await interaction.response.defer()
 
         try:
@@ -70,14 +82,57 @@ class UsersCog(commands.Cog):
                 )
                 return
 
-            # Parse TUI output and create clean embed
+            # Parse TUI output
             users_data = parse_users_output(result.output)
-            embed = AdminEmbeds.users_list(users_data)
-            await interaction.followup.send(embed=embed)
+
+            # Filter by status if specified
+            if status != "all":
+                users_data = [u for u in users_data if u.get("status", "").lower() == status.lower()]
+
+            if not users_data:
+                filter_names = {"all": "Registered Users", "online": "Online Users", "offline": "Offline Users", "banned": "Banned Users"}
+                embed = discord.Embed(
+                    title=filter_names.get(status, "Users"),
+                    description=f"*No {status} users*" if status != "all" else "*No registered users*",
+                    color=0x3498DB,
+                )
+                await interaction.followup.send(embed=embed)
+                return
+
+            # Format user lines for pagination
+            lines = []
+            for user in users_data:
+                user_status = user.get('status', 'Unknown')
+                if user_status.lower() == 'online':
+                    status_emoji = "🟢"
+                elif user_status.lower() == 'banned':
+                    status_emoji = "🚫"
+                else:
+                    status_emoji = "⚫"
+                email = user.get('email', 'Unknown')
+                username = user.get('username', 'N/A')
+                lines.append(f"{status_emoji} **{username}** - `{email}`")
+
+            # Create base embed
+            filter_names = {"all": "Registered Users", "online": "Online Users", "offline": "Offline Users", "banned": "Banned Users"}
+            base_embed = discord.Embed(
+                title=filter_names.get(status, "Registered Users"),
+                color=0x3498DB,
+            )
+
+            # Paginate if more than 15 users
+            if len(lines) > 15:
+                pages = paginate_items(lines, base_embed, items_per_page=15, footer_base="R-Type Admin")
+                view = PaginatedView(pages, author_id=interaction.user.id)
+                await interaction.followup.send(embed=pages[0], view=view)
+            else:
+                base_embed.description = "\n".join(lines)
+                base_embed.set_footer(text=f"Total: {len(lines)} | R-Type Admin")
+                await interaction.followup.send(embed=base_embed)
         except Exception as e:
-            logger.error(f"Error getting users: {e}")
+            logger.error(f"Error getting users: {e}", exc_info=True)
             await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to get users: {e}")
+                embed=AdminEmbeds.error("Failed to get users. Check logs for details.")
             )
 
     @app_commands.command(name="user", description="Show details for a specific user")
@@ -86,7 +141,7 @@ class UsersCog(commands.Cog):
     @is_admin_channel()
     @has_admin_role()
     async def user(self, interaction: discord.Interaction, email: str):
-        """Show user details."""
+        """Show user details with extended MongoDB stats."""
         await interaction.response.defer()
 
         try:
@@ -97,17 +152,21 @@ class UsersCog(commands.Cog):
                 )
                 return
 
-            # Parse TUI output and create clean embed
+            # Parse TUI output
             user_data = parse_user_output(result.output)
+
+            # Fetch extended stats from MongoDB
+            mongo_stats = await PlayerStatsRepository.get_by_email(email)
+
             if user_data:
-                embed = AdminEmbeds.user_details(user_data)
+                embed = AdminEmbeds.user_details(user_data, mongo_stats)
             else:
                 embed = AdminEmbeds.cli_output(f"User: {email}", result.output)
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error getting user: {e}")
+            logger.error(f"Error getting user: {e}", exc_info=True)
             await interaction.followup.send(
-                embed=AdminEmbeds.error(f"Failed to get user: {e}")
+                embed=AdminEmbeds.error("Failed to get user. Check logs for details.")
             )
 
 
