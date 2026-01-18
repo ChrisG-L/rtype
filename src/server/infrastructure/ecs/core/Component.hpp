@@ -162,12 +162,15 @@ namespace ECS {
 
             /**
              * @brief Get the Component object attached to the specified entity
-             * 
+             *
              * @param e The entity ID
              * @return T& Reference to the component
+             * @throws ERROR::ComponentNotAttached if the entity doesn't have this component
              */
             T &getComponent(EntityID e) {
-                
+                if (!hasComponent(e)) {
+                    throw ERROR::ComponentNotAttached(e, typeid(T).name());
+                }
                 return m_data.dense_components[m_data.sparse[e]].component;
             }
 
