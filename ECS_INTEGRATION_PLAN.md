@@ -1,8 +1,8 @@
 # R-Type - ECS Integration Plan
 
-> **Version**: 3.1
+> **Version**: 3.2
 > **Branche**: `ECS_realImpl`
-> **Status**: Phase 5.5 complète (9/9 systèmes actifs)
+> **Status**: Phase 5.6 complète (9/9 systèmes actifs, 643 tests)
 
 ---
 
@@ -17,7 +17,7 @@
 | Phase 4 | ✅ | GameWorld Migration (entities, runECSUpdate, getSnapshot) |
 | **Phase 5** | 🔄 | Activation progressive des Systems |
 
-**Tests**: 310+ tests passent
+**Tests**: 643 tests passent (6 obsolètes supprimés)
 
 ---
 

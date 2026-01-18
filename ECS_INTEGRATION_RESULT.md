@@ -21,7 +21,7 @@
 | **Phase 5.5** | ✅ | EnemyAISystem (movement patterns) |
 | **Phase 5.6** | ✅ | WeaponSystem (cooldowns) |
 
-**Total**: 310+ tests | **Branch**: `ECS_realImpl` | **Updated**: 2026-01-18
+**Total**: 643 tests (6 obsolètes supprimés) | **Branch**: `ECS_realImpl` | **Updated**: 2026-01-18
 
 ---
 
@@ -195,6 +195,11 @@ class DomainBridge {
 | Deferred entity deletion | Avoids collection modification during iteration |
 | Independent weapon levels | R-Type authentic: each weapon upgrades separately |
 | SpeedLevelComp separate | Can be queried/modified independently |
+| **NO player↔enemy contact damage** | R-Type design: damage comes from missiles/boss only |
+| Enemy OOB in legacy | `updateEnemies()` handles OOB after ECS sync (shooting logic depends on legacy) |
+| CleanupSystem: missiles only | Enemies OOB handled by legacy for sync consistency |
+| Bomber drift in ECS | `baseY += 10.0f × dt`, clamped to spawn range |
+| gameSpeedMultiplier in ECS | Applied globally to all systems via `runECSUpdate()` |
 
 ---
 
@@ -290,6 +295,27 @@ cmake -B build -DUSE_ECS_BACKEND=ON
 | MongoDB socket crash on reconnect | Migrated from single `mongocxx::client` to `mongocxx::pool` for thread-safety |
 | Session use-after-free on shutdown | Removed `_onClose` from Session destructor, only call on real errors |
 | ECS memory leak on shutdown | Fixed `ECS::shutdown()` to properly delete heap-allocated components |
+
+---
+
+## Removed Tests (Phase 5.5)
+
+6 tests obsolètes supprimés car ils testaient des comportements incorrects :
+
+| Test | Fichier | Raison de suppression |
+|------|---------|----------------------|
+| `EntityOutOfBoundsLeftDeleted` | CleanupSystemTest.cpp | Legacy `updateEnemies()` gère OOB ennemis |
+| `MixedEntitiesOnlyNonPlayersDeleted` | CleanupSystemTest.cpp | Idem - CleanupSystem ne gère que missiles |
+| `EnemyLeavingScreenLeft` | CleanupSystemTest.cpp | Idem |
+| `PlayerTakesContactDamageFromEnemy` | DamageSystemTest.cpp | R-Type : PAS de contact damage player↔enemy |
+| `EnemySpawnMoveOffScreenDeleted` | ECSPhase2IntegrationTest.cpp | Legacy gère OOB ennemis |
+| `PlayerEnemyCollisionIntegration` | ECSPhase48IntegrationTest.cpp | PAS de contact damage player↔enemy |
+
+**Confirmation legacy** : Dans `checkCollisions()`, les seuls dégâts au joueur viennent de :
+- Missiles ennemis (`_enemyMissiles` → Player)
+- Attaques du Boss
+
+Force Pod et Bit Device font des dégâts de contact aux ennemis, mais **jamais l'inverse**.
 
 ---
 
