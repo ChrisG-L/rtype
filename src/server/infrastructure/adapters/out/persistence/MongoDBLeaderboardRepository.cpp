@@ -226,6 +226,11 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
 {
     std::vector<LeaderboardEntry> entries;
 
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto leaderboardCollection = db[LEADERBOARD_COLLECTION];
+
     try {
         mongocxx::pipeline pipeline;
 
@@ -262,7 +267,7 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
         // Stage 5: Limit results
         pipeline.limit(static_cast<int32_t>(limit));
 
-        auto cursor = _leaderboardCollection->aggregate(pipeline);
+        auto cursor = leaderboardCollection.aggregate(pipeline);
 
         uint32_t rank = 1;
         for (auto&& doc : cursor) {
@@ -356,6 +361,11 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
 uint32_t MongoDBLeaderboardRepository::getPlayerRank(
     const std::string& email, LeaderboardPeriod period, uint8_t playerCount)
 {
+    // Acquire client from pool (thread-safe) - stays alive for this method
+    auto client = _mongoDB->acquireClient();
+    auto db = _mongoDB->getDatabase(client);
+    auto leaderboardCollection = db[LEADERBOARD_COLLECTION];
+
     try {
         // Get player's best score for this period and player count
         bsoncxx::builder::basic::document filter;
@@ -372,7 +382,7 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
         opts.sort(make_document(kvp("score", -1)));
         opts.limit(1);
 
-        auto result = _leaderboardCollection->find_one(filter.view(), opts);
+        auto result = leaderboardCollection.find_one(filter.view(), opts);
         if (!result) return 0;
 
         uint32_t playerScore = static_cast<uint32_t>(getInt64Safe(result->view()["score"]));
@@ -404,7 +414,7 @@ uint32_t MongoDBLeaderboardRepository::getPlayerRank(
 
         pipe.count("count");
 
-        auto cursor = _leaderboardCollection->aggregate(pipe);
+        auto cursor = leaderboardCollection.aggregate(pipe);
         uint32_t count = 0;
         for (auto&& doc : cursor) {
             count = static_cast<uint32_t>(getInt64Safe(doc["count"]));
