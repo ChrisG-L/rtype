@@ -28,10 +28,26 @@
 | **Phase 1** | ✅ Complete | ECS Core + Components + DomainBridge |
 | **Phase 2** | ✅ Complete | ECS Systems (Movement, Collision, Damage, etc.) |
 | **Phase 3** | ✅ Complete | Player Components + Advanced Systems |
-| **Phase 4** | ⏳ Pending | Full GameWorld migration |
+| **Phase 4** | 🔄 In Progress | GameWorld migration (dual-running) |
 
 **Last Updated:** 2026-01-18
 **Current Branch:** `ECS_realImpl`
+
+### Phase 4 Detailed Status
+
+| Sub-Phase | Description | Status |
+|-----------|-------------|--------|
+| 4.1 | `initializeECS()` - register 15 components | ✅ Complete |
+| 4.1 | `registerSystems()` - 9 Systems with priorities | ✅ Complete |
+| 4.2 | `addPlayer()` creates ECS entities | ✅ Complete |
+| 4.3 | `spawnMissile()` creates ECS entities | ✅ Complete |
+| 4.4 | `spawnEnemy()` creates ECS entities | ✅ Complete |
+| 4.5 | CMakeLists.txt includes all System .cpp files | ✅ Complete |
+| 4.6 | `getSnapshot()` reads from ECS | ❌ Pending |
+| 4.7 | `update()` calls `_ecs.Update()` | ❌ Pending |
+| 4.8 | Integration tests & full testing | ❌ Pending |
+
+**Current Mode:** Dual-write, single-read (ECS entities created but legacy code still drives gameplay)
 
 ---
 
@@ -476,14 +492,28 @@ All Phase 3 systems implemented and tested:
 
 **Total tests:** 310+ tests passing
 
-### Phase 4 (GameWorld Migration) - ⏳ Next
+### Phase 4 (GameWorld Migration) - 🔄 In Progress
 
-1. Register all components in `GameWorld::initializeECS()`
-2. Migrate player creation to ECS entities
-3. Migrate enemy spawning to ECS
-4. Migrate missile creation to ECS
-5. Adapt `getSnapshot()` to read from ECS
-6. Dual-run testing (legacy + ECS comparison)
+#### Completed ✅
+1. ✅ Register all 15 components in `GameWorld::initializeECS()`
+2. ✅ Register all 9 Systems with priorities in `registerSystems()`
+3. ✅ Migrate player creation to ECS entities (`createPlayerEntity()`)
+4. ✅ Migrate missile creation to ECS entities (`createMissileEntity()`)
+5. ✅ Migrate enemy spawning to ECS entities (`createEnemyEntity()`)
+6. ✅ Add entity deletion helpers (`deletePlayerEntity()`, etc.)
+7. ✅ CMakeLists.txt includes all System .cpp files
+
+#### Remaining ❌
+1. **Phase 4.6:** Adapt `getSnapshot()` to read from ECS entities
+   - Query `PLAYERS`, `MISSILES`, `ENEMIES` groups
+   - Convert ECS components to Protocol structs
+2. **Phase 4.7:** Replace `update()` logic with `_ecs.Update()`
+   - Call `_ecs.Update(deltaTimeMs)` in game loop
+   - Legacy update methods become optional/removed
+3. **Phase 4.8:** Integration testing
+   - Test ECS-driven gameplay
+   - Compare snapshots (ECS vs legacy)
+   - Verify no regressions
 
 ---
 
@@ -503,14 +533,16 @@ None identified.
 
 ### TODOs
 
-| Priority | Item | Phase |
-|----------|------|-------|
-| High | Migrate GameWorld to use ECS Systems | 4 |
-| High | Register all components in initializeECS() | 4 |
-| Medium | Adapt getSnapshot() to read from ECS | 4 |
-| Medium | Dual-run testing (legacy + ECS comparison) | 4 |
-| Low | Spatial hashing for CollisionSystem | 4+ |
-| Low | ForcePodSystem, BitDeviceSystem, BossSystem | 4+ |
+| Priority | Item | Phase | Status |
+|----------|------|-------|--------|
+| ~~High~~ | ~~Register all components in initializeECS()~~ | 4.1 | ✅ Done |
+| ~~High~~ | ~~Register all Systems in registerSystems()~~ | 4.1 | ✅ Done |
+| ~~High~~ | ~~Migrate entity creation (players, missiles, enemies)~~ | 4.2-4.4 | ✅ Done |
+| **High** | **Adapt getSnapshot() to read from ECS** | 4.6 | ❌ Next |
+| **High** | **Replace update() with _ecs.Update()** | 4.7 | ❌ Pending |
+| Medium | Integration testing (ECS vs legacy comparison) | 4.8 | ❌ Pending |
+| Low | Spatial hashing for CollisionSystem | 5+ | ❌ Future |
+| Low | ForcePodSystem, BitDeviceSystem, BossSystem | 5+ | ❌ Future |
 
 ### Performance Considerations
 

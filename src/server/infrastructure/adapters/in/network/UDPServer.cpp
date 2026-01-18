@@ -280,13 +280,25 @@ namespace infrastructure::adapters::in::network {
                 static_cast<int>(playerId), roomCode);
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // Phase 4.7: ECS drives core game logic (movement, collisions)
+        // When ECS is enabled, it handles player/missile/enemy movement
+        // and syncs state back to legacy maps for event collection
+        // ═══════════════════════════════════════════════════════════════════
+#ifdef USE_ECS_BACKEND
+        gameWorld->runECSUpdate(deltaTime);
+        // Skip updatePlayers() - ECS PlayerInputSystem + MovementSystem handles it
+#else
         // Update player positions based on inputs (server-authoritative)
         gameWorld->updatePlayers(deltaTime);
+#endif
 
         // Update weapon cooldowns (Gameplay Phase 2)
         gameWorld->updateShootCooldowns(deltaTime);
 
-        // Update missiles
+        // Update missiles (movement + bounds checking)
+        // Note: When ECS is fully integrated, MovementSystem handles movement
+        // but legacy updateMissiles still handles homing logic and bounds
         gameWorld->updateMissiles(deltaTime);
 
         // Update waves and enemies

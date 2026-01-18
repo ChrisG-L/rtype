@@ -35,7 +35,11 @@ namespace infrastructure::game {
             _enemyBehavior
         );
 
-        // Register all ECS components
+        // ═══════════════════════════════════════════════════════════════════
+        // Register all 15 ECS components
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Phase 1: Base Components (6)
         _ecs.registerComponent<ecs::components::PositionComp>();
         _ecs.registerComponent<ecs::components::VelocityComp>();
         _ecs.registerComponent<ecs::components::HealthComp>();
@@ -43,8 +47,351 @@ namespace infrastructure::game {
         _ecs.registerComponent<ecs::components::LifetimeComp>();
         _ecs.registerComponent<ecs::components::OwnerComp>();
 
-        // ECS is now ready for use
-        // Systems will be registered in Phase 2
+        // Phase 2: Entity Tags & AI (5)
+        _ecs.registerComponent<ecs::components::MissileTag>();
+        _ecs.registerComponent<ecs::components::EnemyTag>();
+        _ecs.registerComponent<ecs::components::EnemyAIComp>();
+        _ecs.registerComponent<ecs::components::PowerUpTag>();
+        _ecs.registerComponent<ecs::components::WaveCannonTag>();
+
+        // Phase 3: Player Components (4)
+        _ecs.registerComponent<ecs::components::PlayerTag>();
+        _ecs.registerComponent<ecs::components::ScoreComp>();
+        _ecs.registerComponent<ecs::components::WeaponComp>();
+        _ecs.registerComponent<ecs::components::SpeedLevelComp>();
+
+        // Register all systems
+        registerSystems();
+    }
+
+    void GameWorld::registerSystems() {
+        // ═══════════════════════════════════════════════════════════════════
+        // Register all 9 ECS systems in priority order
+        // Lower priority = runs earlier in the update cycle
+        // ═══════════════════════════════════════════════════════════════════
+
+        using namespace ecs::systems;
+
+        // Priority 0: PlayerInputSystem - Process inputs first
+        _playerInputSystemId = _ecs.addSystemWithArgs<PlayerInputSystem>(0, *_domainBridge);
+
+        // Priority 100: EnemyAISystem - AI decisions
+        _enemyAISystemId = _ecs.addSystemWithArgs<EnemyAISystem>(0, *_domainBridge);
+
+        // Priority 200: WeaponSystem - Weapon cooldowns and missile spawning
+        _weaponSystemId = _ecs.addSystemWithArgs<WeaponSystem>(0, *_domainBridge);
+
+        // Priority 300: MovementSystem - Apply velocities to positions
+        _movementSystemId = _ecs.addSystem<MovementSystem>(0);
+
+        // Priority 400: CollisionSystem - Detect collisions (runs after movement)
+        _collisionSystemId = _ecs.addSystemWithArgs<CollisionSystem>(0, *_domainBridge);
+
+        // Priority 500: DamageSystem - Apply damage from collisions
+        // Note: DamageSystem needs reference to CollisionSystem
+        auto* collisionSystem = _ecs.getSystem<CollisionSystem>(_collisionSystemId);
+        _damageSystemId = _ecs.addSystemWithArgs<DamageSystem>(0, *_domainBridge, *collisionSystem);
+
+        // Priority 600: LifetimeSystem - Expire timed entities
+        _lifetimeSystemId = _ecs.addSystem<LifetimeSystem>(0);
+
+        // Priority 700: CleanupSystem - Remove out-of-bounds entities
+        _cleanupSystemId = _ecs.addSystemWithArgs<CleanupSystem>(0, *_domainBridge);
+
+        // Priority 800: ScoreSystem - Score calculations and combo decay
+        _scoreSystemId = _ecs.addSystemWithArgs<ScoreSystem>(0, *_domainBridge);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Phase 4.7: Disable systems that conflict with legacy code
+        // Only PlayerInputSystem and MovementSystem are active for now
+        // Legacy handles: Collisions, Damage, Lifetime, Cleanup, EnemyAI, Weapons, Score
+        // ═══════════════════════════════════════════════════════════════════
+        _ecs.toggleSystem(_enemyAISystemId);    // OFF - Legacy updateEnemies handles AI
+        _ecs.toggleSystem(_weaponSystemId);     // OFF - Legacy handles weapon cooldowns
+        _ecs.toggleSystem(_collisionSystemId);  // OFF - Legacy checkCollisions handles this
+        _ecs.toggleSystem(_damageSystemId);     // OFF - Legacy handles damage
+        _ecs.toggleSystem(_lifetimeSystemId);   // OFF - Legacy handles lifetime
+        _ecs.toggleSystem(_cleanupSystemId);    // OFF - Legacy handles OOB cleanup
+        _ecs.toggleSystem(_scoreSystemId);      // OFF - Legacy handles score
+    }
+
+    ECS::EntityID GameWorld::createPlayerEntity(uint8_t playerId, float x, float y, uint8_t health,
+                                                 uint8_t shipSkin, bool godMode) {
+        // Create entity with PLAYERS group
+        ECS::EntityID entity = _ecs.entityCreate(ECS::EntityGroup::PLAYERS);
+
+        // Add all player components
+        auto& pos = _ecs.entityAddComponent<ecs::components::PositionComp>(entity);
+        pos.x = x;
+        pos.y = y;
+
+        auto& vel = _ecs.entityAddComponent<ecs::components::VelocityComp>(entity);
+        vel.x = 0.0f;
+        vel.y = 0.0f;
+
+        auto& hp = _ecs.entityAddComponent<ecs::components::HealthComp>(entity);
+        hp.current = health;
+        hp.max = DEFAULT_HEALTH;
+        hp.invulnerable = godMode;
+
+        auto& hitbox = _ecs.entityAddComponent<ecs::components::HitboxComp>(entity);
+        hitbox.width = PLAYER_SHIP_WIDTH;
+        hitbox.height = PLAYER_SHIP_HEIGHT;
+        hitbox.offsetX = 0.0f;
+        hitbox.offsetY = 0.0f;
+
+        auto& playerTag = _ecs.entityAddComponent<ecs::components::PlayerTag>(entity);
+        playerTag.playerId = playerId;
+        playerTag.shipSkin = shipSkin;
+        playerTag.isAlive = true;
+
+        auto& score = _ecs.entityAddComponent<ecs::components::ScoreComp>(entity);
+        score.total = 0;
+        score.kills = 0;
+        score.comboMultiplier = 1.0f;
+        score.comboTimer = 0.0f;
+        score.maxCombo = 1.0f;
+        score.deaths = 0;
+
+        auto& weapon = _ecs.entityAddComponent<ecs::components::WeaponComp>(entity);
+        weapon.currentType = 0;  // WeaponType::Standard
+        weapon.shootCooldown = 0.0f;
+        weapon.isCharging = false;
+        weapon.chargeTime = 0.0f;
+        weapon.weaponLevels = {0, 0, 0, 0};
+
+        auto& speedLevel = _ecs.entityAddComponent<ecs::components::SpeedLevelComp>(entity);
+        speedLevel.level = 0;
+
+        // Store mapping for later lookup
+        _playerEntityIds[playerId] = entity;
+
+        return entity;
+    }
+
+    void GameWorld::deletePlayerEntity(uint8_t playerId) {
+        auto it = _playerEntityIds.find(playerId);
+        if (it != _playerEntityIds.end()) {
+            _ecs.entityDelete(it->second);
+            _playerEntityIds.erase(it);
+        }
+    }
+
+    ECS::EntityID GameWorld::createMissileEntity(uint16_t missileId, uint8_t ownerId, float x, float y,
+                                                  float velX, float velY, uint8_t weaponType, uint8_t damage,
+                                                  bool isHoming, uint32_t targetId) {
+        // Create entity with MISSILES group (player missiles)
+        ECS::EntityID entity = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+
+        // Position
+        auto& pos = _ecs.entityAddComponent<ecs::components::PositionComp>(entity);
+        pos.x = x;
+        pos.y = y;
+
+        // Velocity
+        auto& vel = _ecs.entityAddComponent<ecs::components::VelocityComp>(entity);
+        vel.x = velX;
+        vel.y = velY;
+
+        // Hitbox
+        auto& hitbox = _ecs.entityAddComponent<ecs::components::HitboxComp>(entity);
+        hitbox.width = Missile::WIDTH;
+        hitbox.height = Missile::HEIGHT;
+        hitbox.offsetX = 0.0f;
+        hitbox.offsetY = 0.0f;
+
+        // Missile tag
+        auto& missileTag = _ecs.entityAddComponent<ecs::components::MissileTag>(entity);
+        missileTag.weaponType = weaponType;
+        missileTag.baseDamage = damage;
+        missileTag.isHoming = isHoming;
+        missileTag.targetId = targetId;
+
+        // Owner
+        auto& owner = _ecs.entityAddComponent<ecs::components::OwnerComp>(entity);
+        owner.ownerId = ownerId;
+        owner.isPlayerOwned = true;
+
+        // Store mapping for later lookup
+        _missileEntityIds[missileId] = entity;
+
+        return entity;
+    }
+
+    void GameWorld::deleteMissileEntity(uint16_t missileId) {
+        auto it = _missileEntityIds.find(missileId);
+        if (it != _missileEntityIds.end()) {
+            _ecs.entityDelete(it->second);
+            _missileEntityIds.erase(it);
+        }
+    }
+
+    ECS::EntityID GameWorld::createEnemyEntity(uint16_t enemyId, float x, float y, uint8_t health,
+                                                uint8_t enemyType, uint16_t points, float baseY,
+                                                float phaseOffset, float shootCooldown, float shootInterval,
+                                                float targetY, bool zigzagUp) {
+        // Create entity with ENEMIES group
+        ECS::EntityID entity = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
+
+        // Position
+        auto& pos = _ecs.entityAddComponent<ecs::components::PositionComp>(entity);
+        pos.x = x;
+        pos.y = y;
+
+        // Velocity (will be set by EnemyAISystem based on type)
+        auto& vel = _ecs.entityAddComponent<ecs::components::VelocityComp>(entity);
+        vel.x = 0.0f;
+        vel.y = 0.0f;
+
+        // Health
+        auto& hp = _ecs.entityAddComponent<ecs::components::HealthComp>(entity);
+        hp.current = health;
+        hp.max = health;
+        hp.invulnerable = false;
+
+        // Hitbox
+        auto& hitbox = _ecs.entityAddComponent<ecs::components::HitboxComp>(entity);
+        hitbox.width = Enemy::WIDTH;
+        hitbox.height = Enemy::HEIGHT;
+        hitbox.offsetX = 0.0f;
+        hitbox.offsetY = 0.0f;
+
+        // Enemy tag
+        auto& enemyTag = _ecs.entityAddComponent<ecs::components::EnemyTag>(entity);
+        enemyTag.type = enemyType;
+        enemyTag.points = points;
+
+        // Enemy AI
+        auto& ai = _ecs.entityAddComponent<ecs::components::EnemyAIComp>(entity);
+        ai.shootCooldown = shootCooldown;
+        ai.shootInterval = shootInterval;
+        ai.movementPattern = enemyType;  // Movement pattern matches enemy type
+        ai.patternTimer = 0.0f;
+        ai.baseY = baseY;
+        ai.aliveTime = 0.0f;
+        ai.phaseOffset = phaseOffset;
+        ai.targetY = targetY;
+        ai.zigzagTimer = 0.0f;
+        ai.zigzagUp = zigzagUp;
+
+        // Store mapping
+        _enemyEntityIds[enemyId] = entity;
+
+        return entity;
+    }
+
+    void GameWorld::deleteEnemyEntity(uint16_t enemyId) {
+        auto it = _enemyEntityIds.find(enemyId);
+        if (it != _enemyEntityIds.end()) {
+            _ecs.entityDelete(it->second);
+            _enemyEntityIds.erase(it);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Phase 4.7: ECS as primary driver
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    void GameWorld::queueInputToECS(uint8_t playerId, uint16_t keys, uint16_t sequenceNum) {
+        auto* playerInputSystem = _ecs.getSystem<ecs::systems::PlayerInputSystem>(_playerInputSystemId);
+        if (playerInputSystem) {
+            ecs::systems::PlayerInputEvent event;
+            event.playerId = playerId;
+            event.keys = keys;
+            event.sequenceNum = sequenceNum;
+            playerInputSystem->queueInput(event);
+        }
+    }
+
+    void GameWorld::syncPlayersFromECS() {
+        // Query all player entities and sync their positions back to legacy map
+        auto playerEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::PositionComp,
+            ecs::components::HealthComp
+        >();
+
+        for (auto entityId : playerEntities) {
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+            const auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+
+            auto it = _players.find(playerTag.playerId);
+            if (it != _players.end()) {
+                // Sync position
+                it->second.x = static_cast<uint16_t>(pos.x);
+                it->second.y = static_cast<uint16_t>(pos.y);
+
+                // Sync health
+                it->second.health = health.current;
+                it->second.alive = playerTag.isAlive && health.current > 0;
+            }
+        }
+    }
+
+    void GameWorld::syncMissilesFromECS() {
+        // Query all missile entities and sync their positions back to legacy map
+        auto missileEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::MissileTag,
+            ecs::components::PositionComp
+        >();
+
+        for (auto entityId : missileEntities) {
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+
+            // Find the missile ID from our mapping (reverse lookup)
+            for (const auto& [missileId, ecsId] : _missileEntityIds) {
+                if (ecsId == entityId) {
+                    auto it = _missiles.find(missileId);
+                    if (it != _missiles.end()) {
+                        it->second.x = pos.x;
+                        it->second.y = pos.y;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    void GameWorld::syncEnemiesFromECS() {
+        // Query all enemy entities and sync their positions back to legacy map
+        auto enemyEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::EnemyTag,
+            ecs::components::PositionComp,
+            ecs::components::HealthComp
+        >();
+
+        for (auto entityId : enemyEntities) {
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+            const auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+
+            // Find the enemy ID from our mapping (reverse lookup)
+            for (const auto& [enemyId, ecsId] : _enemyEntityIds) {
+                if (ecsId == entityId) {
+                    auto it = _enemies.find(enemyId);
+                    if (it != _enemies.end()) {
+                        it->second.x = pos.x;
+                        it->second.y = pos.y;
+                        it->second.health = health.current;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    void GameWorld::runECSUpdate(float deltaTime) {
+        // Convert delta time from seconds to milliseconds for ECS
+        uint32_t msecs = static_cast<uint32_t>(deltaTime * 1000.0f);
+
+        // Run all ECS systems (PlayerInput, Movement, Collision, Damage, etc.)
+        _ecs.Update(msecs);
+
+        // Phase 4.7: Only sync player positions from ECS to legacy
+        // Missiles and enemies are still handled by legacy update functions
+        // This avoids double movement (ECS + legacy both moving the same entities)
+        // TODO Phase 4.8: Remove legacy missile/enemy updates and sync all from ECS
+        syncPlayersFromECS();
     }
 #endif
 
@@ -94,6 +441,13 @@ namespace infrastructure::game {
         _players[newId] = player;
         _playerScores[newId] = PlayerScore{};  // Initialize score for new player
         // Note: Game timer starts on first input (see applyPlayerInput)
+
+#ifdef USE_ECS_BACKEND
+        // Create corresponding ECS entity (dual-running with legacy code)
+        createPlayerEntity(newId, static_cast<float>(startX), static_cast<float>(startY),
+                          DEFAULT_HEALTH, 1, false);
+#endif
+
         return newId;
     }
 
@@ -104,16 +458,26 @@ namespace infrastructure::game {
         _playerScores.erase(playerId);        // Clean up scores
         _forcePods.erase(playerId);           // Clean up Force Pod
         _bitDevices.erase(playerId);          // Clean up Bit Devices
+
+#ifdef USE_ECS_BACKEND
+        deletePlayerEntity(playerId);
+#endif
     }
 
     void GameWorld::removePlayerByEndpoint(const udp::endpoint& endpoint) {
         for (auto it = _players.begin(); it != _players.end(); ++it) {
             if (it->second.endpoint == endpoint) {
-                _playerInputs.erase(it->first);        // Clean up inputs
-                _playerLastInputSeq.erase(it->first);  // Clean up sequence tracking
-                _playerScores.erase(it->first);        // Clean up scores
-                _forcePods.erase(it->first);           // Clean up Force Pod
-                _bitDevices.erase(it->first);          // Clean up Bit Devices
+                uint8_t playerId = it->first;
+                _playerInputs.erase(playerId);        // Clean up inputs
+                _playerLastInputSeq.erase(playerId);  // Clean up sequence tracking
+                _playerScores.erase(playerId);        // Clean up scores
+                _forcePods.erase(playerId);           // Clean up Force Pod
+                _bitDevices.erase(playerId);          // Clean up Bit Devices
+
+#ifdef USE_ECS_BACKEND
+                deletePlayerEntity(playerId);
+#endif
+
                 _players.erase(it);
                 return;
             }
@@ -124,7 +488,17 @@ namespace infrastructure::game {
         auto it = _players.find(playerId);
         if (it != _players.end()) {
             // Clamp to valid range (1-6)
-            it->second.shipSkin = std::clamp(skinId, static_cast<uint8_t>(1), static_cast<uint8_t>(6));
+            uint8_t clampedSkin = std::clamp(skinId, static_cast<uint8_t>(1), static_cast<uint8_t>(6));
+            it->second.shipSkin = clampedSkin;
+
+#ifdef USE_ECS_BACKEND
+            // Update ECS PlayerTag component
+            auto entityIt = _playerEntityIds.find(playerId);
+            if (entityIt != _playerEntityIds.end()) {
+                auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityIt->second);
+                playerTag.shipSkin = clampedSkin;
+            }
+#endif
         }
     }
 
@@ -132,6 +506,15 @@ namespace infrastructure::game {
         auto it = _players.find(playerId);
         if (it != _players.end()) {
             it->second.godMode = enabled;
+
+#ifdef USE_ECS_BACKEND
+            // Update ECS HealthComp invulnerable flag
+            auto entityIt = _playerEntityIds.find(playerId);
+            if (entityIt != _playerEntityIds.end()) {
+                auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityIt->second);
+                health.invulnerable = enabled;
+            }
+#endif
         }
     }
 
@@ -161,6 +544,11 @@ namespace infrastructure::game {
 
         _playerInputs[playerId] = keys;
         _playerLastInputSeq[playerId] = sequenceNum;
+
+#ifdef USE_ECS_BACKEND
+        // Queue input to ECS PlayerInputSystem for ECS-driven movement
+        queueInputToECS(playerId, keys, sequenceNum);
+#endif
     }
 
     uint16_t GameWorld::getPlayerLastInputSeq(uint8_t playerId) const {
@@ -220,8 +608,12 @@ namespace infrastructure::game {
 
     GameSnapshot GameWorld::getSnapshot() const {
         GameSnapshot snapshot{};
-        snapshot.player_count = 0;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // Legacy snapshot generation (ECS reading will be enabled after Phase 4.7)
+        // ═══════════════════════════════════════════════════════════════════
+
+        snapshot.player_count = 0;
         for (const auto& [id, player] : _players) {
             if (snapshot.player_count >= MAX_PLAYERS) break;
 
@@ -366,15 +758,27 @@ namespace infrastructure::game {
         const auto& player = it->second;
         uint16_t missileId = _nextMissileId++;
 
+        float spawnX = static_cast<float>(player.x) + MISSILE_SPAWN_OFFSET_X;
+        float spawnY = static_cast<float>(player.y) + MISSILE_SPAWN_OFFSET_Y;
+
         Missile missile{
             .id = missileId,
             .owner_id = playerId,
-            .x = static_cast<float>(player.x) + MISSILE_SPAWN_OFFSET_X,
-            .y = static_cast<float>(player.y) + MISSILE_SPAWN_OFFSET_Y,
+            .x = spawnX,
+            .y = spawnY,
             .velocityX = Missile::SPEED
         };
 
         _missiles[missileId] = missile;
+
+#ifdef USE_ECS_BACKEND
+        // Create corresponding ECS entity (dual-running)
+        createMissileEntity(missileId, playerId, spawnX, spawnY,
+                           Missile::SPEED, 0.0f,
+                           static_cast<uint8_t>(WeaponType::Standard),
+                           Missile::DAMAGE_STANDARD, false, 0);
+#endif
+
         return missileId;
     }
 
@@ -431,7 +835,11 @@ namespace infrastructure::game {
                                missile.y > SCREEN_HEIGHT + 50.0f || missile.y < -50.0f;
 
             if (outOfBounds) {
-                _destroyedMissiles.push_back(it->first);
+                uint16_t missileId = it->first;
+                _destroyedMissiles.push_back(missileId);
+#ifdef USE_ECS_BACKEND
+                deleteMissileEntity(missileId);
+#endif
                 it = _missiles.erase(it);
             } else {
                 ++it;
@@ -490,6 +898,10 @@ namespace infrastructure::game {
                 std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
                 std::uniform_int_distribution<int> distBool(0, 1);
 
+                float phaseOffset = dist01(_rng) * 6.28f;
+                float shootCooldown = shootInterval * (0.3f + 0.7f * dist01(_rng));
+                bool zigzagUp = distBool(_rng) == 0;
+
                 Enemy enemy{
                     .id = enemyId,
                     .x = SPAWN_X,
@@ -497,15 +909,24 @@ namespace infrastructure::game {
                     .health = health,
                     .enemy_type = typeValue,
                     .baseY = it->spawnY,
-                    .phaseOffset = dist01(_rng) * 6.28f,
+                    .phaseOffset = phaseOffset,
                     .aliveTime = 0.0f,
-                    .shootCooldown = shootInterval * (0.3f + 0.7f * dist01(_rng)),
+                    .shootCooldown = shootCooldown,
                     .targetY = it->spawnY,
                     .zigzagTimer = 0.0f,
-                    .zigzagUp = distBool(_rng) == 0
+                    .zigzagUp = zigzagUp
                 };
 
                 _enemies[enemyId] = enemy;
+
+#ifdef USE_ECS_BACKEND
+                // Create corresponding ECS entity (dual-running)
+                createEnemyEntity(enemyId, SPAWN_X, it->spawnY, health,
+                                 typeValue, getEnemyPointValue(it->type), it->spawnY,
+                                 phaseOffset, shootCooldown, shootInterval,
+                                 it->spawnY, zigzagUp);
+#endif
+
                 it = _spawnQueue.erase(it);
             } else {
                 ++it;
@@ -742,10 +1163,18 @@ namespace infrastructure::game {
             }
 
             if (enemy.x < -Enemy::WIDTH) {
-                _destroyedEnemies.push_back(it->first);
+                uint16_t enemyId = it->first;
+                _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                deleteEnemyEntity(enemyId);
+#endif
                 it = _enemies.erase(it);
             } else if (enemy.health == 0) {
-                _destroyedEnemies.push_back(it->first);
+                uint16_t enemyId = it->first;
+                _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                deleteEnemyEntity(enemyId);
+#endif
                 it = _enemies.erase(it);
             } else {
                 ++it;
@@ -809,7 +1238,11 @@ namespace infrastructure::game {
                         }
                     }
 
-                    _destroyedMissiles.push_back(missileIt->first);
+                    uint16_t missileId = missileIt->first;
+                    _destroyedMissiles.push_back(missileId);
+#ifdef USE_ECS_BACKEND
+                    deleteMissileEntity(missileId);
+#endif
                     missileIt = _missiles.erase(missileIt);
                     missileDestroyed = true;
                     break;
@@ -824,7 +1257,11 @@ namespace infrastructure::game {
                     uint8_t damage = Missile::getDamage(missile.weaponType, missile.weaponLevel);
                     damageBoss(damage, missile.owner_id);
 
-                    _destroyedMissiles.push_back(missileIt->first);
+                    uint16_t missileId = missileIt->first;
+                    _destroyedMissiles.push_back(missileId);
+#ifdef USE_ECS_BACKEND
+                    deleteMissileEntity(missileId);
+#endif
                     missileIt = _missiles.erase(missileIt);
                     missileDestroyed = true;
                 }
@@ -1601,22 +2038,38 @@ namespace infrastructure::game {
             uint8_t health = Enemy::getHealthForType(type);
 
             std::uniform_real_distribution<float> phaseDist(0.0f, 6.28f);
+            float phaseOffset = phaseDist(_rng);
+            bool zigzagUp = (i % 2 == 0);
+            float shootInterval = (type == EnemyType::Tracker)
+                                 ? Enemy::SHOOT_INTERVAL_TRACKER
+                                 : Enemy::SHOOT_INTERVAL_FAST;
+            float spawnX = boss.x - 50.0f;
+
             Enemy enemy{
                 .id = enemyId,
-                .x = boss.x - 50.0f,
+                .x = spawnX,
                 .y = spawnY,
                 .health = health,
                 .enemy_type = static_cast<uint8_t>(type),
                 .baseY = spawnY,
-                .phaseOffset = phaseDist(_rng),
+                .phaseOffset = phaseOffset,
                 .aliveTime = 0.0f,
                 .shootCooldown = Enemy::SHOOT_INTERVAL_FAST,
                 .targetY = spawnY,
                 .zigzagTimer = 0.0f,
-                .zigzagUp = (i % 2 == 0)
+                .zigzagUp = zigzagUp
             };
 
             _enemies[enemyId] = enemy;
+
+#ifdef USE_ECS_BACKEND
+            // Create ECS entity for boss minion
+            createEnemyEntity(enemyId, spawnX, spawnY, health,
+                             static_cast<uint8_t>(type), getEnemyPointValue(type), spawnY,
+                             phaseOffset, Enemy::SHOOT_INTERVAL_FAST, shootInterval,
+                             spawnY, zigzagUp);
+#endif
+
             boss.minionsSpawned++;
         }
     }
@@ -1878,6 +2331,23 @@ namespace infrastructure::game {
                 break;
         }
 
+#ifdef USE_ECS_BACKEND
+        // Create ECS entities for all missiles spawned by the player (before Force/Bit missiles)
+        uint8_t damage = Missile::getDamage(weapon, level);
+        for (uint16_t id : spawnedIds) {
+            auto missileIt = _missiles.find(id);
+            if (missileIt != _missiles.end()) {
+                const Missile& m = missileIt->second;
+                createMissileEntity(m.id, m.owner_id, m.x, m.y,
+                                   m.velocityX, m.velocityY,
+                                   static_cast<uint8_t>(m.weaponType),
+                                   damage,
+                                   m.weaponType == WeaponType::Missile,
+                                   m.targetEnemyId);
+            }
+        }
+#endif
+
         // R-Type Authentic: Force Pod also shoots when player shoots
         auto forceIt = _forcePods.find(playerId);
         if (forceIt != _forcePods.end() && forceIt->second.isAttached) {
@@ -2053,6 +2523,9 @@ namespace infrastructure::game {
 
                     if (enemy.health == 0) {
                         _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                        deleteEnemyEntity(enemyId);
+#endif
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
                         // Wave Cannon has its own kill tracking
                         awardKillScore(wc.owner_id, enemyType, WeaponType::WaveCannon);
@@ -2267,9 +2740,10 @@ namespace infrastructure::game {
         // Spawn a special enemy that guarantees a power-up drop
         std::uniform_real_distribution<float> yDist(100.0f, 900.0f);
         float y = yDist(_rng);
+        uint16_t enemyId = _nextEnemyId++;
 
         Enemy powArmor{
-            .id = _nextEnemyId++,
+            .id = enemyId,
             .x = SPAWN_X,
             .y = y,
             .health = Enemy::HEALTH_POW_ARMOR,  // Use defined constant
@@ -2283,7 +2757,16 @@ namespace infrastructure::game {
             .zigzagUp = false
         };
 
-        _enemies[powArmor.id] = powArmor;
+        _enemies[enemyId] = powArmor;
+
+#ifdef USE_ECS_BACKEND
+        // Create ECS entity for POW Armor enemy
+        createEnemyEntity(enemyId, SPAWN_X, y, Enemy::HEALTH_POW_ARMOR,
+                         static_cast<uint8_t>(EnemyType::POWArmor),
+                         POINTS_POW_ARMOR, y, 0.0f,
+                         Enemy::SHOOT_INTERVAL_POW_ARMOR, Enemy::SHOOT_INTERVAL_POW_ARMOR,
+                         y, false);
+#endif
     }
 
     std::vector<PowerUpCollected> GameWorld::getCollectedPowerUps() {
@@ -2433,6 +2916,9 @@ namespace infrastructure::game {
 
                     if (enemy.health == 0) {
                         _destroyedEnemies.push_back(enemyId);
+#ifdef USE_ECS_BACKEND
+                        deleteEnemyEntity(enemyId);
+#endif
                         EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
                         // Force Pod kills count as player's current weapon
                         auto playerIt = _players.find(playerId);
@@ -2521,13 +3007,15 @@ namespace infrastructure::game {
                                            WeaponType weapon, uint8_t level) {
         uint16_t id = _nextMissileId++;
 
+        float velY = speed * angleY;
+
         Missile missile{
             .id = id,
             .owner_id = playerId,
             .x = x,
             .y = y,
             .velocityX = speed,
-            .velocityY = speed * angleY,
+            .velocityY = velY,
             .weaponType = weapon,
             .weaponLevel = level,
             .targetEnemyId = 0,
@@ -2535,6 +3023,15 @@ namespace infrastructure::game {
         };
 
         _missiles[id] = missile;
+
+#ifdef USE_ECS_BACKEND
+        // Create ECS entity for Force missile
+        uint8_t damage = Missile::getDamage(weapon, level);
+        createMissileEntity(id, playerId, x, y, speed, velY,
+                           static_cast<uint8_t>(weapon), damage,
+                           weapon == WeaponType::Missile, 0);
+#endif
+
         return id;
     }
 
@@ -2795,6 +3292,9 @@ namespace infrastructure::game {
         for (uint16_t id : killedEnemies) {
             if (std::find(_destroyedEnemies.begin(), _destroyedEnemies.end(), id) == _destroyedEnemies.end()) {
                 _destroyedEnemies.push_back(id);
+#ifdef USE_ECS_BACKEND
+                deleteEnemyEntity(id);
+#endif
             }
             _enemies.erase(id);
         }
@@ -2854,6 +3354,14 @@ namespace infrastructure::game {
         };
 
         _missiles[id] = missile;
+
+#ifdef USE_ECS_BACKEND
+        // Create ECS entity for Bit missile
+        uint8_t damage = Missile::getDamage(weapon, level);
+        createMissileEntity(id, playerId, x, y, speed, 0.0f,
+                           static_cast<uint8_t>(weapon), damage, false, 0);
+#endif
+
         return id;
     }
 }

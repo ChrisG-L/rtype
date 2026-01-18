@@ -35,8 +35,9 @@ namespace ECS {
     class ECS;
         
     // Concept for accepting system classes
+    // Note: Does not require default-constructibility to allow Systems with DomainBridge& parameter
     template<typename T>
-    concept SystemClass = std::is_base_of_v<ISystem, T> && std::is_constructible_v<T>;
+    concept SystemClass = std::is_base_of_v<ISystem, T>;
 
     // Concept for accepting components
     template<typename T>

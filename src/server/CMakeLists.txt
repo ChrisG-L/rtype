@@ -228,9 +228,20 @@ if(USE_ECS_BACKEND)
     # Define the preprocessor macro
     target_compile_definitions(rtype_server PRIVATE USE_ECS_BACKEND)
 
-    # Add ECS bridge sources
+    # Add ECS sources (bridge + all systems)
     target_sources(rtype_server PRIVATE
+        # Bridge
         infrastructure/ecs/bridge/DomainBridge.cpp
+        # Systems
+        infrastructure/ecs/systems/MovementSystem.cpp
+        infrastructure/ecs/systems/LifetimeSystem.cpp
+        infrastructure/ecs/systems/CleanupSystem.cpp
+        infrastructure/ecs/systems/CollisionSystem.cpp
+        infrastructure/ecs/systems/DamageSystem.cpp
+        infrastructure/ecs/systems/PlayerInputSystem.cpp
+        infrastructure/ecs/systems/WeaponSystem.cpp
+        infrastructure/ecs/systems/ScoreSystem.cpp
+        infrastructure/ecs/systems/EnemyAISystem.cpp
     )
 
     # Add ECS include directories

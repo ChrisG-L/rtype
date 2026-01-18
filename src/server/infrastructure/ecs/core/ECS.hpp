@@ -326,7 +326,7 @@ namespace ECS {
 
             /**
              * @brief Adds a new system to the ECS
-             * 
+             *
              * @tparam T The system class
              * @param tickrate The ticks (calls to Update()) the system should skip after ticked
              * @return SystemID The new ID for the system
@@ -334,7 +334,6 @@ namespace ECS {
             template<SystemClass T>
             SystemID addSystem(int tickrate = 0)
             {
-                static SystemID id = 0;
                 SystemData data;
 
                 data.enabled = true;
@@ -342,7 +341,44 @@ namespace ECS {
                 data.tickrate = tickrate;
                 data.skipped_ticks = 0;
                 m_systems.push_back(data);
-                return id++;
+                return m_systems.size() - 1;
+            }
+
+            /**
+             * @brief Adds a new system to the ECS with constructor arguments
+             *
+             * @tparam T The system class
+             * @tparam Args Constructor argument types
+             * @param tickrate The ticks (calls to Update()) the system should skip after ticked
+             * @param args Arguments to forward to the system constructor
+             * @return SystemID The new ID for the system
+             */
+            template<SystemClass T, typename... Args>
+            SystemID addSystemWithArgs(int tickrate, Args&&... args)
+            {
+                SystemData data;
+
+                data.enabled = true;
+                data.sys = new T(std::forward<Args>(args)...);
+                data.tickrate = tickrate;
+                data.skipped_ticks = 0;
+                m_systems.push_back(data);
+                return m_systems.size() - 1;
+            }
+
+            /**
+             * @brief Gets a pointer to a system by its ID
+             *
+             * @tparam T The system class (for casting)
+             * @param id The system ID
+             * @return T* Pointer to the system, nullptr if not found or wrong type
+             */
+            template<SystemClass T>
+            T* getSystem(SystemID id)
+            {
+                if (id >= m_systems.size())
+                    return nullptr;
+                return dynamic_cast<T*>(m_systems[id].sys);
             }
 
             /**

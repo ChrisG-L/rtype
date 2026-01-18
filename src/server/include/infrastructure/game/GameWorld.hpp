@@ -26,16 +26,50 @@
 #ifdef USE_ECS_BACKEND
 #include "infrastructure/ecs/core/ECS.hpp"
 #include "infrastructure/ecs/bridge/DomainBridge.hpp"
+
+// Phase 1: Base Components
 #include "infrastructure/ecs/components/PositionComp.hpp"
 #include "infrastructure/ecs/components/VelocityComp.hpp"
 #include "infrastructure/ecs/components/HealthComp.hpp"
 #include "infrastructure/ecs/components/HitboxComp.hpp"
 #include "infrastructure/ecs/components/LifetimeComp.hpp"
 #include "infrastructure/ecs/components/OwnerComp.hpp"
+
+// Phase 2: Entity Tags & AI
+#include "infrastructure/ecs/components/MissileTag.hpp"
+#include "infrastructure/ecs/components/EnemyTag.hpp"
+#include "infrastructure/ecs/components/EnemyAIComp.hpp"
+#include "infrastructure/ecs/components/PowerUpTag.hpp"
+#include "infrastructure/ecs/components/WaveCannonTag.hpp"
+
+// Phase 3: Player Components
+#include "infrastructure/ecs/components/PlayerTag.hpp"
+#include "infrastructure/ecs/components/ScoreComp.hpp"
+#include "infrastructure/ecs/components/WeaponComp.hpp"
+#include "infrastructure/ecs/components/SpeedLevelComp.hpp"
+
+// Phase 2: Base Systems
+#include "infrastructure/ecs/systems/MovementSystem.hpp"
+#include "infrastructure/ecs/systems/LifetimeSystem.hpp"
+#include "infrastructure/ecs/systems/CleanupSystem.hpp"
+#include "infrastructure/ecs/systems/CollisionSystem.hpp"
+#include "infrastructure/ecs/systems/DamageSystem.hpp"
+
+// Phase 3: Advanced Systems
+#include "infrastructure/ecs/systems/PlayerInputSystem.hpp"
+#include "infrastructure/ecs/systems/WeaponSystem.hpp"
+#include "infrastructure/ecs/systems/ScoreSystem.hpp"
+#include "infrastructure/ecs/systems/EnemyAISystem.hpp"
+
+// Domain Services
 #include "domain/services/GameRule.hpp"
 #include "domain/services/CollisionRule.hpp"
 #include "domain/services/EnemyBehavior.hpp"
+
 #include <memory>
+
+// Namespace aliases for cleaner code
+namespace ecs = infrastructure::ecs;
 #endif
 
 namespace infrastructure::game {
@@ -632,6 +666,12 @@ namespace infrastructure::game {
         // Update all player positions based on their inputs (called each tick)
         void updatePlayers(float deltaTime);
 
+#ifdef USE_ECS_BACKEND
+        // Phase 4.7: Run ECS systems as primary driver
+        // This runs all ECS systems and syncs state back to legacy maps
+        void runECSUpdate(float deltaTime);
+#endif
+
         std::optional<uint8_t> getPlayerIdByEndpoint(const udp::endpoint& endpoint);
         std::optional<udp::endpoint> getEndpointByPlayerId(uint8_t playerId) const;
 
@@ -819,8 +859,10 @@ namespace infrastructure::game {
         // ECS Infrastructure (Feature Flag)
         // ═══════════════════════════════════════════════════════════════════
 #ifdef USE_ECS_BACKEND
-        // ECS Core
-        ECS::ECS _ecs;
+        // Mapping from player ID to ECS EntityID (for entity lookup/deletion)
+        std::unordered_map<uint8_t, ECS::EntityID> _playerEntityIds;
+        // ECS Core (mutable to allow const methods like getSnapshot() to query entities)
+        mutable ECS::ECS _ecs;
 
         // Domain Services (stateless, business logic)
         domain::services::GameRule _gameRule;
@@ -830,8 +872,58 @@ namespace infrastructure::game {
         // Bridge between ECS and Domain
         std::unique_ptr<ecs::bridge::DomainBridge> _domainBridge;
 
-        // ECS initialization helper
+        // System IDs (for accessing systems later if needed)
+        // Priorities: PlayerInput(0), EnemyAI(100), Weapon(200), Movement(300),
+        //             Collision(400), Damage(500), Lifetime(600), Cleanup(700), Score(800)
+        ECS::SystemID _playerInputSystemId = 0;
+        ECS::SystemID _enemyAISystemId = 0;
+        ECS::SystemID _weaponSystemId = 0;
+        ECS::SystemID _movementSystemId = 0;
+        ECS::SystemID _collisionSystemId = 0;
+        ECS::SystemID _damageSystemId = 0;
+        ECS::SystemID _lifetimeSystemId = 0;
+        ECS::SystemID _cleanupSystemId = 0;
+        ECS::SystemID _scoreSystemId = 0;
+
+        // ECS initialization helpers
         void initializeECS();
+        void registerSystems();
+
+        // ECS entity creation helpers (Phase 4.2+)
+        ECS::EntityID createPlayerEntity(uint8_t playerId, float x, float y, uint8_t health,
+                                         uint8_t shipSkin = 1, bool godMode = false);
+        void deletePlayerEntity(uint8_t playerId);
+
+        // Missile entity creation (Phase 4.3)
+        ECS::EntityID createMissileEntity(uint16_t missileId, uint8_t ownerId, float x, float y,
+                                          float velX, float velY, uint8_t weaponType, uint8_t damage,
+                                          bool isHoming = false, uint32_t targetId = 0);
+        void deleteMissileEntity(uint16_t missileId);
+
+        // Mapping from missile ID to ECS EntityID
+        std::unordered_map<uint16_t, ECS::EntityID> _missileEntityIds;
+
+        // Enemy entity creation (Phase 4.4)
+        ECS::EntityID createEnemyEntity(uint16_t enemyId, float x, float y, uint8_t health,
+                                        uint8_t enemyType, uint16_t points, float baseY,
+                                        float phaseOffset, float shootCooldown, float shootInterval,
+                                        float targetY = 0.0f, bool zigzagUp = true);
+        void deleteEnemyEntity(uint16_t enemyId);
+
+        // Mapping from enemy ID to ECS EntityID
+        std::unordered_map<uint16_t, ECS::EntityID> _enemyEntityIds;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Phase 4.7: ECS as primary driver
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Queue input to ECS PlayerInputSystem (called from applyPlayerInput)
+        void queueInputToECS(uint8_t playerId, uint16_t keys, uint16_t sequenceNum);
+
+        // Sync positions from ECS to legacy maps (temporary, until getSnapshot reads from ECS)
+        void syncPlayersFromECS();
+        void syncMissilesFromECS();
+        void syncEnemiesFromECS();
 #endif
 
         uint8_t findAvailableId() const;
