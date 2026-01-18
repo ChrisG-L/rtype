@@ -381,9 +381,9 @@ Priority 800: ScoreSystem            # Combo decay
 
 | Risque | Impact | Mitigation | Status |
 |--------|--------|------------|--------|
-| Régression gameplay | Haut | Tests exhaustifs à chaque phase | En cours |
+| Régression gameplay | Haut | Tests exhaustifs à chaque phase | Futur |
 | Performance queries ECS | Moyen | Pair-based collision detection | ✅ Résolu |
-| Synchronisation réseau | Moyen | Garder même format snapshot | En cours |
+| Synchronisation réseau | Moyen | Garder même format snapshot | Futur |
 | Complexité Boss AI | Moyen | Implémenter pattern par pattern | Futur |
 
 ---
