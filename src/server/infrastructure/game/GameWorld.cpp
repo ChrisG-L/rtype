@@ -610,10 +610,82 @@ namespace infrastructure::game {
         GameSnapshot snapshot{};
 
         // ═══════════════════════════════════════════════════════════════════
-        // Legacy snapshot generation (ECS reading will be enabled after Phase 4.7)
+        // Phase 4.6: Read players from ECS (positions are authoritative)
+        // Other entities (missiles, enemies) still read from legacy maps
         // ═══════════════════════════════════════════════════════════════════
 
         snapshot.player_count = 0;
+
+#ifdef USE_ECS_BACKEND
+        // Query all player entities from ECS
+        auto playerEntities = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::PositionComp,
+            ecs::components::HealthComp
+        >();
+
+        for (auto entityId : playerEntities) {
+            if (snapshot.player_count >= MAX_PLAYERS) break;
+
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(entityId);
+            const auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityId);
+
+            // Get last acked input sequence from legacy map
+            uint16_t lastSeq = 0;
+            auto seqIt = _playerLastInputSeq.find(playerTag.playerId);
+            if (seqIt != _playerLastInputSeq.end()) {
+                lastSeq = seqIt->second;
+            }
+
+            // Get score data from legacy map (ScoreComp exists but legacy has more data)
+            uint32_t score = 0;
+            uint16_t kills = 0;
+            uint8_t combo = 10;  // 1.0x default
+            auto scoreIt = _playerScores.find(playerTag.playerId);
+            if (scoreIt != _playerScores.end()) {
+                score = scoreIt->second.score;
+                kills = scoreIt->second.kills;
+                combo = scoreIt->second.getComboEncoded();
+            }
+
+            // Get weapon/charge data from legacy player (WeaponComp exists but legacy is authoritative)
+            uint8_t currentWeapon = 0;
+            uint8_t chargeLevel = 0;
+            uint8_t speedLevel = 0;
+            uint8_t weaponLevel = 0;
+            bool hasForce = false;
+            auto playerIt = _players.find(playerTag.playerId);
+            if (playerIt != _players.end()) {
+                currentWeapon = static_cast<uint8_t>(playerIt->second.currentWeapon);
+                chargeLevel = playerIt->second.chargeLevel;
+                speedLevel = playerIt->second.speedLevel;
+                weaponLevel = playerIt->second.weaponLevels[static_cast<size_t>(playerIt->second.currentWeapon)];
+                hasForce = playerIt->second.hasForce;
+            }
+
+            snapshot.players[snapshot.player_count] = PlayerState{
+                .id = playerTag.playerId,
+                .x = static_cast<uint16_t>(pos.x),
+                .y = static_cast<uint16_t>(pos.y),
+                .health = health.current,
+                .alive = static_cast<uint8_t>(playerTag.isAlive && health.current > 0 ? 1 : 0),
+                .lastAckedInputSeq = lastSeq,
+                .shipSkin = playerTag.shipSkin,
+                .score = score,
+                .kills = kills,
+                .combo = combo,
+                .currentWeapon = currentWeapon,
+                .chargeLevel = chargeLevel,
+                .speedLevel = speedLevel,
+                .weaponLevel = weaponLevel,
+                .hasForce = static_cast<uint8_t>(hasForce ? 1 : 0),
+                .shieldTimer = 0  // Reserved field (R-Type has no shield)
+            };
+            snapshot.player_count++;
+        }
+#else
+        // Legacy path: Read from _players map
         for (const auto& [id, player] : _players) {
             if (snapshot.player_count >= MAX_PLAYERS) break;
 
@@ -656,6 +728,7 @@ namespace infrastructure::game {
             };
             snapshot.player_count++;
         }
+#endif
 
         snapshot.missile_count = 0;
         for (const auto& [id, missile] : _missiles) {

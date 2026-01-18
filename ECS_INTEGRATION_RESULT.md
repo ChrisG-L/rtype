@@ -1,22 +1,7 @@
 # ECS Integration - Result & Status
 
-> **Document de suivi** de l'intégration ECS dans le projet R-Type.
-> Référence : `ECS_INTEGRATION_PLAN.md`
-
----
-
-## Table of Contents
-
-1. [Current Status](#current-status)
-2. [Phase 0 - Domain Services](#phase-0---domain-services)
-3. [Phase 1 - ECS Core & Components](#phase-1---ecs-core--components)
-4. [Phase 2 - Systems de Base](#phase-2---systems-de-base)
-5. [Phase 3 - Entités Complexes & Systems Avancés](#phase-3---entités-complexes--systems-avancés)
-6. [Implementation Choices & Deviations](#implementation-choices--deviations)
-7. [File Mapping](#file-mapping)
-8. [How to Enable ECS](#how-to-enable-ecs)
-9. [Next Steps](#next-steps)
-10. [Known Issues & TODOs](#known-issues--todos)
+> **Référence technique** de l'intégration ECS dans R-Type.
+> Plan: `ECS_INTEGRATION_PLAN.md`
 
 ---
 
@@ -24,113 +9,114 @@
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| **Phase 0** | ✅ Complete | Domain Services extraction |
-| **Phase 1** | ✅ Complete | ECS Core + Components + DomainBridge |
-| **Phase 2** | ✅ Complete | ECS Systems (Movement, Collision, Damage, etc.) |
-| **Phase 3** | ✅ Complete | Player Components + Advanced Systems |
-| **Phase 4** | 🔄 In Progress | GameWorld migration (dual-running) |
+| **Phase 0** | ✅ | Domain Services (96 tests) |
+| **Phase 1** | ✅ | ECS Core + Components + DomainBridge (80 tests) |
+| **Phase 2** | ✅ | Systems de base (80 tests) |
+| **Phase 3** | ✅ | Systems avancés (90 tests) |
+| **Phase 4** | 🔄 | GameWorld migration |
 
-**Last Updated:** 2026-01-18
-**Current Branch:** `ECS_realImpl`
-
-### Phase 4 Detailed Status
-
-| Sub-Phase | Description | Status |
-|-----------|-------------|--------|
-| 4.1 | `initializeECS()` - register 15 components | ✅ Complete |
-| 4.1 | `registerSystems()` - 9 Systems with priorities | ✅ Complete |
-| 4.2 | `addPlayer()` creates ECS entities | ✅ Complete |
-| 4.3 | `spawnMissile()` creates ECS entities | ✅ Complete |
-| 4.4 | `spawnEnemy()` creates ECS entities | ✅ Complete |
-| 4.5 | CMakeLists.txt includes all System .cpp files | ✅ Complete |
-| 4.6 | `getSnapshot()` reads from ECS | ❌ Pending |
-| 4.7 | `update()` calls `_ecs.Update()` | ❌ Pending |
-| 4.8 | Integration tests & full testing | ❌ Pending |
-
-**Current Mode:** Dual-write, single-read (ECS entities created but legacy code still drives gameplay)
+**Total**: 310+ tests | **Branch**: `ECS_realImpl` | **Updated**: 2026-01-18
 
 ---
 
-## Phase 0 - Domain Services
+## Phase 4 - GameWorld Migration
 
-### Completed Items
+### Sub-Phase Status
 
-| Service | File | Description |
-|---------|------|-------------|
-| GameRule | `domain/services/GameRule.hpp/.cpp` | Damage, score, combo, weapon stats |
-| CollisionRule | `domain/services/CollisionRule.hpp/.cpp` | AABB collision detection |
-| EnemyBehavior | `domain/services/EnemyBehavior.hpp/.cpp` | Enemy movement patterns |
-| Constants | `domain/Constants.hpp` | Centralized game constants |
+| Step | Description | Status |
+|------|-------------|--------|
+| 4.1 | `initializeECS()` - 15 components | ✅ |
+| 4.1 | `registerSystems()` - 9 Systems | ✅ |
+| 4.2 | `addPlayer()` → ECS entities | ✅ |
+| 4.3 | `spawnMissile()` → ECS entities | ✅ |
+| 4.4 | `spawnEnemy()` → ECS entities | ✅ |
+| 4.5 | CMakeLists.txt updated | ✅ |
+| 4.6 | `getSnapshot()` from ECS | ❌ Pending |
+| 4.7 | `runECSUpdate()` drives movement | ✅ |
+| 4.8 | Integration tests | ❌ Pending |
 
-### Test Coverage
+### Phase 4.7 Architecture
 
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `GameRuleTest.cpp` | 30+ | ✅ Pass |
-| `CollisionRuleTest.cpp` | 20+ | ✅ Pass |
-| `EnemyBehaviorTest.cpp` | 30+ | ✅ Pass |
-
-### Key Structures Created
-
-```cpp
-// CollisionRule.hpp
-struct HitboxData {
-    float x, y, width, height;
-};
-
-// EnemyBehavior.hpp
-struct ZigzagState {
-    float timer = 0.0f;
-    bool movingUp = true;
-};
-
-struct EnemyMovementInput {
-    uint8_t enemyType;
-    float currentY, baseY, aliveTime, phaseOffset, deltaTime, targetY;
-    ZigzagState zigzag;
-};
-
-struct EnemyMovementOutput {
-    float dx, dy;
-    ZigzagState updatedZigzag;
-};
+```
+UDPServer.updateAndBroadcastRoom()
+    │
+    ├── runECSUpdate(deltaTime)           # ECS drives player movement
+    │   ├── _ecs.Update(msecs)            # PlayerInputSystem + MovementSystem
+    │   └── syncPlayersFromECS()          # ECS positions → legacy _players map
+    │
+    ├── updateShootCooldowns()            # Legacy
+    ├── updateMissiles()                  # Legacy
+    ├── updateEnemies()                   # Legacy
+    ├── checkCollisions()                 # Legacy (uses synced _players)
+    └── getSnapshot()                     # Legacy (Phase 4.6 pending)
 ```
 
+**Active Systems**: PlayerInputSystem (0), MovementSystem (300)
+**Disabled Systems**: All others (via `toggleSystem()`)
+
+**Data Flow**:
+1. `applyPlayerInput()` → queues to PlayerInputSystem
+2. `runECSUpdate()` → Systems process → positions update in ECS
+3. `syncPlayersFromECS()` → copies ECS positions to legacy `_players` map
+4. Legacy `checkCollisions()` operates on synced `_players`
+5. `getSnapshot()` reads from legacy (Phase 4.6 will read from ECS)
+
 ---
 
-## Phase 1 - ECS Core & Components
+## Components (15 total)
 
-### ECS Core Files
+### Phase 1 - Base (6)
 
-| File | Purpose |
-|------|---------|
-| `core/ECS.hpp` | Main ECS class, entity management |
-| `core/Component.hpp` | ComponentPool with sparse sets |
-| `core/Registry.hpp` | Component type registration |
-| `core/System.hpp` | ISystem interface |
-| `core/Includes.hpp` | Common includes, EntityGroup enum |
-| `core/Errors.hpp` | ECS exceptions |
+| Component | Fields | Purpose |
+|-----------|--------|---------|
+| `PositionComp` | `float x, y` | All positioned entities |
+| `VelocityComp` | `float x, y` | Moving entities |
+| `HealthComp` | `uint16_t current, max; bool invulnerable` | Destructible entities |
+| `HitboxComp` | `float width, height, offsetX, offsetY` | Collision AABB |
+| `LifetimeComp` | `float remaining, total` | Temporary entities |
+| `OwnerComp` | `uint32_t ownerId; bool isPlayerOwned` | Projectiles, pods |
 
-### Base Components (Phase 1)
+### Phase 2 - Tags (5)
 
-| Component | Fields | Default Values |
-|-----------|--------|----------------|
-| `PositionComp` | `float x, y` | `0.0f, 0.0f` |
-| `VelocityComp` | `float x, y` | `0.0f, 0.0f` |
-| `HealthComp` | `uint16_t current, max; bool invulnerable` | `100, 100, false` |
-| `HitboxComp` | `float width, height, offsetX, offsetY` | `0.0f, 0.0f, 0.0f, 0.0f` |
-| `LifetimeComp` | `float remaining, total` | `0.0f, 0.0f` |
-| `OwnerComp` | `uint32_t ownerId; bool isPlayerOwned` | `0, true` |
+| Component | Fields | Purpose |
+|-----------|--------|---------|
+| `MissileTag` | `weaponType, baseDamage, isHoming, targetId` | Missile ID |
+| `EnemyTag` | `type, points` | Enemy ID |
+| `EnemyAIComp` | `shootCooldown, shootInterval, movementPattern, patternTimer, baseY, aliveTime, phaseOffset, targetY, zigzagTimer, zigzagUp` | AI state |
+| `PowerUpTag` | `type` | Power-up ID |
+| `WaveCannonTag` | `chargeLevel, width` | Wave Cannon |
 
-### DomainBridge
+### Phase 3 - Player (4)
 
-The DomainBridge encapsulates all three Domain services and provides a unified interface for ECS Systems.
+| Component | Fields | Purpose |
+|-----------|--------|---------|
+| `PlayerTag` | `playerId, shipSkin, isAlive` | Player ID |
+| `ScoreComp` | `total, kills, comboMultiplier, comboTimer, maxCombo, deaths` | Score |
+| `WeaponComp` | `currentType, shootCooldown, isCharging, chargeTime, weaponLevels[4]` | Weapons |
+| `SpeedLevelComp` | `level` (0-3) | Speed upgrade |
+
+---
+
+## Systems (9 total)
+
+| Priority | System | Query | Responsibility |
+|----------|--------|-------|----------------|
+| 0 | `PlayerInputSystem` | `<PlayerTag, Position, Velocity, SpeedLevel>` | Input → Velocity, screen clamp |
+| 100 | `EnemyAISystem` | `<EnemyTag, EnemyAIComp, Position, Velocity>` | Movement patterns, shooting |
+| 200 | `WeaponSystem` | `<PlayerTag, WeaponComp, Position>` | Cooldowns, missile spawn |
+| 300 | `MovementSystem` | `<Position, Velocity>` | `pos += vel × dt` |
+| 400 | `CollisionSystem` | `<Position, Hitbox>` | O(n²) AABB detection |
+| 500 | `DamageSystem` | Consumes `CollisionEvent` | Apply damage via DomainBridge |
+| 600 | `LifetimeSystem` | `<Lifetime>` | Decrement, mark expired |
+| 700 | `CleanupSystem` | `<Position, Hitbox>` | Remove OOB (not players) |
+| 800 | `ScoreSystem` | `<PlayerTag, ScoreComp>` | Combo decay, score calc |
+
+---
+
+## DomainBridge API
 
 ```cpp
 class DomainBridge {
-public:
-    DomainBridge(GameRule&, CollisionRule&, EnemyBehavior&);
-
     // Damage & Health
     DamageResult applyDamage(HealthComp& health, uint16_t damage);
     bool wouldDie(uint16_t currentHealth, uint16_t damage);
@@ -141,420 +127,130 @@ public:
     float incrementCombo(float currentCombo);
     float getComboGraceTime();
 
-    // Weapon Stats
+    // Weapon
     uint8_t getMissileDamage(uint8_t weaponType, uint8_t level);
     float getMissileSpeed(uint8_t weaponType, uint8_t level);
     float getWeaponCooldown(uint8_t weaponType, uint8_t level);
 
-    // Player Movement
+    // Player
     float getPlayerSpeed(uint8_t speedLevel);
 
     // Collision
-    bool checkCollision(float x1, float y1, float w1, float h1,
-                        float x2, float y2, float w2, float h2);
-    bool isOutOfBounds(float x, float y, float w, float h);
-    void clampToScreen(float& x, float& y, float w, float h);
+    bool checkCollision(float x1, y1, w1, h1, float x2, y2, w2, h2);
+    bool isOutOfBounds(float x, y, w, h);
+    void clampToScreen(float& x, float& y, float w, h);
 
-    // Enemy Behavior
+    // Enemy
     bool canEnemyShoot(float cooldownRemaining);
     float getEnemyShootInterval(uint8_t enemyType);
     std::pair<float, float> getEnemyMovement(...);
 };
 ```
 
-### Test Coverage (Phase 1)
+---
 
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `ComponentPoolTest.cpp` | 20+ | ✅ Pass |
-| `ECSIntegrationTest.cpp` | 25+ | ✅ Pass |
-| `DomainBridgeTest.cpp` | 35+ | ✅ Pass |
+## Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| O(n²) collision | <100 entities typical, spatial hash if >500 |
+| CollisionEvent with groups | DamageSystem filters without re-query |
+| KillEvent for score | Decouples DamageSystem from ScoreSystem |
+| Players excluded from Cleanup | Death/respawn managed by GameWorld |
+| Deferred entity deletion | Avoids collection modification during iteration |
+| Independent weapon levels | R-Type authentic: each weapon upgrades separately |
+| SpeedLevelComp separate | Can be queried/modified independently |
 
 ---
 
-## Phase 2 - Systems de Base
-
-### New Components Created (Phase 2)
-
-| Component | Fields | Purpose |
-|-----------|--------|---------|
-| `MissileTag` | `weaponType, baseDamage, isHoming, targetId` | Missile identification |
-| `EnemyTag` | `type, points` | Enemy identification |
-| `EnemyAIComp` | `shootCooldown, shootInterval, movementPattern, patternTimer, baseY, aliveTime, phaseOffset, targetY, zigzagTimer, zigzagUp` | Enemy AI state |
-| `PowerUpTag` | `type` | Power-up identification |
-| `WaveCannonTag` | `chargeLevel, width` | Wave Cannon projectile |
-
-### Systems Created (Phase 2)
-
-| System | Priority | Responsibility | Dependencies |
-|--------|----------|----------------|--------------|
-| `MovementSystem` | 300 | `pos += vel × dt` | None |
-| `LifetimeSystem` | 600 | Decrement lifetime, delete expired | None |
-| `CleanupSystem` | 700 | Remove OOB entities (not players) | DomainBridge |
-| `CollisionSystem` | 400 | Detect AABB collisions (O(n²)) | DomainBridge |
-| `DamageSystem` | 500 | Apply damage from collisions | DomainBridge, CollisionSystem |
-
-### System Details
-
-#### MovementSystem
-```cpp
-void Update(ECS& ecs, SystemID, uint32_t msecs) {
-    float dt = msecs / 1000.0f;
-    for (auto e : ecs.getEntitiesByComponentsAllOf<PositionComp, VelocityComp>()) {
-        auto& pos = ecs.entityGetComponent<PositionComp>(e);
-        auto& vel = ecs.entityGetComponent<VelocityComp>(e);
-        pos.x += vel.x * dt;
-        pos.y += vel.y * dt;
-    }
-}
-```
-
-#### CollisionSystem
-- Uses O(n²) naive algorithm (acceptable for <100 entities)
-- Stores `CollisionEvent { entityA, entityB, groupA, groupB }`
-- Avoids duplicates with `i < j` check
-- TODO: Implement spatial hashing if needed
-
-#### DamageSystem
-- Consumes CollisionEvents from CollisionSystem
-- Collision rules:
-  - `MISSILES + ENEMIES` → Enemy takes damage, missile consumed
-  - `PLAYERS + ENEMIES` → Player takes 20 contact damage
-  - `PLAYERS + ENEMY_MISSILES` → Player takes missile damage
-  - `WAVE_CANNONS + ENEMIES` → Enemy takes damage (wave cannon persists)
-  - `FORCE_PODS + ENEMIES` → Enemy takes 30 contact damage
-  - `MISSILES + PLAYERS` → Ignored (no friendly fire)
-- Generates `KillEvent` for ScoreSystem
-- Respects `HealthComp::invulnerable` (GodMode)
-
-### Test Coverage (Phase 2)
-
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `ComponentTagsTest.cpp` | 20+ | ✅ Pass |
-| `MovementSystemTest.cpp` | 12+ | ✅ Pass |
-| `LifetimeSystemTest.cpp` | 8+ | ✅ Pass |
-| `CleanupSystemTest.cpp` | 10+ | ✅ Pass |
-| `CollisionSystemTest.cpp` | 12+ | ✅ Pass |
-| `DamageSystemTest.cpp` | 10+ | ✅ Pass |
-| `ECSPhase2IntegrationTest.cpp` | 7+ | ✅ Pass |
-
-**Total Phase 2 Tests:** ~80 tests
-
-### How to Test Phase 2
-
-```bash
-./scripts/compile.sh
-./artifacts/tests/server_tests --gtest_filter="*ComponentTag*:*Movement*:*Lifetime*:*Cleanup*:*Collision*:*Damage*:*ECSPhase2*"
-```
-
----
-
-## Phase 3 - Entités Complexes & Systems Avancés
-
-### Status: ✅ Complete
-
-### New Components Created (Phase 3)
-
-| Component | Fields | Purpose | Status |
-|-----------|--------|---------|--------|
-| `PlayerTag` | `playerId, shipSkin, isAlive` | Player identification | ✅ Complete |
-| `ScoreComp` | `total, kills, comboMultiplier, comboTimer, maxCombo, deaths` | Score tracking | ✅ Complete |
-| `WeaponComp` | `currentType, shootCooldown, isCharging, chargeTime, weaponLevels[4]` | Weapon state | ✅ Complete |
-| `SpeedLevelComp` | `level` (0-3) | Speed upgrade level | ✅ Complete |
-
-### Component Details
-
-#### WeaponComp
-```cpp
-struct WeaponComp {
-    uint8_t currentType = 0;                       // 0-3: Standard, Spread, Laser, Missile
-    float shootCooldown = 0.0f;
-    bool isCharging = false;
-    float chargeTime = 0.0f;
-    std::array<uint8_t, 4> weaponLevels = {0, 0, 0, 0};  // Independent per-weapon
-
-    uint8_t getCurrentLevel() const;
-    bool upgradeCurrentWeapon();  // Returns false if already max (3)
-};
-```
-
-#### SpeedLevelComp
-```cpp
-struct SpeedLevelComp {
-    uint8_t level = 0;  // 0-3
-
-    bool upgrade();     // Returns false if already max (3)
-    bool isMaxLevel() const;
-};
-```
-
-### Systems Implemented (Phase 3)
-
-| System | Priority | Status | Description |
-|--------|----------|--------|-------------|
-| `PlayerInputSystem` | 0 | ✅ Complete | Input → Velocity, screen clamp |
-| `WeaponSystem` | 200 | ✅ Complete | Cooldowns, missile spawning |
-| `ScoreSystem` | 800 | ✅ Complete | Combo decay, score calculation |
-| `EnemyAISystem` | 100 | ✅ Complete | Movement patterns, shooting |
-
-### Test Coverage (Phase 3)
-
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `PlayerComponentsTest.cpp` | 20+ | ✅ Pass |
-| `PlayerInputSystemTest.cpp` | 24+ | ✅ Pass |
-| `WeaponSystemTest.cpp` | 12+ | ✅ Pass |
-| `ScoreSystemTest.cpp` | 15+ | ✅ Pass |
-| `EnemyAISystemTest.cpp` | 20+ | ✅ Pass |
-
-**Total Phase 3 Tests:** ~90 tests
-
-### How to Test Phase 3
-
-```bash
-./scripts/compile.sh
-./artifacts/tests/server_tests --gtest_filter="*PlayerComponent*:*PlayerInput*:*Weapon*:*Score*:*EnemyAI*"
-```
-
----
-
-## Implementation Choices & Deviations
-
-### Phase 2 Decisions
-
-#### 1. O(n²) Collision Detection
-**Decision:** Keep simple O(n²) algorithm
-**Reason:** <100 entities in typical gameplay, optimization premature
-**Future:** Spatial hashing if >500 entities or perf degradation
-
-#### 2. CollisionEvent with Entity Groups
-**Decision:** Store both groups in CollisionEvent
-**Reason:** Allows DamageSystem to filter without re-querying
-**Trade-off:** More memory per event but faster processing
-
-#### 3. KillEvent for Score Decoupling
-**Decision:** DamageSystem emits KillEvents for ScoreSystem
-**Reason:** Separation of concerns, ScoreSystem can run independently
-**Pattern:** Event-driven communication between systems
-
-#### 4. Players Excluded from CleanupSystem
-**Decision:** Never delete PLAYERS group entities
-**Reason:** Player death/respawn managed differently (GameWorld)
-**Consistency:** Aligns with existing game logic
-
-#### 5. Deferred Entity Deletion
-**Decision:** All deletions use deferred pattern
-**Reason:** Avoids modifying collections during iteration
-**Implementation:** Collect IDs to delete, then delete after loop
-
-### Phase 3 Decisions
-
-#### 1. Independent Weapon Levels
-**Decision:** `weaponLevels[4]` array for per-weapon upgrades
-**Reason:** R-Type authentic: each weapon upgrades separately
-**Trade-off:** 4 bytes instead of 1, but correct gameplay
-
-#### 2. SpeedLevelComp Separate from PlayerTag
-**Decision:** Speed level as separate component
-**Reason:** Can be queried/modified independently by different systems
-**Alternative considered:** Embedding in PlayerTag (rejected: less flexible)
-
----
-
-## File Mapping
-
-### Domain Layer (Phase 0)
-
-```
-src/server/
-├── include/domain/
-│   ├── Constants.hpp
-│   └── services/
-│       ├── GameRule.hpp
-│       ├── CollisionRule.hpp
-│       └── EnemyBehavior.hpp
-└── domain/services/
-    ├── GameRule.cpp
-    ├── CollisionRule.cpp
-    └── EnemyBehavior.cpp
-```
-
-### Infrastructure Layer (Phases 1-3)
+## File Structure
 
 ```
 src/server/infrastructure/ecs/
 ├── core/
-│   ├── ECS.hpp
-│   ├── Component.hpp
-│   ├── Registry.hpp
-│   ├── System.hpp
-│   ├── Includes.hpp
-│   └── Errors.hpp
+│   ├── ECS.hpp, Component.hpp, Registry.hpp
+│   ├── System.hpp, Includes.hpp, Errors.hpp
 ├── components/
-│   ├── PositionComp.hpp       # Phase 1
-│   ├── VelocityComp.hpp       # Phase 1
-│   ├── HealthComp.hpp         # Phase 1
-│   ├── HitboxComp.hpp         # Phase 1
-│   ├── LifetimeComp.hpp       # Phase 1
-│   ├── OwnerComp.hpp          # Phase 1
-│   ├── MissileTag.hpp         # Phase 2
-│   ├── EnemyTag.hpp           # Phase 2
-│   ├── EnemyAIComp.hpp        # Phase 2
-│   ├── PowerUpTag.hpp         # Phase 2
-│   ├── WaveCannonTag.hpp      # Phase 2
-│   ├── PlayerTag.hpp          # Phase 3
-│   ├── ScoreComp.hpp          # Phase 3
-│   ├── WeaponComp.hpp         # Phase 3
-│   └── SpeedLevelComp.hpp     # Phase 3
+│   ├── PositionComp.hpp, VelocityComp.hpp, HealthComp.hpp
+│   ├── HitboxComp.hpp, LifetimeComp.hpp, OwnerComp.hpp
+│   ├── MissileTag.hpp, EnemyTag.hpp, EnemyAIComp.hpp
+│   ├── PowerUpTag.hpp, WaveCannonTag.hpp
+│   ├── PlayerTag.hpp, ScoreComp.hpp, WeaponComp.hpp
+│   └── SpeedLevelComp.hpp
 ├── systems/
-│   ├── MovementSystem.hpp/cpp       # Phase 2
-│   ├── LifetimeSystem.hpp/cpp       # Phase 2
-│   ├── CleanupSystem.hpp/cpp        # Phase 2
-│   ├── CollisionSystem.hpp/cpp      # Phase 2
-│   ├── DamageSystem.hpp/cpp         # Phase 2
-│   ├── PlayerInputSystem.hpp/cpp    # Phase 3
-│   ├── WeaponSystem.hpp/cpp         # Phase 3
-│   ├── ScoreSystem.hpp/cpp          # Phase 3
-│   └── EnemyAISystem.hpp/cpp        # Phase 3
+│   ├── MovementSystem.hpp/.cpp
+│   ├── LifetimeSystem.hpp/.cpp, CleanupSystem.hpp/.cpp
+│   ├── CollisionSystem.hpp/.cpp, DamageSystem.hpp/.cpp
+│   ├── PlayerInputSystem.hpp/.cpp, WeaponSystem.hpp/.cpp
+│   ├── ScoreSystem.hpp/.cpp, EnemyAISystem.hpp/.cpp
 └── bridge/
-    ├── DomainBridge.hpp
-    └── DomainBridge.cpp
-```
+    ├── DomainBridge.hpp/.cpp
 
-### Tests
-
-```
-tests/server/
-├── domain/services/
-│   ├── GameRuleTest.cpp
-│   ├── CollisionRuleTest.cpp
-│   └── EnemyBehaviorTest.cpp
-└── ecs/
-    ├── ComponentPoolTest.cpp        # Phase 1
-    ├── ECSIntegrationTest.cpp       # Phase 1
-    ├── DomainBridgeTest.cpp         # Phase 1
-    ├── ComponentTagsTest.cpp        # Phase 2
-    ├── ECSPhase2IntegrationTest.cpp # Phase 2
-    ├── PlayerComponentsTest.cpp     # Phase 3
-    └── systems/
-        ├── MovementSystemTest.cpp       # Phase 2
-        ├── LifetimeSystemTest.cpp       # Phase 2
-        ├── CleanupSystemTest.cpp        # Phase 2
-        ├── CollisionSystemTest.cpp      # Phase 2
-        ├── DamageSystemTest.cpp         # Phase 2
-        ├── PlayerInputSystemTest.cpp    # Phase 3
-        ├── WeaponSystemTest.cpp         # Phase 3
-        ├── ScoreSystemTest.cpp          # Phase 3
-        └── EnemyAISystemTest.cpp        # Phase 3
+tests/server/ecs/
+├── ComponentPoolTest.cpp, ECSIntegrationTest.cpp
+├── DomainBridgeTest.cpp, ComponentTagsTest.cpp
+├── PlayerComponentsTest.cpp, ECSPhase2IntegrationTest.cpp
+└── systems/
+    ├── MovementSystemTest.cpp, LifetimeSystemTest.cpp
+    ├── CleanupSystemTest.cpp, CollisionSystemTest.cpp
+    ├── DamageSystemTest.cpp, PlayerInputSystemTest.cpp
+    ├── WeaponSystemTest.cpp, ScoreSystemTest.cpp
+    └── EnemyAISystemTest.cpp
 ```
 
 ---
 
 ## How to Enable ECS
 
-### Build with ECS Backend
-
 ```bash
-# Configure with ECS enabled
+# Configure with ECS
 cmake -B build -DUSE_ECS_BACKEND=ON
 
-# Or add to your build script
-./scripts/build.sh -DUSE_ECS_BACKEND=ON
-```
-
-### Run All ECS Tests
-
-```bash
+# Compile
 ./scripts/compile.sh
 
-# All ECS tests (Phases 0-3) - 310+ tests
-./artifacts/tests/server_tests --gtest_filter="*ECS*:*Component*:*DomainBridge*:*GameRule*:*Collision*:*Enemy*:*Movement*:*Lifetime*:*Cleanup*:*Damage*:*Player*:*Weapon*:*Score*"
+# Run all ECS tests (310+)
+./artifacts/tests/server_tests --gtest_filter="*ECS*:*Component*:*DomainBridge*:*Movement*:*Collision*:*Player*:*Weapon*:*Score*:*EnemyAI*"
 
-# Phase 2 only (~80 tests)
-./artifacts/tests/server_tests --gtest_filter="*ComponentTag*:*Movement*:*Lifetime*:*Cleanup*:*Collision*:*Damage*:*ECSPhase2*"
-
-# Phase 3 only (~90 tests)
-./artifacts/tests/server_tests --gtest_filter="*PlayerComponent*:*PlayerInput*:*Weapon*:*Score*:*EnemyAI*"
+# Phase-specific tests
+./artifacts/tests/server_tests --gtest_filter="*ECSPhase2*"  # Phase 2
+./artifacts/tests/server_tests --gtest_filter="*PlayerInput*:*Weapon*:*Score*:*EnemyAI*"  # Phase 3
 ```
 
 ---
 
 ## Next Steps
 
-### Phase 3 - ✅ Complete
+### Immediate (Phase 4)
 
-All Phase 3 systems implemented and tested:
-- ✅ PlayerInputSystem (24+ tests)
-- ✅ WeaponSystem (12+ tests)
-- ✅ ScoreSystem (15+ tests)
-- ✅ EnemyAISystem (20+ tests)
+| Priority | Task | Status |
+|----------|------|--------|
+| **High** | Phase 4.6: `getSnapshot()` reads from ECS | ❌ Next |
+| Medium | Phase 4.8: Integration tests | ❌ Pending |
 
-**Total tests:** 310+ tests passing
+### Future (Phase 5+)
 
-### Phase 4 (GameWorld Migration) - 🔄 In Progress
-
-#### Completed ✅
-1. ✅ Register all 15 components in `GameWorld::initializeECS()`
-2. ✅ Register all 9 Systems with priorities in `registerSystems()`
-3. ✅ Migrate player creation to ECS entities (`createPlayerEntity()`)
-4. ✅ Migrate missile creation to ECS entities (`createMissileEntity()`)
-5. ✅ Migrate enemy spawning to ECS entities (`createEnemyEntity()`)
-6. ✅ Add entity deletion helpers (`deletePlayerEntity()`, etc.)
-7. ✅ CMakeLists.txt includes all System .cpp files
-
-#### Remaining ❌
-1. **Phase 4.6:** Adapt `getSnapshot()` to read from ECS entities
-   - Query `PLAYERS`, `MISSILES`, `ENEMIES` groups
-   - Convert ECS components to Protocol structs
-2. **Phase 4.7:** Replace `update()` logic with `_ecs.Update()`
-   - Call `_ecs.Update(deltaTimeMs)` in game loop
-   - Legacy update methods become optional/removed
-3. **Phase 4.8:** Integration testing
-   - Test ECS-driven gameplay
-   - Compare snapshots (ECS vs legacy)
-   - Verify no regressions
+| Priority | Task |
+|----------|------|
+| Medium | Enable remaining Systems progressively |
+| Medium | Remove legacy `_players`, `_missiles`, `_enemies` maps |
+| Low | Spatial hashing for CollisionSystem |
+| Low | ForcePodSystem, BitDeviceSystem, BossSystem |
 
 ---
 
-## Known Issues & TODOs
-
-### Current Issues
-
-None identified.
-
-### Resolved Issues (Phase 3)
+## Resolved Issues
 
 | Issue | Resolution |
 |-------|------------|
-| `ECS::ECS` incomplete type in Systems | Added `#include "core/ECS.hpp"` to all .cpp files |
-| Entity ID 0 treated as "not found" | Changed `findPlayerByID()` to return `std::optional<EntityID>` |
-| Screen width hardcoded as 800 in tests | Updated to use actual 1920 from Constants.hpp |
-
-### TODOs
-
-| Priority | Item | Phase | Status |
-|----------|------|-------|--------|
-| ~~High~~ | ~~Register all components in initializeECS()~~ | 4.1 | ✅ Done |
-| ~~High~~ | ~~Register all Systems in registerSystems()~~ | 4.1 | ✅ Done |
-| ~~High~~ | ~~Migrate entity creation (players, missiles, enemies)~~ | 4.2-4.4 | ✅ Done |
-| **High** | **Adapt getSnapshot() to read from ECS** | 4.6 | ❌ Next |
-| **High** | **Replace update() with _ecs.Update()** | 4.7 | ❌ Pending |
-| Medium | Integration testing (ECS vs legacy comparison) | 4.8 | ❌ Pending |
-| Low | Spatial hashing for CollisionSystem | 5+ | ❌ Future |
-| Low | ForcePodSystem, BitDeviceSystem, BossSystem | 5+ | ❌ Future |
-
-### Performance Considerations
-
-- **Sparse sets:** O(1) component operations ✅
-- **O(n²) collision:** Acceptable for <100 entities ✅
-- **Deferred deletion:** Avoids iteration bugs ✅
-- **TODO:** Profile when entity count exceeds 200
+| `ECS::ECS` incomplete type | Added `#include "core/ECS.hpp"` to .cpp files |
+| Entity ID 0 as "not found" | `findPlayerByID()` returns `std::optional<EntityID>` |
+| Screen width 800 in tests | Updated to 1920 from Constants.hpp |
 
 ---
 
 ## References
 
-- **Plan Document:** `ECS_INTEGRATION_PLAN.md`
-- **ECS Source:** `src/ECS/` (original implementation)
-- **CLAUDE.md:** Project context and conventions
+- **Plan**: `ECS_INTEGRATION_PLAN.md`
+- **Original ECS**: `src/ECS/` (Guillaume's Blob ECS)
+- **Project Context**: `CLAUDE.md`
