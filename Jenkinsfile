@@ -310,11 +310,11 @@ pipeline {
                     // Copier version_history.txt et generate_dev_certs.sh dans les artifacts
                     echo "📋 Ajout des fichiers utilitaires aux artifacts..."
                     sh """
-                        # Trouver les dossiers artifacts
-                        LINUX_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "server" -type d 2>/dev/null | head -1)
-                        LINUX_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "client" -type d 2>/dev/null | head -1)
-                        WIN_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "server" -type d 2>/dev/null | head -1)
-                        WIN_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "client" -type d 2>/dev/null | head -1)
+                        # Trouver les dossiers artifacts (server/linux, server/windows, client/linux, client/windows)
+                        LINUX_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*/server/linux" -type d 2>/dev/null | head -1)
+                        LINUX_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*/client/linux" -type d 2>/dev/null | head -1)
+                        WIN_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*/server/windows" -type d 2>/dev/null | head -1)
+                        WIN_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*/client/windows" -type d 2>/dev/null | head -1)
 
                         # Copier version_history.txt
                         if [ -f "${WORKSPACE}/version_history.txt" ]; then
