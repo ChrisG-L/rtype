@@ -668,7 +668,7 @@ namespace infrastructure::game {
                 .id = playerTag.playerId,
                 .x = static_cast<uint16_t>(pos.x),
                 .y = static_cast<uint16_t>(pos.y),
-                .health = health.current,
+                .health = static_cast<uint8_t>(health.current),
                 .alive = static_cast<uint8_t>(playerTag.isAlive && health.current > 0 ? 1 : 0),
                 .lastAckedInputSeq = lastSeq,
                 .shipSkin = playerTag.shipSkin,
@@ -1379,6 +1379,19 @@ namespace infrastructure::game {
                         player.health = 0;
                         player.alive = false;
                     }
+
+#ifdef USE_ECS_BACKEND
+                    // Sync damage to ECS HealthComp to prevent syncPlayersFromECS() from reverting it
+                    auto entityIt = _playerEntityIds.find(playerId);
+                    if (entityIt != _playerEntityIds.end()) {
+                        auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityIt->second);
+                        health.current = player.health;
+                        if (!player.alive) {
+                            auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityIt->second);
+                            playerTag.isAlive = false;
+                        }
+                    }
+#endif
 
                     _playerDamageEvents.push_back({playerId, PLAYER_DAMAGE});
 
@@ -2770,6 +2783,16 @@ namespace infrastructure::game {
         switch (type) {
             case PowerUpType::Health:
                 player.health = std::min(100, static_cast<int>(player.health) + 25);
+#ifdef USE_ECS_BACKEND
+                // Sync health increase to ECS
+                {
+                    auto entityIt = _playerEntityIds.find(playerId);
+                    if (entityIt != _playerEntityIds.end()) {
+                        auto& health = _ecs.entityGetComponent<ecs::components::HealthComp>(entityIt->second);
+                        health.current = player.health;
+                    }
+                }
+#endif
                 break;
 
             case PowerUpType::SpeedUp:

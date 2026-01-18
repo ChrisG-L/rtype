@@ -97,7 +97,7 @@ UDPServer.updateAndBroadcastRoom()
 
 | Step | Description | Status |
 |------|-------------|--------|
-| 4.6 | `getSnapshot()` reads from ECS | 🔄 In Progress |
+| 4.6 | `getSnapshot()` reads from ECS | ✅ Complete |
 | 4.8 | Integration tests | ❌ Pending |
 
 ### Phase 4.6 - getSnapshot() from ECS

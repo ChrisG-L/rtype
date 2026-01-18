@@ -19,7 +19,7 @@
 namespace client::network
 {
     static constexpr int HEARTBEAT_INTERVAL_MS = 1000;
-    static constexpr int HEARTBEAT_TIMEOUT_MS = 2000;
+    static constexpr int HEARTBEAT_TIMEOUT_MS = 5000;  // Increased from 2000ms for stability
 
     TCPClient::TCPClient()
         : _ioContext()

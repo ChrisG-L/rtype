@@ -31,11 +31,11 @@
 | 4.3 | `spawnMissile()` → ECS entities | ✅ |
 | 4.4 | `spawnEnemy()` → ECS entities | ✅ |
 | 4.5 | CMakeLists.txt updated | ✅ |
-| 4.6 | `getSnapshot()` from ECS | ❌ Pending |
+| 4.6 | `getSnapshot()` from ECS | ✅ Complete |
 | 4.7 | `runECSUpdate()` drives movement | ✅ |
 | 4.8 | Integration tests | ❌ Pending |
 
-### Phase 4.7 Architecture
+### Current Architecture (Phase 4.6+)
 
 ```
 UDPServer.updateAndBroadcastRoom()
@@ -48,7 +48,7 @@ UDPServer.updateAndBroadcastRoom()
     ├── updateMissiles()                  # Legacy
     ├── updateEnemies()                   # Legacy
     ├── checkCollisions()                 # Legacy (uses synced _players)
-    └── getSnapshot()                     # Legacy (Phase 4.6 pending)
+    └── getSnapshot()                     # ✅ Players from ECS, rest from legacy
 ```
 
 **Active Systems**: PlayerInputSystem (0), MovementSystem (300)

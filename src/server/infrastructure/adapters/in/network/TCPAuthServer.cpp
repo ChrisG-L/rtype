@@ -17,7 +17,7 @@
 #include <openssl/ssl.h>
 
 namespace infrastructure::adapters::in::network {
-    static constexpr int CLIENT_TIMEOUT_MS = 2000;
+    static constexpr int CLIENT_TIMEOUT_MS = 5000;  // Increased from 2000ms for stability
     static constexpr int TIMEOUT_CHECK_INTERVAL_MS = 1000;
 
     // Session implementation
@@ -29,13 +29,15 @@ namespace infrastructure::adapters::in::network {
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
-        std::shared_ptr<RoomManager> roomManager)
+        std::shared_ptr<RoomManager> roomManager,
+        std::function<void(Session*)> onClose)
     : _socket(std::move(socket)), _isAuthenticated(false),
       _userRepository(userRepository), _userSettingsRepository(userSettingsRepository),
       _leaderboardRepository(leaderboardRepository),
       _idGenerator(idGenerator), _logger(logger),
       _sessionManager(sessionManager), _roomManager(roomManager),
-      _timeoutTimer(_socket.get_executor())
+      _timeoutTimer(_socket.get_executor()),
+      _onClose(std::move(onClose))
     {
         _onAuthSuccess = [this](const User& user) { onLoginSuccess(user); };
         _lastActivity = std::chrono::steady_clock::now();
@@ -43,6 +45,15 @@ namespace infrastructure::adapters::in::network {
 
     Session::~Session() noexcept
     {
+        // Notify TCPAuthServer to unregister this session from tracking
+        if (_onClose) {
+            try {
+                _onClose(this);
+            } catch (...) {
+                // Ignore exceptions in callback
+            }
+        }
+
         try {
             auto logger = server::logging::Logger::getNetworkLogger();
             if (_isAuthenticated && _user.has_value()) {
@@ -98,6 +109,16 @@ namespace infrastructure::adapters::in::network {
         do_write(MessageType::Login, "");
         scheduleTimeoutCheck();
         do_read();
+    }
+
+    void Session::close()
+    {
+        // Cancel the timeout timer to stop the async loop
+        boost::system::error_code ec;
+        _timeoutTimer.cancel(ec);
+
+        // Close the underlying socket
+        _socket.lowest_layer().close(ec);
     }
 
     void Session::do_read() {
@@ -613,7 +634,41 @@ namespace infrastructure::adapters::in::network {
     }
 
     void TCPAuthServer::stop() {
-        _acceptor.close();
+        // Close the acceptor to stop accepting new connections
+        boost::system::error_code ec;
+        _acceptor.close(ec);
+
+        // Close all active sessions
+        std::vector<std::shared_ptr<Session>> sessionsToClose;
+        {
+            std::lock_guard<std::mutex> lock(_sessionsMutex);
+            sessionsToClose.reserve(_activeSessions.size());
+            for (auto& [ptr, session] : _activeSessions) {
+                sessionsToClose.push_back(session);
+            }
+            _activeSessions.clear();
+        }
+
+        auto logger = server::logging::Logger::getNetworkLogger();
+        logger->info("Closing {} active TCP sessions...", sessionsToClose.size());
+
+        for (auto& session : sessionsToClose) {
+            if (session) {
+                session->close();
+            }
+        }
+
+        logger->info("All TCP sessions closed");
+    }
+
+    void TCPAuthServer::registerSession(std::shared_ptr<Session> session) {
+        std::lock_guard<std::mutex> lock(_sessionsMutex);
+        _activeSessions[session.get()] = session;
+    }
+
+    void TCPAuthServer::unregisterSession(Session* session) {
+        std::lock_guard<std::mutex> lock(_sessionsMutex);
+        _activeSessions.erase(session);
     }
 
     void TCPAuthServer::start_accept() {
@@ -660,7 +715,7 @@ namespace infrastructure::adapters::in::network {
                         networkLogger->info("TLS handshake successful from {}",
                             clientEndpoint.address().to_string());
 
-                        // Create the session with the secured SSL socket
+                        // Create session with onClose callback for tracking
                         auto session = std::make_shared<Session>(
                             std::move(*sslSocket),
                             _userRepository,
@@ -669,8 +724,15 @@ namespace infrastructure::adapters::in::network {
                             _idGenerator,
                             _logger,
                             _sessionManager,
-                            _roomManager
+                            _roomManager,
+                            [this](Session* sessionPtr) {
+                                // Called from Session destructor - unregister from tracking
+                                unregisterSession(sessionPtr);
+                            }
                         );
+
+                        // Register and start the session
+                        registerSession(session);
                         session->start();
                     }
                 );

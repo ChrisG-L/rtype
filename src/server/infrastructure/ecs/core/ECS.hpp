@@ -55,7 +55,14 @@ namespace ECS {
                 }
             }
 
-            ~ECS() {}
+            ~ECS() {
+                // Delete all registered systems to prevent memory leaks
+                for (auto& systemData : m_systems) {
+                    delete systemData.sys;
+                    systemData.sys = nullptr;
+                }
+                m_systems.clear();
+            }
 
             /**
              * @brief Returns the amount of currently active entities

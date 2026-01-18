@@ -9,6 +9,9 @@
 #include "domain/services/EnemyBehavior.hpp"
 #include "domain/Constants.hpp"
 #include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 using namespace domain::services;
 using namespace domain::constants;
