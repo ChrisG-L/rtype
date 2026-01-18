@@ -307,6 +307,42 @@ pipeline {
                         echo "⚠️  Impossible de récupérer les artefacts Windows: ${e.message}"
                     }
 
+                    // Copier version_history.txt dans les artifacts client ET serveur
+                    echo "📋 Ajout de version_history.txt aux artifacts..."
+                    sh """
+                        if [ -f "${WORKSPACE}/version_history.txt" ]; then
+                            # Linux server
+                            LINUX_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "server" -type d 2>/dev/null | head -1)
+                            if [ -n "\$LINUX_SERVER_DIR" ]; then
+                                cp ${WORKSPACE}/version_history.txt \$LINUX_SERVER_DIR/
+                                echo "✅ version_history.txt copié vers \$LINUX_SERVER_DIR"
+                            fi
+
+                            # Linux client
+                            LINUX_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*linux*" -name "client" -type d 2>/dev/null | head -1)
+                            if [ -n "\$LINUX_CLIENT_DIR" ]; then
+                                cp ${WORKSPACE}/version_history.txt \$LINUX_CLIENT_DIR/
+                                echo "✅ version_history.txt copié vers \$LINUX_CLIENT_DIR"
+                            fi
+
+                            # Windows server
+                            WIN_SERVER_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "server" -type d 2>/dev/null | head -1)
+                            if [ -n "\$WIN_SERVER_DIR" ]; then
+                                cp ${WORKSPACE}/version_history.txt \$WIN_SERVER_DIR/
+                                echo "✅ version_history.txt copié vers \$WIN_SERVER_DIR"
+                            fi
+
+                            # Windows client
+                            WIN_CLIENT_DIR=\$(find ${WORKSPACE}/artifacts -path "*windows*" -name "client" -type d 2>/dev/null | head -1)
+                            if [ -n "\$WIN_CLIENT_DIR" ]; then
+                                cp ${WORKSPACE}/version_history.txt \$WIN_CLIENT_DIR/
+                                echo "✅ version_history.txt copié vers \$WIN_CLIENT_DIR"
+                            fi
+                        else
+                            echo "⚠️  version_history.txt non trouvé dans le workspace"
+                        fi
+                    """
+
                     // Archiver tous les artefacts disponibles (Linux + Windows)
                     archiveArtifacts artifacts: "artifacts/**/*",
                                     fingerprint: true,
