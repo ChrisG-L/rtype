@@ -933,6 +933,14 @@ namespace infrastructure::game {
         // Phase 5.3: Process kill events from DamageSystem
         // Awards score, spawns power-ups, marks enemies as destroyed
         void processECSKillEvents(const std::vector<ecs::systems::KillEvent>& killEvents);
+
+        // Phase 5.4: Sync combo data from ECS to legacy
+        // ScoreSystem handles combo decay, syncs to _playerScores for awardKillScore()
+        void syncComboFromECS();
+
+        // Phase 5.6: Sync weapon cooldowns from ECS to legacy
+        // WeaponSystem handles cooldown decay, syncs to _players for canPlayerShoot()
+        void syncCooldownsFromECS();
 #endif
 
         uint8_t findAvailableId() const;

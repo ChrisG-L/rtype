@@ -102,18 +102,16 @@ namespace infrastructure::game {
         _scoreSystemId = _ecs.addSystemWithArgs<ScoreSystem>(0, *_domainBridge);
 
         // ═══════════════════════════════════════════════════════════════════
-        // Phase 5.3: Enable CollisionSystem + DamageSystem
-        // CollisionSystem detects collisions between ECS entities
-        // DamageSystem applies damage and deletes dead entities
-        // Legacy checkCollisions() handles: enemy missiles→players, missiles→boss
+        // Phase 5.6: Enable WeaponSystem for cooldown management
+        // WeaponSystem handles cooldowns, legacy still handles missile spawning
         // ═══════════════════════════════════════════════════════════════════
         _ecs.toggleSystem(_enemyAISystemId);    // OFF - Legacy updateEnemies handles AI
-        _ecs.toggleSystem(_weaponSystemId);     // OFF - Legacy handles weapon cooldowns
+        // _ecs.toggleSystem(_weaponSystemId);     // ON - Phase 5.6: ECS handles cooldowns
         // _ecs.toggleSystem(_collisionSystemId);  // ON - Phase 5.2: ECS detects collisions
         // _ecs.toggleSystem(_damageSystemId);     // ON - Phase 5.3: ECS handles damage
         // _ecs.toggleSystem(_lifetimeSystemId);   // ON - Phase 5.1: ECS handles lifetime
         // _ecs.toggleSystem(_cleanupSystemId);    // ON - Phase 5.1: ECS handles OOB cleanup
-        _ecs.toggleSystem(_scoreSystemId);      // OFF - Legacy handles score
+        // _ecs.toggleSystem(_scoreSystemId);      // ON - Phase 5.4: ECS handles combo decay
     }
 
     ECS::EntityID GameWorld::createPlayerEntity(uint8_t playerId, float x, float y, uint8_t health,
@@ -422,6 +420,14 @@ namespace infrastructure::game {
         // Sync deleted enemies from ECS (killed by DamageSystem)
         syncDeletedEnemiesFromECS();
 
+        // Phase 5.4: Sync combo data from ECS to legacy
+        // ScoreSystem handles combo decay, we need combo in legacy for awardKillScore()
+        syncComboFromECS();
+
+        // Phase 5.6: Sync weapon cooldowns from ECS to legacy
+        // WeaponSystem handles cooldown decay, we need cooldown in legacy for canPlayerShoot()
+        syncCooldownsFromECS();
+
         // Note: Enemies still use legacy OOB checks in updateEnemies()
         // because movement patterns run AFTER ECS Update
     }
@@ -489,6 +495,50 @@ namespace infrastructure::game {
                 it = _enemyEntityIds.erase(it);
             } else {
                 ++it;
+            }
+        }
+    }
+
+    void GameWorld::syncComboFromECS() {
+        // Phase 5.4: Sync combo data from ECS ScoreComp → legacy _playerScores
+        // ScoreSystem handles combo decay, we sync the results to legacy for awardKillScore()
+        auto players = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::ScoreComp
+        >();
+
+        for (auto entityId : players) {
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& scoreComp = _ecs.entityGetComponent<ecs::components::ScoreComp>(entityId);
+
+            auto it = _playerScores.find(playerTag.playerId);
+            if (it != _playerScores.end()) {
+                // Sync combo data from ECS to legacy
+                it->second.comboMultiplier = scoreComp.comboMultiplier;
+                it->second.comboTimer = scoreComp.comboTimer;
+                if (scoreComp.maxCombo > it->second.maxCombo) {
+                    it->second.maxCombo = scoreComp.maxCombo;
+                }
+            }
+        }
+    }
+
+    void GameWorld::syncCooldownsFromECS() {
+        // Phase 5.6: Sync weapon cooldowns from ECS WeaponComp → legacy _players
+        // WeaponSystem handles cooldown decay, we sync to legacy for canPlayerShoot()
+        auto players = _ecs.getEntitiesByComponentsAllOf<
+            ecs::components::PlayerTag,
+            ecs::components::WeaponComp
+        >();
+
+        for (auto entityId : players) {
+            const auto& playerTag = _ecs.entityGetComponent<ecs::components::PlayerTag>(entityId);
+            const auto& weaponComp = _ecs.entityGetComponent<ecs::components::WeaponComp>(entityId);
+
+            auto it = _players.find(playerTag.playerId);
+            if (it != _players.end()) {
+                // Sync cooldown from ECS to legacy
+                it->second.shootCooldown = weaponComp.shootCooldown;
             }
         }
     }
@@ -1667,9 +1717,29 @@ namespace infrastructure::game {
         if (score.currentKillStreak > score.bestKillStreak) {
             score.bestKillStreak = score.currentKillStreak;
         }
+
+#ifdef USE_ECS_BACKEND
+        // Phase 5.4: Sync combo changes back to ECS ScoreComp
+        // This ensures ScoreSystem sees updated combo after kills
+        auto entityIt = _playerEntityIds.find(playerId);
+        if (entityIt != _playerEntityIds.end() && _ecs.entityIsActive(entityIt->second)) {
+            if (_ecs.entityHasComponent<ecs::components::ScoreComp>(entityIt->second)) {
+                auto& scoreComp = _ecs.entityGetComponent<ecs::components::ScoreComp>(entityIt->second);
+                scoreComp.comboMultiplier = score.comboMultiplier;
+                scoreComp.comboTimer = score.comboTimer;
+                scoreComp.kills = score.kills;
+                scoreComp.total = score.score;
+                if (score.maxCombo > scoreComp.maxCombo) {
+                    scoreComp.maxCombo = score.maxCombo;
+                }
+            }
+        }
+#endif
     }
 
-    void GameWorld::updateComboTimers(float deltaTime) {
+    void GameWorld::updateComboTimers([[maybe_unused]] float deltaTime) {
+#ifndef USE_ECS_BACKEND
+        // Legacy combo decay - only used when ECS is disabled
         for (auto& [playerId, score] : _playerScores) {
             score.comboTimer += deltaTime;
 
@@ -1682,6 +1752,9 @@ namespace infrastructure::game {
                 score.comboMultiplier = std::max(1.0f, score.comboMultiplier - decay);
             }
         }
+#endif
+        // Phase 5.4: When ECS is enabled, ScoreSystem handles combo decay
+        // syncComboFromECS() copies the results to _playerScores
     }
 
     void GameWorld::onPlayerDamaged(uint8_t playerId) {
@@ -2410,7 +2483,9 @@ namespace infrastructure::game {
         return WeaponType::Standard;
     }
 
-    void GameWorld::updateShootCooldowns(float deltaTime) {
+    void GameWorld::updateShootCooldowns([[maybe_unused]] float deltaTime) {
+#ifndef USE_ECS_BACKEND
+        // Legacy cooldown decay - only used when ECS is disabled
         float adjustedDelta = deltaTime * _gameSpeedMultiplier;
         for (auto& [id, player] : _players) {
             if (player.shootCooldown > 0.0f) {
@@ -2420,6 +2495,9 @@ namespace infrastructure::game {
                 }
             }
         }
+#endif
+        // Phase 5.6: When ECS is enabled, WeaponSystem handles cooldown decay
+        // syncCooldownsFromECS() copies the results to _players
     }
 
     bool GameWorld::canPlayerShoot(uint8_t playerId) const {
@@ -2582,6 +2660,16 @@ namespace infrastructure::game {
                                    damage,
                                    m.weaponType == WeaponType::Missile,
                                    m.targetEnemyId);
+            }
+        }
+
+        // Phase 5.6: Sync cooldown back to ECS WeaponComp
+        // This ensures WeaponSystem sees the new cooldown after shooting
+        auto entityIt = _playerEntityIds.find(playerId);
+        if (entityIt != _playerEntityIds.end() && _ecs.entityIsActive(entityIt->second)) {
+            if (_ecs.entityHasComponent<ecs::components::WeaponComp>(entityIt->second)) {
+                auto& weaponComp = _ecs.entityGetComponent<ecs::components::WeaponComp>(entityIt->second);
+                weaponComp.shootCooldown = player.shootCooldown;
             }
         }
 #endif

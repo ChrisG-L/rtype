@@ -17,6 +17,8 @@
 | **Phase 5.1** | ✅ | LifetimeSystem + CleanupSystem (missiles) |
 | **Phase 5.2** | ✅ | CollisionSystem (detection) |
 | **Phase 5.3** | ✅ | DamageSystem (MISSILES ↔ ENEMIES) |
+| **Phase 5.4** | ✅ | ScoreSystem (combo decay) |
+| **Phase 5.6** | ✅ | WeaponSystem (cooldowns) |
 
 **Total**: 310+ tests | **Branch**: `ECS_realImpl` | **Updated**: 2026-01-18
 
@@ -38,7 +40,7 @@
 | 4.7 | `runECSUpdate()` drives movement | ✅ |
 | 4.8 | Integration tests | ✅ Complete |
 
-### Current Architecture (Phase 5.3)
+### Current Architecture (Phase 5.6)
 
 ```
 UDPServer.updateAndBroadcastRoom()
@@ -46,39 +48,48 @@ UDPServer.updateAndBroadcastRoom()
     ├── runECSUpdate(deltaTime)           # ECS drives core gameplay
     │   ├── _ecs.Update(msecs)            # All active systems
     │   │   ├── PlayerInputSystem         # Input → Velocity
+    │   │   ├── WeaponSystem              # Cooldown decay (Phase 5.6)
     │   │   ├── MovementSystem            # Position += Velocity × dt
     │   │   ├── CollisionSystem           # Detect AABB collisions
     │   │   ├── DamageSystem              # Apply damage, delete dead entities
     │   │   ├── LifetimeSystem            # Expire timed entities
-    │   │   └── CleanupSystem             # Remove OOB entities
+    │   │   ├── CleanupSystem             # Remove OOB entities
+    │   │   └── ScoreSystem               # Combo decay (Phase 5.4)
     │   ├── syncPlayersFromECS()          # ECS positions → legacy _players
     │   ├── syncDeletedMissilesFromECS()  # Remove destroyed missiles from legacy
     │   ├── processECSKillEvents()        # Award score, spawn power-ups
-    │   └── syncDeletedEnemiesFromECS()   # Remove dead enemies from legacy
+    │   ├── syncDeletedEnemiesFromECS()   # Remove dead enemies from legacy
+    │   ├── syncComboFromECS()            # ECS combo → legacy _playerScores
+    │   └── syncCooldownsFromECS()        # ECS cooldowns → legacy _players
     │
-    ├── updateShootCooldowns()            # Legacy
+    ├── updateShootCooldowns()            # No-op (ECS handles)
+    ├── updateComboTimers()               # No-op (ECS handles)
     ├── updateMissiles()                  # Homing velocity + sync positions from ECS
     ├── updateEnemies()                   # Legacy (complex patterns, OOB)
     ├── checkCollisions()                 # Legacy: enemy missiles→players, missiles→boss
     └── getSnapshot()                     # Players from ECS, rest from legacy
 ```
 
-**Active Systems (Phase 5.3)**: 6/9
-- PlayerInputSystem (0), MovementSystem (300), CollisionSystem (400)
-- DamageSystem (500), LifetimeSystem (600), CleanupSystem (700)
+**Active Systems (Phase 5.6)**: 8/9
+- PlayerInputSystem (0), WeaponSystem (200), MovementSystem (300)
+- CollisionSystem (400), DamageSystem (500), LifetimeSystem (600)
+- CleanupSystem (700), ScoreSystem (800)
 
-**Disabled Systems**: EnemyAISystem (100), WeaponSystem (200), ScoreSystem (800)
+**Disabled Systems**: EnemyAISystem (100)
 
-**Data Flow (Phase 5.3)**:
+**Data Flow (Phase 5.6)**:
 1. `applyPlayerInput()` → queues to PlayerInputSystem
 2. `runECSUpdate()` → Systems process:
+   - WeaponSystem decays cooldowns in WeaponComp
    - CollisionSystem detects missile↔enemy collisions
    - DamageSystem applies damage, deletes entities, produces KillEvents
    - LifetimeSystem/CleanupSystem remove expired/OOB entities
+   - ScoreSystem decays combo in ScoreComp
 3. `processECSKillEvents()` → awards score, spawns power-ups
-4. `syncDeletedMissilesFromECS()` + `syncDeletedEnemiesFromECS()` → sync to legacy maps
-5. Legacy `checkCollisions()` handles: enemy missiles→players, missiles→boss
-6. `getSnapshot()` reads players from ECS, missiles/enemies from legacy
+4. `syncComboFromECS()` → combo ECS → legacy _playerScores
+5. `syncCooldownsFromECS()` → cooldowns ECS → legacy _players
+6. Legacy `checkCollisions()` handles: enemy missiles→players, missiles→boss
+7. `getSnapshot()` reads players from ECS, missiles/enemies from legacy
 
 ---
 
@@ -240,18 +251,24 @@ cmake -B build -DUSE_ECS_BACKEND=ON
 
 ## Next Steps
 
-### Phase 4 Complete
+### Phase 5 Progress
 
 | Task | Status |
 |------|--------|
-| Phase 4.6: `getSnapshot()` reads from ECS | ✅ Complete |
-| Phase 4.8: Integration tests | ✅ Complete |
+| Phase 5.1: LifetimeSystem + CleanupSystem | ✅ Complete |
+| Phase 5.2: CollisionSystem | ✅ Complete |
+| Phase 5.3: DamageSystem | ✅ Complete |
+| Phase 5.4: ScoreSystem (combo decay) | ✅ Complete |
+| Phase 5.5: EnemyAISystem (movement patterns) | ❌ Pending |
+| Phase 5.6: WeaponSystem (cooldowns) | ✅ Complete |
+| Phase 5.7: Integration finale | ❌ Pending |
 
-### Next: Phase 5+
+### Next: Phase 5.5 & 6+
 
 | Priority | Task |
 |----------|------|
-| Medium | Enable remaining Systems progressively |
+| High | Phase 5.5: EnemyAISystem (migrate enemy movement patterns) |
+| Medium | Phase 5.7: Final integration, remove redundant legacy code |
 | Medium | Remove legacy `_players`, `_missiles`, `_enemies` maps |
 | Low | Spatial hashing for CollisionSystem |
 | Low | ForcePodSystem, BitDeviceSystem, BossSystem |

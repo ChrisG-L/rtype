@@ -52,13 +52,13 @@ Les Systems ne contiennent **aucune logique métier** - ils délèguent au Domai
 |----------|--------|--------|----------------|
 | 0 | PlayerInputSystem | ✅ Active | Input → Velocity, screen clamp |
 | 100 | EnemyAISystem | ❌ Disabled | Movement patterns, shooting |
-| 200 | WeaponSystem | ❌ Disabled | Cooldowns, missile spawning |
+| 200 | WeaponSystem | ✅ Active | Cooldowns (Phase 5.6) |
 | 300 | MovementSystem | ✅ Active | `pos += vel × dt` |
 | 400 | CollisionSystem | ✅ Active | AABB collision detection |
 | 500 | DamageSystem | ✅ Active | Apply damage from collisions |
 | 600 | LifetimeSystem | ✅ Active | Decrement, delete expired |
 | 700 | CleanupSystem | ✅ Active | Remove OOB entities |
-| 800 | ScoreSystem | ❌ Disabled | Combo decay, score calculation |
+| 800 | ScoreSystem | ✅ Active | Combo decay (Phase 5.4) |
 
 ---
 
@@ -115,12 +115,12 @@ UDPServer.updateAndBroadcastRoom()
 
 ### Remaining
 
-| Step | Description | Complexity | Dependencies |
-|------|-------------|------------|--------------|
-| 5.4 | ScoreSystem (combo decay) | Faible | Aucune |
-| 5.5 | EnemyAISystem (patterns) | Haute | Aucune |
-| 5.6 | WeaponSystem (cooldowns) | Moyenne | Aucune |
-| 5.7 | Integration finale | Moyenne | 5.4-5.6 |
+| Step | Description | Complexity | Status |
+|------|-------------|------------|--------|
+| 5.4 | ScoreSystem (combo decay) | Faible | ✅ Complete |
+| 5.5 | EnemyAISystem (patterns) | Haute | ❌ Pending |
+| 5.6 | WeaponSystem (cooldowns) | Moyenne | ✅ Complete |
+| 5.7 | Integration finale | Moyenne | ❌ Pending |
 
 ### Phase 5.4 - ScoreSystem
 
