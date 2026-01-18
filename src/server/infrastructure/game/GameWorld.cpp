@@ -2585,7 +2585,7 @@ namespace infrastructure::game {
 
             for (auto& [enemyId, enemy] : _enemies) {
                 // Skip if already hit this enemy (piercing beams only damage once)
-                if (wc.hitEnemies.contains(enemyId)) {
+                if (wc.hitEnemies.find(enemyId) != wc.hitEnemies.end()) {
                     continue;
                 }
 
@@ -2804,6 +2804,14 @@ namespace infrastructure::game {
                     }
                 } else {
                     player.speedLevel = static_cast<uint8_t>(player.speedLevel + 1);
+#ifdef USE_ECS_BACKEND
+                    // Sync speedLevel to ECS for PlayerInputSystem
+                    auto entityIt = _playerEntityIds.find(playerId);
+                    if (entityIt != _playerEntityIds.end()) {
+                        auto& speed = _ecs.entityGetComponent<ecs::components::SpeedLevelComp>(entityIt->second);
+                        speed.level = player.speedLevel;
+                    }
+#endif
                 }
                 break;
 
