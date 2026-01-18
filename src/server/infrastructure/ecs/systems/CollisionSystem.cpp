@@ -2,14 +2,13 @@
 ** EPITECH PROJECT, 2025
 ** rtype
 ** File description:
-** CollisionSystem - Implementation
+** CollisionSystem - Implementation (Optimized)
 */
 
 #include "systems/CollisionSystem.hpp"
 #include "core/ECS.hpp"
 #include "components/PositionComp.hpp"
 #include "components/HitboxComp.hpp"
-#include <algorithm>
 
 namespace infrastructure::ecs::systems {
 
@@ -18,44 +17,72 @@ namespace infrastructure::ecs::systems {
     {}
 
     void CollisionSystem::Update(ECS::ECS& ecs, [[maybe_unused]] ECS::SystemID thisID, [[maybe_unused]] uint32_t msecs) {
-        // Clear previous frame's collisions
         _collisions.clear();
 
-        // Query all entities with Position and Hitbox components
-        auto entities = ecs.getEntitiesByComponentsAllOf<
-            components::PositionComp,
-            components::HitboxComp
-        >();
+        // Fetch entity groups ONCE per frame (avoiding repeated lookups)
+        auto missiles = ecs.getEntityGroup(ECS::EntityGroup::MISSILES);
+        auto enemies = ecs.getEntityGroup(ECS::EntityGroup::ENEMIES);
+        auto players = ecs.getEntityGroup(ECS::EntityGroup::PLAYERS);
+        auto enemyMissiles = ecs.getEntityGroup(ECS::EntityGroup::ENEMY_MISSILES);
+        auto waveCannons = ecs.getEntityGroup(ECS::EntityGroup::WAVE_CANNONS);
+        auto forcePods = ecs.getEntityGroup(ECS::EntityGroup::FORCE_PODS);
 
-        // O(n²) collision detection
-        // TODO: Optimize with spatial hashing if entity count exceeds ~500
-        for (size_t i = 0; i < entities.size(); ++i) {
-            for (size_t j = i + 1; j < entities.size(); ++j) {
-                ECS::EntityID entityA = entities[i];
-                ECS::EntityID entityB = entities[j];
+        // Only check RELEVANT collision pairs (like legacy GameWorld)
+        // This avoids checking missiles vs missiles, enemies vs enemies, etc.
 
-                // Get components
-                const auto& posA = ecs.entityGetComponent<components::PositionComp>(entityA);
-                const auto& hitboxA = ecs.entityGetComponent<components::HitboxComp>(entityA);
+        // 1. MISSILES vs ENEMIES → Enemy takes damage
+        checkPairs(ecs, missiles, enemies,
+                   ECS::EntityGroup::MISSILES, ECS::EntityGroup::ENEMIES);
+
+        // 2. WAVE_CANNONS vs ENEMIES → Enemy takes damage (wave cannon persists)
+        checkPairs(ecs, waveCannons, enemies,
+                   ECS::EntityGroup::WAVE_CANNONS, ECS::EntityGroup::ENEMIES);
+
+        // 3. PLAYERS vs ENEMY_MISSILES → Player takes damage
+        checkPairs(ecs, players, enemyMissiles,
+                   ECS::EntityGroup::PLAYERS, ECS::EntityGroup::ENEMY_MISSILES);
+
+        // 4. FORCE_PODS vs ENEMIES → Enemy takes contact damage
+        checkPairs(ecs, forcePods, enemies,
+                   ECS::EntityGroup::FORCE_PODS, ECS::EntityGroup::ENEMIES);
+    }
+
+    void CollisionSystem::checkPairs(ECS::ECS& ecs,
+                                     const std::vector<ECS::EntityID>& groupA,
+                                     const std::vector<ECS::EntityID>& groupB,
+                                     ECS::EntityGroup typeA,
+                                     ECS::EntityGroup typeB) {
+        for (auto entityA : groupA) {
+            // Skip if entity was deleted or doesn't have required components
+            if (!ecs.entityIsActive(entityA) ||
+                !ecs.entityHasComponent<components::PositionComp>(entityA) ||
+                !ecs.entityHasComponent<components::HitboxComp>(entityA)) {
+                continue;
+            }
+
+            const auto& posA = ecs.entityGetComponent<components::PositionComp>(entityA);
+            const auto& hitboxA = ecs.entityGetComponent<components::HitboxComp>(entityA);
+
+            float x1 = posA.x + hitboxA.offsetX;
+            float y1 = posA.y + hitboxA.offsetY;
+
+            for (auto entityB : groupB) {
+                // Skip if entity was deleted or doesn't have required components
+                if (!ecs.entityIsActive(entityB) ||
+                    !ecs.entityHasComponent<components::PositionComp>(entityB) ||
+                    !ecs.entityHasComponent<components::HitboxComp>(entityB)) {
+                    continue;
+                }
+
                 const auto& posB = ecs.entityGetComponent<components::PositionComp>(entityB);
                 const auto& hitboxB = ecs.entityGetComponent<components::HitboxComp>(entityB);
 
-                // Calculate actual bounds (position + hitbox offset)
-                float x1 = posA.x + hitboxA.offsetX;
-                float y1 = posA.y + hitboxA.offsetY;
                 float x2 = posB.x + hitboxB.offsetX;
                 float y2 = posB.y + hitboxB.offsetY;
 
-                // Check collision via DomainBridge
                 if (_bridge.checkCollision(x1, y1, hitboxA.width, hitboxA.height,
                                           x2, y2, hitboxB.width, hitboxB.height)) {
-                    // Record collision event
-                    CollisionEvent event;
-                    event.entityA = entityA;
-                    event.entityB = entityB;
-                    event.groupA = getEntityGroup(ecs, entityA);
-                    event.groupB = getEntityGroup(ecs, entityB);
-                    _collisions.push_back(event);
+                    _collisions.push_back({entityA, entityB, typeA, typeB});
                 }
             }
         }
@@ -67,30 +94,6 @@ namespace infrastructure::ecs::systems {
 
     void CollisionSystem::clearCollisions() {
         _collisions.clear();
-    }
-
-    ECS::EntityGroup CollisionSystem::getEntityGroup(ECS::ECS& ecs, ECS::EntityID entity) {
-        // Check each group
-        static const ECS::EntityGroup groups[] = {
-            ECS::EntityGroup::PLAYERS,
-            ECS::EntityGroup::ENEMIES,
-            ECS::EntityGroup::MISSILES,
-            ECS::EntityGroup::ENEMY_MISSILES,
-            ECS::EntityGroup::POWERUPS,
-            ECS::EntityGroup::WAVE_CANNONS,
-            ECS::EntityGroup::FORCE_PODS,
-            ECS::EntityGroup::BIT_DEVICES,
-            ECS::EntityGroup::BOSS
-        };
-
-        for (auto group : groups) {
-            auto groupEntities = ecs.getEntityGroup(group);
-            if (std::find(groupEntities.begin(), groupEntities.end(), entity) != groupEntities.end()) {
-                return group;
-            }
-        }
-
-        return ECS::EntityGroup::NONE;
     }
 
 }  // namespace infrastructure::ecs::systems

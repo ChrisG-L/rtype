@@ -30,11 +30,15 @@ namespace infrastructure::ecs::systems {
      * Query: <PositionComp, HitboxComp>
      * Priority: 400 (runs after movement, before damage)
      *
-     * Uses O(n²) naive algorithm for collision detection.
-     * Stores detected collisions for later processing by DamageSystem.
-     * Avoids duplicate detection (A,B) and (B,A) by only checking when A < B.
+     * OPTIMIZATION: Instead of checking ALL entities against ALL entities (O(n²)),
+     * this system only checks relevant collision pairs:
+     * - MISSILES vs ENEMIES
+     * - WAVE_CANNONS vs ENEMIES
+     * - PLAYERS vs ENEMY_MISSILES
+     * - FORCE_PODS vs ENEMIES
      *
-     * NOTE: Future optimization could use spatial hashing for large entity counts.
+     * This reduces comparisons from n*(n-1)/2 to only meaningful pairs.
+     * Entity groups are fetched once per frame, avoiding repeated lookups.
      */
     class CollisionSystem : public ECS::ISystem {
     public:
@@ -70,9 +74,19 @@ namespace infrastructure::ecs::systems {
         std::vector<CollisionEvent> _collisions;
 
         /**
-         * @brief Get the entity group for an entity.
+         * @brief Check collisions between two groups of entities.
+         *
+         * @param ecs The ECS instance
+         * @param groupA First group of entity IDs
+         * @param groupB Second group of entity IDs
+         * @param typeA EntityGroup type for groupA
+         * @param typeB EntityGroup type for groupB
          */
-        ECS::EntityGroup getEntityGroup(ECS::ECS& ecs, ECS::EntityID entity);
+        void checkPairs(ECS::ECS& ecs,
+                        const std::vector<ECS::EntityID>& groupA,
+                        const std::vector<ECS::EntityID>& groupB,
+                        ECS::EntityGroup typeA,
+                        ECS::EntityGroup typeB);
     };
 
 }  // namespace infrastructure::ecs::systems
