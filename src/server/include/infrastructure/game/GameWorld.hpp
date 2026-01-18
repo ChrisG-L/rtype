@@ -924,6 +924,22 @@ namespace infrastructure::game {
         void syncPlayersFromECS();
         void syncMissilesFromECS();
         void syncEnemiesFromECS();
+
+        // Phase 5.1: Sync deleted entities from ECS to legacy maps
+        // Called after ECS Update to detect entities deleted by CleanupSystem/LifetimeSystem
+        void syncDeletedMissilesFromECS();
+        void syncDeletedEnemiesFromECS();
+
+        // Phase 5.2: Store ECS collision events for DamageSystem (Phase 5.3)
+        // CollisionSystem runs and populates this, legacy checkCollisions() still handles damage
+        std::vector<ecs::systems::CollisionEvent> _ecsCollisions;
+
+        // Get ECS collisions detected this frame (for debugging/validation)
+        const std::vector<ecs::systems::CollisionEvent>& getECSCollisions() const { return _ecsCollisions; }
+
+        // Phase 5.3: Process kill events from DamageSystem
+        // Awards score, spawns power-ups, marks enemies as destroyed
+        void processECSKillEvents(const std::vector<ecs::systems::KillEvent>& killEvents);
 #endif
 
         uint8_t findAvailableId() const;

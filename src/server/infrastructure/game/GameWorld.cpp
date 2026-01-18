@@ -102,16 +102,17 @@ namespace infrastructure::game {
         _scoreSystemId = _ecs.addSystemWithArgs<ScoreSystem>(0, *_domainBridge);
 
         // ═══════════════════════════════════════════════════════════════════
-        // Phase 4.7: Disable systems that conflict with legacy code
-        // Only PlayerInputSystem and MovementSystem are active for now
-        // Legacy handles: Collisions, Damage, Lifetime, Cleanup, EnemyAI, Weapons, Score
+        // Phase 5.3: Enable CollisionSystem + DamageSystem
+        // CollisionSystem detects collisions between ECS entities
+        // DamageSystem applies damage and deletes dead entities
+        // Legacy checkCollisions() handles: enemy missiles→players, missiles→boss
         // ═══════════════════════════════════════════════════════════════════
         _ecs.toggleSystem(_enemyAISystemId);    // OFF - Legacy updateEnemies handles AI
         _ecs.toggleSystem(_weaponSystemId);     // OFF - Legacy handles weapon cooldowns
-        _ecs.toggleSystem(_collisionSystemId);  // OFF - Legacy checkCollisions handles this
-        _ecs.toggleSystem(_damageSystemId);     // OFF - Legacy handles damage
-        _ecs.toggleSystem(_lifetimeSystemId);   // OFF - Legacy handles lifetime
-        _ecs.toggleSystem(_cleanupSystemId);    // OFF - Legacy handles OOB cleanup
+        // _ecs.toggleSystem(_collisionSystemId);  // ON - Phase 5.2: ECS detects collisions
+        // _ecs.toggleSystem(_damageSystemId);     // ON - Phase 5.3: ECS handles damage
+        // _ecs.toggleSystem(_lifetimeSystemId);   // ON - Phase 5.1: ECS handles lifetime
+        // _ecs.toggleSystem(_cleanupSystemId);    // ON - Phase 5.1: ECS handles OOB cleanup
         _ecs.toggleSystem(_scoreSystemId);      // OFF - Legacy handles score
     }
 
@@ -381,17 +382,108 @@ namespace infrastructure::game {
     }
 
     void GameWorld::runECSUpdate(float deltaTime) {
+        // Clear destroyed missiles list (accumulates per frame from CleanupSystem)
+        // Note: Enemies clear in updateEnemies() as they use legacy OOB checks
+        _destroyedMissiles.clear();
+
         // Convert delta time from seconds to milliseconds for ECS
         uint32_t msecs = static_cast<uint32_t>(deltaTime * 1000.0f);
 
         // Run all ECS systems (PlayerInput, Movement, Collision, Damage, etc.)
         _ecs.Update(msecs);
 
-        // Phase 4.7: Only sync player positions from ECS to legacy
-        // Missiles and enemies are still handled by legacy update functions
-        // This avoids double movement (ECS + legacy both moving the same entities)
-        // TODO Phase 4.8: Remove legacy missile/enemy updates and sync all from ECS
+        // Sync player positions from ECS to legacy
         syncPlayersFromECS();
+
+        // Phase 5.1: Sync deleted missiles from ECS to legacy maps
+        // CleanupSystem removes OOB missiles, LifetimeSystem removes expired ones
+        syncDeletedMissilesFromECS();
+
+        // Phase 5.2: Retrieve collision events from CollisionSystem
+        auto* collisionSystem = _ecs.getSystem<ecs::systems::CollisionSystem>(_collisionSystemId);
+        if (collisionSystem) {
+            _ecsCollisions = collisionSystem->getCollisions();
+        }
+
+        // Phase 5.3: Process KillEvents from DamageSystem
+        // DamageSystem deletes missile and enemy entities, we sync to legacy and handle score/power-ups
+        auto* damageSystem = _ecs.getSystem<ecs::systems::DamageSystem>(_damageSystemId);
+        if (damageSystem) {
+            processECSKillEvents(damageSystem->getKillEvents());
+        }
+
+        // Sync deleted enemies from ECS (killed by DamageSystem)
+        syncDeletedEnemiesFromECS();
+
+        // Note: Enemies still use legacy OOB checks in updateEnemies()
+        // because movement patterns run AFTER ECS Update
+    }
+
+    void GameWorld::processECSKillEvents(const std::vector<ecs::systems::KillEvent>& killEvents) {
+        for (const auto& kill : killEvents) {
+            // Find enemy ID from entity ID
+            uint16_t enemyId = 0;
+            for (const auto& [id, entityId] : _enemyEntityIds) {
+                if (entityId == kill.killedEntity) {
+                    enemyId = id;
+                    break;
+                }
+            }
+
+            if (enemyId == 0) continue;  // Enemy not found in legacy map
+
+            // Get enemy data before removal (for power-up spawning)
+            auto enemyIt = _enemies.find(enemyId);
+            if (enemyIt == _enemies.end()) continue;
+
+            const Enemy& enemy = enemyIt->second;
+
+            // Award score (uses legacy score system)
+            awardKillScore(kill.killerPlayerId,
+                           static_cast<EnemyType>(kill.killedType),
+                           WeaponType::Standard);  // TODO: Get actual weapon type from missile
+
+            // Spawn power-up chance
+            EnemyType enemyType = static_cast<EnemyType>(enemy.enemy_type);
+            std::uniform_int_distribution<int> dropDist(0, 99);
+            if (enemyType == EnemyType::POWArmor ||
+                dropDist(_rng) < POWERUP_DROP_CHANCE) {
+                spawnPowerUp(enemy.x, enemy.y);
+            }
+
+            // Mark enemy as destroyed (for network broadcast)
+            _destroyedEnemies.push_back(enemyId);
+        }
+    }
+
+    void GameWorld::syncDeletedMissilesFromECS() {
+        // Check each missile entity - if ECS deleted it, remove from legacy map
+        for (auto it = _missileEntityIds.begin(); it != _missileEntityIds.end();) {
+            if (!_ecs.entityIsActive(it->second)) {
+                // ECS has deleted this entity (OOB or lifetime expired)
+                uint16_t missileId = it->first;
+                _destroyedMissiles.push_back(missileId);
+                _missiles.erase(missileId);
+                it = _missileEntityIds.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    void GameWorld::syncDeletedEnemiesFromECS() {
+        // Check each enemy entity - if ECS deleted it, remove from legacy map
+        for (auto it = _enemyEntityIds.begin(); it != _enemyEntityIds.end();) {
+            if (!_ecs.entityIsActive(it->second)) {
+                // ECS has deleted this entity (OOB or lifetime expired)
+                uint16_t enemyId = it->first;
+                _destroyedEnemies.push_back(enemyId);
+                _enemies.erase(enemyId);
+                it = _enemyEntityIds.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 #endif
 
@@ -856,15 +948,19 @@ namespace infrastructure::game {
     }
 
     void GameWorld::updateMissiles(float deltaTime) {
+        // Note: _destroyedMissiles is populated by syncDeletedMissilesFromECS() when ECS is enabled
+#ifndef USE_ECS_BACKEND
         _destroyedMissiles.clear();
+#endif
 
         // Apply game speed multiplier to missile movement
         float adjustedDelta = deltaTime * _gameSpeedMultiplier;
 
         for (auto it = _missiles.begin(); it != _missiles.end();) {
             Missile& missile = it->second;
+            uint16_t missileId = it->first;
 
-            // Handle homing missiles
+            // Handle homing missiles - update velocity towards target
             if (missile.weaponType == WeaponType::Missile && missile.targetEnemyId != 0) {
                 float targetX = 0.0f, targetY = 0.0f;
                 bool hasTarget = false;
@@ -895,28 +991,47 @@ namespace infrastructure::game {
                         float speed = Missile::getSpeed(WeaponType::Missile, missile.weaponLevel);
                         missile.velocityX = (dx / dist) * speed;
                         missile.velocityY = (dy / dist) * speed;
+
+#ifdef USE_ECS_BACKEND
+                        // Sync updated velocity to ECS entity
+                        auto ecsIt = _missileEntityIds.find(missileId);
+                        if (ecsIt != _missileEntityIds.end() && _ecs.entityIsActive(ecsIt->second)) {
+                            auto& vel = _ecs.entityGetComponent<ecs::components::VelocityComp>(ecsIt->second);
+                            vel.x = missile.velocityX;
+                            vel.y = missile.velocityY;
+                        }
+#endif
                     }
                 }
             }
 
-            // Update position
+#ifdef USE_ECS_BACKEND
+            // Phase 5.1: ECS handles movement and OOB cleanup
+            // MovementSystem updates positions, CleanupSystem removes OOB entities
+            // Just sync positions from ECS to legacy for snapshot consistency
+            auto ecsIt = _missileEntityIds.find(missileId);
+            if (ecsIt != _missileEntityIds.end() && _ecs.entityIsActive(ecsIt->second)) {
+                const auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(ecsIt->second);
+                missile.x = pos.x;
+                missile.y = pos.y;
+            }
+            ++it;
+#else
+            // Legacy: Update position
             missile.x += missile.velocityX * adjustedDelta;
             missile.y += missile.velocityY * adjustedDelta;
 
-            // Check bounds (remove if off-screen)
+            // Legacy: Check bounds (remove if off-screen)
             bool outOfBounds = missile.x > SCREEN_WIDTH || missile.x < -50.0f ||
                                missile.y > SCREEN_HEIGHT + 50.0f || missile.y < -50.0f;
 
             if (outOfBounds) {
-                uint16_t missileId = it->first;
                 _destroyedMissiles.push_back(missileId);
-#ifdef USE_ECS_BACKEND
-                deleteMissileEntity(missileId);
-#endif
                 it = _missiles.erase(it);
             } else {
                 ++it;
             }
+#endif
         }
     }
 
@@ -1201,10 +1316,25 @@ namespace infrastructure::game {
 
         for (auto it = _enemies.begin(); it != _enemies.end();) {
             Enemy& enemy = it->second;
+            uint16_t enemyId = it->first;
             enemy.aliveTime += adjustedDelta;
 
+            // Calculate movement (velocity) based on enemy type pattern
+            // Note: Enemy movement patterns are complex (zigzag, tracker, etc.)
+            // We keep this in legacy for now. EnemyAISystem will handle this in Phase 5.5
             updateEnemyMovement(enemy, adjustedDelta);
 
+#ifdef USE_ECS_BACKEND
+            // Sync position to ECS for consistency (snapshot reads from ECS)
+            auto ecsIt = _enemyEntityIds.find(enemyId);
+            if (ecsIt != _enemyEntityIds.end() && _ecs.entityIsActive(ecsIt->second)) {
+                auto& pos = _ecs.entityGetComponent<ecs::components::PositionComp>(ecsIt->second);
+                pos.x = enemy.x;
+                pos.y = enemy.y;
+            }
+#endif
+
+            // Handle enemy shooting (enemy missiles are NOT ECS entities)
             enemy.shootCooldown -= adjustedDelta;
             if (enemy.shootCooldown <= 0.0f && enemy.x < SCREEN_WIDTH && enemy.x > 0.0f) {
                 enemy.shootCooldown = enemy.getShootInterval();
@@ -1235,15 +1365,16 @@ namespace infrastructure::game {
                 }
             }
 
+            // Check OOB and health (legacy handles this for now)
+            // Note: CleanupSystem could handle OOB but execution order is tricky
+            // Enemy patterns run AFTER ECS Update, so we keep legacy OOB check
             if (enemy.x < -Enemy::WIDTH) {
-                uint16_t enemyId = it->first;
                 _destroyedEnemies.push_back(enemyId);
 #ifdef USE_ECS_BACKEND
                 deleteEnemyEntity(enemyId);
 #endif
                 it = _enemies.erase(it);
             } else if (enemy.health == 0) {
-                uint16_t enemyId = it->first;
                 _destroyedEnemies.push_back(enemyId);
 #ifdef USE_ECS_BACKEND
                 deleteEnemyEntity(enemyId);
@@ -1255,6 +1386,7 @@ namespace infrastructure::game {
         }
 
         // Update enemy missiles with game speed multiplier
+        // Note: Enemy missiles are NOT ECS entities yet
         for (auto it = _enemyMissiles.begin(); it != _enemyMissiles.end();) {
             it->second.x += it->second.velocityX * adjustedDelta;
             it->second.y += it->second.velocityY * adjustedDelta;
@@ -1274,10 +1406,24 @@ namespace infrastructure::game {
 
         for (auto missileIt = _missiles.begin(); missileIt != _missiles.end();) {
             const auto& missile = missileIt->second;
+            uint16_t missileId = missileIt->first;
             collision::AABB missileBox(missile.x, missile.y, Missile::WIDTH, Missile::HEIGHT);
 
             bool missileDestroyed = false;
 
+#ifdef USE_ECS_BACKEND
+            // Phase 5.3: Skip missiles already deleted by DamageSystem
+            auto ecsIt = _missileEntityIds.find(missileId);
+            if (ecsIt == _missileEntityIds.end() || !_ecs.entityIsActive(ecsIt->second)) {
+                // Missile was deleted by DamageSystem, remove from legacy map
+                missileIt = _missiles.erase(missileIt);
+                continue;
+            }
+
+            // Phase 5.3: DamageSystem handles MISSILES + ENEMIES collisions
+            // Skip to boss check (Boss is not an ECS entity yet)
+#else
+            // Legacy: Check missile vs enemies
             for (auto& [enemyId, enemy] : _enemies) {
                 collision::AABB enemyBox(enemy.x, enemy.y, Enemy::WIDTH, Enemy::HEIGHT);
 
@@ -1311,18 +1457,16 @@ namespace infrastructure::game {
                         }
                     }
 
-                    uint16_t missileId = missileIt->first;
                     _destroyedMissiles.push_back(missileId);
-#ifdef USE_ECS_BACKEND
-                    deleteMissileEntity(missileId);
-#endif
                     missileIt = _missiles.erase(missileIt);
                     missileDestroyed = true;
                     break;
                 }
             }
+#endif
 
             // Check boss collision if not already destroyed
+            // Boss is NOT an ECS entity, so legacy handles this in both modes
             if (!missileDestroyed && _boss.has_value() && _boss->isActive) {
                 collision::AABB bossBox(_boss->x, _boss->y, Boss::WIDTH, Boss::HEIGHT);
                 if (missileBox.intersects(bossBox)) {
@@ -1330,7 +1474,6 @@ namespace infrastructure::game {
                     uint8_t damage = Missile::getDamage(missile.weaponType, missile.weaponLevel);
                     damageBoss(damage, missile.owner_id);
 
-                    uint16_t missileId = missileIt->first;
                     _destroyedMissiles.push_back(missileId);
 #ifdef USE_ECS_BACKEND
                     deleteMissileEntity(missileId);

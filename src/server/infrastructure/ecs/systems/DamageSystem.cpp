@@ -154,30 +154,13 @@ namespace infrastructure::ecs::systems {
 
         // ═══════════════════════════════════════════════════════════════════════
         // PLAYERS + ENEMIES → Player takes contact damage
+        // DISABLED: Enemy movement is still legacy, and this causes sync issues
+        // with GameOver logic. Will be enabled when enemies are fully ECS-driven.
         // ═══════════════════════════════════════════════════════════════════════
-        if (hasGroup(groupA, groupB, ECS::EntityGroup::PLAYERS) &&
-            hasGroup(groupA, groupB, ECS::EntityGroup::ENEMIES)) {
-
-            ECS::EntityID player = getEntityWithGroup(ECS::EntityGroup::PLAYERS);
-
-            if (!ecs.entityHasComponent<components::HealthComp>(player)) {
-                return;
-            }
-
-            if (isInvulnerable(ecs, player)) {
-                return;  // GodMode active
-            }
-
-            auto& health = ecs.entityGetComponent<components::HealthComp>(player);
-            constexpr uint8_t CONTACT_DAMAGE = 20;
-            auto result = _bridge.applyDamage(health, CONTACT_DAMAGE);
-
-            if (result.died) {
-                // Player death is handled differently (respawn, not delete)
-                // For now, just mark as died
-            }
-            return;
-        }
+        // if (hasGroup(groupA, groupB, ECS::EntityGroup::PLAYERS) &&
+        //     hasGroup(groupA, groupB, ECS::EntityGroup::ENEMIES)) {
+        //     // Contact damage disabled - legacy handles player damage
+        // }
 
         // ═══════════════════════════════════════════════════════════════════════
         // PLAYERS + ENEMY_MISSILES → Player takes missile damage

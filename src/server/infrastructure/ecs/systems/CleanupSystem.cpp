@@ -27,19 +27,32 @@ namespace infrastructure::ecs::systems {
         // Collect entities to delete (deferred deletion)
         std::vector<ECS::EntityID> toDelete;
 
-        // Get players list to exclude them
+        // Get groups to exclude from OOB cleanup
+        // Players: handled by respawn logic
+        // Enemies: spawn at x=SCREEN_WIDTH, have their own OOB logic in updateEnemies()
         auto players = ecs.getEntityGroup(ECS::EntityGroup::PLAYERS);
+        auto enemies = ecs.getEntityGroup(ECS::EntityGroup::ENEMIES);
 
         for (auto entityId : entities) {
-            // Skip players - they are handled differently
-            bool isPlayer = false;
+            // Skip players - they are handled by respawn logic
+            bool isExcluded = false;
             for (auto playerId : players) {
                 if (entityId == playerId) {
-                    isPlayer = true;
+                    isExcluded = true;
                     break;
                 }
             }
-            if (isPlayer) {
+            // Skip enemies - they spawn at x=SCREEN_WIDTH and exit left
+            // Their OOB check is in updateEnemies() (x < -Enemy::WIDTH)
+            if (!isExcluded) {
+                for (auto enemyId : enemies) {
+                    if (entityId == enemyId) {
+                        isExcluded = true;
+                        break;
+                    }
+                }
+            }
+            if (isExcluded) {
                 continue;
             }
 
