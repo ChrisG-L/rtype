@@ -1,6 +1,31 @@
 cmake_minimum_required(VERSION 3.30)
 
-project("R-Type" VERSION 0.0.1 LANGUAGES CXX)
+project("R-Type" VERSION 1.0.0 LANGUAGES CXX)
+
+# ============================================================================
+# Git Version Info (for auto-update system)
+# ============================================================================
+execute_process(
+    COMMAND git rev-parse --short=8 HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE RTYPE_GIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
+if(NOT RTYPE_GIT_HASH)
+    set(RTYPE_GIT_HASH "unknown")
+endif()
+
+message(STATUS "R-Type Version: ${PROJECT_VERSION} (${RTYPE_GIT_HASH})")
+
+# Pass version info to both client and server
+add_compile_definitions(
+    RTYPE_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    RTYPE_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    RTYPE_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+    RTYPE_GIT_HASH="${RTYPE_GIT_HASH}"
+)
 
 # Mettre le standard C++ à utiliser à C++23
 set(CMAKE_CXX_STANDARD 23)

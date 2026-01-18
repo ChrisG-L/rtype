@@ -73,6 +73,9 @@ set(TEST_SOURCES
     application/services/WeaponLevelsTest.cpp
     application/services/RankDisplayTest.cpp
     application/services/LeaderboardSortTest.cpp
+
+    # Tests Common - Version System
+    ${CMAKE_SOURCE_DIR}/tests/common/VersionSystemTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests
