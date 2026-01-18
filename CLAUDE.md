@@ -12,6 +12,7 @@ R-Type is a multiplayer arcade game (shoot'em up) built with C++23, using an **H
 | Client | C++23, SFML/SDL2 (multi-backend) | - |
 | Build | CMake 3.30+, Ninja, vcpkg, Nix | - |
 | Discord Bot (Admin) | Python 3.12, discord.py | TCP 4127 (connects to server) |
+| Discord Bot (Leaderboard) | Python 3.12, discord.py, motor | MongoDB (connects to database) |
 
 ## Project Structure
 
@@ -1093,6 +1094,120 @@ ExecStart=/opt/rtype/discord-bot/admin/venv/bin/python bot.py
 Restart=always
 RestartSec=10
 Environment="ADMIN_TOKEN=your_token_here"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Discord Leaderboard Bot
+
+Python Discord bot that queries MongoDB to display player statistics, leaderboards, and achievements.
+
+### Architecture
+
+```
+[Discord] ←→ [Leaderboard Bot (Python)] ←MongoDB→ [player_stats, leaderboard, achievements]
+```
+
+### Setup
+
+```bash
+cd discord-bot/leaderboard
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your configuration
+python bot.py
+```
+
+### Configuration (.env)
+
+| Variable | Description |
+|----------|-------------|
+| `DISCORD_TOKEN` | Discord bot token |
+| `MONGODB_URI` | MongoDB connection string |
+| `MONGODB_DATABASE` | Database name (default: rtype) |
+| `DISCORD_GUILD_ID` | Guild ID for fast command sync (dev only, optional) |
+| `STATS_CHANNEL_ID` | Channel ID for stats updates (optional) |
+| `ALLOWED_CHANNEL_IDS` | Comma-separated channel IDs where bot responds (empty = all) |
+| `LOG_LEVEL` | Logging level (default: INFO) |
+| `EMBED_COLOR` | Default embed color in hex (default: 0x00FF00) |
+
+**Channel IDs (R-Type Discord):**
+- `#r-type-leaderboard`: `1461894332435927226`
+- `#r-type-admin`: `1462054690152775833`
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/leaderboard [category] [period] [mode] [limit]` | Display leaderboard (score/kills/wave/kd/bosses/playtime) |
+| `/daily [mode]` | Shortcut for top 10 of last 24h |
+| `/stats <player>` | Player statistics (K/D, records, activity) |
+| `/kills <player>` | Kills breakdown by weapon type |
+| `/achievements <player>` | Player achievements with rarity % |
+| `/history <player> [limit]` | Recent game history (default 5, max 10) |
+| `/rank <player> [mode]` | Player ranking across periods |
+| `/compare <player1> <player2>` | Compare two players |
+| `/weapon <type> [limit]` | Top players by specific weapon with % usage (default 10, max 50) |
+| `/online` | Currently active game sessions |
+| `/server-stats` | Server-wide statistics |
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Pagination** | Button navigation for large leaderboards (⏮️◀️▶️⏭️) |
+| **Achievement Rarity** | Shows % of players who have each achievement (💎<5% 🟣<15% 🔵<30% 🟢<50% ⚪50%+) |
+| **Weapon Stats** | % utilization per weapon type |
+| **Mode Filtering** | Filter by Solo/Duo/Trio/4P (👤👥) |
+| **Period Filtering** | All-Time/Daily/Weekly/Monthly |
+| **Player Autocomplete** | Search players as you type |
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `discord-bot/leaderboard/bot.py` | Main bot entry point |
+| `discord-bot/leaderboard/database/mongodb.py` | MongoDB connection singleton |
+| `discord-bot/leaderboard/database/leaderboard_repo.py` | Leaderboard queries |
+| `discord-bot/leaderboard/database/player_stats_repo.py` | Player stats & achievements |
+| `discord-bot/leaderboard/database/session_repo.py` | Active sessions queries |
+| `discord-bot/leaderboard/cogs/leaderboard.py` | /leaderboard, /daily, /weapon, /rank |
+| `discord-bot/leaderboard/cogs/stats.py` | /stats, /kills, /compare, /server-stats |
+| `discord-bot/leaderboard/cogs/achievements.py` | /achievements |
+| `discord-bot/leaderboard/cogs/history.py` | /history |
+| `discord-bot/leaderboard/cogs/online.py` | /online |
+| `discord-bot/leaderboard/utils/embeds.py` | Discord embed generators |
+| `discord-bot/leaderboard/utils/formatters.py` | Number/duration/timestamp formatting |
+| `discord-bot/leaderboard/utils/pagination.py` | Paginated views with buttons |
+
+### MongoDB Collections Used
+
+| Collection | Fields Used |
+|------------|-------------|
+| `player_stats` | playerName, totalKills, totalDeaths, bestScore, bestWave, achievements (bitfield), weapon kills |
+| `leaderboard` | playerName, score, wave, kills, timestamp, playerCount |
+| `game_history` | email, score, wave, kills, deaths, duration, timestamp, weapon kills |
+| `achievements` | email, type (bit), unlockedAt |
+| `users` | username, email |
+| `current_sessions` | roomCode, players, currentWave |
+
+### Systemd Service (VPS)
+
+```ini
+[Unit]
+Description=R-Type Discord Leaderboard Bot
+After=network.target mongod.service
+
+[Service]
+Type=simple
+User=alexandre
+WorkingDirectory=/opt/rtype/discord-bot/leaderboard
+ExecStart=/opt/rtype/discord-bot/leaderboard/venv/bin/python bot.py
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
