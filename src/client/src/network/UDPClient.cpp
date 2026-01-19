@@ -745,6 +745,9 @@ namespace client::network
                     case MessageType::ForceStateUpdate:
                         handleForceStateUpdate(payload, payload_size);
                         break;
+                    case MessageType::PauseStateSync:
+                        handlePauseStateSync(payload, payload_size);
+                        break;
                     default:
                         break;
                 }
@@ -927,6 +930,10 @@ namespace client::network
         return _eventQueue.poll();
     }
 
+    void UDPClient::clearEventQueue() {
+        _eventQueue.clear();
+    }
+
     // ============================================================================
     // R-Type Authentic (Phase 3) Implementation
     // ============================================================================
@@ -1031,6 +1038,40 @@ namespace client::network
         asyncSendTo(buf, totalSize);
 
         client::logging::Logger::getNetworkLogger()->debug("ForceToggle sent");
+    }
+
+    void UDPClient::sendPauseRequest(bool wantsPause) {
+        UDPHeader head = {
+            .type = static_cast<uint16_t>(MessageType::PauseRequest),
+            .sequence_num = 0,
+            .timestamp = UDPHeader::getTimestamp()
+        };
+
+        PauseRequest req{.wantsPause = wantsPause ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0)};
+
+        const size_t totalSize = UDPHeader::WIRE_SIZE + PauseRequest::WIRE_SIZE;
+        auto buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+        head.to_bytes(buf->data());
+        req.to_bytes(buf->data() + UDPHeader::WIRE_SIZE);
+        asyncSendTo(buf, totalSize);
+
+        client::logging::Logger::getNetworkLogger()->debug("PauseRequest sent: wantsPause={}", wantsPause);
+    }
+
+    void UDPClient::handlePauseStateSync(const uint8_t* payload, size_t size) {
+        auto syncOpt = PauseStateSync::from_bytes(payload, size);
+        if (!syncOpt) return;
+
+        _eventQueue.push(UDPPauseStateSyncEvent{
+            .isPaused = syncOpt->isPaused != 0,
+            .pauseVoterCount = syncOpt->pauseVoterCount,
+            .totalPlayerCount = syncOpt->totalPlayerCount
+        });
+
+        client::logging::Logger::getNetworkLogger()->debug(
+            "PauseStateSync received: isPaused={}, voters={}/{}",
+            syncOpt->isPaused, syncOpt->pauseVoterCount, syncOpt->totalPlayerCount
+        );
     }
 
     void UDPClient::handleWaveCannonFired(const uint8_t* payload, size_t size) {

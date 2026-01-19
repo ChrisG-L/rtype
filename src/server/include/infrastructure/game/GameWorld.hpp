@@ -796,6 +796,22 @@ namespace infrastructure::game {
         // Speed helper
         float getPlayerMoveSpeed(uint8_t playerId) const;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // Pause System
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Set player's pause vote (true = wants pause, false = wants resume)
+        void setPauseVote(uint8_t playerId, bool wantsPause);
+
+        // Check if game is currently paused
+        // Solo: paused if single player voted pause
+        // Multiplayer: paused if ALL players voted pause
+        bool isPaused() const;
+
+        // Get pause state details for network sync
+        // Returns (isPaused, voterCount, totalPlayers)
+        std::tuple<bool, uint8_t, uint8_t> getPauseState() const;
+
     private:
         // Strand for serializing all operations on this GameWorld
         // All access to this GameWorld should go through this strand
@@ -854,6 +870,9 @@ namespace infrastructure::game {
 
         std::unordered_map<uint8_t, ForcePod> _forcePods;  // Player ID -> Force Pod
         std::unordered_map<uint8_t, std::array<BitDevice, 2>> _bitDevices;  // Player ID -> 2 Bit Devices
+
+        // Pause system - tracks players who voted for pause
+        std::unordered_set<uint8_t> _pauseVotes;  // Player IDs who want pause
 
         // ═══════════════════════════════════════════════════════════════════
         // ECS Infrastructure (Feature Flag)

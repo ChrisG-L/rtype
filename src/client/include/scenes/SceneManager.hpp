@@ -40,6 +40,17 @@ class SceneManager
         void update(float deltatime);
         void render();
 
+        // Callback for disabling auto-reconnect (set by GameLoop)
+        using DisableAutoReconnectCallback = std::function<void()>;
+        void setDisableAutoReconnectCallback(DisableAutoReconnectCallback callback) {
+            _disableAutoReconnectCallback = callback;
+        }
+        void disableAutoReconnect() {
+            if (_disableAutoReconnectCallback) {
+                _disableAutoReconnectCallback();
+            }
+        }
+
     private:
         enum class PendingAction {
             None,
@@ -57,6 +68,7 @@ class SceneManager
         PendingAction _pendingAction = PendingAction::None;
         std::shared_ptr<core::IRenderer> _renderer;
         GameContext _context;
+        DisableAutoReconnectCallback _disableAutoReconnectCallback;
 };
 
 #endif /* !SCENEMANAGER_HPP_ */

@@ -79,6 +79,7 @@ private:
     // Countdown state
     std::optional<uint8_t> _countdown;
     float _countdownAnimTimer = 0.0f;
+    bool _gameStartConfirmed = false;  // Set to true when we receive StartGameAck
 
     // UI Components
     std::unique_ptr<ui::Button> _readyButton;

@@ -70,6 +70,7 @@ private:
     void renderChargeGauge();    // Wave Cannon charge indicator
     void renderSpeedIndicator(); // Speed upgrade level (below health bar)
     void renderControlsHUD();    // Controls help (bottom-right)
+    void renderPauseOverlay();   // Pause menu overlay
     void loadAssets();
     void initStars();
     void initAudio();
@@ -208,5 +209,22 @@ private:
     bool _playerStatsRequested = false; // True once we request player stats for bestScore
     static constexpr float RANK_UPDATE_INTERVAL = 10.0f;  // Update every 10 seconds
     void renderGlobalRank();            // Display rank badge and best score in HUD
+
+    // Pause system
+    bool _isPaused = false;             // Local pause state (from server sync)
+    bool _wantsPause = false;           // Our pause request (sent to server)
+    uint8_t _pauseVoterCount = 0;       // Number of players who want pause (multi)
+    uint8_t _totalPlayerCount = 1;      // Total players in room
+    bool _showPauseMenu = false;        // Show pause menu overlay (for quit button)
+    void togglePause();                 // Request pause/unpause to server
+    void onPauseStateReceived(bool isPaused, uint8_t voterCount, uint8_t totalCount);
+    void handlePauseMenuClick(float mouseX, float mouseY);  // Handle clicks in pause menu
+    void quitToMainMenu();              // Leave game and return to main menu
+
+    // Pause menu button bounds (for click detection)
+    static constexpr float PAUSE_QUIT_BTN_X = SCREEN_WIDTH / 2 - 100;
+    static constexpr float PAUSE_QUIT_BTN_Y = SCREEN_HEIGHT / 2 + 50;
+    static constexpr float PAUSE_QUIT_BTN_W = 200;
+    static constexpr float PAUSE_QUIT_BTN_H = 50;
 };
 #endif /* !GAMESCENE_HPP_ */

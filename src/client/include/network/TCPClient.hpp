@@ -128,6 +128,7 @@ namespace client::network
 
         // Event queue for thread-safe event polling
         std::optional<TCPEvent> pollEvent();
+        void clearEventQueue();
 
     private:
         // Méthodes async

@@ -32,6 +32,11 @@ namespace core {
             .sessionToken = {}
         });
 
+        // Set callback for scenes to disable auto-reconnect
+        _sceneManager->setDisableAutoReconnectCallback([this]() {
+            disableAutoReconnect();
+        });
+
         // Initialize colorblind shader support
         accessibility::ColorblindShaderManager::getInstance().initialize(_window);
 
@@ -89,12 +94,17 @@ namespace core {
         bool currentlyConnected = isFullyConnected();
 
         // Detect transition from connected to disconnected
-        if (_wasConnected && !currentlyConnected && !_connectionOverlayActive) {
+        if (_wasConnected && !currentlyConnected && !_connectionOverlayActive && !_disableAutoReconnect) {
             // Lost connection - push reconnection overlay
             _sceneManager->pushScene(std::make_unique<ConnectionScene>(
                 ConnectionSceneMode::Reconnection
             ));
             _connectionOverlayActive = true;
+        }
+
+        // Reset auto-reconnect disable flag once we're back to connected state
+        if (currentlyConnected && _disableAutoReconnect) {
+            _disableAutoReconnect = false;
         }
 
         // Detect transition from disconnected to connected (overlay should auto-pop)

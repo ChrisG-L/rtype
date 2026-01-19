@@ -76,6 +76,7 @@ namespace client::network
     struct TCPGameStartingEvent {
         uint8_t countdown;
     };
+    struct TCPStartGameAckEvent {};  // Game start confirmed by server
     struct TCPReadyChangedEvent {
         bool isReady;
     };
@@ -297,6 +298,13 @@ namespace client::network
         uint8_t newHealth;
     };
 
+    // Pause state sync event
+    struct UDPPauseStateSyncEvent {
+        bool isPaused;
+        uint8_t pauseVoterCount;
+        uint8_t totalPlayerCount;
+    };
+
     // Type aliases for event variants
     using TCPEvent = std::variant<
         TCPConnectedEvent,
@@ -313,6 +321,7 @@ namespace client::network
         TCPRoomLeftEvent,
         TCPRoomUpdateEvent,
         TCPGameStartingEvent,
+        TCPStartGameAckEvent,
         TCPReadyChangedEvent,
         // Kick events (Phase 2)
         TCPPlayerKickedEvent,
@@ -362,7 +371,8 @@ namespace client::network
         UDPPlayerLeftEvent,
         UDPJoinGameAckEvent,
         UDPJoinGameNackEvent,
-        UDPPlayerDamagedEvent
+        UDPPlayerDamagedEvent,
+        UDPPauseStateSyncEvent
     >;
 
     // Thread-safe event queue

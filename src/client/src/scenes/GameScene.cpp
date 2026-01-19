@@ -239,12 +239,27 @@ void GameScene::handleEvent(const events::Event& event)
         return;  // Don't process other input when chat is open
     }
 
+    // Handle mouse clicks for pause menu
+    if (std::holds_alternative<events::MouseButtonPressed>(event)) {
+        auto& mouseBtn = std::get<events::MouseButtonPressed>(event);
+        if (mouseBtn.button == events::MouseButton::Left && _showPauseMenu) {
+            handlePauseMenuClick(static_cast<float>(mouseBtn.x), static_cast<float>(mouseBtn.y));
+            return;
+        }
+    }
+
     if (std::holds_alternative<events::KeyPressed>(event)) {
         auto& key = std::get<events::KeyPressed>(event);
         _keysPressed.insert(key.key);
 
-        // If kicked or dead, any key returns to main menu
-        if ((_wasKicked || _context.udpClient->isLocalPlayerDead()) && _sceneManager) {
+        // Escape key toggles pause (works even when dead, to allow quitting via menu)
+        if (key.key == events::Key::Escape) {
+            togglePause();
+            return;
+        }
+
+        // If kicked or dead (and not in pause menu), any key returns to main menu
+        if ((_wasKicked || _context.udpClient->isLocalPlayerDead()) && !_showPauseMenu && _sceneManager) {
             // Leave the room before returning to main menu
             if (_context.tcpClient && _context.tcpClient->isConnected()) {
                 _context.tcpClient->leaveRoom();
@@ -309,8 +324,13 @@ void GameScene::processUDPEvents()
     if (!_context.udpClient) return;
 
     while (auto eventOpt = _context.udpClient->pollEvent()) {
-        std::visit([this]([[maybe_unused]] auto&& event) {
-            // UDP events are handled by UDPClient internally
+        std::visit([this](auto&& event) {
+            using T = std::decay_t<decltype(event)>;
+
+            if constexpr (std::is_same_v<T, client::network::UDPPauseStateSyncEvent>) {
+                onPauseStateReceived(event.isPaused, event.pauseVoterCount, event.totalPlayerCount);
+            }
+            // Other UDP events are handled by UDPClient internally
             // Kick notifications are now handled via TCP (TCPPlayerKickedEvent)
         }, *eventOpt);
     }
@@ -464,11 +484,17 @@ void GameScene::update(float deltatime)
     auto& accessConfig = accessibility::AccessibilityConfig::getInstance();
     float adjustedDeltaTime = deltatime * _roomGameSpeedMultiplier;
 
+    // Stars always animate (even when paused, for visual effect)
     for (auto& star : _stars) {
         star.x -= star.speed * adjustedDeltaTime;
         if (star.x < 0) {
             star.x = SCREEN_WIDTH;
         }
+    }
+
+    // If paused, don't update gameplay (but stars continue for visual effect)
+    if (_isPaused) {
+        return;
     }
 
     // Update power-up positions (client-side drift simulation)
@@ -1340,11 +1366,16 @@ void GameScene::render()
     // Always render chat overlay (even when dead)
     renderChatOverlay();
 
+    // Render death/kick screens first
     if (_wasKicked) {
         renderKickedScreen();
     } else if (_context.udpClient->isLocalPlayerDead()) {
         renderDeathScreen();
     }
+
+    // Render pause overlay on TOP of everything (including death/kick screens)
+    // This allows dead players to still use the pause menu to quit
+    renderPauseOverlay();
 }
 
 // ============================================================================
@@ -2084,5 +2115,132 @@ void GameScene::renderChatOverlay()
         }
         _context.window->drawRect(msgX - 5, SCREEN_HEIGHT - 32 - UBUNTU_OFFSET, 180, 22, {20, 20, 30, 180});
         _context.window->drawText(FONT_KEY, chatHint, msgX, SCREEN_HEIGHT - 28 - UBUNTU_OFFSET, 12, {120, 150, 180, 255});
+    }
+}
+
+void GameScene::togglePause()
+{
+    // Toggle our pause request
+    _wantsPause = !_wantsPause;
+
+    // Show/hide pause menu when we toggle
+    _showPauseMenu = _wantsPause;
+
+    // Send pause request to server via UDP
+    if (_context.udpClient) {
+        _context.udpClient->sendPauseRequest(_wantsPause);
+    }
+}
+
+void GameScene::onPauseStateReceived(bool isPaused, uint8_t voterCount, uint8_t totalCount)
+{
+    _isPaused = isPaused;
+    _pauseVoterCount = voterCount;
+    _totalPlayerCount = totalCount;
+
+    // Only close menu if EVERYONE resumed and game is unpaused
+    // Don't close menu just because game isn't paused yet (partial votes in multiplayer)
+    // Menu stays open as long as local player wants pause (_wantsPause is true)
+    if (isPaused && !_wantsPause) {
+        // Game got paused by others, but we didn't vote yet - show menu
+        _wantsPause = true;
+        _showPauseMenu = true;
+    }
+    // Note: Menu is controlled by togglePause() when player presses Escape
+}
+
+void GameScene::renderPauseOverlay()
+{
+    // Show menu when player pressed Escape (even if game not paused yet in multi)
+    if (!_context.window || !_showPauseMenu) return;
+
+    // Semi-transparent dark overlay
+    _context.window->drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, {0, 0, 0, 180});
+
+    // Title - shows "PAUSED" if game is paused, "MENU" otherwise
+    const std::string titleText = _isPaused ? "PAUSED" : "MENU";
+    float titleX = SCREEN_WIDTH / 2 - (_isPaused ? 80 : 50);
+    float titleY = SCREEN_HEIGHT / 2 - 100;
+    _context.window->drawText(FONT_KEY, titleText, titleX, titleY, 48, {255, 255, 255, 255});
+
+    // In multiplayer, show voting status
+    if (_totalPlayerCount > 1) {
+        std::string voteText = std::to_string(_pauseVoterCount) + "/" +
+                              std::to_string(_totalPlayerCount) + " players paused";
+        float voteX = SCREEN_WIDTH / 2 - 100;
+        float voteY = titleY + 60;
+        _context.window->drawText(FONT_KEY, voteText, voteX, voteY, 18, {200, 200, 200, 255});
+
+        // Game status hint
+        if (_isPaused) {
+            _context.window->drawText(FONT_KEY, "Game paused - all players voted",
+                SCREEN_WIDTH / 2 - 130, voteY + 25, 14, {100, 255, 100, 255});
+        } else {
+            _context.window->drawText(FONT_KEY, "Game still running - waiting for all votes",
+                SCREEN_WIDTH / 2 - 150, voteY + 25, 14, {255, 200, 100, 255});
+        }
+    }
+
+    // Resume hint
+    std::string hintText = "[Esc] to resume";
+    float hintX = SCREEN_WIDTH / 2 - 60;
+    float hintY = PAUSE_QUIT_BTN_Y - 35;
+    _context.window->drawText(FONT_KEY, hintText, hintX, hintY, 14, {150, 150, 180, 255});
+
+    // QUIT button
+    _context.window->drawRect(PAUSE_QUIT_BTN_X, PAUSE_QUIT_BTN_Y,
+                              PAUSE_QUIT_BTN_W, PAUSE_QUIT_BTN_H, {180, 50, 50, 255});
+    _context.window->drawRect(PAUSE_QUIT_BTN_X + 2, PAUSE_QUIT_BTN_Y + 2,
+                              PAUSE_QUIT_BTN_W - 4, PAUSE_QUIT_BTN_H - 4, {100, 30, 30, 255});
+    _context.window->drawText(FONT_KEY, "QUIT", PAUSE_QUIT_BTN_X + 70, PAUSE_QUIT_BTN_Y + 15, 24, {255, 255, 255, 255});
+}
+
+void GameScene::handlePauseMenuClick(float mouseX, float mouseY)
+{
+    if (!_showPauseMenu) return;
+
+    // Check QUIT button click
+    if (mouseX >= PAUSE_QUIT_BTN_X && mouseX <= PAUSE_QUIT_BTN_X + PAUSE_QUIT_BTN_W &&
+        mouseY >= PAUSE_QUIT_BTN_Y && mouseY <= PAUSE_QUIT_BTN_Y + PAUSE_QUIT_BTN_H) {
+        quitToMainMenu();
+    }
+}
+
+void GameScene::quitToMainMenu()
+{
+    client::logging::Logger::getSceneLogger()->info("Player quit game from pause menu");
+
+    // Disable auto-reconnect BEFORE any network changes (intentional quit)
+    if (_sceneManager) {
+        _sceneManager->disableAutoReconnect();
+    }
+
+    // Clear event queues to avoid stale events in next game session
+    if (_context.udpClient) {
+        _context.udpClient->clearEventQueue();
+    }
+    if (_context.tcpClient) {
+        _context.tcpClient->clearEventQueue();
+    }
+
+    // DON'T disconnect UDP client - we want to stay connected to rejoin later
+    // The game state will be reset in joinGame() when starting a new game
+    // Only clear the local game state to avoid rendering stale data
+    // (UDPClient::joinGame already resets all game state internally)
+
+    // Leave room via TCP (but don't disconnect TCP, stay logged in)
+    if (_context.tcpClient) {
+        _context.tcpClient->leaveRoom();
+    }
+
+    // Stop voice chat
+    auto& voice = audio::VoiceChatManager::getInstance();
+    if (voice.isConnected()) {
+        voice.leaveVoiceChannel();
+    }
+
+    // Return to main menu
+    if (_sceneManager) {
+        _sceneManager->changeScene(std::make_unique<MainMenuScene>());
     }
 }

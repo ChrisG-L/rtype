@@ -183,8 +183,12 @@ namespace client::network
         void releaseCharge();      // Fire charged Wave Cannon
         void toggleForce();        // Attach/detach Force Pod
 
+        // Pause system
+        void sendPauseRequest(bool wantsPause);
+
         // Event queue for thread-safe event polling
         std::optional<UDPEvent> pollEvent();
+        void clearEventQueue();
 
     private:
         void asyncReceiveFrom();
@@ -209,6 +213,9 @@ namespace client::network
         void handlePowerUpCollected(const uint8_t* payload, size_t size);
         void handlePowerUpExpired(const uint8_t* payload, size_t size);
         void handleForceStateUpdate(const uint8_t* payload, size_t size);
+
+        // Pause system handler
+        void handlePauseStateSync(const uint8_t* payload, size_t size);
 
         void scheduleHeartbeat();
         void sendHeartbeat();

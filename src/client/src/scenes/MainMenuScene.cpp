@@ -409,6 +409,9 @@ void MainMenuScene::processTCPEvents()
                         true         // isHost
                     });
 
+                    // Clear event queue before entering lobby to avoid stale events from previous games
+                    _context.tcpClient->clearEventQueue();
+
                     _sceneManager->changeScene(std::make_unique<LobbyScene>(
                         roomName,
                         event.roomCode,
@@ -430,6 +433,9 @@ void MainMenuScene::processTCPEvents()
                 closeDialog();
 
                 if (_sceneManager) {
+                    // Clear event queue before entering lobby to avoid stale events from previous games
+                    _context.tcpClient->clearEventQueue();
+
                     _sceneManager->changeScene(std::make_unique<LobbyScene>(
                         event.roomName,
                         event.roomCode,

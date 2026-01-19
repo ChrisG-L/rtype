@@ -110,6 +110,9 @@ enum class MessageType: uint16_t {
     // Force Pod System
     ForceToggle = 0x0420,       // C→S: Toggle Force attach/detach
     ForceStateUpdate = 0x0421,  // S→C: Force pod state changed
+    // Pause System (0x043x)
+    PauseRequest = 0x0430,      // C→S: Player requests pause/unpause
+    PauseStateSync = 0x0431,    // S→C: Broadcast pause state to all players
     // Leaderboard & Stats System (0x050x)
     GetLeaderboard = 0x0500,    // C→S: Request leaderboard (period filter)
     LeaderboardData = 0x0501,   // S→C: Leaderboard entries
@@ -2612,6 +2615,58 @@ struct ForceToggle {
 
     static std::optional<ForceToggle> from_bytes(const void*, size_t) {
         return ForceToggle{};
+    }
+};
+
+// =============================================================================
+// Pause System Structures
+// =============================================================================
+
+// PauseRequest: Client requests to pause/unpause the game
+// In solo mode: directly pauses/unpauses
+// In multiplayer: adds/removes player from pause voters
+struct PauseRequest {
+    uint8_t wantsPause;  // 1 = wants pause, 0 = wants resume
+
+    static constexpr size_t WIRE_SIZE = 1;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = wantsPause;
+    }
+
+    static std::optional<PauseRequest> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        PauseRequest req;
+        req.wantsPause = ptr[0];
+        return req;
+    }
+};
+
+// PauseStateSync: Server broadcasts pause state to all players
+struct PauseStateSync {
+    uint8_t isPaused;           // 1 = game is paused, 0 = running
+    uint8_t pauseVoterCount;    // Number of players who want pause
+    uint8_t totalPlayerCount;   // Total players in room
+    // In solo: isPaused toggles immediately
+    // In multi: isPaused = true only when pauseVoterCount == totalPlayerCount
+
+    static constexpr size_t WIRE_SIZE = 3;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = isPaused;
+        buf[1] = pauseVoterCount;
+        buf[2] = totalPlayerCount;
+    }
+
+    static std::optional<PauseStateSync> from_bytes(const void* buf, size_t len) {
+        if (buf == nullptr || len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        PauseStateSync sync;
+        sync.isPaused = ptr[0];
+        sync.pauseVoterCount = ptr[1];
+        sync.totalPlayerCount = ptr[2];
+        return sync;
     }
 };
 

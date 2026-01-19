@@ -491,7 +491,7 @@ namespace client::network
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::StartGameAck)) {
                     logger->info("Game start confirmed");
-                    // Game will start when we receive GameStarting with countdown=0
+                    _eventQueue.push(TCPStartGameAckEvent{});
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::StartGameNack)) {
                     auto nackOpt = StartGameNack::from_bytes(
@@ -1198,6 +1198,10 @@ namespace client::network
 
     std::optional<TCPEvent> TCPClient::pollEvent() {
         return _eventQueue.poll();
+    }
+
+    void TCPClient::clearEventQueue() {
+        _eventQueue.clear();
     }
 
     // ═══════════════════════════════════════════════════════════════════

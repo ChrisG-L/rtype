@@ -64,6 +64,9 @@ set(TEST_SOURCES
     # Tests Network - Friends Protocol
     network/FriendsProtocolTest.cpp
 
+    # Tests Game - Pause System
+    game/PauseSystemTest.cpp
+
     # Tests Infrastructure - Social (FriendManager)
     infrastructure/social/FriendManagerTest.cpp
 
@@ -147,6 +150,9 @@ set(SERVER_SOURCES
 
     # Application - Services (Leaderboard & Achievements)
     ${CMAKE_SOURCE_DIR}/src/server/application/services/AchievementChecker.cpp
+
+    # Infrastructure - Game (Pause System)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/game/GameWorld.cpp
 )
 
 # Créer l'exécutable de tests

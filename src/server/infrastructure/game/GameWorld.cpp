@@ -612,6 +612,7 @@ namespace infrastructure::game {
         _playerScores.erase(playerId);        // Clean up scores
         _forcePods.erase(playerId);           // Clean up Force Pod
         _bitDevices.erase(playerId);          // Clean up Bit Devices
+        _pauseVotes.erase(playerId);          // Clean up pause vote
 
 #ifdef USE_ECS_BACKEND
         deletePlayerEntity(playerId);
@@ -627,6 +628,7 @@ namespace infrastructure::game {
                 _playerScores.erase(playerId);        // Clean up scores
                 _forcePods.erase(playerId);           // Clean up Force Pod
                 _bitDevices.erase(playerId);          // Clean up Bit Devices
+                _pauseVotes.erase(playerId);          // Clean up pause vote
 
 #ifdef USE_ECS_BACKEND
                 deletePlayerEntity(playerId);
@@ -1614,6 +1616,7 @@ namespace infrastructure::game {
                     if (!wasDead && !player.alive) {
                         _deadPlayers.push_back(playerId);
                         onPlayerDied(playerId);  // Track death for leaderboard
+                        _pauseVotes.erase(playerId);  // Dead players can't vote
                     }
 
                     missileIt = _enemyMissiles.erase(missileIt);
@@ -3718,5 +3721,67 @@ namespace infrastructure::game {
 #endif
 
         return id;
+    }
+
+    // =========================================================================
+    // Pause System
+    // =========================================================================
+
+    void GameWorld::setPauseVote(uint8_t playerId, bool wantsPause) {
+        // Verify player exists and is alive (dead players can't vote)
+        auto it = _players.find(playerId);
+        if (it == _players.end() || !it->second.alive) return;
+
+        if (wantsPause) {
+            _pauseVotes.insert(playerId);
+        } else {
+            _pauseVotes.erase(playerId);
+        }
+    }
+
+    bool GameWorld::isPaused() const {
+        // Count only alive players
+        size_t aliveCount = 0;
+        size_t aliveVoterCount = 0;
+
+        for (const auto& [id, player] : _players) {
+            if (player.alive) {
+                aliveCount++;
+                if (_pauseVotes.count(id) > 0) {
+                    aliveVoterCount++;
+                }
+            }
+        }
+
+        // No alive players = not paused
+        if (aliveCount == 0) return false;
+
+        // Solo mode: pause if the single alive player voted
+        if (aliveCount == 1) {
+            return aliveVoterCount > 0;
+        }
+
+        // Multiplayer: pause only if ALL alive players voted pause
+        return aliveVoterCount == aliveCount;
+    }
+
+    std::tuple<bool, uint8_t, uint8_t> GameWorld::getPauseState() const {
+        // Count only alive players
+        size_t aliveCount = 0;
+        size_t aliveVoterCount = 0;
+
+        for (const auto& [id, player] : _players) {
+            if (player.alive) {
+                aliveCount++;
+                if (_pauseVotes.count(id) > 0) {
+                    aliveVoterCount++;
+                }
+            }
+        }
+
+        bool paused = isPaused();
+        uint8_t voterCount = static_cast<uint8_t>(aliveVoterCount);
+        uint8_t totalPlayers = static_cast<uint8_t>(aliveCount);
+        return {paused, voterCount, totalPlayers};
     }
 }

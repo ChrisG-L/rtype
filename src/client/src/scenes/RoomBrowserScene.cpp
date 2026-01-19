@@ -168,6 +168,9 @@ void RoomBrowserScene::processTCPEvents()
             else if constexpr (std::is_same_v<T, client::network::TCPRoomJoinedEvent>) {
                 // Successfully joined a room - transition to LobbyScene
                 if (_sceneManager) {
+                    // Clear event queue before entering lobby to avoid stale events from previous games
+                    _context.tcpClient->clearEventQueue();
+
                     _sceneManager->changeScene(std::make_unique<LobbyScene>(
                         event.roomName, event.roomCode, event.maxPlayers,
                         event.isHost, event.slotId, event.players

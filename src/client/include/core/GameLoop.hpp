@@ -55,6 +55,14 @@ namespace core {
             ConnectionState _connectionState;
             bool _wasConnected = false;
             bool _connectionOverlayActive = false;
+
+        public:
+            // Disable auto-reconnect (e.g., when intentionally disconnecting to return to menu)
+            void disableAutoReconnect() { _disableAutoReconnect = true; }
+            void enableAutoReconnect() { _disableAutoReconnect = false; }
+
+        private:
+            bool _disableAutoReconnect = false;
     };
 }
 

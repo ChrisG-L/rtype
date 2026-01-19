@@ -269,7 +269,7 @@ namespace infrastructure::adapters::in::network {
     void UDPServer::updateAndBroadcastRoom(const std::string& roomCode, const std::shared_ptr<game::GameWorld>& gameWorld, float deltaTime) {
         if (!gameWorld) return;
 
-        // Check for timed out players
+        // Check for timed out players (even when paused - players can still disconnect)
         auto timedOutPlayers = gameWorld->checkPlayerTimeouts(
             std::chrono::milliseconds(PLAYER_TIMEOUT_MS)
         );
@@ -281,98 +281,106 @@ namespace infrastructure::adapters::in::network {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // Phase 4.7: ECS drives core game logic (movement, collisions)
-        // When ECS is enabled, it handles player/missile/enemy movement
-        // and syncs state back to legacy maps for event collection
+        // PAUSE SYSTEM: Skip gameplay updates when game is paused
+        // Solo: paused if single player presses Escape
+        // Multiplayer: paused only when ALL players press Escape
         // ═══════════════════════════════════════════════════════════════════
+        if (!gameWorld->isPaused()) {
+            // ═══════════════════════════════════════════════════════════════════
+            // Phase 4.7: ECS drives core game logic (movement, collisions)
+            // When ECS is enabled, it handles player/missile/enemy movement
+            // and syncs state back to legacy maps for event collection
+            // ═══════════════════════════════════════════════════════════════════
 #ifdef USE_ECS_BACKEND
-        gameWorld->runECSUpdate(deltaTime);
-        // Skip updatePlayers() - ECS PlayerInputSystem + MovementSystem handles it
+            gameWorld->runECSUpdate(deltaTime);
+            // Skip updatePlayers() - ECS PlayerInputSystem + MovementSystem handles it
 #else
-        // Update player positions based on inputs (server-authoritative)
-        gameWorld->updatePlayers(deltaTime);
+            // Update player positions based on inputs (server-authoritative)
+            gameWorld->updatePlayers(deltaTime);
 #endif
 
-        // Update weapon cooldowns (Gameplay Phase 2)
-        gameWorld->updateShootCooldowns(deltaTime);
+            // Update weapon cooldowns (Gameplay Phase 2)
+            gameWorld->updateShootCooldowns(deltaTime);
 
-        // Update missiles (movement + bounds checking)
-        // Note: When ECS is fully integrated, MovementSystem handles movement
-        // but legacy updateMissiles still handles homing logic and bounds
-        gameWorld->updateMissiles(deltaTime);
+            // Update missiles (movement + bounds checking)
+            // Note: When ECS is fully integrated, MovementSystem handles movement
+            // but legacy updateMissiles still handles homing logic and bounds
+            gameWorld->updateMissiles(deltaTime);
 
-        // Update waves and enemies
-        gameWorld->updateWaveSpawning(deltaTime);
-        gameWorld->updateEnemies(deltaTime);
+            // Update waves and enemies
+            gameWorld->updateWaveSpawning(deltaTime);
+            gameWorld->updateEnemies(deltaTime);
 
-        // Check and update boss (Gameplay Phase 2)
-        gameWorld->checkBossSpawn();
-        gameWorld->updateBoss(deltaTime);
+            // Check and update boss (Gameplay Phase 2)
+            gameWorld->checkBossSpawn();
+            gameWorld->updateBoss(deltaTime);
 
-        // Update combo timers (Gameplay Phase 2)
-        gameWorld->updateComboTimers(deltaTime);
+            // Update combo timers (Gameplay Phase 2)
+            gameWorld->updateComboTimers(deltaTime);
 
-        // R-Type Authentic (Phase 3) updates
-        gameWorld->updateAllCharging(deltaTime);  // Update charge timers for all players
-        gameWorld->updateWaveCannons(deltaTime);
-        gameWorld->updatePowerUps(deltaTime);
-        gameWorld->updateForcePods(deltaTime);
-        gameWorld->updateBitDevices(deltaTime);   // Bit Devices orbit and cooldowns
-        gameWorld->checkPowerUpCollisions();
-        gameWorld->checkForceCollisions();
-        gameWorld->checkBitCollisions();          // Bit contact damage
+            // R-Type Authentic (Phase 3) updates
+            gameWorld->updateAllCharging(deltaTime);  // Update charge timers for all players
+            gameWorld->updateWaveCannons(deltaTime);
+            gameWorld->updatePowerUps(deltaTime);
+            gameWorld->updateForcePods(deltaTime);
+            gameWorld->updateBitDevices(deltaTime);   // Bit Devices orbit and cooldowns
+            gameWorld->checkPowerUpCollisions();
+            gameWorld->checkForceCollisions();
+            gameWorld->checkBitCollisions();          // Bit contact damage
 
-        // Check collisions
-        gameWorld->checkCollisions();
+            // Check collisions
+            gameWorld->checkCollisions();
 
-        // Process destroyed missiles
-        auto destroyedMissiles = gameWorld->getDestroyedMissiles();
-        for (uint16_t id : destroyedMissiles) {
-            broadcastMissileDestroyed(id, gameWorld);
+            // Process destroyed missiles
+            auto destroyedMissiles = gameWorld->getDestroyedMissiles();
+            for (uint16_t id : destroyedMissiles) {
+                broadcastMissileDestroyed(id, gameWorld);
+            }
+
+            // Process destroyed enemies
+            auto destroyedEnemies = gameWorld->getDestroyedEnemies();
+            for (uint16_t id : destroyedEnemies) {
+                broadcastEnemyDestroyed(id, gameWorld);
+            }
+
+            // Process damage events
+            auto damageEvents = gameWorld->getPlayerDamageEvents();
+            for (const auto& [playerId, damage] : damageEvents) {
+                broadcastPlayerDamaged(playerId, damage, gameWorld);
+            }
+
+            // Process dead players
+            auto deadPlayers = gameWorld->getDeadPlayers();
+            for (uint8_t playerId : deadPlayers) {
+                broadcastPlayerDied(playerId, roomCode, gameWorld);
+            }
+
+            // R-Type Authentic (Phase 3) broadcasts
+            // Process newly spawned power-ups
+            auto newPowerUps = gameWorld->getNewlySpawnedPowerUps();
+            for (uint16_t id : newPowerUps) {
+                broadcastPowerUpSpawned(id, gameWorld);
+            }
+
+            // Process collected power-ups
+            auto collectedPowerUps = gameWorld->getCollectedPowerUps();
+            for (const auto& collected : collectedPowerUps) {
+                broadcastPowerUpCollected(collected.powerup_id, collected.player_id, collected.powerup_type, gameWorld);
+            }
+
+            // Process expired power-ups
+            auto expiredPowerUps = gameWorld->getExpiredPowerUps();
+            for (uint16_t id : expiredPowerUps) {
+                broadcastPowerUpExpired(id, gameWorld);
+            }
+
+            // Process destroyed Wave Cannons (they're removed after hitting something)
+            auto destroyedWaveCannons = gameWorld->getDestroyedWaveCannons();
+            // Note: We don't broadcast WaveCannon destruction - it's handled client-side when off-screen
         }
+        // End of pause-skippable gameplay updates
 
-        // Process destroyed enemies
-        auto destroyedEnemies = gameWorld->getDestroyedEnemies();
-        for (uint16_t id : destroyedEnemies) {
-            broadcastEnemyDestroyed(id, gameWorld);
-        }
-
-        // Process damage events
-        auto damageEvents = gameWorld->getPlayerDamageEvents();
-        for (const auto& [playerId, damage] : damageEvents) {
-            broadcastPlayerDamaged(playerId, damage, gameWorld);
-        }
-
-        // Process dead players
-        auto deadPlayers = gameWorld->getDeadPlayers();
-        for (uint8_t playerId : deadPlayers) {
-            broadcastPlayerDied(playerId, roomCode, gameWorld);
-        }
-
-        // R-Type Authentic (Phase 3) broadcasts
-        // Process newly spawned power-ups
-        auto newPowerUps = gameWorld->getNewlySpawnedPowerUps();
-        for (uint16_t id : newPowerUps) {
-            broadcastPowerUpSpawned(id, gameWorld);
-        }
-
-        // Process collected power-ups
-        auto collectedPowerUps = gameWorld->getCollectedPowerUps();
-        for (const auto& collected : collectedPowerUps) {
-            broadcastPowerUpCollected(collected.powerup_id, collected.player_id, collected.powerup_type, gameWorld);
-        }
-
-        // Process expired power-ups
-        auto expiredPowerUps = gameWorld->getExpiredPowerUps();
-        for (uint16_t id : expiredPowerUps) {
-            broadcastPowerUpExpired(id, gameWorld);
-        }
-
-        // Process destroyed Wave Cannons (they're removed after hitting something)
-        auto destroyedWaveCannons = gameWorld->getDestroyedWaveCannons();
-        // Note: We don't broadcast WaveCannon destruction - it's handled client-side when off-screen
-
-        // Broadcast snapshot for this room
+        // Broadcast snapshot for this room (always, even when paused - shows pause state)
         broadcastSnapshotForRoom(roomCode, gameWorld);
     }
 
@@ -564,6 +572,23 @@ namespace infrastructure::adapters::in::network {
 
         server::logging::Logger::getGameLogger()->debug("Force state updated for player {}",
             static_cast<int>(playerId));
+    }
+
+    void UDPServer::broadcastPauseState(const std::shared_ptr<game::GameWorld>& gameWorld) {
+        if (!gameWorld) return;
+
+        auto [isPaused, voterCount, totalPlayers] = gameWorld->getPauseState();
+
+        PauseStateSync pss{
+            .isPaused = isPaused ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0),
+            .pauseVoterCount = voterCount,
+            .totalPlayerCount = totalPlayers
+        };
+        broadcastToRoom(MessageType::PauseStateSync, pss, gameWorld);
+
+        server::logging::Logger::getGameLogger()->debug(
+            "Pause state broadcast: isPaused={}, voters={}/{}",
+            isPaused, voterCount, totalPlayers);
     }
 
     void UDPServer::do_read() {
@@ -858,6 +883,27 @@ namespace infrastructure::adapters::in::network {
                             broadcastForceStateUpdate(playerId, gameWorld);
                         }
                     });
+            }
+            // ═══════════════════════════════════════════════════════════════
+            // Pause System: PauseRequest
+            // ═══════════════════════════════════════════════════════════════
+            else if (head.type == static_cast<uint16_t>(MessageType::PauseRequest)) {
+                auto pauseReqOpt = PauseRequest::from_bytes(payload, payload_size);
+                if (!pauseReqOpt) {
+                    server::logging::Logger::getNetworkLogger()->warn(
+                        "Invalid PauseRequest from player {}", playerId);
+                } else {
+                    bool wantsPause = (pauseReqOpt->wantsPause != 0);
+
+                    boost::asio::post(gameWorld->getStrand(),
+                        [this, gameWorld, playerId, wantsPause]() {
+                            gameWorld->updatePlayerActivity(playerId);
+                            gameWorld->setPauseVote(playerId, wantsPause);
+
+                            // Broadcast pause state to all players
+                            broadcastPauseState(gameWorld);
+                        });
+                }
             }
         }
         // ═══════════════════════════════════════════════════════════════════
