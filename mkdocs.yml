@@ -195,9 +195,12 @@ nav:
     - Persistance:
       - technique/persistance/index.md
       - MongoDB: technique/persistance/mongodb.md
+      - Leaderboard: leaderboard.md
     - Social:
       - technique/social/index.md
-      - Friends System: FRIENDS_SYSTEM_SPECIFICATION.md
+      - Friends System: friends-system.md
+    - Infrastructure:
+      - Version Checking: version-checking.md
     - ECS:
       - technique/ecs/index.md
   - API:
