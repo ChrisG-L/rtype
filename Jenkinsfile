@@ -339,6 +339,17 @@ pipeline {
                         else
                             echo "⚠️  generate_dev_certs.sh non trouvé"
                         fi
+
+                        # Copier run-client-standalone.sh (uniquement pour client Linux)
+                        if [ -f "${WORKSPACE}/scripts/run-client-standalone.sh" ]; then
+                            if [ -n "\$LINUX_CLIENT_DIR" ] && [ -d "\$LINUX_CLIENT_DIR" ]; then
+                                cp ${WORKSPACE}/scripts/run-client-standalone.sh \$LINUX_CLIENT_DIR/run-client.sh
+                                chmod +x \$LINUX_CLIENT_DIR/run-client.sh
+                                echo "✅ run-client.sh copié vers \$LINUX_CLIENT_DIR"
+                            fi
+                        else
+                            echo "⚠️  run-client-standalone.sh non trouvé"
+                        fi
                     """
 
                     // Archiver tous les artefacts disponibles (Linux + Windows)
