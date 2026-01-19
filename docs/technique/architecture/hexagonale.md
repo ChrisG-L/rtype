@@ -80,23 +80,27 @@ class RoomFullException : public std::exception {};
 Orchestration des cas d'usage via **Ports**.
 
 ```cpp
-// Port (interface)
-class IRoomRepository {
+// Port (interface) - src/server/include/application/ports/out/persistence/
+class IUserRepository {
 public:
-    virtual Room findById(RoomId id) = 0;
-    virtual void save(const Room& room) = 0;
+    virtual std::optional<User> findByEmail(const std::string& email) = 0;
+    virtual void save(const User& user) = 0;
+    virtual std::vector<User> findAll() = 0;
 };
 
-// Use Case
-class JoinRoomUseCase {
-    IRoomRepository& repo_;
+class IUserSettingsRepository {
+public:
+    virtual std::optional<UserSettingsData> findByEmail(const std::string& email) = 0;
+    virtual void save(const UserSettingsData& settings) = 0;
+};
+
+// Use Case - src/server/include/application/use_cases/auth/
+class LoginUseCase {
+    IUserRepository& userRepo_;
+    IPasswordHasher& hasher_;
 
 public:
-    void execute(RoomId roomId, Player player) {
-        auto room = repo_.findById(roomId);
-        room.addPlayer(player);
-        repo_.save(room);
-    }
+    AuthResult execute(const std::string& email, const std::string& password);
 };
 ```
 
@@ -105,30 +109,34 @@ public:
 Implémentations concrètes des **Ports**.
 
 ```cpp
-// Adapter MongoDB
-class MongoRoomRepository : public IRoomRepository {
+// Adapter MongoDB - src/server/infrastructure/adapters/out/persistence/
+class MongoDBUserRepository : public IUserRepository {
     mongocxx::database db_;
 
 public:
-    Room findById(RoomId id) override {
-        auto doc = db_["rooms"].find_one(
+    std::optional<User> findByEmail(const std::string& email) override {
+        auto doc = db_["users"].find_one(
             bsoncxx::builder::basic::make_document(
-                bsoncxx::builder::basic::kvp("_id", id.value)
+                bsoncxx::builder::basic::kvp("email", email)
             )
         );
-        return Room::fromBson(*doc);
+        if (!doc) return std::nullopt;
+        return User::fromBson(*doc);
     }
 };
 
-// Adapter TCP Server
-class TCPServer {
+// Adapter TCP Server - src/server/infrastructure/adapters/in/network/
+class TCPAuthServer {
     boost::asio::io_context& io_;
-    JoinRoomUseCase& joinRoom_;
+    LoginUseCase& login_;
+    SessionManager& sessions_;
 
-    void handleJoinRequest(const Packet& packet) {
-        auto roomId = packet.read<RoomId>();
-        auto player = packet.read<Player>();
-        joinRoom_.execute(roomId, player);
+    void handleLoginRequest(const LoginMessage& msg) {
+        auto result = login_.execute(msg.email, msg.password);
+        if (result.success) {
+            auto token = sessions_.createSession(result.user);
+            // Send AuthResponseWithToken
+        }
     }
 };
 ```
@@ -138,30 +146,45 @@ class TCPServer {
 ## Structure des Dossiers
 
 ```
-server/
-├── domain/
-│   ├── entities/
-│   │   ├── Player.hpp
-│   │   ├── Room.hpp
-│   │   └── GameWorld.hpp
-│   ├── value_objects/
-│   │   ├── Position.hpp
-│   │   └── PlayerId.hpp
-│   └── exceptions/
-├── application/
-│   ├── ports/
-│   │   ├── IRoomRepository.hpp
-│   │   └── IPlayerRepository.hpp
-│   └── use_cases/
-│       ├── CreateRoomUseCase.hpp
-│       └── JoinRoomUseCase.hpp
-└── infrastructure/
-    ├── adapters/
-    │   ├── MongoRoomRepository.hpp
-    │   └── InMemoryRoomRepository.hpp
-    └── servers/
-        ├── TCPServer.hpp
-        └── UDPServer.hpp
+src/server/
+├── include/
+│   ├── domain/
+│   │   ├── entities/
+│   │   │   └── Player.hpp
+│   │   ├── value_objects/
+│   │   │   ├── Position.hpp
+│   │   │   └── Health.hpp
+│   │   ├── exceptions/
+│   │   └── services/
+│   │       └── GameRule.hpp
+│   ├── application/
+│   │   ├── ports/out/
+│   │   │   ├── persistence/
+│   │   │   │   ├── IUserRepository.hpp
+│   │   │   │   ├── IUserSettingsRepository.hpp
+│   │   │   │   └── ILeaderboardRepository.hpp
+│   │   │   └── ILogger.hpp
+│   │   ├── use_cases/auth/
+│   │   │   ├── LoginUseCase.hpp
+│   │   │   └── RegisterUseCase.hpp
+│   │   └── services/
+│   │       └── AchievementChecker.hpp
+│   └── infrastructure/
+│       ├── adapters/
+│       │   ├── in/network/
+│       │   │   ├── TCPAuthServer.hpp
+│       │   │   ├── UDPServer.hpp
+│       │   │   ├── VoiceUDPServer.hpp
+│       │   │   └── TCPAdminServer.hpp
+│       │   └── out/persistence/
+│       │       ├── MongoDBUserRepository.hpp
+│       │       └── MongoDBLeaderboardRepository.hpp
+│       ├── game/
+│       │   └── GameWorld.hpp
+│       ├── session/
+│       │   └── SessionManager.hpp
+│       └── logging/
+│           └── Logger.hpp
 ```
 
 ---

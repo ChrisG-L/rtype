@@ -63,7 +63,7 @@ flowchart TB
 
 ---
 
-## ADR-002: Pas d'ECS (Entités Simples)
+## ADR-002: ECS Optionnel (Architecture Hybride)
 
 ### Contexte
 
@@ -76,17 +76,17 @@ Comment représenter les entités du jeu (joueurs, ennemis, missiles)?
 
 ### Décision
 
-Structures simples dans GameWorld pour la simplicité.
+Architecture hybride: structures simples dans GameWorld + ECS optionnel dans `src/ECS/`.
 
 ### Justification
 
-- Nombre limité d'entités (~50 max)
-- Types bien définis (Player, Enemy, Missile)
-- Comportements spécifiques à chaque type
-- ECS = over-engineering pour ce cas
+- GameWorld utilise des structures simples pour le gameplay en temps réel
+- ECS disponible dans `src/ECS/` pour des extensions futures
+- Tests ECS présents dans `tests/` (Registry, Components, Systems)
+- ECS peut être activé pour des fonctionnalités avancées (particles, animations)
 
 ```cpp
-// Simple et efficace pour R-Type
+// GameWorld: Simple et efficace pour le networking
 struct ConnectedPlayer {
     uint8_t id;
     uint16_t x, y;

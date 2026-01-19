@@ -210,7 +210,7 @@ struct SessionToken {
 
 ### PlayerState
 
-État d'un joueur dans le snapshot (9 bytes).
+État d'un joueur dans le snapshot (23 bytes).
 
 ```cpp
 struct PlayerState {
@@ -220,22 +220,32 @@ struct PlayerState {
     uint8_t alive;
     uint16_t lastAckedInputSeq;
     uint8_t shipSkin;
+    uint32_t score;
+    uint16_t kills;
+    uint8_t combo;           // x10 (15 = 1.5x)
+    uint8_t currentWeapon;   // WeaponType enum
+    uint8_t chargeLevel;     // Wave Cannon 0-3
+    uint8_t speedLevel;      // 0-3
+    uint8_t weaponLevel;     // 0-3
+    uint8_t hasForce;        // 0 or 1
+    uint8_t shieldTimer;     // Reserved (always 0)
 
-    static constexpr size_t WIRE_SIZE = 9;
+    static constexpr size_t WIRE_SIZE = 23;
 };
 ```
 
 ### MissileState
 
-État d'un missile (7 bytes).
+État d'un missile (8 bytes).
 
 ```cpp
 struct MissileState {
     uint16_t id;
     uint8_t owner_id;
     uint16_t x, y;
+    uint8_t weapon_type;     // WeaponType enum
 
-    static constexpr size_t WIRE_SIZE = 7;
+    static constexpr size_t WIRE_SIZE = 8;
 };
 ```
 
@@ -364,9 +374,9 @@ flowchart TB
 |---------|----------------|
 | UDPHeader | 12 |
 | SessionToken | 32 |
-| PlayerState | 9 |
-| MissileState | 7 |
+| PlayerState | 23 |
+| MissileState | 8 |
 | EnemyState | 8 |
 | PlayerInput | 4 |
 | VoiceFrame | 5-485 |
-| GameSnapshot | Variable (~200-500) |
+| GameSnapshot | Variable (~300-700) |

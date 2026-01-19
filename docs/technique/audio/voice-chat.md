@@ -15,7 +15,7 @@ Implémentation détaillée du système voice chat.
 flowchart LR
     Mic[🎤] --> PA[PortAudio]
     PA --> Opus[Opus Encode]
-    Opus --> UDP[UDP 4243]
+    Opus --> UDP[UDP 4126]
     UDP --> Net[Réseau]
     Net --> UDP2[UDP Recv]
     UDP2 --> Opus2[Opus Decode]
@@ -111,7 +111,7 @@ void VoiceChatManager::initOpus() {
         &error
     );
 
-    opus_encoder_ctl(encoder_, OPUS_SET_BITRATE(24000));
+    opus_encoder_ctl(encoder_, OPUS_SET_BITRATE(32000));
     opus_encoder_ctl(encoder_, OPUS_SET_COMPLEXITY(5));
     opus_encoder_ctl(encoder_, OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE));
 
@@ -127,7 +127,7 @@ void VoiceChatManager::initOpus() {
 | Sample Rate | 48000 Hz | Qualité maximale Opus |
 | Channels | 1 | Voix mono suffisant |
 | Frame Size | 960 samples | 20ms @ 48kHz |
-| Bitrate | 24 kbps | Qualité/bande passante |
+| Bitrate | 32 kbps | Bonne qualité voix |
 | Complexity | 5 | Équilibre CPU/qualité |
 | Application | VOIP | Optimisé voix |
 

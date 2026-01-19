@@ -119,15 +119,16 @@ public:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> MenuScene
-    MenuScene --> LobbyScene: Multiplayer
+    [*] --> ConnectionScene
+    ConnectionScene --> LoginScene: Connected
+    LoginScene --> MenuScene: Authenticated
+    MenuScene --> LobbyScene: Create/Join Room
     MenuScene --> SettingsScene: Options
-    LobbyScene --> GameScene: Start
-    GameScene --> PauseScene: Escape
-    PauseScene --> GameScene: Resume
-    PauseScene --> MenuScene: Quit
-    GameScene --> GameOverScene: Defeat
-    GameOverScene --> MenuScene: Continue
+    MenuScene --> LeaderboardScene: Leaderboard
+    MenuScene --> RoomBrowserScene: Browse Rooms
+    LobbyScene --> GameScene: Start Game
+    GameScene --> LobbyScene: Game Over
+    RoomBrowserScene --> LobbyScene: Join
 ```
 
 ---

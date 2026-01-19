@@ -163,7 +163,7 @@ Binary protocol over UDP with network byte order (big-endian). All messages star
 |------|-------|-----------|---------|-------------|
 | `HeartBeat` | 0x0001 | Both | - | Keep-alive |
 | `Snapshot` | 0x0040 | S→C | GameSnapshot | Full game state (20Hz) |
-| `PlayerInput` | 0x0060 | C→S | keys (2B), seq (2B) | Player input bitfield |
+| `PlayerInput` | 0x0061 | C→S | keys (2B), seq (2B) | Player input bitfield |
 | `PlayerJoin` | 0x0070 | S→C | player_id (1B) | New player joined |
 | `PlayerLeave` | 0x0071 | S→C | player_id (1B) | Player disconnected |
 | `ShootMissile` | 0x0080 | C→S | - | Fire missile request |
@@ -364,7 +364,7 @@ namespace collision {
     };
 
     namespace Hitboxes {
-        SHIP_WIDTH = 50.0f, SHIP_HEIGHT = 30.0f;
+        SHIP_WIDTH = 64.0f, SHIP_HEIGHT = 64.0f;
         MISSILE_WIDTH = 16.0f, MISSILE_HEIGHT = 8.0f;
         ENEMY_WIDTH = 40.0f, ENEMY_HEIGHT = 40.0f;
     }
@@ -531,7 +531,7 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | Constant | Value | Location |
 |----------|-------|----------|
 | `MOVE_SPEED` | 200.0f | GameScene.hpp |
-| `SHIP_WIDTH/HEIGHT` | 50.0f / 30.0f | GameScene.hpp, Hitboxes |
+| `SHIP_WIDTH/HEIGHT` | 64.0f / 64.0f | GameScene.hpp, Hitboxes |
 | `MISSILE_WIDTH/HEIGHT` | 32.0f / 16.0f (render), 16/8 (hitbox) | GameScene.hpp, Hitboxes |
 | `MISSILE_SPEED` | 600.0f | GameWorld.hpp |
 | `SHOOT_COOLDOWN` | 0.3f seconds | GameScene.hpp |
@@ -552,6 +552,7 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | `BOSS_SPAWN_WAVE` | 10 | GameWorld.hpp |
 | `BOSS_MAX_HEALTH` | 1500 (base) | GameWorld.hpp |
 | `BOSS_HP_PER_CYCLE` | +500 HP | GameWorld.cpp |
+| `BOSS_HP_PER_PLAYER` | +1000 HP | GameWorld.cpp |
 | `BOSS_CYCLE_BONUS` | +1000 pts | GameWorld.cpp |
 | `BOSS_WIDTH/HEIGHT` | 150.0f / 120.0f | GameScene.hpp |
 | `BOSS_PHASE1_THRESHOLD` | 65% HP | GameWorld.hpp |
@@ -559,7 +560,7 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | `BOSS_ENRAGE_THRESHOLD` | 20% HP | GameWorld.hpp |
 | `BOSS_ATTACK_COOLDOWN` | 2.0s (base) | GameWorld.hpp |
 
-**Boss Respawn System:** Boss spawns every 10 waves (10, 20, 30...) with HP = 1500 + (cycle-1) × 500.
+**Boss Respawn System:** Boss spawns every 10 waves (10, 20, 30...) with HP = 1500 + (cycle-1) × 500 + (playerCount-1) × 1000.
 
 ### R-Type Authentic (Phase 3) Constants
 

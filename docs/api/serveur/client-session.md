@@ -69,12 +69,13 @@ public:
     struct ValidateResult {
         std::string email;
         std::string displayName;
-        uint8_t shipSkin;
+        uint8_t playerId;
     };
 
-    std::optional<ValidateResult> validateToken(
-        const SessionToken& token,
-        const std::string& roomCode);
+    std::optional<ValidateResult> validateToken(const SessionToken& token);
+
+    // Called by UDPServer after successful validateToken to bind UDP endpoint
+    void validateAndBindUDP(const std::string& email, const asio::ip::udp::endpoint& endpoint);
 
     // ═══════════════════════════════════════════════════════════════
     // Session management
@@ -150,9 +151,10 @@ sequenceDiagram
     TCP->>SM: setSessionRoom(email, code)
     TCP-->>Client: JoinRoomAck
 
-    Client->>UDP: JoinGame(token, roomCode)
-    UDP->>SM: validateToken(token, roomCode)
-    SM-->>UDP: ValidateResult{email, displayName, shipSkin}
+    Client->>UDP: JoinGame(token, shipSkin, roomCode)
+    UDP->>SM: validateToken(token)
+    SM-->>UDP: ValidateResult{email, displayName, playerId}
+    UDP->>SM: validateAndBindUDP(email, endpoint)
     UDP->>UDP: addPlayer()
     UDP-->>Client: JoinGameAck + PlayerId
 ```
@@ -198,18 +200,25 @@ Crée une nouvelle session après authentification TCP.
 ### `validateToken()`
 
 ```cpp
-std::optional<ValidateResult> validateToken(
-    const SessionToken& token,
-    const std::string& roomCode);
+std::optional<ValidateResult> validateToken(const SessionToken& token);
 ```
 
-Valide un token UDP et vérifie la room.
+Valide un token UDP.
 
 **Conditions de validation:**
 - Token existe et non expiré
-- Room code correspond à la session
 
-**Retour:** Email, displayName et shipSkin, ou `nullopt`
+**Retour:** Email, displayName et playerId, ou `nullopt`
+
+---
+
+### `validateAndBindUDP()`
+
+```cpp
+void validateAndBindUDP(const std::string& email, const asio::ip::udp::endpoint& endpoint);
+```
+
+Associe l'endpoint UDP à la session après validation du token.
 
 ---
 

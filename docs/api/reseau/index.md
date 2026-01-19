@@ -14,10 +14,10 @@ Classes du protocole réseau R-Type.
 classDiagram
     class Protocol {
         <<enumeration>>
-        +TCP_PORT = 4242
-        +UDP_PORT = 4243
-        +VOICE_PORT = 4244
-        +MAGIC_NUMBER = 0x52545950
+        +TCP_AUTH_PORT = 4125
+        +UDP_GAME_PORT = 4124
+        +UDP_VOICE_PORT = 4126
+        +TCP_ADMIN_PORT = 4127
     }
 
     class PacketType {
@@ -55,23 +55,34 @@ classDiagram
 
 | Port | Protocole | Usage |
 |------|-----------|-------|
-| 4242 | TCP | Authentification, chat, rooms |
-| 4243 | UDP | Gameplay temps réel |
-| 4244 | UDP | Voice chat |
+| 4125 | TCP + TLS | Authentification, chat, rooms |
+| 4124 | UDP | Gameplay temps réel |
+| 4126 | UDP | Voice chat |
+| 4127 | TCP | Administration (localhost only) |
 
 ---
 
 ## Format de Paquet
 
+### TCP Header (7 bytes)
+
 ```
-┌────────────────────────────────────────────┐
-│ Magic (4 bytes) │ Type (1) │ Size (2) │ ... │
-├────────────────────────────────────────────┤
-│              Payload (N bytes)             │
-└────────────────────────────────────────────┘
+┌───────────────────┬──────────┬─────────────┐
+│ isAuthenticated   │ Type     │ PayloadSize │
+│ 1 byte            │ 2 bytes  │ 4 bytes     │
+└───────────────────┴──────────┴─────────────┘
 ```
 
-**Magic Number:** `0x52545950` ("RTYP" en ASCII)
+### UDP Header (12 bytes)
+
+```
+┌──────────┬──────────┬────────────┐
+│ Type     │ Sequence │ Timestamp  │
+│ 2 bytes  │ 2 bytes  │ 8 bytes    │
+└──────────┴──────────┴────────────┘
+```
+
+**Note:** Toutes les valeurs multi-octets sont en network byte order (big-endian).
 
 ---
 

@@ -87,6 +87,18 @@ enum class MessageType : uint16_t {
     PlayerDamaged    = 0x00A0,
     PlayerDied       = 0x00A1,
 
+    // UDP - Score & Combo
+    ScoreUpdate      = 0x00B0,
+
+    // UDP - Boss
+    BossSpawn        = 0x00C0,
+    BossPhaseChange  = 0x00C1,
+    BossDefeated     = 0x00C2,
+
+    // UDP - Weapons
+    SwitchWeapon     = 0x00D0,
+    WeaponChanged    = 0x00D1,
+
     // TCP - Auth
     Login            = 0x0100,
     LoginAck         = 0x0101,
@@ -129,6 +141,30 @@ enum class MessageType : uint16_t {
     VoiceLeave       = 0x0302,
     VoiceFrame       = 0x0303,
     VoiceMute        = 0x0304,
+
+    // UDP - Wave Cannon (Phase 3)
+    ChargeStart      = 0x0400,
+    ChargeRelease    = 0x0401,
+    WaveCannonFired  = 0x0402,
+
+    // UDP - Power-ups (Phase 3)
+    PowerUpSpawned   = 0x0410,
+    PowerUpCollected = 0x0411,
+    PowerUpExpired   = 0x0412,
+
+    // UDP - Force Pod (Phase 3)
+    ForceToggle      = 0x0420,
+    ForceStateUpdate = 0x0421,
+
+    // TCP - Leaderboard
+    GetLeaderboard       = 0x0500,
+    LeaderboardData      = 0x0501,
+    GetPlayerStats       = 0x0502,
+    PlayerStatsData      = 0x0503,
+    GetGameHistory       = 0x0504,
+    GameHistoryData      = 0x0505,
+    GetAchievements      = 0x0506,
+    AchievementsData     = 0x0507,
 };
 ```
 
@@ -195,7 +231,7 @@ Bit 3: RIGHT  (0x0008)
 Bit 4: SHOOT  (0x0010)
 ```
 
-### PlayerState (10 bytes)
+### PlayerState (23 bytes)
 
 ```
 Offset  Size  Field
@@ -206,9 +242,18 @@ Offset  Size  Field
 0x06    1     alive (0/1)
 0x07    2     lastAckedInputSeq (network order)
 0x09    1     shipSkin (1-6)
+0x0A    4     score (network order)
+0x0E    2     kills (network order)
+0x10    1     combo (x10, e.g. 15 = 1.5x)
+0x11    1     currentWeapon (WeaponType enum)
+0x12    1     chargeLevel (Wave Cannon 0-3)
+0x13    1     speedLevel (0-3)
+0x14    1     weaponLevel (0-3)
+0x15    1     hasForce (0/1)
+0x16    1     shieldTimer (reserved, always 0)
 ```
 
-### MissileState (7 bytes)
+### MissileState (8 bytes)
 
 ```
 Offset  Size  Field
@@ -216,6 +261,7 @@ Offset  Size  Field
 0x02    1     owner_id (0xFF = enemy)
 0x03    2     x (network order)
 0x05    2     y (network order)
+0x07    1     weapon_type (WeaponType enum)
 ```
 
 ### EnemyState (8 bytes)
@@ -234,13 +280,13 @@ Offset  Size  Field
 ```
 Offset  Size     Field
 0x00    1        player_count
-0x01    N*10     players[N] (PlayerState)
+0x01    N*23     players[N] (PlayerState)
 ...     1        missile_count
-...     M*7      missiles[M] (MissileState)
+...     M*8      missiles[M] (MissileState)
 ...     1        enemy_count
 ...     E*8      enemies[E] (EnemyState)
 ...     1        enemy_missile_count
-...     EM*7     enemy_missiles[EM] (MissileState)
+...     EM*8     enemy_missiles[EM] (MissileState)
 ```
 
 ### JoinGame (39 bytes)
