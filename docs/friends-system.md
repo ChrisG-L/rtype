@@ -1,67 +1,102 @@
+---
+tags:
+  - social
+  - friends
+  - messaging
+  - tcp
+---
+
 # Friends & Private Messaging System
 
-Social system with friend requests, friendships, blocking, and private messages.
+Systeme social avec demandes d'amis, amitiés, blocage et messages privés.
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    subgraph Client
+        FS[FriendsScene]
+        PCS[PrivateChatScene]
+    end
+
+    subgraph Server
+        TCP[TCPAuthServer]
+        FM[FriendManager<br/>Real-time notifications]
+    end
+
+    subgraph Repositories
+        IFR[IFriendshipRepository]
+        IFRQ[IFriendRequestRepository]
+        IBU[IBlockedUserRepository]
+        IPM[IPrivateMessageRepository]
+    end
+
+    subgraph MongoDB
+        C1[(friendships)]
+        C2[(friend_requests)]
+        C3[(blocked_users)]
+        C4[(private_messages)]
+    end
+
+    FS & PCS -->|TCP| TCP
+    TCP --> FM
+    FM --> IFR & IFRQ & IBU & IPM
+    IFR --> C1
+    IFRQ --> C2
+    IBU --> C3
+    IPM --> C4
 ```
-[Client: FriendsScene/PrivateChatScene] ←TCP→ [TCPAuthServer]
-                                                    ↓
-                                           [FriendManager] (real-time notifications)
-                                                    ↓
-                        ┌───────────────────────────┼───────────────────────────┐
-                        ↓                           ↓                           ↓
-              [IFriendshipRepository]    [IFriendRequestRepository]    [IPrivateMessageRepository]
-              [IBlockedUserRepository]
-                        ↓                           ↓                           ↓
-                                            [MongoDB Collections]
-                                    (friendships, friend_requests, blocked_users, private_messages)
-```
+
+---
 
 ## TCP Protocol Messages (Friends)
 
 | Type | Value | Direction | Description |
 |------|-------|-----------|-------------|
-| `SendFriendRequest` | 0x0600 | C→S | Send friend request |
-| `FriendRequestSent` | 0x0601 | S→C | Request sent confirmation |
-| `FriendRequestReceived` | 0x0602 | S→C | Incoming request notification |
-| `AcceptFriendRequest` | 0x0610 | C→S | Accept request |
-| `RejectFriendRequest` | 0x0611 | C→S | Reject request |
-| `FriendRequestAccepted` | 0x0612 | S→C | Acceptance notification |
-| `FriendRequestRejected` | 0x0613 | S→C | Rejection notification |
-| `RemoveFriend` | 0x0620 | C→S | Remove friendship |
-| `FriendRemoved` | 0x0621 | S→C | Removal confirmation |
-| `BlockUser` | 0x0630 | C→S | Block a user |
-| `UnblockUser` | 0x0631 | C→S | Unblock a user |
-| `UserBlocked` | 0x0632 | S→C | Block confirmation |
-| `UserUnblocked` | 0x0633 | S→C | Unblock confirmation |
-| `GetFriendsList` | 0x0640 | C→S | Request friends list |
-| `FriendsListResponse` | 0x0641 | S→C | Friends list data |
-| `GetFriendRequests` | 0x0642 | C→S | Request pending requests |
-| `FriendRequestsResponse` | 0x0643 | S→C | Pending requests data |
-| `GetBlockedUsers` | 0x0644 | C→S | Request blocked list |
-| `BlockedUsersResponse` | 0x0645 | S→C | Blocked users data |
-| `FriendStatusChanged` | 0x0650 | S→C | Online status notification |
-| `FriendError` | 0x0698 | S→C | Error response |
+| `SendFriendRequest` | 0x0600 | C→S | Envoyer demande d'ami |
+| `FriendRequestSent` | 0x0601 | S→C | Confirmation envoi |
+| `FriendRequestReceived` | 0x0602 | S→C | Notification demande reçue |
+| `AcceptFriendRequest` | 0x0610 | C→S | Accepter demande |
+| `RejectFriendRequest` | 0x0611 | C→S | Refuser demande |
+| `FriendRequestAccepted` | 0x0612 | S→C | Notification acceptation |
+| `FriendRequestRejected` | 0x0613 | S→C | Notification refus |
+| `RemoveFriend` | 0x0620 | C→S | Supprimer ami |
+| `FriendRemoved` | 0x0621 | S→C | Confirmation suppression |
+| `BlockUser` | 0x0630 | C→S | Bloquer utilisateur |
+| `UnblockUser` | 0x0631 | C→S | Débloquer utilisateur |
+| `UserBlocked` | 0x0632 | S→C | Confirmation blocage |
+| `UserUnblocked` | 0x0633 | S→C | Confirmation déblocage |
+| `GetFriendsList` | 0x0640 | C→S | Demander liste amis |
+| `FriendsListResponse` | 0x0641 | S→C | Liste des amis |
+| `GetFriendRequests` | 0x0642 | C→S | Demander requêtes en attente |
+| `FriendRequestsResponse` | 0x0643 | S→C | Requêtes en attente |
+| `GetBlockedUsers` | 0x0644 | C→S | Demander liste bloqués |
+| `BlockedUsersResponse` | 0x0645 | S→C | Liste des bloqués |
+| `FriendStatusChanged` | 0x0650 | S→C | Notification statut en ligne |
+| `FriendError` | 0x0698 | S→C | Réponse erreur |
 
-## TCP Protocol Messages (Private Messages)
+---
+
+## TCP Protocol Messages (Messages Privés)
 
 | Type | Value | Direction | Description |
 |------|-------|-----------|-------------|
-| `SendPrivateMessage` | 0x0660 | C→S | Send private message |
-| `PrivateMessageSent` | 0x0661 | S→C | Message sent confirmation |
-| `PrivateMessageReceived` | 0x0662 | S→C | Incoming message notification |
-| `GetConversation` | 0x0670 | C→S | Request conversation history |
-| `ConversationResponse` | 0x0671 | S→C | Conversation messages |
-| `GetConversationsList` | 0x0672 | C→S | Request all conversations |
-| `ConversationsListResponse` | 0x0673 | S→C | Conversations summaries |
-| `MarkMessagesRead` | 0x0680 | C→S | Mark messages as read |
-| `MessagesMarkedRead` | 0x0681 | S→C | Read confirmation |
+| `SendPrivateMessage` | 0x0660 | C→S | Envoyer message privé |
+| `PrivateMessageSent` | 0x0661 | S→C | Confirmation envoi |
+| `PrivateMessageReceived` | 0x0662 | S→C | Notification message reçu |
+| `GetConversation` | 0x0670 | C→S | Demander historique conversation |
+| `ConversationResponse` | 0x0671 | S→C | Messages de la conversation |
+| `GetConversationsList` | 0x0672 | C→S | Demander liste conversations |
+| `ConversationsListResponse` | 0x0673 | S→C | Résumés des conversations |
+| `MarkMessagesRead` | 0x0680 | C→S | Marquer messages comme lus |
+| `MessagesMarkedRead` | 0x0681 | S→C | Confirmation lecture |
 
-## Wire Structures
+---
+
+## Structures Wire
 
 ```cpp
-// FriendEntryWire (98 bytes) - Friend in list
+// FriendEntryWire (98 bytes) - Ami dans la liste
 struct FriendEntryWire {
     char email[MAX_EMAIL_LEN];          // 64 bytes
     char displayName[MAX_USERNAME_LEN]; // 32 bytes
@@ -69,14 +104,14 @@ struct FriendEntryWire {
     uint8_t padding;
 };
 
-// FriendRequestEntryWire (100 bytes) - Pending request
+// FriendRequestEntryWire (100 bytes) - Demande en attente
 struct FriendRequestEntryWire {
     char fromEmail[MAX_EMAIL_LEN];      // 64 bytes
     char fromDisplayName[MAX_USERNAME_LEN]; // 32 bytes
     uint32_t timestamp;                 // Unix timestamp
 };
 
-// PrivateMessageWire (233 bytes) - Message in conversation
+// PrivateMessageWire (233 bytes) - Message dans conversation
 struct PrivateMessageWire {
     uint64_t messageId;
     char senderEmail[MAX_EMAIL_LEN];    // 64 bytes
@@ -86,7 +121,7 @@ struct PrivateMessageWire {
     char message[MAX_MESSAGE_LEN];      // 120 bytes
 };
 
-// ConversationSummaryWire (154 bytes) - Conversation preview
+// ConversationSummaryWire (154 bytes) - Aperçu conversation
 struct ConversationSummaryWire {
     char otherEmail[MAX_EMAIL_LEN];     // 64 bytes
     char otherDisplayName[MAX_USERNAME_LEN]; // 32 bytes
@@ -96,7 +131,9 @@ struct ConversationSummaryWire {
 };
 ```
 
-## Error Codes
+---
+
+## Codes d'Erreur
 
 ```cpp
 enum class FriendErrorCode : uint8_t {
@@ -119,75 +156,93 @@ enum class FriendErrorCode : uint8_t {
 };
 ```
 
-## MongoDB Collections
+---
+
+## Collections MongoDB
 
 | Collection | Description |
 |------------|-------------|
-| `friendships` | Bidirectional friend relationships |
-| `friend_requests` | Pending friend requests |
-| `blocked_users` | User block relationships |
-| `private_messages` | Private message history |
+| `friendships` | Relations d'amitié bidirectionnelles |
+| `friend_requests` | Demandes d'amis en attente |
+| `blocked_users` | Relations de blocage |
+| `private_messages` | Historique des messages privés |
 
-## Key Files
+---
 
-| File | Description |
-|------|-------------|
-| `src/server/include/application/ports/out/persistence/IFriendshipRepository.hpp` | Friendship interface |
-| `src/server/include/application/ports/out/persistence/IFriendRequestRepository.hpp` | Friend request interface |
-| `src/server/include/application/ports/out/persistence/IBlockedUserRepository.hpp` | Blocked user interface |
-| `src/server/include/application/ports/out/persistence/IPrivateMessageRepository.hpp` | Private message interface |
-| `src/server/infrastructure/adapters/out/persistence/MongoDBFriendshipRepository.cpp` | MongoDB friendship impl |
-| `src/server/infrastructure/adapters/out/persistence/MongoDBFriendRequestRepository.cpp` | MongoDB request impl |
-| `src/server/infrastructure/adapters/out/persistence/MongoDBBlockedUserRepository.cpp` | MongoDB blocked impl |
-| `src/server/infrastructure/adapters/out/persistence/MongoDBPrivateMessageRepository.cpp` | MongoDB message impl |
-| `src/server/include/infrastructure/social/FriendManager.hpp` | Real-time notification manager |
-| `src/server/infrastructure/social/FriendManager.cpp` | FriendManager implementation |
-| `src/client/include/scenes/FriendsScene.hpp` | Friends UI scene header |
-| `src/client/src/scenes/FriendsScene.cpp` | Friends UI implementation |
-| `src/client/include/scenes/PrivateChatScene.hpp` | Chat UI scene header |
-| `src/client/src/scenes/PrivateChatScene.cpp` | Chat UI implementation |
+## Fichiers Clés
 
-## Client Usage
+### Server
+
+| Fichier | Description |
+|---------|-------------|
+| `src/server/include/infrastructure/social/FriendManager.hpp` | Gestionnaire notifications temps réel |
+| `src/server/infrastructure/social/FriendManager.cpp` | Implémentation FriendManager |
+| `src/server/include/application/ports/out/persistence/IFriendshipRepository.hpp` | Interface amitiés |
+| `src/server/include/application/ports/out/persistence/IFriendRequestRepository.hpp` | Interface demandes |
+| `src/server/include/application/ports/out/persistence/IBlockedUserRepository.hpp` | Interface blocage |
+| `src/server/include/application/ports/out/persistence/IPrivateMessageRepository.hpp` | Interface messages |
+| `src/server/infrastructure/adapters/out/persistence/MongoDBFriendshipRepository.cpp` | MongoDB amitiés |
+| `src/server/infrastructure/adapters/out/persistence/MongoDBFriendRequestRepository.cpp` | MongoDB demandes |
+| `src/server/infrastructure/adapters/out/persistence/MongoDBBlockedUserRepository.cpp` | MongoDB blocage |
+| `src/server/infrastructure/adapters/out/persistence/MongoDBPrivateMessageRepository.cpp` | MongoDB messages |
+
+### Client
+
+| Fichier | Description |
+|---------|-------------|
+| `src/client/include/scenes/FriendsScene.hpp` | Scene UI amis (header) |
+| `src/client/src/scenes/FriendsScene.cpp` | Scene UI amis (impl) |
+| `src/client/include/scenes/PrivateChatScene.hpp` | Scene UI chat (header) |
+| `src/client/src/scenes/PrivateChatScene.cpp` | Scene UI chat (impl) |
+
+---
+
+## Utilisation Client
 
 ```cpp
-// In MainMenuScene - navigate to friends
+// Navigation vers la scene amis
 auto& sceneManager = SceneManager::getInstance();
 sceneManager.changeScene(std::make_unique<FriendsScene>());
 
-// Send friend request
+// Envoyer demande d'ami
 tcpClient.sendFriendRequest("friend@example.com");
 
-// Accept/reject request
+// Accepter/refuser demande
 tcpClient.acceptFriendRequest("requester@example.com");
 tcpClient.rejectFriendRequest("requester@example.com");
 
-// Block/unblock user
+// Bloquer/débloquer utilisateur
 tcpClient.blockUser("user@example.com");
 tcpClient.unblockUser("user@example.com");
 
-// Remove friend
+// Supprimer ami
 tcpClient.removeFriend("friend@example.com");
 
-// Send private message
+// Envoyer message privé
 tcpClient.sendPrivateMessage("friend@example.com", "Hello!");
 
-// Get conversation history (offset, limit)
+// Récupérer historique conversation (offset, limit)
 tcpClient.getConversation("friend@example.com", 0, 50);
 
-// Get all conversations
+// Récupérer liste conversations
 tcpClient.getConversationsList();
 
-// Mark messages as read
+// Marquer messages comme lus
 tcpClient.markMessagesRead("friend@example.com");
 ```
 
-## Real-Time Notifications
+---
 
-The `FriendManager` handles real-time notifications:
+## Notifications Temps Réel
 
-- **Friend request received** - Notified when someone sends you a request
-- **Friend request accepted** - Notified when your request is accepted
-- **Friend status changed** - Notified when a friend comes online/offline
-- **Private message received** - Notified when you receive a new message
+Le `FriendManager` gère les notifications push :
 
-These notifications are pushed to connected clients via TCP without polling.
+| Notification | Description |
+|--------------|-------------|
+| **FriendRequestReceived** | Quelqu'un vous envoie une demande |
+| **FriendRequestAccepted** | Votre demande est acceptée |
+| **FriendStatusChanged** | Un ami passe en ligne/hors ligne |
+| **PrivateMessageReceived** | Nouveau message reçu |
+
+!!! info "Push sans polling"
+    Ces notifications sont poussées aux clients connectés via TCP sans nécessiter de polling.
