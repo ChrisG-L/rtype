@@ -150,6 +150,7 @@ nav:
       - guide/gameplay/index.md
       - Contrôles: guide/gameplay/controles.md
       - Multijoueur: guide/gameplay/multijoueur.md
+      - Leaderboard: guide/gameplay/leaderboard.md
       - Voice Chat: guide/gameplay/voice-chat.md
   - Configuration:
     - configuration/index.md
@@ -173,6 +174,7 @@ nav:
     - Graphiques:
       - technique/graphiques/index.md
       - Abstraction: technique/graphiques/abstraction.md
+      - Fullscreen: technique/graphiques/fullscreen.md
       - SDL2: technique/graphiques/sdl2.md
       - SFML: technique/graphiques/sfml.md
       - Shaders: technique/graphiques/shaders.md
@@ -218,6 +220,8 @@ nav:
     - Tests: developpement/tests.md
     - CI/CD: developpement/ci-cd.md
     - VPS: developpement/vps.md
+    - Bot Admin Discord: developpement/discord-admin-bot.md
+    - Bot Leaderboard Discord: developpement/discord-leaderboard-bot.md
     - Contribution: developpement/contribution.md
   - Assets:
     - assets/index.md

@@ -122,11 +122,75 @@ Ils sont sauvegardés automatiquement sur le serveur.
 
 ---
 
-## Résolution
+## Résolution et Fullscreen
 
-La fenêtre utilise une résolution fixe définie dans le backend graphique.
+La fenêtre utilise une résolution logique de 1920×1080 avec support du plein écran.
 
-| Backend | Résolution | Mode |
-|---------|------------|------|
+| Backend | Résolution logique | Mode par défaut |
+|---------|-------------------|-----------------|
 | SFML | 1920×1080 | Fenêtré |
 | SDL2 | 1920×1080 | Fenêtré |
+
+### Basculer en plein écran
+
+Appuyez sur ++f11++ pour basculer entre fenêtré et plein écran desktop (borderless).
+
+### Letterboxing
+
+Le ratio 16:9 est maintenu automatiquement. Sur les écrans non-16:9 :
+
+- Des barres noires apparaissent en haut/bas ou gauche/droite
+- Les clics souris sont correctement mappés vers les coordonnées logiques
+- Pas de déformation de l'image
+
+!!! info "Plein écran desktop"
+    Le mode "desktop fullscreen" (borderless) est utilisé pour des transitions Alt+Tab rapides.
+
+---
+
+## Vérification de Version
+
+Le client vérifie automatiquement sa version à la connexion au serveur.
+
+### Comportement
+
+| Situation | Action |
+|-----------|--------|
+| Version identique | Connexion normale |
+| Version obsolète | Popup avec nombre de commits de retard |
+| Version obsolète | Bouton **JENKINS** pour télécharger la mise à jour |
+
+### Popup de mise à jour
+
+Si votre client est obsolète, une popup s'affiche avec :
+
+- Le nombre de commits de retard (ex: "5 commits behind")
+- Un bouton **JENKINS** pour accéder aux builds
+- Un bouton **CONTINUE** pour continuer quand même (non recommandé)
+
+### Mode Développeur
+
+Pour bypasser la vérification (développement local uniquement) :
+
+```bash
+# Créer le fichier à la racine du projet
+touch version.dev
+```
+
+!!! warning "Sécurité"
+    N'utilisez pas `version.dev` en production. Ce fichier est ignoré par git.
+
+### Variable de test
+
+Pour simuler un hash différent (tests) :
+
+```bash
+RTYPE_TEST_HASH=abc1234 ./rtype_client
+```
+
+### Fichiers associés
+
+| Fichier | Description |
+|---------|-------------|
+| `src/client/include/core/Version.hpp` | Détection version client |
+| `src/server/include/infrastructure/version/VersionHistoryManager.hpp` | Historique serveur |

@@ -9,6 +9,15 @@ tags:
 
 Jouez jusqu'à 4 joueurs en coopération !
 
+## Mode Solo
+
+Vous pouvez jouer seul sans attendre d'autres joueurs. Le jeu démarre immédiatement avec un seul joueur.
+
+!!! tip "Leaderboard par mode"
+    Les scores sont classés par nombre de joueurs (Solo, Duo, Trio, 4P). Consultez le [Leaderboard](leaderboard.md) pour voir vos scores et ceux des autres joueurs.
+
+---
+
 ## Architecture
 
 ```mermaid

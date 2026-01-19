@@ -37,6 +37,7 @@ TLS_KEY_FILE=certs/server.key
 | `MONGODB_DB` | Nom de la base de données | `rtype` |
 | `TLS_CERT_FILE` | Chemin certificat TLS | `certs/server.crt` |
 | `TLS_KEY_FILE` | Chemin clé privée TLS | `certs/server.key` |
+| `ADMIN_TOKEN` | Token 256-bit pour TCPAdminServer | - (requis pour admin) |
 
 ---
 
@@ -152,3 +153,79 @@ Le serveur de production utilise :
 - **systemd** pour la gestion du service (`rtype_server.service`)
 - **tmux** pour l'accès au TUI serveur multi-utilisateur
 - **Python wrapper** pour les notifications Discord et le monitoring
+
+---
+
+## TCPAdminServer (Administration à Distance)
+
+Le serveur expose une interface d'administration sur le port 4127 pour permettre l'administration à distance via le [Bot Admin Discord](../developpement/discord-admin-bot.md).
+
+### Configuration
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Port | TCP 4127 |
+| Bind | `127.0.0.1` (localhost uniquement) |
+| Protocole | JSON-RPC (newline-delimited) |
+| Authentification | Token 256-bit |
+
+### Génération du token
+
+```bash
+# Générer un token sécurisé
+openssl rand -hex 32
+
+# Exemple de résultat
+# a1b2c3d4e5f6...
+```
+
+Ajoutez le token à votre fichier `.env` :
+
+```bash
+ADMIN_TOKEN=votre_token_genere_ici
+```
+
+### Sécurité
+
+| Protection | Description |
+|------------|-------------|
+| **Bind localhost** | Non accessible depuis l'extérieur |
+| **Token requis** | Toute requête sans token valide est rejetée |
+| **Commandes filtrées** | `quit`, `exit`, `zoom`, `interact`, `net` bloquées |
+| **Thread-safe** | Validation du token protégée par mutex |
+
+!!! warning "Token obligatoire"
+    Si `ADMIN_TOKEN` n'est pas défini, le serveur refuse **toutes** les requêtes d'administration.
+
+### Format des requêtes
+
+```json
+{"cmd": "status", "token": "votre_admin_token"}
+```
+
+### Format des réponses
+
+```json
+{"success": true, "output": ["ligne1", "ligne2"], "error": null}
+```
+
+### Commandes disponibles
+
+Toutes les commandes du ServerCLI sont disponibles sauf les commandes interactives :
+
+| Commande | Description |
+|----------|-------------|
+| `status` | État du serveur (users, sessions, uptime) |
+| `sessions` | Liste des sessions actives |
+| `users` | Liste des utilisateurs enregistrés |
+| `user <email>` | Détails d'un utilisateur |
+| `kick <email>` | Déconnecter un joueur |
+| `ban <email> [reason]` | Bannir un utilisateur |
+| `unban <email>` | Débannir un utilisateur |
+| `bans` | Liste des utilisateurs bannis |
+| `rooms` | Liste des salles actives |
+| `room <code>` | Détails d'une salle |
+| `broadcast <msg>` | Message à tous les joueurs |
+| `help` | Liste des commandes |
+
+Pour plus de détails sur l'utilisation via Discord, consultez la [documentation du Bot Admin](../developpement/discord-admin-bot.md).

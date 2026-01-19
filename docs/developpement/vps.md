@@ -157,6 +157,51 @@ Notifications Discord automatiques pour :
 
 ---
 
+## Bots Discord
+
+Deux bots Discord sont deployes sur le VPS pour l'administration et les statistiques.
+
+| Bot | Port/Connexion | Description | Documentation |
+|-----|----------------|-------------|---------------|
+| **Admin** | TCP 4127 (localhost) | Administration serveur a distance | [Bot Admin Discord](discord-admin-bot.md) |
+| **Leaderboard** | MongoDB | Statistiques et classements | [Bot Leaderboard Discord](discord-leaderboard-bot.md) |
+
+### Services systemd
+
+```bash
+# Status des bots
+systemctl status rtype-discord-admin
+systemctl status rtype-discord-leaderboard
+
+# Redemarrage
+systemctl restart rtype-discord-admin
+systemctl restart rtype-discord-leaderboard
+
+# Logs
+journalctl -u rtype-discord-admin -n 50 --no-pager
+journalctl -u rtype-discord-leaderboard -n 50 --no-pager
+```
+
+### Structure des bots
+
+```
+/opt/rtype/discord-bot/
+├── admin/              # Bot admin
+│   ├── bot.py
+│   ├── .env
+│   └── venv/
+└── leaderboard/        # Bot leaderboard
+    ├── bot.py
+    ├── .env
+    └── venv/
+```
+
+!!! tip "Configuration"
+    Chaque bot utilise son propre fichier `.env` pour la configuration.
+    Consultez les pages de documentation dedies pour les details.
+
+---
+
 ## Depannage
 
 ### Le serveur ne repond pas

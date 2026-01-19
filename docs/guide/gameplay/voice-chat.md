@@ -9,6 +9,13 @@ tags:
 
 Communiquez vocalement avec votre équipe.
 
+!!! warning "Linux : Utilisez le script de lancement"
+    Sur Linux avec PipeWire (Ubuntu 22.04+, Fedora, etc.), **utilisez toujours** le script wrapper :
+    ```bash
+    ./scripts/run-client.sh --server=51.254.137.175
+    ```
+    Ce script active automatiquement le support audio JACK via `pw-jack`. Sans lui, le voice chat ne fonctionnera pas.
+
 ## Technologies
 
 - **Opus** : Codec audio haute qualité
