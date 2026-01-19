@@ -8,6 +8,7 @@
 #include "infrastructure/adapters/in/network/UDPServer.hpp"
 #include "infrastructure/logging/Logger.hpp"
 #include "Protocol.hpp"
+#include "compression/Compression.hpp"
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -238,21 +239,55 @@ namespace infrastructure::adapters::in::network {
         }
 
         GameSnapshot snapshot = gameWorld->getSnapshot();
-        const size_t totalSize = UDPHeader::WIRE_SIZE + snapshot.wire_size();
-        std::vector<uint8_t> buf(totalSize);
+        const size_t payloadSize = snapshot.wire_size();
 
-        UDPHeader head{
-            .type = static_cast<uint16_t>(MessageType::Snapshot),
-            .sequence_num = 0,
-            .timestamp = UDPHeader::getTimestamp()
-        };
-        head.to_bytes(buf.data());
-        snapshot.to_bytes(buf.data() + UDPHeader::WIRE_SIZE);
+        // Serialize payload first
+        std::vector<uint8_t> payloadBuf(payloadSize);
+        snapshot.to_bytes(payloadBuf.data());
+
+        // Try to compress if payload is large enough
+        std::vector<uint8_t> finalBuf;
+        if (payloadSize >= compression::MIN_COMPRESS_SIZE) {
+            auto compressed = compression::compress(payloadBuf.data(), payloadSize);
+            if (!compressed.empty()) {
+                // Compression successful and worthwhile
+                // Format: UDPHeader (with COMPRESSION_FLAG) + CompressionHeader + compressed payload
+                const size_t totalSize = UDPHeader::WIRE_SIZE + CompressionHeader::WIRE_SIZE + compressed.size();
+                finalBuf.resize(totalSize);
+
+                UDPHeader head{
+                    .type = static_cast<uint16_t>(static_cast<uint16_t>(MessageType::Snapshot) | COMPRESSION_FLAG),
+                    .sequence_num = 0,
+                    .timestamp = UDPHeader::getTimestamp()
+                };
+                head.to_bytes(finalBuf.data());
+
+                CompressionHeader compHead{.originalSize = static_cast<uint16_t>(payloadSize)};
+                compHead.to_bytes(finalBuf.data() + UDPHeader::WIRE_SIZE);
+
+                std::memcpy(finalBuf.data() + UDPHeader::WIRE_SIZE + CompressionHeader::WIRE_SIZE,
+                           compressed.data(), compressed.size());
+            }
+        }
+
+        // Fallback to uncompressed if compression failed or not worth it
+        if (finalBuf.empty()) {
+            const size_t totalSize = UDPHeader::WIRE_SIZE + payloadSize;
+            finalBuf.resize(totalSize);
+
+            UDPHeader head{
+                .type = static_cast<uint16_t>(MessageType::Snapshot),
+                .sequence_num = 0,
+                .timestamp = UDPHeader::getTimestamp()
+            };
+            head.to_bytes(finalBuf.data());
+            std::memcpy(finalBuf.data() + UDPHeader::WIRE_SIZE, payloadBuf.data(), payloadSize);
+        }
 
         // Only send to players in THIS game instance
         auto endpoints = gameWorld->getAllEndpoints();
         for (const auto& ep : endpoints) {
-            sendTo(ep, buf.data(), buf.size());
+            sendTo(ep, finalBuf.data(), finalBuf.size());
         }
     }
 

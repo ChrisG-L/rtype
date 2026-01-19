@@ -7,6 +7,7 @@
 
 #include "infrastructure/adapters/in/network/TCPAuthServer.hpp"
 #include "Protocol.hpp"
+#include "compression/Compression.hpp"
 #include "infrastructure/adapters/in/network/protocol/Command.hpp"
 #include "infrastructure/logging/Logger.hpp"
 #include "infrastructure/version/VersionHistoryManager.hpp"
@@ -292,6 +293,65 @@ namespace infrastructure::adapters::in::network {
                 if (ec) {
                     auto logger = server::logging::Logger::getNetworkLogger();
                     logger->error("HeartBeatAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_compressed(MessageType msgType, const uint8_t* payload, size_t payloadSize) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+        std::shared_ptr<std::vector<uint8_t>> buf;
+
+        // Try to compress if payload is large enough
+        if (payloadSize >= compression::MIN_COMPRESS_SIZE) {
+            auto compressed = compression::compress(payload, payloadSize);
+            if (!compressed.empty()) {
+                // Compression successful - use compressed format
+                // Format: Header (with TCP_COMPRESSION_FLAG) + originalSize (2 bytes) + compressed data
+                size_t totalSize = Header::WIRE_SIZE + CompressionHeader::WIRE_SIZE + compressed.size();
+                buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+                Header head = {
+                    .isAuthenticated = _isAuthenticated,
+                    .type = static_cast<uint16_t>(static_cast<uint16_t>(msgType) | TCP_COMPRESSION_FLAG),
+                    .payload_size = static_cast<uint32_t>(CompressionHeader::WIRE_SIZE + compressed.size())
+                };
+                head.to_bytes(buf->data());
+
+                CompressionHeader compHead{.originalSize = static_cast<uint16_t>(payloadSize)};
+                compHead.to_bytes(buf->data() + Header::WIRE_SIZE);
+
+                std::memcpy(buf->data() + Header::WIRE_SIZE + CompressionHeader::WIRE_SIZE,
+                           compressed.data(), compressed.size());
+
+                logger->trace("TCP compressed: {} -> {} bytes ({}%)",
+                    payloadSize, compressed.size(),
+                    100 - (compressed.size() * 100 / payloadSize));
+            }
+        }
+
+        // Fallback to uncompressed if compression failed or not worth it
+        if (!buf) {
+            size_t totalSize = Header::WIRE_SIZE + payloadSize;
+            buf = std::make_shared<std::vector<uint8_t>>(totalSize);
+
+            Header head = {
+                .isAuthenticated = _isAuthenticated,
+                .type = static_cast<uint16_t>(msgType),
+                .payload_size = static_cast<uint32_t>(payloadSize)
+            };
+            head.to_bytes(buf->data());
+            std::memcpy(buf->data() + Header::WIRE_SIZE, payload, payloadSize);
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(
+            _socket,
+            boost::asio::buffer(buf->data(), buf->size()),
+            [self, buf, msgType](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("Compressed write error (type=0x{:04X}): {}",
+                        static_cast<uint16_t>(msgType), ec.message());
                 }
             });
     }
@@ -2036,17 +2096,11 @@ namespace infrastructure::adapters::in::network {
         // Calculate payload size: header (7 bytes) + entries
         size_t payloadSize = LeaderboardDataResponse::HEADER_SIZE + entryCount * LeaderboardEntryWire::WIRE_SIZE;
 
-        Header head = {
-            .isAuthenticated = _isAuthenticated,
-            .type = static_cast<uint16_t>(MessageType::LeaderboardData),
-            .payload_size = static_cast<uint32_t>(payloadSize)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
-        head.to_bytes(buf->data());
+        // Build payload buffer (without TCP header - do_write_compressed adds it)
+        std::vector<uint8_t> payload(payloadSize);
 
         // Write LeaderboardDataResponse header (7 bytes)
-        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        uint8_t* ptr = payload.data();
         ptr[0] = period;
         ptr[1] = entryCount;
         uint32_t netRank = swap32(yourRank);
@@ -2073,14 +2127,8 @@ namespace infrastructure::adapters::in::network {
             ptr += LeaderboardEntryWire::WIRE_SIZE;
         }
 
-        auto self = shared_from_this();
-        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
-            [self, buf](boost::system::error_code ec, std::size_t) {
-                if (ec) {
-                    auto logger = server::logging::Logger::getNetworkLogger();
-                    logger->error("LeaderboardData write error: {}", ec.message());
-                }
-            });
+        // Use compression for large leaderboard responses
+        do_write_compressed(MessageType::LeaderboardData, payload.data(), payload.size());
     }
 
     void Session::do_write_player_stats_response(const application::ports::out::persistence::PlayerStats& stats) {
@@ -3200,16 +3248,9 @@ namespace infrastructure::adapters::in::network {
         uint8_t count = static_cast<uint8_t>(std::min(friends.size(), size_t(255)));
         size_t payloadSize = 2 + count * FriendInfoWire::WIRE_SIZE;
 
-        Header head = {
-            .isAuthenticated = _isAuthenticated,
-            .type = static_cast<uint16_t>(MessageType::FriendsListData),
-            .payload_size = static_cast<uint32_t>(payloadSize)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
-        head.to_bytes(buf->data());
-
-        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        // Build payload buffer (without TCP header)
+        std::vector<uint8_t> payload(payloadSize);
+        uint8_t* ptr = payload.data();
         ptr[0] = count;
         ptr[1] = totalCount;
         ptr += 2;
@@ -3219,14 +3260,8 @@ namespace infrastructure::adapters::in::network {
             ptr += FriendInfoWire::WIRE_SIZE;
         }
 
-        auto self = shared_from_this();
-        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
-            [self, buf](boost::system::error_code ec, std::size_t) {
-                if (ec) {
-                    auto logger = server::logging::Logger::getNetworkLogger();
-                    logger->error("FriendsListData write error: {}", ec.message());
-                }
-            });
+        // Use compression for large friend lists
+        do_write_compressed(MessageType::FriendsListData, payload.data(), payload.size());
     }
 
     void Session::do_write_friend_requests(const std::vector<FriendRequestInfoWire>& incoming, const std::vector<FriendRequestInfoWire>& outgoing) {
@@ -3398,16 +3433,9 @@ namespace infrastructure::adapters::in::network {
         // Calculate total size - fixed size messages
         size_t payloadSize = 1 + 1 + (messages.size() * PrivateMessageWire::WIRE_SIZE); // count + hasMore + messages
 
-        Header head = {
-            .isAuthenticated = _isAuthenticated,
-            .type = static_cast<uint16_t>(MessageType::ConversationData),
-            .payload_size = static_cast<uint32_t>(payloadSize)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
-        head.to_bytes(buf->data());
-
-        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        // Build payload buffer (without TCP header)
+        std::vector<uint8_t> payload(payloadSize);
+        uint8_t* ptr = payload.data();
         ptr[0] = static_cast<uint8_t>(messages.size());
         ptr[1] = hasMore ? 1 : 0;
         ptr += 2;
@@ -3417,30 +3445,17 @@ namespace infrastructure::adapters::in::network {
             ptr += PrivateMessageWire::WIRE_SIZE;
         }
 
-        auto self = shared_from_this();
-        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
-            [self, buf](boost::system::error_code ec, std::size_t) {
-                if (ec) {
-                    auto logger = server::logging::Logger::getNetworkLogger();
-                    logger->error("ConversationData write error: {}", ec.message());
-                }
-            });
+        // Use compression for conversation data (can be large)
+        do_write_compressed(MessageType::ConversationData, payload.data(), payload.size());
     }
 
     void Session::do_write_conversations_list(const std::vector<ConversationSummaryWire>& conversations) {
         // Calculate total size - fixed size conversations
         size_t payloadSize = 1 + (conversations.size() * ConversationSummaryWire::WIRE_SIZE); // count + conversations
 
-        Header head = {
-            .isAuthenticated = _isAuthenticated,
-            .type = static_cast<uint16_t>(MessageType::ConversationsListData),
-            .payload_size = static_cast<uint32_t>(payloadSize)
-        };
-
-        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
-        head.to_bytes(buf->data());
-
-        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        // Build payload buffer (without TCP header)
+        std::vector<uint8_t> payload(payloadSize);
+        uint8_t* ptr = payload.data();
         ptr[0] = static_cast<uint8_t>(conversations.size());
         ptr += 1;
 
@@ -3449,14 +3464,8 @@ namespace infrastructure::adapters::in::network {
             ptr += ConversationSummaryWire::WIRE_SIZE;
         }
 
-        auto self = shared_from_this();
-        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
-            [self, buf](boost::system::error_code ec, std::size_t) {
-                if (ec) {
-                    auto logger = server::logging::Logger::getNetworkLogger();
-                    logger->error("ConversationsListData write error: {}", ec.message());
-                }
-            });
+        // Use compression for conversations list
+        do_write_compressed(MessageType::ConversationsListData, payload.data(), payload.size());
     }
 
     void Session::do_write_mark_messages_read_ack(uint8_t errorCode) {

@@ -99,6 +99,7 @@ namespace infrastructure::adapters::in::network {
             void do_write_auth_response(const MessageType& msgType, const AuthResponse& resp);
             void do_write_auth_response_with_token(const MessageType& msgType, const AuthResponseWithToken& resp);
             void do_write_heartbeat_ack();
+            void do_write_compressed(MessageType msgType, const uint8_t* payload, size_t payloadSize);
             void handle_command(const Header&);
             void onLoginSuccess(const User& user);
             void scheduleTimeoutCheck();

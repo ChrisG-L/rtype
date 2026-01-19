@@ -200,6 +200,9 @@ endif()
 find_package(mongocxx CONFIG REQUIRED)
 find_package(bsoncxx CONFIG REQUIRED)
 
+# Find LZ4 for network compression
+find_package(lz4 CONFIG REQUIRED)
+
 target_include_directories(rtype_server PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -212,6 +215,7 @@ target_link_libraries(rtype_server PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     spdlog::spdlog
+    lz4::lz4
     $<IF:$<TARGET_EXISTS:mongo::mongocxx_shared>,mongo::mongocxx_shared,mongo::mongocxx_static>
     $<IF:$<TARGET_EXISTS:mongo::bsoncxx_shared>,mongo::bsoncxx_shared,mongo::bsoncxx_static>
 )

@@ -7,6 +7,7 @@
 
 #include "network/UDPClient.hpp"
 #include "Protocol.hpp"
+#include "compression/Compression.hpp"
 #include "core/Logger.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
 #include <algorithm>
@@ -667,10 +668,49 @@ namespace client::network
                     return;
                 }
                 UDPHeader head = *headOpt;
-                size_t payload_size = bytes - UDPHeader::WIRE_SIZE;
-                const uint8_t* payload = reinterpret_cast<const uint8_t*>(_readBuffer) + UDPHeader::WIRE_SIZE;
 
-                switch (static_cast<MessageType>(head.type)) {
+                // Check for compression flag
+                bool isCompressed = (head.type & COMPRESSION_FLAG) != 0;
+                uint16_t actualType = head.type & ~COMPRESSION_FLAG;
+
+                size_t headerOffset = UDPHeader::WIRE_SIZE;
+                const uint8_t* compressedPayload = reinterpret_cast<const uint8_t*>(_readBuffer) + headerOffset;
+                size_t compressedSize = bytes - headerOffset;
+
+                // Decompression buffer (reused to avoid allocations)
+                static thread_local std::vector<uint8_t> decompressedBuf;
+                const uint8_t* payload = compressedPayload;
+                size_t payload_size = compressedSize;
+
+                if (isCompressed) {
+                    // Read compression header
+                    if (compressedSize < CompressionHeader::WIRE_SIZE) {
+                        asyncReceiveFrom();
+                        return;
+                    }
+                    auto compHeadOpt = CompressionHeader::from_bytes(compressedPayload, compressedSize);
+                    if (!compHeadOpt) {
+                        asyncReceiveFrom();
+                        return;
+                    }
+
+                    size_t originalSize = compHeadOpt->originalSize;
+                    const uint8_t* actualCompressedData = compressedPayload + CompressionHeader::WIRE_SIZE;
+                    size_t actualCompressedSize = compressedSize - CompressionHeader::WIRE_SIZE;
+
+                    auto decompressed = compression::decompress(actualCompressedData, actualCompressedSize, originalSize);
+                    if (!decompressed) {
+                        logger->warn("Failed to decompress packet (type=0x{:04X})", actualType);
+                        asyncReceiveFrom();
+                        return;
+                    }
+
+                    decompressedBuf = std::move(*decompressed);
+                    payload = decompressedBuf.data();
+                    payload_size = decompressedBuf.size();
+                }
+
+                switch (static_cast<MessageType>(actualType)) {
                     case MessageType::HeartBeatAck:
                         // Confirm connection on first HeartBeatAck
                         if (_connecting.exchange(false)) {

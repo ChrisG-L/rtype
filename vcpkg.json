@@ -15,7 +15,8 @@
     "sfml",
     "spdlog",
     "opus",
-    "portaudio"
+    "portaudio",
+    "lz4"
   ],
   "overrides": [
     {

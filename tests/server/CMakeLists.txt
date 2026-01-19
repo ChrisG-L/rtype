@@ -85,6 +85,9 @@ set(TEST_SOURCES
 
     # Tests Common - Version System
     ${CMAKE_SOURCE_DIR}/tests/common/VersionSystemTest.cpp
+
+    # Tests Common - Network Compression (LZ4)
+    ${CMAKE_SOURCE_DIR}/tests/common/CompressionTest.cpp
 )
 
 # Sources du serveur nécessaires pour les tests
@@ -182,6 +185,9 @@ target_include_directories(server_tests PRIVATE
     ${Protobuf_INCLUDE_DIRS}
 )
 
+# Find LZ4 for compression tests
+find_package(lz4 CONFIG REQUIRED)
+
 # Lier les bibliothèques nécessaires
 target_link_libraries(server_tests PRIVATE
     Boost::system
@@ -191,6 +197,7 @@ target_link_libraries(server_tests PRIVATE
     OpenSSL::Crypto
     spdlog::spdlog
     fmt::fmt
+    lz4::lz4
 )
 
 # Bibliothèques Windows pour Boost.Asio (tests UDP)

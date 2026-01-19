@@ -7,6 +7,7 @@
 
 #include "network/TCPClient.hpp"
 #include "Protocol.hpp"
+#include "compression/Compression.hpp"
 #include "core/Logger.hpp"
 #include "core/Version.hpp"
 #include <algorithm>
@@ -307,6 +308,38 @@ namespace client::network
                 }
 
                 _isAuthenticated = head.isAuthenticated;
+
+                // Check for TCP compression flag
+                bool isCompressed = (head.type & TCP_COMPRESSION_FLAG) != 0;
+                uint16_t actualType = head.type & ~TCP_COMPRESSION_FLAG;
+
+                // Decompression buffer and payload pointer
+                static thread_local std::vector<uint8_t> decompressedPayload;
+                const uint8_t* payloadPtr = reinterpret_cast<const uint8_t*>(_accumulator.data()) + Header::WIRE_SIZE;
+                size_t payloadSize = head.payload_size;
+
+                if (isCompressed && payloadSize >= CompressionHeader::WIRE_SIZE) {
+                    // Read compression header
+                    auto compHeadOpt = CompressionHeader::from_bytes(payloadPtr, payloadSize);
+                    if (compHeadOpt) {
+                        size_t originalSize = compHeadOpt->originalSize;
+                        const uint8_t* compressedData = payloadPtr + CompressionHeader::WIRE_SIZE;
+                        size_t compressedSize = payloadSize - CompressionHeader::WIRE_SIZE;
+
+                        auto decompressed = compression::decompress(compressedData, compressedSize, originalSize);
+                        if (decompressed) {
+                            decompressedPayload = std::move(*decompressed);
+                            payloadPtr = decompressedPayload.data();
+                            payloadSize = decompressedPayload.size();
+                            // Update head.type to actual type for switch below
+                            head.type = actualType;
+                        } else {
+                            logger->warn("Failed to decompress TCP payload (type=0x{:04X})", actualType);
+                            _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
+                            continue;
+                        }
+                    }
+                }
 
                 if (head.type == static_cast<uint16_t>(MessageType::Login)) {
                     // Server prompts for login - send credentials
@@ -680,14 +713,13 @@ namespace client::network
                 }
                 // Leaderboard System (Phase 3)
                 else if (head.type == static_cast<uint16_t>(MessageType::LeaderboardData)) {
-                    auto respOpt = LeaderboardDataResponse::from_bytes(
-                        _accumulator.data() + Header::WIRE_SIZE, head.payload_size);
+                    auto respOpt = LeaderboardDataResponse::from_bytes(payloadPtr, payloadSize);
                     if (respOpt) {
                         logger->debug("Received leaderboard data: {} entries, yourRank={}", respOpt->count, respOpt->yourRank);
-                        // Parse entries from the payload
+                        // Parse entries from the payload (may be decompressed)
                         LeaderboardDataEvent evt;
                         evt.response = *respOpt;
-                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE + LeaderboardDataResponse::HEADER_SIZE;
+                        const uint8_t* ptr = payloadPtr + LeaderboardDataResponse::HEADER_SIZE;
                         for (uint8_t i = 0; i < respOpt->count; ++i) {
                             auto entryOpt = LeaderboardEntryWire::from_bytes(ptr, LeaderboardEntryWire::WIRE_SIZE);
                             if (entryOpt) {
@@ -820,8 +852,8 @@ namespace client::network
                     }
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::FriendsListData)) {
-                    if (head.payload_size >= 2) {
-                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                    if (payloadSize >= 2) {
+                        const uint8_t* ptr = payloadPtr;
                         uint8_t count = ptr[0];
                         uint8_t totalCount = ptr[1];
                         ptr += 2;
@@ -956,8 +988,8 @@ namespace client::network
                     }
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::ConversationData)) {
-                    if (head.payload_size >= 2) {
-                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                    if (payloadSize >= 2) {
+                        const uint8_t* ptr = payloadPtr;
                         uint8_t count = ptr[0];
                         bool hasMore = ptr[1] != 0;
                         ptr += 2;
@@ -985,8 +1017,8 @@ namespace client::network
                     }
                 }
                 else if (head.type == static_cast<uint16_t>(MessageType::ConversationsListData)) {
-                    if (head.payload_size >= 1) {
-                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                    if (payloadSize >= 1) {
+                        const uint8_t* ptr = payloadPtr;
                         uint8_t count = ptr[0];
                         ptr += 1;
 

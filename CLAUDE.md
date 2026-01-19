@@ -350,12 +350,65 @@ Format: `TYPE: Description`
 - **sdl2**, **sdl2-image**: Client graphics (SDL2 backend)
 - **opus**: Audio codec for voice chat
 - **portaudio**: Cross-platform audio I/O
+- **lz4**: Network packet compression
+
+## Network Compression
+
+LZ4 compression is used to reduce network bandwidth for large packets.
+
+### Compressed Messages
+
+| Protocol | Message Type | Typical Size | Compression |
+|----------|-------------|--------------|-------------|
+| UDP | GameSnapshot | 800-2000 bytes | ~40-60% reduction |
+| TCP | LeaderboardData | Variable | Compressed if ≥128 bytes |
+| TCP | FriendsListData | Variable | Compressed if ≥128 bytes |
+| TCP | ConversationData | Variable | Compressed if ≥128 bytes |
+| TCP | ConversationsListData | Variable | Compressed if ≥128 bytes |
+
+### Protocol Flags
+
+| Flag | Value | Protocol | Description |
+|------|-------|----------|-------------|
+| `COMPRESSION_FLAG` | 0x8000 | UDP | Set in UDPHeader.type high bit |
+| `TCP_COMPRESSION_FLAG` | 0x8000 | TCP | Set in Header.type high bit |
+
+### Wire Format (Compressed)
+
+```
+UDP: [UDPHeader (12B)] [CompressionHeader (2B)] [LZ4 compressed payload]
+TCP: [Header (7B)] [CompressionHeader (2B)] [LZ4 compressed payload]
+```
+
+### CompressionHeader Structure
+
+```cpp
+struct CompressionHeader {
+    uint16_t originalSize;  // Uncompressed size (network byte order)
+    static constexpr size_t WIRE_SIZE = 2;
+};
+```
+
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MIN_COMPRESS_SIZE` | 128 bytes | Minimum payload size to attempt compression |
+| `MAX_UNCOMPRESSED_SIZE` | 65535 bytes | Maximum supported uncompressed size |
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `src/common/compression/Compression.hpp` | LZ4 compress/decompress utilities |
+| `src/common/protocol/Protocol.hpp` | CompressionHeader, flags |
 
 ## Key Files
 
 | Purpose | Path |
 |---------|------|
 | Protocol | `src/common/protocol/Protocol.hpp` |
+| Compression | `src/common/compression/Compression.hpp` |
 | Collision | `src/common/collision/AABB.hpp` |
 | Server main | `src/server/main.cpp` |
 | GameWorld | `src/server/infrastructure/game/GameWorld.cpp` |

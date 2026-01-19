@@ -479,6 +479,14 @@ struct PlayerInput {
 };
 
 // TCP Authentication Protocol structures
+
+/**
+ * @brief Flag to indicate compressed TCP packets
+ * When this bit is set in Header.type's high byte, the payload is LZ4-compressed
+ * The first 2 bytes of payload are originalSize (uint16_t, network order)
+ */
+constexpr uint16_t TCP_COMPRESSION_FLAG = 0x8000;
+
 struct Header {
     bool isAuthenticated;
     uint16_t type;
@@ -1572,6 +1580,41 @@ struct UDPHeader {
                 duration)
                 .count();
         return milliseconds;
+    }
+};
+
+/**
+ * @brief Flag to indicate compressed packets
+ * When this bit is set in UDPHeader.type's high byte, the packet is LZ4-compressed
+ */
+constexpr uint16_t COMPRESSION_FLAG = 0x8000;
+
+/**
+ * @brief Header for compressed UDP packets
+ * Follows immediately after UDPHeader when COMPRESSION_FLAG is set
+ * Contains the original uncompressed size needed for LZ4 decompression
+ */
+struct CompressionHeader {
+    uint16_t originalSize;  // Uncompressed payload size (excluding headers)
+
+    static constexpr size_t WIRE_SIZE = 2;
+
+    void to_bytes(void* buf) const {
+        auto* ptr = static_cast<uint8_t*>(buf);
+        uint16_t net_size = swap16(originalSize);
+        std::memcpy(ptr, &net_size, 2);
+    }
+
+    static std::optional<CompressionHeader> from_bytes(const void* buf, size_t buf_len) {
+        if (buf == nullptr || buf_len < WIRE_SIZE) {
+            return std::nullopt;
+        }
+        auto* ptr = static_cast<const uint8_t*>(buf);
+        CompressionHeader ch;
+        uint16_t net_size;
+        std::memcpy(&net_size, ptr, 2);
+        ch.originalSize = swap16(net_size);
+        return ch;
     }
 };
 

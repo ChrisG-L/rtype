@@ -186,6 +186,18 @@ endif()
 find_package(Opus CONFIG QUIET)
 find_package(portaudio CONFIG QUIET)
 
+# Network compression: LZ4
+find_package(lz4 CONFIG QUIET)
+if(TARGET lz4::lz4)
+    set(LZ4_FOUND_VIA_VCPKG TRUE)
+    message(STATUS "LZ4 found via vcpkg")
+else()
+    set(LZ4_FOUND_VIA_VCPKG FALSE)
+    message(STATUS "LZ4 not found via vcpkg, trying pkg-config...")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LZ4 REQUIRED IMPORTED_TARGET liblz4)
+endif()
+
 if(TARGET Opus::opus)
     set(OPUS_FOUND_VIA_VCPKG TRUE)
     message(STATUS "Opus found via vcpkg")
@@ -428,6 +440,13 @@ if(PORTAUDIO_FOUND_VIA_VCPKG)
     endif()
 else()
     target_link_libraries(rtype_client PRIVATE PkgConfig::PORTAUDIO)
+endif()
+
+# Link LZ4 for network compression
+if(LZ4_FOUND_VIA_VCPKG)
+    target_link_libraries(rtype_client PRIVATE lz4::lz4)
+else()
+    target_link_libraries(rtype_client PRIVATE PkgConfig::LZ4)
 endif()
 
 # Copy assets folder to client output directory after build
