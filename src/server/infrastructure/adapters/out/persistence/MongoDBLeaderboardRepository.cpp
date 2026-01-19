@@ -186,7 +186,8 @@ std::vector<LeaderboardEntry> MongoDBLeaderboardRepository::getLeaderboard(
             kvp("kills", make_document(kvp("$first", "$kills"))),
             kvp("deaths", make_document(kvp("$first", "$deaths"))),
             kvp("duration", make_document(kvp("$first", "$duration"))),
-            kvp("timestamp", make_document(kvp("$first", "$timestamp")))
+            kvp("timestamp", make_document(kvp("$first", "$timestamp"))),
+            kvp("playerCount", make_document(kvp("$first", "$playerCount")))
         ));
 
         // Stage 4: Sort again by score (group may have reordered)
