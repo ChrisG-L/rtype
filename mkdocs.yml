@@ -194,6 +194,8 @@ nav:
     - Persistance:
       - technique/persistance/index.md
       - MongoDB: technique/persistance/mongodb.md
+    - ECS:
+      - technique/ecs/index.md
   - API:
     - api/index.md
     - Serveur:

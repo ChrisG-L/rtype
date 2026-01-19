@@ -18,6 +18,20 @@ Vous pouvez jouer seul sans attendre d'autres joueurs. Le jeu démarre immédiat
 
 ---
 
+## Affichage des Joueurs
+
+Pendant la partie, les pseudos des joueurs s'affichent au-dessus de leur vaisseau :
+
+| Joueur | Affichage |
+|--------|-----------|
+| Vous | **You** |
+| Autres joueurs | Leur vrai pseudo |
+
+!!! note "Identification"
+    Votre vaisseau affiche toujours "You" pour vous permettre de vous identifier facilement, même si plusieurs joueurs ont des skins similaires.
+
+---
+
 ## Architecture
 
 ```mermaid
