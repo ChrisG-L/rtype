@@ -2743,10 +2743,12 @@ namespace infrastructure::game {
     }
 
     void GameWorld::updateAllCharging(float deltaTime) {
+        // Apply game speed multiplier to charge time (x2 speed = charge 2x faster)
+        float adjustedDelta = deltaTime * _gameSpeedMultiplier;
         for (auto& [playerId, player] : _players) {
             if (player.isCharging) {
                 // fireHeld is true while isCharging is set
-                updateCharging(playerId, deltaTime, true);
+                updateCharging(playerId, adjustedDelta, true);
             }
         }
     }
