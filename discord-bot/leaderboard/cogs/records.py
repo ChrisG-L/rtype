@@ -25,11 +25,12 @@ RECORD_TYPES = {
 
 
 class RecordsCog(commands.Cog):
-    """Auto-announce new records."""
+    """Auto-announce new records and leader changes."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._last_records: dict[str, int] = {}
+        self._last_leader: Optional[str] = None  # Track all-time leader
         self._initialized = False
 
     async def cog_load(self):
@@ -75,8 +76,13 @@ class RecordsCog(commands.Cog):
             if top_bosses:
                 self._last_records["bosses"] = top_bosses.get("bossKills", 0)
 
+            # Get current all-time leader
+            top_score = await db.leaderboard.find_one(sort=[("score", -1)])
+            if top_score:
+                self._last_leader = top_score.get("playerName")
+
             self._initialized = True
-            logger.info(f"Loaded current records: {self._last_records}")
+            logger.info(f"Loaded current records: {self._last_records}, leader: {self._last_leader}")
         except Exception as e:
             logger.error(f"Failed to load current records: {e}")
 
@@ -96,7 +102,7 @@ class RecordsCog(commands.Cog):
             return
 
         try:
-            # Check for new top score
+            # Check for new top score (also checks leader change)
             await self._check_score_record(db, channel)
 
             # Check for new top wave
@@ -107,6 +113,9 @@ class RecordsCog(commands.Cog):
 
             # Check for new top boss kills
             await self._check_stat_record(db, channel, "bosses", "bossKills")
+
+            # Check for leader change (separate from record)
+            await self._check_leader_change(db, channel)
 
         except Exception as e:
             logger.error(f"Error checking records: {e}")
@@ -163,6 +172,82 @@ class RecordsCog(commands.Cog):
                 new_value=current_best,
                 old_value=last_best,
             )
+
+    async def _check_leader_change(self, db, channel: discord.TextChannel):
+        """Check if the all-time leader has changed (without breaking the record)."""
+        top = await db.leaderboard.find_one(sort=[("score", -1)])
+        if not top:
+            return
+
+        current_leader = top.get("playerName")
+        current_score = top.get("score", 0)
+
+        # Only announce if leader changed AND it's not a new record
+        # (new records are announced separately with more details)
+        if current_leader and current_leader != self._last_leader:
+            old_leader = self._last_leader
+            self._last_leader = current_leader
+
+            # Skip if this is the first initialization or if it's a new record
+            if old_leader is None:
+                return
+
+            # Check if this was already announced as a new record
+            if current_score > self._last_records.get("score", 0):
+                # This will be/was announced as a new record, skip leader announcement
+                return
+
+            await self._announce_leader_change(
+                channel,
+                new_leader=current_leader,
+                old_leader=old_leader,
+                score=current_score,
+                extra_info={
+                    "wave": top.get("wave", 0),
+                    "kills": top.get("kills", 0),
+                    "playerCount": top.get("playerCount", 1),
+                },
+            )
+
+    async def _announce_leader_change(
+        self,
+        channel: discord.TextChannel,
+        new_leader: str,
+        old_leader: str,
+        score: int,
+        extra_info: Optional[dict] = None,
+    ):
+        """Announce a new all-time leader."""
+        embed = discord.Embed(
+            title="👑 NEW ALL-TIME LEADER! 👑",
+            description=f"**{new_leader}** has taken the #1 spot!",
+            color=0xFFD700,  # Gold
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        embed.add_field(name="New Leader", value=f"**{new_leader}**", inline=True)
+        embed.add_field(name="Previous Leader", value=old_leader, inline=True)
+        embed.add_field(name="Score", value=f"**{format_number(score)}** pts", inline=True)
+
+        if extra_info:
+            mode_names = {1: "Solo", 2: "Duo", 3: "Trio", 4: "4P"}
+            mode = mode_names.get(extra_info.get("playerCount", 1), "?")
+            details = (
+                f"**Wave:** {extra_info.get('wave', 0)}\n"
+                f"**Kills:** {extra_info.get('kills', 0)}\n"
+                f"**Mode:** {mode}"
+            )
+            embed.add_field(name="Game Details", value=details, inline=False)
+
+        embed.set_footer(text="R-Type Leaderboard")
+
+        try:
+            await channel.send(embed=embed)
+            logger.info(f"Announced new leader: {new_leader} (was: {old_leader})")
+        except discord.Forbidden:
+            logger.error(f"Cannot send messages to records channel {channel.id}")
+        except Exception as e:
+            logger.error(f"Failed to announce leader change: {e}")
 
     async def _announce_record(
         self,
