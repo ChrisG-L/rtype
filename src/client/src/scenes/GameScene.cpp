@@ -859,7 +859,7 @@ void GameScene::renderTeamScoreboard()
             rankColor = {150, 150, 150, 255}; // Gray
         }
 
-        // Get player name from stored names map, fallback to "P#"
+        // Get player name - "YOU" for local player, real name for others
         std::string playerName;
         if (isLocal) {
             playerName = "YOU";
@@ -1028,13 +1028,19 @@ void GameScene::renderPlayers()
                 SHIP_HEIGHT
             );
 
+            // Get player name - "You" for local player, real name for others
             std::string label;
             if (localId && player.id == *localId) {
                 label = "You";
             } else {
-                label = "P" + std::to_string(player.id);
+                auto nameIt = _playerNames.find(player.id);
+                if (nameIt != _playerNames.end() && !nameIt->second.empty()) {
+                    label = nameIt->second.substr(0, 12);  // Truncate to 12 chars
+                } else {
+                    label = "P" + std::to_string(player.id);
+                }
             }
-            float labelX = px + (SHIP_WIDTH / 2.0f) - 10.0f;
+            float labelX = px + (SHIP_WIDTH / 2.0f) - (label.length() * 3.0f);  // Center based on name length
             float labelY = py - 18.0f;
             _context.window->drawText(FONT_KEY, label, labelX, labelY, LABEL_FONT_SIZE, {255, 255, 255, 255});
         } else {
@@ -1281,8 +1287,16 @@ void GameScene::renderVoiceIndicator()
     // Show who is speaking
     auto speakers = voiceMgr.getActiveSpeakers();
     for (uint8_t speakerId : speakers) {
-        _context.window->drawRect(indicatorX, indicatorY, 120, 22, {40, 120, 40, 200});
-        std::string label = "P" + std::to_string(speakerId) + " speaking";
+        _context.window->drawRect(indicatorX, indicatorY, 140, 22, {40, 120, 40, 200});
+        // Get speaker name from stored names map
+        std::string speakerName;
+        auto nameIt = _playerNames.find(speakerId);
+        if (nameIt != _playerNames.end() && !nameIt->second.empty()) {
+            speakerName = nameIt->second.substr(0, 10);
+        } else {
+            speakerName = "P" + std::to_string(speakerId);
+        }
+        std::string label = speakerName + " speaking";
         _context.window->drawText(FONT_KEY, label, indicatorX + 8, indicatorY + 4, 12, {255, 255, 255, 255});
         indicatorY += 26.0f;
     }
