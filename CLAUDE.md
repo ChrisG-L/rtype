@@ -409,6 +409,31 @@ Format: `TYPE: Description`
 | Effect | Player takes no damage |
 | Persistence | Saved to MongoDB (user_settings.godMode) |
 
+## Friends & Private Messaging
+
+Social system with friend requests, friendships, blocking, and private messages via TCP.
+
+### TCP Message Ranges
+
+| Range | Feature |
+|-------|---------|
+| 0x0600-0x0650 | Friends (requests, accept/reject, block, status) |
+| 0x0660-0x0681 | Private messages (send, receive, history) |
+
+### Key Components
+
+| Component | Description |
+|-----------|-------------|
+| `FriendManager` | Real-time notification manager (server) |
+| `FriendsScene` | Friends UI (client) |
+| `PrivateChatScene` | Chat UI (client) |
+
+### MongoDB Collections
+
+`friendships`, `friend_requests`, `blocked_users`, `private_messages`
+
+> Full details: [docs/friends-system.md](docs/friends-system.md)
+
 ## Notes for Claude
 
 1. **Read files before modifying** - Use `Read` tool first
@@ -432,4 +457,5 @@ Detailed documentation in `docs/`:
 - [docs/developpement/discord-leaderboard-bot.md](docs/developpement/discord-leaderboard-bot.md) - Discord Leaderboard Bot
 - [docs/guide/gameplay/leaderboard.md](docs/guide/gameplay/leaderboard.md) - Leaderboard UI guide
 - [docs/leaderboard.md](docs/leaderboard.md) - Leaderboard wire protocol, MongoDB
+- [docs/friends-system.md](docs/friends-system.md) - Friends & private messaging system
 - [docs/version-checking.md](docs/version-checking.md) - Client/server version sync
