@@ -38,6 +38,7 @@ private:
     void onLeaderboardClick();
     void onSettingsClick();
     void onQuitClick();
+    void onBreakoutClick();
 
     // Dialog actions
     void onCreateRoomConfirm();
@@ -74,6 +75,7 @@ private:
     std::unique_ptr<ui::Button> _leaderboardButton;
     std::unique_ptr<ui::Button> _settingsButton;
     std::unique_ptr<ui::Button> _quitButton;
+    std::unique_ptr<ui::Button> _breakoutButton;
 
     // Create room dialog components
     std::unique_ptr<ui::TextInput> _roomNameInput;

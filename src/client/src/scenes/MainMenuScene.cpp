@@ -11,6 +11,7 @@
 #include "scenes/SettingsScene.hpp"
 #include "scenes/RoomBrowserScene.hpp"
 #include "scenes/LeaderboardScene.hpp"
+#include "scenes/BreakoutScene.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
 #include "audio/VoiceChatManager.hpp"
 #include <variant>
@@ -115,6 +116,17 @@ void MainMenuScene::initUI()
     _quitButton->setOnClick([this]() { onQuitClick(); });
     _quitButton->setNormalColor({100, 50, 50, 255});
     _quitButton->setHoveredColor({150, 70, 70, 255});
+
+    // Breakout mini-game button (right side banner)
+    _breakoutButton = std::make_unique<ui::Button>(
+        Vec2f{SCREEN_WIDTH - 220, SCREEN_HEIGHT / 2 - 30},
+        Vec2f{180, 60},
+        "BREAKOUT",
+        FONT_KEY
+    );
+    _breakoutButton->setOnClick([this]() { onBreakoutClick(); });
+    _breakoutButton->setNormalColor({80, 50, 120, 255});
+    _breakoutButton->setHoveredColor({120, 70, 180, 255});
 
     // === Create Room Dialog Components ===
     float dialogCenterX = SCREEN_WIDTH / 2.0f;
@@ -440,6 +452,13 @@ void MainMenuScene::onLeaderboardClick()
     }
 }
 
+void MainMenuScene::onBreakoutClick()
+{
+    if (_sceneManager) {
+        _sceneManager->changeScene(std::make_unique<BreakoutScene>());
+    }
+}
+
 void MainMenuScene::onSettingsClick()
 {
     if (_sceneManager) {
@@ -496,6 +515,7 @@ void MainMenuScene::handleEvent(const events::Event& event)
         _leaderboardButton->handleEvent(event);
         _settingsButton->handleEvent(event);
         _quitButton->handleEvent(event);
+        _breakoutButton->handleEvent(event);
     }
 }
 
@@ -516,8 +536,10 @@ void MainMenuScene::update(float deltaTime)
     _joinRoomButton->update(deltaTime);
     _browseRoomsButton->update(deltaTime);
     _quickJoinButton->update(deltaTime);
+    _leaderboardButton->update(deltaTime);
     _settingsButton->update(deltaTime);
     _quitButton->update(deltaTime);
+    _breakoutButton->update(deltaTime);
 
     // Update dialog components if visible
     if (_dialogMode == DialogMode::CreateRoom) {
@@ -566,6 +588,11 @@ void MainMenuScene::render()
     _leaderboardButton->render(*_context.window);
     _settingsButton->render(*_context.window);
     _quitButton->render(*_context.window);
+
+    // Draw Breakout mini-game button (right side)
+    _context.window->drawText(FONT_KEY, "MINI-GAME",
+        SCREEN_WIDTH - 200, SCREEN_HEIGHT / 2 - 60, 16, {150, 150, 180, 255});
+    _breakoutButton->render(*_context.window);
 
     // Draw dialog overlay if active
     if (_dialogMode != DialogMode::None) {

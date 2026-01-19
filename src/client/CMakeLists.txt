@@ -229,6 +229,7 @@ add_executable(rtype_client
     src/scenes/SettingsScene.cpp
     src/scenes/RoomBrowserScene.cpp
     src/scenes/LeaderboardScene.cpp
+    src/scenes/BreakoutScene.cpp
 
     src/ui/Button.cpp
     src/ui/TextInput.cpp
@@ -368,6 +369,7 @@ target_include_directories(rtype_client PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/common/protocol
+    ${PROJECT_SOURCE_DIR}/src/common
     $<$<NOT:$<BOOL:${SDL2_FOUND_VIA_VCPKG}>>:${SDL2_PARENT_INCLUDE_DIRS}>
     $<$<NOT:$<BOOL:${SDL2_FOUND_VIA_VCPKG}>>:${SDL2_MIXER_PARENT_INCLUDE_DIR}>
     )
