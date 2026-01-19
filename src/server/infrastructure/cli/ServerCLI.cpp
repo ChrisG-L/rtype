@@ -30,6 +30,10 @@
     #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+// Cross-platform localtime: Windows uses localtime_s with reversed args
+inline std::tm* localtime_r(const std::time_t* timer, std::tm* buf) {
+    return localtime_s(buf, timer) == 0 ? buf : nullptr;
+}
 #endif
 
 namespace infrastructure::cli {
