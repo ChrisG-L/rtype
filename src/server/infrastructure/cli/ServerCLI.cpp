@@ -21,6 +21,7 @@
 #include <set>
 #include <algorithm>
 #include <mutex>
+#include <chrono>
 
 #ifdef _WIN32
 // WIN32_LEAN_AND_MEAN prevents windows.h from including winsock.h
@@ -37,12 +38,14 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
                      UDPServer& udpServer,
                      std::shared_ptr<tui::LogBuffer> logBuffer,
                      std::shared_ptr<IUserRepository> userRepository,
-                     std::shared_ptr<RoomManager> roomManager)
+                     std::shared_ptr<RoomManager> roomManager,
+                     std::shared_ptr<IPrivateMessageRepository> pmRepository)
     : _sessionManager(std::move(sessionManager))
     , _udpServer(udpServer)
     , _logBuffer(std::move(logBuffer))
     , _userRepository(std::move(userRepository))
     , _roomManager(std::move(roomManager))
+    , _pmRepository(std::move(pmRepository))
 {
     // Create TerminalUI if we have a log buffer
     if (_logBuffer) {
@@ -68,6 +71,11 @@ ServerCLI::ServerCLI(std::shared_ptr<SessionManager> sessionManager,
     _commands["zoom"] = [this](const std::string&) { enterZoomMode(); };
     _commands["interact"] = [this](const std::string& args) { enterInteractMode(args); };
     _commands["net"] = [this](const std::string& args) { cmdNet(args); };
+    _commands["pmstats"] = [this](const std::string& args) { pmStats(args); };
+    _commands["pmuser"] = [this](const std::string& args) { pmUser(args); };
+    _commands["pmconv"] = [this](const std::string& args) { pmConversation(args); };
+    _commands["pmsearch"] = [this](const std::string& args) { pmSearch(args); };
+    _commands["pmrecent"] = [this](const std::string& args) { pmRecent(args); };
     _commands["quit"] = [this](const std::string&) { stop(); };
     _commands["exit"] = [this](const std::string&) { stop(); };
 
@@ -273,6 +281,15 @@ void ServerCLI::printHelp() {
     output("║ ban <email>          - Ban a user permanently                ║");
     output("║ unban <email>        - Unban a user                          ║");
     output("║ bans                 - List all banned users                 ║");
+    output("╠══════════════════════════════════════════════════════════════╣");
+    output("║                    PRIVATE MESSAGES (ADMIN)                  ║");
+    output("╠══════════════════════════════════════════════════════════════╣");
+    output("║ pmstats              - Show PM statistics                    ║");
+    output("║ pmuser <email>       - Show all messages for a user          ║");
+    output("║ pmconv <e1> <e2>     - Show conversation between 2 users     ║");
+    output("║ pmsearch <term>      - Search messages by content            ║");
+    output("║ pmrecent [limit]     - Show recent messages (default 50)     ║");
+    output("╠══════════════════════════════════════════════════════════════╣");
     output("║ logs <on|off>        - Enable/disable all server logs        ║");
     output("║ debug <on|off>       - Enable/disable debug logs             ║");
     output("║ zoom                 - Full-screen log view (ESC to exit)    ║");
@@ -2250,6 +2267,271 @@ std::string ServerCLI::buildNetworkGraph() {
           << COLOR_RED << ">100ms" << COLOR_RESET << "\n";
 
     return graph.str();
+}
+
+// ============================================================================
+// Private Message Admin Commands
+// ============================================================================
+
+void ServerCLI::pmStats(const std::string& /*args*/) {
+    if (!_pmRepository) {
+        output("[PM] Private message repository not available");
+        return;
+    }
+
+    auto [totalMessages, totalConversations] = _pmRepository->getMessageStats();
+
+    output("");
+    output("╔═════════════════════════════════════╗");
+    output("║       PRIVATE MESSAGE STATS         ║");
+    output("╠═════════════════════════════════════╣");
+
+    std::ostringstream oss;
+    oss << "║ Total messages:     " << std::setw(15) << totalMessages << " ║";
+    output(oss.str());
+
+    oss.str("");
+    oss << "║ Total conversations:" << std::setw(15) << totalConversations << " ║";
+    output(oss.str());
+
+    output("╚═════════════════════════════════════╝");
+    output("");
+}
+
+void ServerCLI::pmUser(const std::string& args) {
+    if (!_pmRepository) {
+        output("[PM] Private message repository not available");
+        return;
+    }
+
+    auto parsedArgs = parseArgs(args);
+    if (parsedArgs.empty()) {
+        output("[PM] Usage: pmuser <email>");
+        return;
+    }
+
+    const std::string& email = parsedArgs[0];
+    size_t limit = parsedArgs.size() > 1 ? std::stoul(parsedArgs[1]) : 100;
+
+    auto messages = _pmRepository->getMessagesByUser(email, limit);
+
+    output("");
+    output("╔═══════════════════════════════════════════════════════════════════════╗");
+    output("║                    MESSAGES FOR USER: " + email);
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+
+    if (messages.empty()) {
+        output("║ No messages found                                                     ║");
+    } else {
+        for (const auto& msg : messages) {
+            std::ostringstream oss;
+
+            // Format timestamp
+            auto timeT = std::chrono::system_clock::to_time_t(msg.timestamp);
+            std::tm tm{};
+            localtime_r(&timeT, &tm);
+            char timeBuf[32];
+            std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M", &tm);
+
+            // Direction indicator
+            std::string direction = (msg.senderEmail == email) ? "→" : "←";
+            std::string otherParty = (msg.senderEmail == email) ? msg.recipientEmail : msg.senderEmail;
+            std::string readStatus = msg.isRead ? "✓" : "○";
+
+            oss << "║ [" << timeBuf << "] " << readStatus << " "
+                << direction << " " << otherParty;
+            output(oss.str());
+
+            // Truncate message if too long
+            std::string msgContent = msg.message;
+            if (msgContent.length() > 60) {
+                msgContent = msgContent.substr(0, 57) + "...";
+            }
+            output("║   \"" + msgContent + "\"");
+            output("║");
+        }
+    }
+
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+    std::ostringstream footer;
+    footer << "║ Showing " << messages.size() << " messages (limit: " << limit << ")";
+    output(footer.str());
+    output("╚═══════════════════════════════════════════════════════════════════════╝");
+    output("");
+}
+
+void ServerCLI::pmConversation(const std::string& args) {
+    if (!_pmRepository) {
+        output("[PM] Private message repository not available");
+        return;
+    }
+
+    auto parsedArgs = parseArgs(args);
+    if (parsedArgs.size() < 2) {
+        output("[PM] Usage: pmconv <email1> <email2> [limit]");
+        return;
+    }
+
+    const std::string& email1 = parsedArgs[0];
+    const std::string& email2 = parsedArgs[1];
+    size_t limit = parsedArgs.size() > 2 ? std::stoul(parsedArgs[2]) : 50;
+
+    auto messages = _pmRepository->getConversation(email1, email2, 0, limit);
+
+    output("");
+    output("╔═══════════════════════════════════════════════════════════════════════╗");
+    output("║         CONVERSATION: " + email1 + " <-> " + email2);
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+
+    if (messages.empty()) {
+        output("║ No messages found                                                     ║");
+    } else {
+        for (const auto& msg : messages) {
+            std::ostringstream oss;
+
+            // Format timestamp
+            auto timeT = std::chrono::system_clock::to_time_t(msg.timestamp);
+            std::tm tm{};
+            localtime_r(&timeT, &tm);
+            char timeBuf[32];
+            std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M", &tm);
+
+            std::string readStatus = msg.isRead ? "✓" : "○";
+            std::string sender = msg.senderDisplayName.empty() ? msg.senderEmail : msg.senderDisplayName;
+
+            oss << "║ [" << timeBuf << "] " << readStatus << " " << sender << ":";
+            output(oss.str());
+
+            // Truncate message if too long
+            std::string msgContent = msg.message;
+            if (msgContent.length() > 60) {
+                msgContent = msgContent.substr(0, 57) + "...";
+            }
+            output("║   \"" + msgContent + "\"");
+            output("║");
+        }
+    }
+
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+    std::ostringstream footer;
+    footer << "║ Showing " << messages.size() << " messages";
+    output(footer.str());
+    output("╚═══════════════════════════════════════════════════════════════════════╝");
+    output("");
+}
+
+void ServerCLI::pmSearch(const std::string& args) {
+    if (!_pmRepository) {
+        output("[PM] Private message repository not available");
+        return;
+    }
+
+    if (args.empty()) {
+        output("[PM] Usage: pmsearch <search_term>");
+        return;
+    }
+
+    auto messages = _pmRepository->searchMessages(args, 50);
+
+    output("");
+    output("╔═══════════════════════════════════════════════════════════════════════╗");
+    output("║           SEARCH RESULTS FOR: \"" + args + "\"");
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+
+    if (messages.empty()) {
+        output("║ No messages found                                                     ║");
+    } else {
+        for (const auto& msg : messages) {
+            std::ostringstream oss;
+
+            // Format timestamp
+            auto timeT = std::chrono::system_clock::to_time_t(msg.timestamp);
+            std::tm tm{};
+            localtime_r(&timeT, &tm);
+            char timeBuf[32];
+            std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M", &tm);
+
+            std::string sender = msg.senderDisplayName.empty() ? msg.senderEmail : msg.senderDisplayName;
+
+            oss << "║ [" << timeBuf << "] " << sender << " → " << msg.recipientEmail;
+            output(oss.str());
+
+            // Truncate message if too long, highlight search term
+            std::string msgContent = msg.message;
+            if (msgContent.length() > 60) {
+                msgContent = msgContent.substr(0, 57) + "...";
+            }
+            output("║   \"" + msgContent + "\"");
+            output("║");
+        }
+    }
+
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+    std::ostringstream footer;
+    footer << "║ Found " << messages.size() << " messages";
+    output(footer.str());
+    output("╚═══════════════════════════════════════════════════════════════════════╝");
+    output("");
+}
+
+void ServerCLI::pmRecent(const std::string& args) {
+    if (!_pmRepository) {
+        output("[PM] Private message repository not available");
+        return;
+    }
+
+    size_t limit = 50;
+    if (!args.empty()) {
+        try {
+            limit = std::stoul(args);
+        } catch (...) {
+            output("[PM] Invalid limit. Usage: pmrecent [limit]");
+            return;
+        }
+    }
+
+    auto messages = _pmRepository->getAllMessages(limit, 0);
+
+    output("");
+    output("╔═══════════════════════════════════════════════════════════════════════╗");
+    output("║                       RECENT PRIVATE MESSAGES                         ║");
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+
+    if (messages.empty()) {
+        output("║ No messages found                                                     ║");
+    } else {
+        for (const auto& msg : messages) {
+            std::ostringstream oss;
+
+            // Format timestamp
+            auto timeT = std::chrono::system_clock::to_time_t(msg.timestamp);
+            std::tm tm{};
+            localtime_r(&timeT, &tm);
+            char timeBuf[32];
+            std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M", &tm);
+
+            std::string readStatus = msg.isRead ? "✓" : "○";
+            std::string sender = msg.senderDisplayName.empty() ? msg.senderEmail : msg.senderDisplayName;
+
+            oss << "║ [" << timeBuf << "] " << readStatus << " " << sender << " → " << msg.recipientEmail;
+            output(oss.str());
+
+            // Truncate message if too long
+            std::string msgContent = msg.message;
+            if (msgContent.length() > 60) {
+                msgContent = msgContent.substr(0, 57) + "...";
+            }
+            output("║   \"" + msgContent + "\"");
+            output("║");
+        }
+    }
+
+    output("╠═══════════════════════════════════════════════════════════════════════╣");
+    std::ostringstream footer;
+    footer << "║ Showing " << messages.size() << " most recent messages";
+    output(footer.str());
+    output("╚═══════════════════════════════════════════════════════════════════════╝");
+    output("");
 }
 
 } // namespace infrastructure::cli

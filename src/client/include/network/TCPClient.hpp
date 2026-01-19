@@ -99,6 +99,23 @@ namespace client::network
         void sendGetAchievements();
         void sendGetGameHistory();
 
+        // Friends System (Phase 4)
+        void sendFriendRequest(const std::string& targetEmail);
+        void acceptFriendRequest(const std::string& fromEmail);
+        void rejectFriendRequest(const std::string& fromEmail);
+        void removeFriend(const std::string& friendEmail);
+        void blockUser(const std::string& targetEmail);
+        void unblockUser(const std::string& targetEmail);
+        void getFriendsList(uint8_t offset = 0, uint8_t limit = 50);
+        void getFriendRequests();
+        void getBlockedUsers();
+
+        // Private Messaging (Phase 4)
+        void sendPrivateMessage(const std::string& recipientEmail, const std::string& message);
+        void getConversation(const std::string& otherEmail, uint8_t offset = 0, uint8_t limit = 50);
+        void getConversationsList();
+        void markMessagesRead(const std::string& otherEmail);
+
         // Room state
         bool isInRoom() const;
         std::optional<std::string> getCurrentRoomCode() const;

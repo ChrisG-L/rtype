@@ -22,8 +22,16 @@
  */
 
 #include <gtest/gtest.h>
+#include "infrastructure/logging/Logger.hpp"
 
 int main(int argc, char **argv) {
+    // Initialize logger for tests that depend on it (e.g., FriendManager)
+    server::logging::Logger::init();
+    server::logging::Logger::setLevel(spdlog::level::off);  // Silence logs during tests
+
     ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int result = RUN_ALL_TESTS();
+
+    server::logging::Logger::shutdown();
+    return result;
 }

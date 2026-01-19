@@ -31,12 +31,22 @@ namespace infrastructure::adapters::in::network {
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
         std::shared_ptr<RoomManager> roomManager,
+        std::shared_ptr<FriendManager> friendManager,
+        std::shared_ptr<IFriendshipRepository> friendshipRepository,
+        std::shared_ptr<IFriendRequestRepository> friendRequestRepository,
+        std::shared_ptr<IBlockedUserRepository> blockedUserRepository,
+        std::shared_ptr<IPrivateMessageRepository> privateMessageRepository,
         std::function<void(Session*)> onClose)
     : _socket(std::move(socket)), _isAuthenticated(false),
       _userRepository(userRepository), _userSettingsRepository(userSettingsRepository),
       _leaderboardRepository(leaderboardRepository),
       _idGenerator(idGenerator), _logger(logger),
       _sessionManager(sessionManager), _roomManager(roomManager),
+      _friendManager(friendManager),
+      _friendshipRepository(friendshipRepository),
+      _friendRequestRepository(friendRequestRepository),
+      _blockedUserRepository(blockedUserRepository),
+      _privateMessageRepository(privateMessageRepository),
       _timeoutTimer(_socket.get_executor()),
       _onClose(std::move(onClose))
     {
@@ -82,6 +92,11 @@ namespace infrastructure::adapters::in::network {
                 // Unregister kicked callback from SessionManager
                 if (_sessionManager) {
                     _sessionManager->unregisterKickedCallback(email);
+                }
+
+                // Unregister FriendManager callbacks
+                if (_friendManager) {
+                    _friendManager->unregisterCallbacks(email);
                 }
 
                 // Remove from SessionManager (cleans up token and allows re-login)
@@ -380,6 +395,50 @@ namespace infrastructure::adapters::in::network {
                 case MessageType::GetAchievements:
                     handleGetAchievements();
                     return;
+
+                // Friends System messages
+                case MessageType::SendFriendRequest:
+                    handleSendFriendRequest(payload);
+                    return;
+                case MessageType::AcceptFriendRequest:
+                    handleAcceptFriendRequest(payload);
+                    return;
+                case MessageType::RejectFriendRequest:
+                    handleRejectFriendRequest(payload);
+                    return;
+                case MessageType::RemoveFriend:
+                    handleRemoveFriend(payload);
+                    return;
+                case MessageType::BlockUser:
+                    handleBlockUser(payload);
+                    return;
+                case MessageType::UnblockUser:
+                    handleUnblockUser(payload);
+                    return;
+                case MessageType::GetFriendsList:
+                    handleGetFriendsList(payload);
+                    return;
+                case MessageType::GetFriendRequests:
+                    handleGetFriendRequests();
+                    return;
+                case MessageType::GetBlockedUsers:
+                    handleGetBlockedUsers();
+                    return;
+
+                // Private Messaging messages
+                case MessageType::SendPrivateMessage:
+                    handleSendPrivateMessage(payload);
+                    return;
+                case MessageType::GetConversation:
+                    handleGetConversation(payload);
+                    return;
+                case MessageType::GetConversationsList:
+                    handleGetConversationsList();
+                    return;
+                case MessageType::MarkMessagesRead:
+                    handleMarkMessagesRead(payload);
+                    return;
+
                 default:
                     break;
             }
@@ -497,6 +556,64 @@ namespace infrastructure::adapters::in::network {
                         );
                     }
 
+                    // Register FriendManager callbacks for real-time friend notifications
+                    if (_friendManager) {
+                        auto weakSelf = weak_from_this();
+                        infrastructure::social::FriendCallbacks friendCallbacks;
+
+                        friendCallbacks.onRequestReceived = [weakSelf](
+                            const std::string& fromEmail,
+                            const std::string& fromDisplayName) {
+                            if (auto self = weakSelf.lock()) {
+                                self->do_write_friend_request_received(fromEmail, fromDisplayName);
+                            }
+                        };
+
+                        friendCallbacks.onRequestAccepted = [weakSelf](
+                            const std::string& friendEmail,
+                            const std::string& friendDisplayName,
+                            uint8_t onlineStatus) {
+                            if (auto self = weakSelf.lock()) {
+                                self->do_write_friend_request_accepted(friendEmail, friendDisplayName, onlineStatus);
+                            }
+                        };
+
+                        friendCallbacks.onFriendRemoved = [weakSelf](const std::string& friendEmail) {
+                            if (auto self = weakSelf.lock()) {
+                                self->do_write_friend_removed(friendEmail);
+                            }
+                        };
+
+                        friendCallbacks.onStatusChanged = [weakSelf](
+                            const std::string& friendEmail,
+                            uint8_t newStatus,
+                            const std::string& roomCode) {
+                            if (auto self = weakSelf.lock()) {
+                                self->do_write_friend_status_changed(friendEmail, newStatus, roomCode);
+                            }
+                        };
+
+                        friendCallbacks.onPrivateMessage = [weakSelf](
+                            const std::string& senderEmail,
+                            const std::string& senderDisplayName,
+                            const std::string& message,
+                            uint64_t timestamp) {
+                            if (auto self = weakSelf.lock()) {
+                                self->do_write_private_message_received(senderEmail, senderDisplayName, message, timestamp);
+                            }
+                        };
+
+                        friendCallbacks.onMessagesRead = [weakSelf](
+                            const std::string& readerEmail) {
+                            if (auto self = weakSelf.lock()) {
+                                self->do_write_messages_read_notification(readerEmail);
+                            }
+                        };
+
+                        _friendManager->registerCallbacks(email, friendCallbacks);
+                        networkLogger->info("Registered FriendCallbacks for user: {}", email);
+                    }
+
                     AuthResponseWithToken resp;
                     resp.success = true;
                     std::snprintf(resp.error_code, MAX_ERROR_CODE_LEN, "%s", "");
@@ -510,6 +627,9 @@ namespace infrastructure::adapters::in::network {
                     std::snprintf(resp.serverVersion.gitHash, GIT_HASH_LEN, "%s", RTYPE_GIT_HASH);
                     // Include version history for tracking commits behind
                     resp.versionHistory = infrastructure::version::VersionHistoryManager::getInstance().getHistory();
+                    // Include user's email for friend system identification
+                    std::memset(resp.userEmail, 0, MAX_EMAIL_LEN);
+                    std::snprintf(resp.userEmail, MAX_EMAIL_LEN, "%s", email.c_str());
                     do_write_auth_response_with_token(responseType, resp);
                 } else {
                     // User already has an active session
@@ -592,7 +712,12 @@ namespace infrastructure::adapters::in::network {
         std::shared_ptr<IIdGenerator> idGenerator,
         std::shared_ptr<ILogger> logger,
         std::shared_ptr<SessionManager> sessionManager,
-        std::shared_ptr<RoomManager> roomManager)
+        std::shared_ptr<RoomManager> roomManager,
+        std::shared_ptr<FriendManager> friendManager,
+        std::shared_ptr<IFriendshipRepository> friendshipRepository,
+        std::shared_ptr<IFriendRequestRepository> friendRequestRepository,
+        std::shared_ptr<IBlockedUserRepository> blockedUserRepository,
+        std::shared_ptr<IPrivateMessageRepository> privateMessageRepository)
         : _io_ctx(io_ctx)
         , _sslContext(ssl::context::tlsv12_server)
         , _certFile(certFile)
@@ -604,6 +729,11 @@ namespace infrastructure::adapters::in::network {
         , _logger(logger)
         , _sessionManager(sessionManager)
         , _roomManager(roomManager)
+        , _friendManager(friendManager)
+        , _friendshipRepository(friendshipRepository)
+        , _friendRequestRepository(friendRequestRepository)
+        , _blockedUserRepository(blockedUserRepository)
+        , _privateMessageRepository(privateMessageRepository)
         , _acceptor(io_ctx, tcp::endpoint(tcp::v4(), 4125))
     {
         initSSLContext();
@@ -753,6 +883,11 @@ namespace infrastructure::adapters::in::network {
                             _logger,
                             _sessionManager,
                             _roomManager,
+                            _friendManager,
+                            _friendshipRepository,
+                            _friendRequestRepository,
+                            _blockedUserRepository,
+                            _privateMessageRepository,
                             [this](Session* sessionPtr) {
                                 // Called from Session destructor - unregister from tracking
                                 unregisterSession(sessionPtr);
@@ -2065,6 +2200,1308 @@ namespace infrastructure::adapters::in::network {
                 if (ec) {
                     auto logger = server::logging::Logger::getNetworkLogger();
                     logger->error("AchievementsData write error: {}", ec.message());
+                }
+            });
+    }
+
+    // ========== FRIENDS SYSTEM HANDLERS ==========
+
+    uint8_t Session::getCurrentOnlineStatus() const {
+        if (!_isAuthenticated || !_user.has_value()) {
+            return static_cast<uint8_t>(FriendOnlineStatus::Offline);
+        }
+        std::string email = _user->getEmail().value();
+
+        // Check if in a game room
+        if (_roomManager && _roomManager->isPlayerInRoom(email)) {
+            auto* room = _roomManager->getRoomByPlayerEmail(email);
+            if (room && room->getState() == domain::entities::Room::State::InGame) {
+                return static_cast<uint8_t>(FriendOnlineStatus::InGame);
+            }
+            return static_cast<uint8_t>(FriendOnlineStatus::InLobby);
+        }
+
+        return static_cast<uint8_t>(FriendOnlineStatus::Online);
+    }
+
+    void Session::handleSendFriendRequest(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("SendFriendRequest: not authenticated");
+            return;
+        }
+
+        if (payload.size() < SendFriendRequestPayload::WIRE_SIZE) {
+            logger->warn("SendFriendRequest: payload too small");
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest), "");
+            return;
+        }
+
+        auto reqOpt = SendFriendRequestPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            logger->warn("SendFriendRequest: invalid payload");
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest), "");
+            return;
+        }
+
+        std::string fromEmail = _user->getEmail().value();
+        std::string toEmail = reqOpt->targetEmail;
+
+        // Validate target email
+        if (toEmail.empty() || toEmail == fromEmail) {
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest), toEmail);
+            return;
+        }
+
+        // Check if target user exists
+        auto targetUser = _userRepository->findByEmail(toEmail);
+        if (!targetUser) {
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::UserNotFound), toEmail);
+            return;
+        }
+
+        // Check if blocked (either direction)
+        if (_blockedUserRepository->hasAnyBlock(fromEmail, toEmail)) {
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::Blocked), toEmail);
+            return;
+        }
+
+        // Check if already friends
+        if (_friendshipRepository->areFriends(fromEmail, toEmail)) {
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::AlreadyFriends), toEmail);
+            return;
+        }
+
+        // Check if request already exists
+        if (_friendRequestRepository->requestExists(fromEmail, toEmail)) {
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::RequestAlreadySent), toEmail);
+            return;
+        }
+
+        // Check if there's a pending request FROM target TO us - auto-accept
+        if (_friendRequestRepository->requestExists(toEmail, fromEmail)) {
+            // Auto-accept: target already sent us a request
+            _friendRequestRepository->deleteRequest(toEmail, fromEmail);
+            _friendshipRepository->addFriendship(fromEmail, toEmail);
+
+            // Notify both parties
+            std::string fromDisplayName = _user->getUsername().value();
+            std::string toDisplayName = targetUser->getUsername().value();
+
+            // Get target's online status
+            uint8_t targetStatus = static_cast<uint8_t>(FriendOnlineStatus::Offline);
+            if (_sessionManager->hasActiveSession(toEmail)) {
+                targetStatus = static_cast<uint8_t>(FriendOnlineStatus::Online);
+                if (_roomManager && _roomManager->isPlayerInRoom(toEmail)) {
+                    auto* room = _roomManager->getRoomByPlayerEmail(toEmail);
+                    if (room && room->getState() == domain::entities::Room::State::InGame) {
+                        targetStatus = static_cast<uint8_t>(FriendOnlineStatus::InGame);
+                    } else {
+                        targetStatus = static_cast<uint8_t>(FriendOnlineStatus::InLobby);
+                    }
+                }
+            }
+
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::Success), toEmail);
+            do_write_friend_request_accepted(toEmail, toDisplayName, targetStatus);
+
+            // Notify target
+            if (_friendManager) {
+                _friendManager->notifyFriendRequestAccepted(toEmail, fromEmail, fromDisplayName, getCurrentOnlineStatus());
+            }
+
+            logger->info("Friend request auto-accepted: {} <-> {}", fromEmail, toEmail);
+            return;
+        }
+
+        // Create the friend request
+        try {
+            std::string fromDisplayName = _user->getUsername().value();
+            _friendRequestRepository->createRequest(fromEmail, toEmail, fromDisplayName);
+        } catch (const std::exception& e) {
+            logger->error("Failed to create friend request: {}", e.what());
+            do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError), toEmail);
+            return;
+        }
+
+        do_write_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::Success), toEmail);
+
+        // Notify target user if online
+        if (_friendManager) {
+            std::string fromDisplayName = _user->getUsername().value();
+            _friendManager->notifyFriendRequestReceived(toEmail, fromEmail, fromDisplayName);
+        }
+
+        logger->info("Friend request sent: {} -> {}", fromEmail, toEmail);
+    }
+
+    void Session::handleAcceptFriendRequest(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("AcceptFriendRequest: not authenticated");
+            return;
+        }
+
+        if (payload.size() < AcceptFriendRequestPayload::WIRE_SIZE) {
+            logger->warn("AcceptFriendRequest: payload too small");
+            do_write_accept_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        auto reqOpt = AcceptFriendRequestPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            do_write_accept_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        std::string fromEmail = reqOpt->fromEmail;
+
+        // Check if request exists
+        auto request = _friendRequestRepository->getRequest(fromEmail, myEmail);
+        if (!request) {
+            do_write_accept_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::RequestNotFound));
+            return;
+        }
+
+        // Delete request and create friendship
+        _friendRequestRepository->deleteRequest(fromEmail, myEmail);
+        try {
+            _friendshipRepository->addFriendship(myEmail, fromEmail);
+        } catch (const std::exception& e) {
+            logger->error("Failed to add friendship: {}", e.what());
+            do_write_accept_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError));
+            return;
+        }
+
+        do_write_accept_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::Success));
+
+        // Get friend's display name and status
+        auto friendUser = _userRepository->findByEmail(fromEmail);
+        std::string friendDisplayName = friendUser ? friendUser->getUsername().value() : fromEmail;
+
+        uint8_t friendStatus = static_cast<uint8_t>(FriendOnlineStatus::Offline);
+        if (_sessionManager->hasActiveSession(fromEmail)) {
+            friendStatus = static_cast<uint8_t>(FriendOnlineStatus::Online);
+            if (_roomManager && _roomManager->isPlayerInRoom(fromEmail)) {
+                auto* room = _roomManager->getRoomByPlayerEmail(fromEmail);
+                if (room && room->getState() == domain::entities::Room::State::InGame) {
+                    friendStatus = static_cast<uint8_t>(FriendOnlineStatus::InGame);
+                } else {
+                    friendStatus = static_cast<uint8_t>(FriendOnlineStatus::InLobby);
+                }
+            }
+        }
+
+        do_write_friend_request_accepted(fromEmail, friendDisplayName, friendStatus);
+
+        // Notify the requester
+        if (_friendManager) {
+            std::string myDisplayName = _user->getUsername().value();
+            _friendManager->notifyFriendRequestAccepted(fromEmail, myEmail, myDisplayName, getCurrentOnlineStatus());
+        }
+
+        logger->info("Friend request accepted: {} accepted {}", myEmail, fromEmail);
+    }
+
+    void Session::handleRejectFriendRequest(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("RejectFriendRequest: not authenticated");
+            return;
+        }
+
+        if (payload.size() < RejectFriendRequestPayload::WIRE_SIZE) {
+            do_write_reject_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        auto reqOpt = RejectFriendRequestPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            do_write_reject_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        std::string fromEmail = reqOpt->fromEmail;
+
+        // Check if request exists
+        if (!_friendRequestRepository->requestExists(fromEmail, myEmail)) {
+            do_write_reject_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::RequestNotFound));
+            return;
+        }
+
+        // Delete the request
+        try {
+            _friendRequestRepository->deleteRequest(fromEmail, myEmail);
+        } catch (const std::exception& e) {
+            logger->error("Failed to delete friend request: {}", e.what());
+            do_write_reject_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError));
+            return;
+        }
+
+        do_write_reject_friend_request_ack(static_cast<uint8_t>(FriendErrorCode::Success));
+        logger->info("Friend request rejected: {} rejected {}", myEmail, fromEmail);
+    }
+
+    void Session::handleRemoveFriend(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("RemoveFriend: not authenticated");
+            return;
+        }
+
+        if (payload.size() < RemoveFriendPayload::WIRE_SIZE) {
+            do_write_remove_friend_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        auto reqOpt = RemoveFriendPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            do_write_remove_friend_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        std::string friendEmail = reqOpt->friendEmail;
+
+        // Check if friends
+        if (!_friendshipRepository->areFriends(myEmail, friendEmail)) {
+            do_write_remove_friend_ack(static_cast<uint8_t>(FriendErrorCode::NotFriends));
+            return;
+        }
+
+        // Remove friendship
+        try {
+            _friendshipRepository->removeFriendship(myEmail, friendEmail);
+        } catch (const std::exception& e) {
+            logger->error("Failed to remove friendship: {}", e.what());
+            do_write_remove_friend_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError));
+            return;
+        }
+
+        do_write_remove_friend_ack(static_cast<uint8_t>(FriendErrorCode::Success));
+
+        // Notify the other user
+        if (_friendManager) {
+            _friendManager->notifyFriendRemoved(friendEmail, myEmail);
+        }
+
+        logger->info("Friend removed: {} removed {}", myEmail, friendEmail);
+    }
+
+    void Session::handleBlockUser(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("BlockUser: not authenticated");
+            return;
+        }
+
+        if (payload.size() < BlockUserPayload::WIRE_SIZE) {
+            do_write_block_user_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        auto reqOpt = BlockUserPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            do_write_block_user_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        std::string targetEmail = reqOpt->targetEmail;
+
+        if (targetEmail == myEmail) {
+            do_write_block_user_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        // Check if already blocked
+        if (_blockedUserRepository->isBlocked(myEmail, targetEmail)) {
+            do_write_block_user_ack(static_cast<uint8_t>(FriendErrorCode::AlreadyBlocked));
+            return;
+        }
+
+        // Remove friendship if exists
+        if (_friendshipRepository->areFriends(myEmail, targetEmail)) {
+            _friendshipRepository->removeFriendship(myEmail, targetEmail);
+            if (_friendManager) {
+                _friendManager->notifyFriendRemoved(targetEmail, myEmail);
+            }
+        }
+
+        // Remove any pending friend requests
+        _friendRequestRepository->deleteRequest(myEmail, targetEmail);
+        _friendRequestRepository->deleteRequest(targetEmail, myEmail);
+
+        // Block user
+        try {
+            auto targetUser = _userRepository->findByEmail(targetEmail);
+            std::string targetDisplayName = targetUser ? targetUser->getUsername().value() : targetEmail;
+            _blockedUserRepository->blockUser(myEmail, targetEmail, targetDisplayName);
+        } catch (const std::exception& e) {
+            logger->error("Failed to block user: {}", e.what());
+            do_write_block_user_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError));
+            return;
+        }
+
+        do_write_block_user_ack(static_cast<uint8_t>(FriendErrorCode::Success));
+        logger->info("User blocked: {} blocked {}", myEmail, targetEmail);
+    }
+
+    void Session::handleUnblockUser(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("UnblockUser: not authenticated");
+            return;
+        }
+
+        if (payload.size() < UnblockUserPayload::WIRE_SIZE) {
+            do_write_unblock_user_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        auto reqOpt = UnblockUserPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            do_write_unblock_user_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        std::string targetEmail = reqOpt->targetEmail;
+
+        // Check if blocked
+        if (!_blockedUserRepository->isBlocked(myEmail, targetEmail)) {
+            do_write_unblock_user_ack(static_cast<uint8_t>(FriendErrorCode::NotBlocked));
+            return;
+        }
+
+        // Unblock
+        try {
+            _blockedUserRepository->unblockUser(myEmail, targetEmail);
+        } catch (const std::exception& e) {
+            logger->error("Failed to unblock user: {}", e.what());
+            do_write_unblock_user_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError));
+            return;
+        }
+
+        do_write_unblock_user_ack(static_cast<uint8_t>(FriendErrorCode::Success));
+        logger->info("User unblocked: {} unblocked {}", myEmail, targetEmail);
+    }
+
+    void Session::handleGetFriendsList(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetFriendsList: not authenticated");
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+
+        // Parse optional pagination (offset/limit, but currently we return all)
+        // GetFriendsListPayload has offset and limit fields
+        (void)payload; // Currently not using pagination
+
+        // Get friend emails
+        auto friendEmails = _friendshipRepository->getFriendEmails(myEmail);
+
+        std::vector<FriendInfoWire> friends;
+        for (const auto& friendEmail : friendEmails) {
+            auto friendUser = _userRepository->findByEmail(friendEmail);
+            if (!friendUser) continue;
+
+            FriendInfoWire info;
+            std::memset(&info, 0, sizeof(info));
+
+            // Copy email
+            std::strncpy(info.email, friendEmail.c_str(), MAX_EMAIL_LEN - 1);
+            info.email[MAX_EMAIL_LEN - 1] = '\0';
+
+            // Copy display name
+            std::string displayName = friendUser->getUsername().value();
+            std::strncpy(info.displayName, displayName.c_str(), PLAYER_NAME_LEN - 1);
+            info.displayName[PLAYER_NAME_LEN - 1] = '\0';
+
+            // Determine online status
+            if (_sessionManager->hasActiveSession(friendEmail)) {
+                info.onlineStatus = static_cast<uint8_t>(FriendOnlineStatus::Online);
+                if (_roomManager && _roomManager->isPlayerInRoom(friendEmail)) {
+                    auto* room = _roomManager->getRoomByPlayerEmail(friendEmail);
+                    if (room) {
+                        if (room->getState() == domain::entities::Room::State::InGame) {
+                            info.onlineStatus = static_cast<uint8_t>(FriendOnlineStatus::InGame);
+                        } else {
+                            info.onlineStatus = static_cast<uint8_t>(FriendOnlineStatus::InLobby);
+                        }
+                        std::strncpy(info.roomCode, room->getCode().c_str(), ROOM_CODE_LEN - 1);
+                        info.roomCode[ROOM_CODE_LEN - 1] = '\0';
+                    }
+                }
+            } else {
+                info.onlineStatus = static_cast<uint8_t>(FriendOnlineStatus::Offline);
+            }
+
+            friends.push_back(info);
+        }
+
+        uint8_t totalCount = static_cast<uint8_t>(friendEmails.size());
+        do_write_friends_list(friends, totalCount);
+        logger->debug("GetFriendsList: sent {} friends (total: {})", friends.size(), totalCount);
+    }
+
+    void Session::handleGetFriendRequests() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetFriendRequests: not authenticated");
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+
+        // Get incoming and outgoing requests
+        auto incomingRequests = _friendRequestRepository->getIncomingRequests(myEmail);
+        auto outgoingRequests = _friendRequestRepository->getOutgoingRequests(myEmail);
+
+        std::vector<FriendRequestInfoWire> incoming;
+        std::vector<FriendRequestInfoWire> outgoing;
+
+        for (const auto& req : incomingRequests) {
+            auto fromUser = _userRepository->findByEmail(req.fromEmail);
+            if (!fromUser) continue;
+
+            FriendRequestInfoWire info;
+            std::memset(&info, 0, sizeof(info));
+            std::strncpy(info.email, req.fromEmail.c_str(), MAX_EMAIL_LEN - 1);
+            std::strncpy(info.displayName, fromUser->getUsername().value().c_str(), PLAYER_NAME_LEN - 1);
+            // Convert time_point to Unix timestamp (seconds since epoch)
+            info.timestamp = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                req.createdAt.time_since_epoch()).count());
+            incoming.push_back(info);
+        }
+
+        for (const auto& req : outgoingRequests) {
+            auto toUser = _userRepository->findByEmail(req.toEmail);
+            if (!toUser) continue;
+
+            FriendRequestInfoWire info;
+            std::memset(&info, 0, sizeof(info));
+            std::strncpy(info.email, req.toEmail.c_str(), MAX_EMAIL_LEN - 1);
+            std::strncpy(info.displayName, toUser->getUsername().value().c_str(), PLAYER_NAME_LEN - 1);
+            // Convert time_point to Unix timestamp (seconds since epoch)
+            info.timestamp = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                req.createdAt.time_since_epoch()).count());
+            outgoing.push_back(info);
+        }
+
+        do_write_friend_requests(incoming, outgoing);
+        logger->debug("GetFriendRequests: {} incoming, {} outgoing", incoming.size(), outgoing.size());
+    }
+
+    void Session::handleGetBlockedUsers() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetBlockedUsers: not authenticated");
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        auto blockedList = _blockedUserRepository->getBlockedUsers(myEmail);
+
+        std::vector<FriendInfoWire> blockedUsers;
+        for (const auto& blocked : blockedList) {
+            FriendInfoWire info;
+            std::memset(&info, 0, sizeof(info));
+            std::strncpy(info.email, blocked.blockedEmail.c_str(), MAX_EMAIL_LEN - 1);
+            std::strncpy(info.displayName, blocked.blockedDisplayName.c_str(), PLAYER_NAME_LEN - 1);
+            info.onlineStatus = static_cast<uint8_t>(FriendOnlineStatus::Offline); // Don't show status for blocked users
+            blockedUsers.push_back(info);
+        }
+
+        do_write_blocked_users(blockedUsers);
+        logger->debug("GetBlockedUsers: {} blocked users", blockedUsers.size());
+    }
+
+    // ========== PRIVATE MESSAGING HANDLERS ==========
+
+    void Session::handleSendPrivateMessage(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("SendPrivateMessage: not authenticated");
+            return;
+        }
+
+        if (payload.size() < SendPrivateMessagePayload::WIRE_SIZE) {
+            do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest), 0);
+            return;
+        }
+
+        auto reqOpt = SendPrivateMessagePayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest), 0);
+            return;
+        }
+
+        std::string fromEmail = _user->getEmail().value();
+        std::string toEmail = reqOpt->recipientEmail;
+        std::string message = reqOpt->message;
+
+        // Validate
+        if (toEmail.empty() || message.empty() || toEmail == fromEmail) {
+            do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest), 0);
+            return;
+        }
+
+        // Check if recipient exists
+        auto recipientUser = _userRepository->findByEmail(toEmail);
+        if (!recipientUser) {
+            do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::UserNotFound), 0);
+            return;
+        }
+
+        // Check if blocked
+        if (_blockedUserRepository->hasAnyBlock(fromEmail, toEmail)) {
+            do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::Blocked), 0);
+            return;
+        }
+
+        // Check if friends (optional: could allow messages to non-friends)
+        if (!_friendshipRepository->areFriends(fromEmail, toEmail)) {
+            do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::NotFriends), 0);
+            return;
+        }
+
+        // Save message
+        std::string fromDisplayName = _user->getUsername().value();
+        uint64_t messageId = _privateMessageRepository->saveMessage(fromEmail, toEmail, fromDisplayName, message);
+        if (messageId == 0) {
+            do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError), 0);
+            return;
+        }
+
+        uint64_t timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+
+        do_write_private_message_ack(static_cast<uint8_t>(FriendErrorCode::Success), messageId);
+
+        // Notify recipient if online
+        if (_friendManager) {
+            _friendManager->notifyPrivateMessage(toEmail, fromEmail, fromDisplayName, message, timestamp);
+        }
+
+        logger->debug("Private message sent: {} -> {} (id: {})", fromEmail, toEmail, messageId);
+    }
+
+    void Session::handleGetConversation(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetConversation: not authenticated");
+            return;
+        }
+
+        if (payload.size() < GetConversationPayload::WIRE_SIZE) {
+            return;
+        }
+
+        auto reqOpt = GetConversationPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        std::string otherEmail = reqOpt->otherEmail;
+        size_t offset = reqOpt->offset;
+        size_t limit = reqOpt->limit > 0 ? reqOpt->limit : 50;
+
+        // Security: Validate input
+        if (otherEmail.empty() || otherEmail == myEmail) {
+            do_write_conversation({}, false);
+            return;
+        }
+
+        // Security: Check if blocked
+        if (_blockedUserRepository->hasAnyBlock(myEmail, otherEmail)) {
+            logger->debug("GetConversation: blocked relationship between {} and {}", myEmail, otherEmail);
+            do_write_conversation({}, false);
+            return;
+        }
+
+        // Security: Only friends can retrieve conversation history
+        if (!_friendshipRepository->areFriends(myEmail, otherEmail)) {
+            logger->debug("GetConversation: {} and {} are not friends", myEmail, otherEmail);
+            do_write_conversation({}, false);
+            return;
+        }
+
+        auto messages = _privateMessageRepository->getConversation(myEmail, otherEmail, offset, limit);
+
+        std::vector<PrivateMessageWire> wireMessages;
+        for (const auto& msg : messages) {
+            PrivateMessageWire wire;
+            std::memset(&wire, 0, sizeof(wire));
+            std::strncpy(wire.senderEmail, msg.senderEmail.c_str(), MAX_EMAIL_LEN - 1);
+            // Use stored display name or look it up
+            if (!msg.senderDisplayName.empty()) {
+                std::strncpy(wire.senderDisplayName, msg.senderDisplayName.c_str(), MAX_USERNAME_LEN - 1);
+            } else {
+                auto senderUser = _userRepository->findByEmail(msg.senderEmail);
+                std::string displayName = senderUser ? senderUser->getUsername().value() : msg.senderEmail;
+                std::strncpy(wire.senderDisplayName, displayName.c_str(), MAX_USERNAME_LEN - 1);
+            }
+            std::strncpy(wire.message, msg.message.c_str(), MAX_MESSAGE_LEN - 1);
+            // Convert time_point to milliseconds since epoch
+            wire.timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                msg.timestamp.time_since_epoch()).count());
+            wire.isRead = msg.isRead ? 1 : 0;
+            wireMessages.push_back(wire);
+        }
+
+        bool hasMore = (messages.size() == limit);
+        do_write_conversation(wireMessages, hasMore);
+        logger->debug("GetConversation: {} with {} - {} messages", myEmail, otherEmail, wireMessages.size());
+    }
+
+    void Session::handleGetConversationsList() {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("GetConversationsList: not authenticated");
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        auto conversations = _privateMessageRepository->getConversationsList(myEmail, 50);
+
+        std::vector<ConversationSummaryWire> wireConversations;
+        for (const auto& conv : conversations) {
+            // Security: Filter out conversations with blocked users
+            if (_blockedUserRepository->hasAnyBlock(myEmail, conv.otherEmail)) {
+                continue;
+            }
+
+            auto otherUser = _userRepository->findByEmail(conv.otherEmail);
+
+            ConversationSummaryWire wire;
+            std::memset(&wire, 0, sizeof(wire));
+            std::strncpy(wire.otherEmail, conv.otherEmail.c_str(), MAX_EMAIL_LEN - 1);
+
+            if (otherUser) {
+                std::strncpy(wire.otherDisplayName, otherUser->getUsername().value().c_str(), MAX_USERNAME_LEN - 1);
+            } else {
+                std::strncpy(wire.otherDisplayName, conv.otherEmail.c_str(), MAX_USERNAME_LEN - 1);
+            }
+
+            std::strncpy(wire.lastMessage, conv.lastMessage.c_str(), MAX_MESSAGE_LEN - 1);
+            // Convert time_point to milliseconds since epoch
+            wire.lastTimestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                conv.lastTimestamp.time_since_epoch()).count());
+            wire.unreadCount = conv.unreadCount;
+
+            // Determine online status
+            if (_sessionManager->hasActiveSession(conv.otherEmail)) {
+                wire.onlineStatus = static_cast<uint8_t>(FriendOnlineStatus::Online);
+            } else {
+                wire.onlineStatus = static_cast<uint8_t>(FriendOnlineStatus::Offline);
+            }
+
+            wireConversations.push_back(wire);
+        }
+
+        do_write_conversations_list(wireConversations);
+        logger->debug("GetConversationsList: {} conversations", wireConversations.size());
+    }
+
+    void Session::handleMarkMessagesRead(const std::vector<uint8_t>& payload) {
+        auto logger = server::logging::Logger::getNetworkLogger();
+
+        if (!_isAuthenticated || !_user.has_value()) {
+            logger->warn("MarkMessagesRead: not authenticated");
+            return;
+        }
+
+        if (payload.size() < MarkMessagesReadPayload::WIRE_SIZE) {
+            do_write_mark_messages_read_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        auto reqOpt = MarkMessagesReadPayload::from_bytes(payload.data(), payload.size());
+        if (!reqOpt) {
+            do_write_mark_messages_read_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        std::string myEmail = _user->getEmail().value();
+        std::string otherEmail = reqOpt->otherEmail;
+
+        // Security: Validate input
+        if (otherEmail.empty() || otherEmail == myEmail) {
+            do_write_mark_messages_read_ack(static_cast<uint8_t>(FriendErrorCode::InvalidRequest));
+            return;
+        }
+
+        // Security: Check if blocked - blocked users cannot trigger read receipts
+        if (_blockedUserRepository->hasAnyBlock(myEmail, otherEmail)) {
+            logger->debug("MarkMessagesRead: blocked relationship between {} and {}", myEmail, otherEmail);
+            do_write_mark_messages_read_ack(static_cast<uint8_t>(FriendErrorCode::Blocked));
+            return;
+        }
+
+        // Security: Only friends can mark messages as read
+        if (!_friendshipRepository->areFriends(myEmail, otherEmail)) {
+            logger->debug("MarkMessagesRead: {} and {} are not friends", myEmail, otherEmail);
+            do_write_mark_messages_read_ack(static_cast<uint8_t>(FriendErrorCode::NotFriends));
+            return;
+        }
+
+        try {
+            _privateMessageRepository->markAsRead(myEmail, otherEmail);
+        } catch (const std::exception& e) {
+            logger->error("Failed to mark messages as read: {}", e.what());
+            do_write_mark_messages_read_ack(static_cast<uint8_t>(FriendErrorCode::DatabaseError));
+            return;
+        }
+
+        do_write_mark_messages_read_ack(static_cast<uint8_t>(FriendErrorCode::Success));
+        logger->debug("Messages marked as read: {} with {}", myEmail, otherEmail);
+
+        // Notify the sender that their messages were read (read receipts)
+        if (_friendManager) {
+            _friendManager->notifyMessagesRead(otherEmail, myEmail);
+        }
+    }
+
+    // ========== FRIENDS SYSTEM RESPONSE WRITERS ==========
+
+    void Session::do_write_friend_request_ack(uint8_t errorCode, const std::string& targetEmail) {
+        size_t payloadSize = 1 + MAX_EMAIL_LEN;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::SendFriendRequestAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = errorCode;
+        std::memset(ptr + 1, 0, MAX_EMAIL_LEN);
+        std::strncpy(reinterpret_cast<char*>(ptr + 1), targetEmail.c_str(), MAX_EMAIL_LEN - 1);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("SendFriendRequestAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_friend_request_received(const std::string& fromEmail, const std::string& fromDisplayName) {
+        size_t payloadSize = MAX_EMAIL_LEN + PLAYER_NAME_LEN;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::FriendRequestReceived),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        std::memset(ptr, 0, payloadSize);
+        std::strncpy(reinterpret_cast<char*>(ptr), fromEmail.c_str(), MAX_EMAIL_LEN - 1);
+        std::strncpy(reinterpret_cast<char*>(ptr + MAX_EMAIL_LEN), fromDisplayName.c_str(), PLAYER_NAME_LEN - 1);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("FriendRequestReceived write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_accept_friend_request_ack(uint8_t errorCode) {
+        size_t payloadSize = 1;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::AcceptFriendRequestAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+        buf->at(Header::WIRE_SIZE) = errorCode;
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("AcceptFriendRequestAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_friend_request_accepted(const std::string& friendEmail, const std::string& displayName, uint8_t onlineStatus) {
+        size_t payloadSize = MAX_EMAIL_LEN + PLAYER_NAME_LEN + 1;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::FriendRequestAccepted),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        std::memset(ptr, 0, payloadSize);
+        std::strncpy(reinterpret_cast<char*>(ptr), friendEmail.c_str(), MAX_EMAIL_LEN - 1);
+        std::strncpy(reinterpret_cast<char*>(ptr + MAX_EMAIL_LEN), displayName.c_str(), PLAYER_NAME_LEN - 1);
+        ptr[MAX_EMAIL_LEN + PLAYER_NAME_LEN] = onlineStatus;
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("FriendRequestAccepted write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_reject_friend_request_ack(uint8_t errorCode) {
+        size_t payloadSize = 1;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::RejectFriendRequestAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+        buf->at(Header::WIRE_SIZE) = errorCode;
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("RejectFriendRequestAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_remove_friend_ack(uint8_t errorCode) {
+        size_t payloadSize = 1;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::RemoveFriendAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+        buf->at(Header::WIRE_SIZE) = errorCode;
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("RemoveFriendAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_friend_removed(const std::string& friendEmail) {
+        size_t payloadSize = MAX_EMAIL_LEN;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::FriendRemoved),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        std::memset(ptr, 0, MAX_EMAIL_LEN);
+        std::strncpy(reinterpret_cast<char*>(ptr), friendEmail.c_str(), MAX_EMAIL_LEN - 1);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("FriendRemoved write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_block_user_ack(uint8_t errorCode) {
+        size_t payloadSize = 1;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::BlockUserAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+        buf->at(Header::WIRE_SIZE) = errorCode;
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("BlockUserAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_unblock_user_ack(uint8_t errorCode) {
+        size_t payloadSize = 1;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::UnblockUserAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+        buf->at(Header::WIRE_SIZE) = errorCode;
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("UnblockUserAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_friends_list(const std::vector<FriendInfoWire>& friends, uint8_t totalCount) {
+        uint8_t count = static_cast<uint8_t>(std::min(friends.size(), size_t(255)));
+        size_t payloadSize = 2 + count * FriendInfoWire::WIRE_SIZE;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::FriendsListData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = count;
+        ptr[1] = totalCount;
+        ptr += 2;
+
+        for (size_t i = 0; i < count; ++i) {
+            friends[i].to_bytes(ptr);
+            ptr += FriendInfoWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("FriendsListData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_friend_requests(const std::vector<FriendRequestInfoWire>& incoming, const std::vector<FriendRequestInfoWire>& outgoing) {
+        uint8_t incomingCount = static_cast<uint8_t>(std::min(incoming.size(), size_t(255)));
+        uint8_t outgoingCount = static_cast<uint8_t>(std::min(outgoing.size(), size_t(255)));
+        size_t payloadSize = 2 + (incomingCount + outgoingCount) * FriendRequestInfoWire::WIRE_SIZE;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::FriendRequestsData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = incomingCount;
+        ptr[1] = outgoingCount;
+        ptr += 2;
+
+        for (size_t i = 0; i < incomingCount; ++i) {
+            incoming[i].to_bytes(ptr);
+            ptr += FriendRequestInfoWire::WIRE_SIZE;
+        }
+
+        for (size_t i = 0; i < outgoingCount; ++i) {
+            outgoing[i].to_bytes(ptr);
+            ptr += FriendRequestInfoWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("FriendRequestsData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_blocked_users(const std::vector<FriendInfoWire>& blockedUsers) {
+        uint8_t count = static_cast<uint8_t>(std::min(blockedUsers.size(), size_t(255)));
+        size_t payloadSize = 1 + count * FriendInfoWire::WIRE_SIZE;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::BlockedUsersData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = count;
+        ptr += 1;
+
+        for (size_t i = 0; i < count; ++i) {
+            blockedUsers[i].to_bytes(ptr);
+            ptr += FriendInfoWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("BlockedUsersData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_friend_status_changed(const std::string& friendEmail, uint8_t newStatus, const std::string& roomCode) {
+        size_t payloadSize = MAX_EMAIL_LEN + 1 + ROOM_CODE_LEN;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::FriendStatusChanged),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        std::memset(ptr, 0, payloadSize);
+        std::strncpy(reinterpret_cast<char*>(ptr), friendEmail.c_str(), MAX_EMAIL_LEN - 1);
+        ptr[MAX_EMAIL_LEN] = newStatus;
+        std::strncpy(reinterpret_cast<char*>(ptr + MAX_EMAIL_LEN + 1), roomCode.c_str(), ROOM_CODE_LEN - 1);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("FriendStatusChanged write error: {}", ec.message());
+                }
+            });
+    }
+
+    // ========== PRIVATE MESSAGING RESPONSE WRITERS ==========
+
+    void Session::do_write_private_message_ack(uint8_t errorCode, uint64_t messageId) {
+        size_t payloadSize = 1 + 8;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::SendPrivateMessageAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = errorCode;
+        uint64_t netId = swap64(messageId);
+        std::memcpy(ptr + 1, &netId, 8);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("SendPrivateMessageAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_private_message_received(const std::string& senderEmail, const std::string& senderDisplayName, const std::string& message, uint64_t timestamp) {
+        uint16_t msgLen = static_cast<uint16_t>(std::min(message.size(), size_t(MAX_MESSAGE_LEN - 1)));
+        size_t payloadSize = MAX_EMAIL_LEN + MAX_USERNAME_LEN + 8 + 2 + msgLen;
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::PrivateMessageReceived),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        std::memset(ptr, 0, MAX_EMAIL_LEN + MAX_USERNAME_LEN);
+        std::strncpy(reinterpret_cast<char*>(ptr), senderEmail.c_str(), MAX_EMAIL_LEN - 1);
+        std::strncpy(reinterpret_cast<char*>(ptr + MAX_EMAIL_LEN), senderDisplayName.c_str(), MAX_USERNAME_LEN - 1);
+        ptr += MAX_EMAIL_LEN + MAX_USERNAME_LEN;
+
+        uint64_t netTs = swap64(timestamp);
+        std::memcpy(ptr, &netTs, 8);
+        ptr += 8;
+
+        uint16_t netLen = swap16(msgLen);
+        std::memcpy(ptr, &netLen, 2);
+        ptr += 2;
+
+        std::memcpy(ptr, message.c_str(), msgLen);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("PrivateMessageReceived write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_conversation(const std::vector<PrivateMessageWire>& messages, bool hasMore) {
+        // Calculate total size - fixed size messages
+        size_t payloadSize = 1 + 1 + (messages.size() * PrivateMessageWire::WIRE_SIZE); // count + hasMore + messages
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::ConversationData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = static_cast<uint8_t>(messages.size());
+        ptr[1] = hasMore ? 1 : 0;
+        ptr += 2;
+
+        for (const auto& msg : messages) {
+            msg.to_bytes(ptr);
+            ptr += PrivateMessageWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("ConversationData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_conversations_list(const std::vector<ConversationSummaryWire>& conversations) {
+        // Calculate total size - fixed size conversations
+        size_t payloadSize = 1 + (conversations.size() * ConversationSummaryWire::WIRE_SIZE); // count + conversations
+
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::ConversationsListData),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        ptr[0] = static_cast<uint8_t>(conversations.size());
+        ptr += 1;
+
+        for (const auto& conv : conversations) {
+            conv.to_bytes(ptr);
+            ptr += ConversationSummaryWire::WIRE_SIZE;
+        }
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("ConversationsListData write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_mark_messages_read_ack(uint8_t errorCode) {
+        size_t payloadSize = 1;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::MarkMessagesReadAck),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+        buf->at(Header::WIRE_SIZE) = errorCode;
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("MarkMessagesReadAck write error: {}", ec.message());
+                }
+            });
+    }
+
+    void Session::do_write_messages_read_notification(const std::string& readerEmail) {
+        size_t payloadSize = MAX_EMAIL_LEN;
+        Header head = {
+            .isAuthenticated = _isAuthenticated,
+            .type = static_cast<uint16_t>(MessageType::MessagesReadNotification),
+            .payload_size = static_cast<uint32_t>(payloadSize)
+        };
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(Header::WIRE_SIZE + payloadSize);
+        head.to_bytes(buf->data());
+
+        uint8_t* ptr = buf->data() + Header::WIRE_SIZE;
+        std::memset(ptr, 0, MAX_EMAIL_LEN);
+        std::strncpy(reinterpret_cast<char*>(ptr), readerEmail.c_str(), MAX_EMAIL_LEN - 1);
+
+        auto self = shared_from_this();
+        boost::asio::async_write(_socket, boost::asio::buffer(*buf),
+            [self, buf](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    auto logger = server::logging::Logger::getNetworkLogger();
+                    logger->error("MessagesReadNotification write error: {}", ec.message());
                 }
             });
     }

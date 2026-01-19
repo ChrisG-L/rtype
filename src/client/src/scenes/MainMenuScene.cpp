@@ -11,9 +11,12 @@
 #include "scenes/SettingsScene.hpp"
 #include "scenes/RoomBrowserScene.hpp"
 #include "scenes/LeaderboardScene.hpp"
+#include "scenes/FriendsScene.hpp"
+#include "scenes/PrivateChatScene.hpp"
 #include "scenes/BreakoutScene.hpp"
 #include "accessibility/AccessibilityConfig.hpp"
 #include "audio/VoiceChatManager.hpp"
+#include "core/Logger.hpp"
 #include <variant>
 
 MainMenuScene::MainMenuScene()
@@ -97,9 +100,20 @@ void MainMenuScene::initUI()
     _leaderboardButton->setNormalColor({150, 120, 50, 255});
     _leaderboardButton->setHoveredColor({180, 150, 70, 255});
 
+    // Friends button
+    _friendsButton = std::make_unique<ui::Button>(
+        Vec2f{centerX - buttonWidth / 2, startY + spacing * 5},
+        Vec2f{buttonWidth, buttonHeight},
+        "FRIENDS",
+        FONT_KEY
+    );
+    _friendsButton->setOnClick([this]() { onFriendsClick(); });
+    _friendsButton->setNormalColor({100, 80, 150, 255});
+    _friendsButton->setHoveredColor({130, 100, 180, 255});
+
     // Settings button
     _settingsButton = std::make_unique<ui::Button>(
-        Vec2f{centerX - buttonWidth / 2, startY + spacing * 5},
+        Vec2f{centerX - buttonWidth / 2, startY + spacing * 6},
         Vec2f{buttonWidth, buttonHeight},
         "SETTINGS",
         FONT_KEY
@@ -108,7 +122,7 @@ void MainMenuScene::initUI()
 
     // Quit button
     _quitButton = std::make_unique<ui::Button>(
-        Vec2f{centerX - buttonWidth / 2, startY + spacing * 6},
+        Vec2f{centerX - buttonWidth / 2, startY + spacing * 7},
         Vec2f{buttonWidth, buttonHeight},
         "QUIT",
         FONT_KEY
@@ -224,6 +238,17 @@ void MainMenuScene::initUI()
     _joinConfirmBtn->setNormalColor({50, 100, 150, 255});
     _joinConfirmBtn->setHoveredColor({70, 130, 180, 255});
 
+    // Close unread messages overlay button
+    _closeUnreadBtn = std::make_unique<ui::Button>(
+        Vec2f{SCREEN_WIDTH - 60, 10},
+        Vec2f{50, 30},
+        "X",
+        FONT_KEY
+    );
+    _closeUnreadBtn->setOnClick([this]() { _showUnreadOverlay = false; });
+    _closeUnreadBtn->setNormalColor({100, 50, 50, 255});
+    _closeUnreadBtn->setHoveredColor({150, 70, 70, 255});
+
     _uiInitialized = true;
 }
 
@@ -324,6 +349,36 @@ void MainMenuScene::showInfo(const std::string& message)
     _statusDisplayTimer = STATUS_DISPLAY_DURATION;
 }
 
+void MainMenuScene::requestUnreadConversations()
+{
+    if (!_context.tcpClient || !_context.tcpClient->isConnected()) return;
+    _context.tcpClient->getConversationsList();
+    _unreadRequested = true;
+    client::logging::Logger::getSceneLogger()->debug("[MainMenuScene] Requested conversations list");
+}
+
+void MainMenuScene::onUnreadConversationClick(size_t index)
+{
+    if (index >= _unreadConversations.size()) return;
+
+    const auto& conv = _unreadConversations[index];
+
+    // Remove this conversation from unread list since user is opening it
+    std::string email = conv.otherEmail;
+    std::string displayName = conv.otherDisplayName;
+
+    _unreadConversations.erase(_unreadConversations.begin() + index);
+
+    // Hide overlay if no more unread conversations
+    if (_unreadConversations.empty()) {
+        _showUnreadOverlay = false;
+    }
+
+    if (_sceneManager) {
+        _sceneManager->changeScene(std::make_unique<PrivateChatScene>(email, displayName));
+    }
+}
+
 void MainMenuScene::processTCPEvents()
 {
     if (!_context.tcpClient) return;
@@ -400,6 +455,44 @@ void MainMenuScene::processTCPEvents()
             else if constexpr (std::is_same_v<T, client::network::TCPErrorEvent>) {
                 showError(event.message);
             }
+            else if constexpr (std::is_same_v<T, client::network::TCPConversationsListEvent>) {
+                // Filter only conversations with unread messages
+                _unreadConversations.clear();
+                for (const auto& conv : event.conversations) {
+                    if (conv.unreadCount > 0) {
+                        _unreadConversations.push_back(conv);
+                    }
+                }
+                if (!_unreadConversations.empty()) {
+                    _showUnreadOverlay = true;
+                    client::logging::Logger::getSceneLogger()->info(
+                        "[MainMenuScene] {} conversations with unread messages", _unreadConversations.size());
+                }
+            }
+            else if constexpr (std::is_same_v<T, client::network::TCPPrivateMessageReceivedEvent>) {
+                // Real-time notification: new message received
+                // Add to unread list or update existing (no message preview for privacy)
+                bool found = false;
+                for (auto& conv : _unreadConversations) {
+                    if (conv.otherEmail == event.senderEmail) {
+                        conv.unreadCount++;
+                        conv.lastMessageTimestamp = event.timestamp;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    client::network::ConversationSummary newConv;
+                    newConv.otherEmail = event.senderEmail;
+                    newConv.otherDisplayName = event.senderDisplayName;
+                    newConv.lastMessagePreview = "";  // Don't show message content
+                    newConv.lastMessageTimestamp = event.timestamp;
+                    newConv.unreadCount = 1;
+                    _unreadConversations.push_back(newConv);
+                }
+                _showUnreadOverlay = true;
+                showInfo("New message from " + event.senderDisplayName);
+            }
             else if constexpr (std::is_same_v<T, client::network::TCPUserSettingsEvent>) {
                 // Apply received settings to AccessibilityConfig singleton
                 auto& config = accessibility::AccessibilityConfig::getInstance();
@@ -449,6 +542,13 @@ void MainMenuScene::onLeaderboardClick()
 {
     if (_sceneManager) {
         _sceneManager->changeScene(std::make_unique<LeaderboardScene>());
+    }
+}
+
+void MainMenuScene::onFriendsClick()
+{
+    if (_sceneManager) {
+        _sceneManager->changeScene(std::make_unique<FriendsScene>());
     }
 }
 
@@ -507,12 +607,52 @@ void MainMenuScene::handleEvent(const events::Event& event)
             }
         }
     } else {
+        // Handle unread messages overlay clicks
+        if (_showUnreadOverlay && !_unreadConversations.empty()) {
+            if (std::holds_alternative<events::MouseButtonPressed>(event)) {
+                auto& mouseEvt = std::get<events::MouseButtonPressed>(event);
+                if (mouseEvt.button == events::MouseButton::Left) {
+                    float mx = static_cast<float>(mouseEvt.x);
+                    float my = static_cast<float>(mouseEvt.y);
+
+                    float overlayX = SCREEN_WIDTH - 320;
+                    float overlayY = 50;
+                    float overlayWidth = 300.0f;
+
+                    // Check if click is on close button (X) - positioned at top right of overlay
+                    float closeBtnX = overlayX + overlayWidth - 40;
+                    float closeBtnY = overlayY + 8;
+                    if (mx >= closeBtnX && mx <= closeBtnX + 30 &&
+                        my >= closeBtnY && my <= closeBtnY + 24) {
+                        _showUnreadOverlay = false;
+                        return;
+                    }
+
+                    // Check clicks on conversation entries in the overlay
+                    float entryHeight = 60.0f;
+                    float entriesStartY = overlayY + 45;
+
+                    for (size_t i = 0; i < _unreadConversations.size() && i < 5; ++i) {
+                        float entryY = entriesStartY + i * entryHeight;
+                        if (mx >= overlayX + 10 && mx <= overlayX + overlayWidth - 10 &&
+                            my >= entryY && my <= entryY + entryHeight - 5) {
+                            onUnreadConversationClick(i);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            _closeUnreadBtn->handleEvent(event);
+        }
+
         // Main menu mode
         _createRoomButton->handleEvent(event);
         _joinRoomButton->handleEvent(event);
         _browseRoomsButton->handleEvent(event);
         _quickJoinButton->handleEvent(event);
         _leaderboardButton->handleEvent(event);
+        _friendsButton->handleEvent(event);
         _settingsButton->handleEvent(event);
         _quitButton->handleEvent(event);
         _breakoutButton->handleEvent(event);
@@ -523,6 +663,11 @@ void MainMenuScene::update(float deltaTime)
 {
     if (!_assetsLoaded) loadAssets();
     if (!_uiInitialized) initUI();
+
+    // Request unread conversations once after initialization
+    if (!_unreadRequested && _context.tcpClient && _context.tcpClient->isConnected()) {
+        requestUnreadConversations();
+    }
 
     // Process TCP events for room responses
     processTCPEvents();
@@ -537,6 +682,7 @@ void MainMenuScene::update(float deltaTime)
     _browseRoomsButton->update(deltaTime);
     _quickJoinButton->update(deltaTime);
     _leaderboardButton->update(deltaTime);
+    _friendsButton->update(deltaTime);
     _settingsButton->update(deltaTime);
     _quitButton->update(deltaTime);
     _breakoutButton->update(deltaTime);
@@ -557,6 +703,11 @@ void MainMenuScene::update(float deltaTime)
 
     if (_statusDisplayTimer > 0) {
         _statusDisplayTimer -= deltaTime;
+    }
+
+    // Update unread overlay button
+    if (_showUnreadOverlay && _closeUnreadBtn) {
+        _closeUnreadBtn->update(deltaTime);
     }
 }
 
@@ -586,6 +737,7 @@ void MainMenuScene::render()
     _browseRoomsButton->render(*_context.window);
     _quickJoinButton->render(*_context.window);
     _leaderboardButton->render(*_context.window);
+    _friendsButton->render(*_context.window);
     _settingsButton->render(*_context.window);
     _quitButton->render(*_context.window);
 
@@ -678,4 +830,69 @@ void MainMenuScene::render()
     // Draw version
     _context.window->drawText(FONT_KEY, "v0.2.0",
         SCREEN_WIDTH - 100, SCREEN_HEIGHT - 40, 16, {80, 80, 100, 255});
+
+    // Draw unread messages overlay (top right corner)
+    if (_showUnreadOverlay && !_unreadConversations.empty()) {
+        renderUnreadMessagesOverlay();
+    }
+}
+
+void MainMenuScene::renderUnreadMessagesOverlay()
+{
+    float overlayX = SCREEN_WIDTH - 320;
+    float overlayY = 50;
+    float overlayWidth = 300;
+    float entryHeight = 60.0f;
+    size_t maxEntries = std::min(_unreadConversations.size(), size_t(5));
+    float overlayHeight = 50 + maxEntries * entryHeight;
+
+    // Background
+    _context.window->drawRect(overlayX, overlayY, overlayWidth, overlayHeight, {30, 30, 60, 240});
+
+    // Border
+    _context.window->drawRect(overlayX, overlayY, overlayWidth, 3, {100, 150, 255, 255});
+    _context.window->drawRect(overlayX, overlayY + overlayHeight - 3, overlayWidth, 3, {100, 150, 255, 255});
+    _context.window->drawRect(overlayX, overlayY, 3, overlayHeight, {100, 150, 255, 255});
+    _context.window->drawRect(overlayX + overlayWidth - 3, overlayY, 3, overlayHeight, {100, 150, 255, 255});
+
+    // Title with notification icon
+    _context.window->drawText(FONT_KEY, "NEW MESSAGES",
+        overlayX + 15, overlayY + 12, 18, {255, 200, 100, 255});
+
+    // Close button
+    _closeUnreadBtn->setPos(Vec2f{overlayX + overlayWidth - 40, overlayY + 8});
+    _closeUnreadBtn->render(*_context.window);
+
+    // Conversation entries
+    float entryY = overlayY + 45;
+    for (size_t i = 0; i < maxEntries; ++i) {
+        const auto& conv = _unreadConversations[i];
+
+        // Entry background (hoverable)
+        _context.window->drawRect(overlayX + 10, entryY, overlayWidth - 20, entryHeight - 5, {50, 50, 80, 200});
+
+        // Display name
+        std::string displayName = conv.otherDisplayName;
+        if (displayName.length() > 18) {
+            displayName = displayName.substr(0, 15) + "...";
+        }
+        _context.window->drawText(FONT_KEY, displayName, overlayX + 20, entryY + 8, 16, {255, 255, 255, 255});
+
+        // Unread count badge (right side, more visible)
+        std::string unreadText = std::to_string(conv.unreadCount) + " new";
+        float badgeWidth = 55.0f;
+        _context.window->drawRect(overlayX + overlayWidth - 75, entryY + 5, badgeWidth, 22, {220, 60, 60, 255});
+        _context.window->drawText(FONT_KEY, unreadText, overlayX + overlayWidth - 70, entryY + 9, 12, {255, 255, 255, 255});
+
+        // Click hint
+        _context.window->drawText(FONT_KEY, "Click to open", overlayX + 20, entryY + 32, 10, {150, 180, 220, 255});
+
+        entryY += entryHeight;
+    }
+
+    // If more conversations
+    if (_unreadConversations.size() > 5) {
+        std::string moreText = "+" + std::to_string(_unreadConversations.size() - 5) + " more...";
+        _context.window->drawText(FONT_KEY, moreText, overlayX + 100, entryY + 5, 12, {150, 150, 180, 255});
+    }
 }

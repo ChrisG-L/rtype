@@ -20,6 +20,7 @@
 #include "infrastructure/tui/TerminalUI.hpp"
 #include "infrastructure/tui/InteractiveOutput.hpp"
 #include "application/ports/out/persistence/IUserRepository.hpp"
+#include "application/ports/out/persistence/IPrivateMessageRepository.hpp"
 
 namespace infrastructure::adapters::in::network {
     class UDPServer;
@@ -30,6 +31,7 @@ namespace infrastructure::cli {
 using session::SessionManager;
 using adapters::in::network::UDPServer;
 using application::ports::out::persistence::IUserRepository;
+using application::ports::out::persistence::IPrivateMessageRepository;
 using room::RoomManager;
 
 class ServerCLI {
@@ -38,7 +40,8 @@ public:
               UDPServer& udpServer,
               std::shared_ptr<tui::LogBuffer> logBuffer,
               std::shared_ptr<IUserRepository> userRepository = nullptr,
-              std::shared_ptr<RoomManager> roomManager = nullptr);
+              std::shared_ptr<RoomManager> roomManager = nullptr,
+              std::shared_ptr<IPrivateMessageRepository> pmRepository = nullptr);
     ~ServerCLI();
 
     // Start the CLI in a background thread
@@ -84,6 +87,13 @@ private:
     void cmdNet(const std::string& args);
     std::vector<std::string> parseArgs(const std::string& line);
 
+    // Private message admin commands
+    void pmStats(const std::string& args);
+    void pmUser(const std::string& args);
+    void pmConversation(const std::string& args);
+    void pmSearch(const std::string& args);
+    void pmRecent(const std::string& args);
+
     // Interactive output generators
     tui::InteractiveOutput buildSessionsInteractiveOutput();
     tui::InteractiveOutput buildBansInteractiveOutput();
@@ -112,6 +122,7 @@ private:
     std::shared_ptr<tui::LogBuffer> _logBuffer;
     std::shared_ptr<IUserRepository> _userRepository;
     std::shared_ptr<RoomManager> _roomManager;
+    std::shared_ptr<IPrivateMessageRepository> _pmRepository;
     std::unique_ptr<tui::TerminalUI> _terminalUI;
 
     std::jthread _cliThread;

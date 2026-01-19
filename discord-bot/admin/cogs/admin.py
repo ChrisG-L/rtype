@@ -287,6 +287,13 @@ class AdminCog(commands.Cog):
 `/bans` - List all banned users
 `/modhistory [user] [moderator] [action]` - View moderation history
 
+**Private Messages (Admin)**
+`/pmstats` - Show PM statistics
+`/pmuser <email>` - Show all messages for a user
+`/pmconv <email1> <email2>` - Show conversation between users
+`/pmsearch <term>` - Search messages by content
+`/pmrecent [limit]` - Show recent messages
+
 **Advanced**
 `/cli <command>` - Execute any CLI command
 """

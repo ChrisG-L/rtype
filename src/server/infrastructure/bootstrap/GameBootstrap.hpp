@@ -17,7 +17,12 @@
 #include "infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBLeaderboardRepository.hpp"
 #include "infrastructure/adapters/out/persistence/MongoDBChatMessageRepository.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBFriendshipRepository.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBFriendRequestRepository.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBBlockedUserRepository.hpp"
+#include "infrastructure/adapters/out/persistence/MongoDBPrivateMessageRepository.hpp"
 #include "infrastructure/adapters/out/MongoIdGenerator.hpp"
+#include "infrastructure/social/FriendManager.hpp"
 #include "infrastructure/adapters/out/SpdLogAdapter.hpp"
 #include "infrastructure/configuration/DBConfig.hpp"
 #include "infrastructure/session/SessionManager.hpp"
@@ -46,7 +51,12 @@ namespace infrastructure::bootstrap {
                 using adapters::out::persistence::MongoDBUserSettingsRepository;
                 using adapters::out::persistence::MongoDBLeaderboardRepository;
                 using adapters::out::persistence::MongoDBChatMessageRepository;
+                using adapters::out::persistence::MongoDBFriendshipRepository;
+                using adapters::out::persistence::MongoDBFriendRequestRepository;
+                using adapters::out::persistence::MongoDBBlockedUserRepository;
+                using adapters::out::persistence::MongoDBPrivateMessageRepository;
                 using adapters::out::MongoIdGenerator;
+                using social::FriendManager;
                 using adapters::out::SpdLogAdapter;
                 using session::SessionManager;
                 using room::RoomManager;
@@ -83,6 +93,10 @@ namespace infrastructure::bootstrap {
                 auto userSettingsRepo = std::make_shared<MongoDBUserSettingsRepository>(mongoConfig);
                 auto leaderboardRepo = std::make_shared<MongoDBLeaderboardRepository>(mongoConfig);
                 auto chatMessageRepo = std::make_shared<MongoDBChatMessageRepository>(mongoConfig);
+                auto friendshipRepo = std::make_shared<MongoDBFriendshipRepository>(mongoConfig);
+                auto friendRequestRepo = std::make_shared<MongoDBFriendRequestRepository>(mongoConfig);
+                auto blockedUserRepo = std::make_shared<MongoDBBlockedUserRepository>(mongoConfig);
+                auto privateMessageRepo = std::make_shared<MongoDBPrivateMessageRepository>(mongoConfig);
 
                 // Create adapters for ports
                 auto idGenerator = std::make_shared<MongoIdGenerator>();
@@ -93,6 +107,9 @@ namespace infrastructure::bootstrap {
 
                 // Create shared RoomManager for room/lobby management (with chat persistence)
                 auto roomManager = std::make_shared<RoomManager>(chatMessageRepo);
+
+                // Create FriendManager for real-time friend notifications
+                auto friendManager = std::make_shared<FriendManager>();
 
                 // Get TLS certificate paths from environment variables or use defaults
                 const char* certFile = std::getenv("TLS_CERT_FILE");
@@ -109,7 +126,12 @@ namespace infrastructure::bootstrap {
                     idGenerator,
                     logger,
                     sessionManager,
-                    roomManager
+                    roomManager,
+                    friendManager,
+                    friendshipRepo,
+                    friendRequestRepo,
+                    blockedUserRepo,
+                    privateMessageRepo
                 );
                 tcpAuthServer.start();
 
@@ -126,7 +148,7 @@ namespace infrastructure::bootstrap {
 
                 // Start CLI with TUI support (shared_ptr for TCPAdminServer)
                 auto serverCLI = std::make_shared<cli::ServerCLI>(
-                    sessionManager, udpServer, logBuffer, userRepo, roomManager
+                    sessionManager, udpServer, logBuffer, userRepo, roomManager, privateMessageRepo
                 );
 
                 // Set shutdown callback so CLI can stop the server via exit/quit commands

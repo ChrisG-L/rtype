@@ -16,6 +16,7 @@
 #include "network/NetworkEvents.hpp"
 #include <memory>
 #include <string>
+#include <vector>
 
 class MainMenuScene : public IScene {
 public:
@@ -36,6 +37,7 @@ private:
     void onBrowseRoomsClick();
     void onQuickJoinClick();
     void onLeaderboardClick();
+    void onFriendsClick();
     void onSettingsClick();
     void onQuitClick();
     void onBreakoutClick();
@@ -48,8 +50,14 @@ private:
     void showError(const std::string& message);
     void showInfo(const std::string& message);
 
+    // Unread messages overlay
+    void requestUnreadConversations();
+    void onUnreadConversationClick(size_t index);
+    void renderUnreadMessagesOverlay();
+
     bool _assetsLoaded = false;
     bool _uiInitialized = false;
+    bool _unreadRequested = false;
 
     // Room operation state
     enum class RoomState {
@@ -73,6 +81,7 @@ private:
     std::unique_ptr<ui::Button> _browseRoomsButton;
     std::unique_ptr<ui::Button> _quickJoinButton;
     std::unique_ptr<ui::Button> _leaderboardButton;
+    std::unique_ptr<ui::Button> _friendsButton;
     std::unique_ptr<ui::Button> _settingsButton;
     std::unique_ptr<ui::Button> _quitButton;
     std::unique_ptr<ui::Button> _breakoutButton;
@@ -98,6 +107,11 @@ private:
 
     // Animated starfield background
     std::unique_ptr<ui::StarfieldBackground> _starfield;
+
+    // Unread messages data
+    std::vector<client::network::ConversationSummary> _unreadConversations;
+    bool _showUnreadOverlay = false;
+    std::unique_ptr<ui::Button> _closeUnreadBtn;
 
     static constexpr float SCREEN_WIDTH = 1920.0f;
     static constexpr float SCREEN_HEIGHT = 1080.0f;

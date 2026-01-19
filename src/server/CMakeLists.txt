@@ -50,6 +50,13 @@ add_executable(rtype_server
     infrastructure/adapters/out/persistence/MongoDBUserSettingsRepository.cpp
     infrastructure/adapters/out/persistence/MongoDBLeaderboardRepository.cpp
     infrastructure/adapters/out/persistence/MongoDBChatMessageRepository.cpp
+    infrastructure/adapters/out/persistence/MongoDBFriendshipRepository.cpp
+    infrastructure/adapters/out/persistence/MongoDBFriendRequestRepository.cpp
+    infrastructure/adapters/out/persistence/MongoDBBlockedUserRepository.cpp
+    infrastructure/adapters/out/persistence/MongoDBPrivateMessageRepository.cpp
+
+    # Infrastructure - Social
+    infrastructure/social/FriendManager.cpp
 
     # Infrastructure - Game
     infrastructure/game/GameWorld.cpp

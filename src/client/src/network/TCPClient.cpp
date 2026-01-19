@@ -333,10 +333,13 @@ namespace client::network
                         if (respOpt) {
                             if (respOpt->success) {
                                 _isAuthenticated = true;
-                                // Store the session token for UDP JoinGame
+                                // Store the session token and user email for UDP JoinGame and friend system
                                 {
                                     std::scoped_lock lock(_mutex);
                                     _sessionToken = respOpt->token;
+                                    // Store user email from server response (critical for friend system identification)
+                                    _pendingEmail = std::string(respOpt->userEmail);
+                                    logger->debug("Stored user email from server: {}", _pendingEmail);
                                 }
 
                                 // Check version compatibility
@@ -728,6 +731,302 @@ namespace client::network
                         _eventQueue.push(std::move(evt));
                     }
                 }
+                // ═══════════════════════════════════════════════════════════════════
+                // Friends System (Phase 4)
+                // ═══════════════════════════════════════════════════════════════════
+                else if (head.type == static_cast<uint16_t>(MessageType::SendFriendRequestAck)) {
+                    if (head.payload_size >= 1 + MAX_EMAIL_LEN) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        TCPFriendRequestAckEvent evt;
+                        evt.errorCode = ptr[0];
+                        evt.targetEmail = std::string(reinterpret_cast<const char*>(ptr + 1), MAX_EMAIL_LEN);
+                        evt.targetEmail = evt.targetEmail.c_str();  // Trim at null
+                        logger->debug("Friend request ack: error={}", evt.errorCode);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::FriendRequestReceived)) {
+                    if (head.payload_size >= MAX_EMAIL_LEN + PLAYER_NAME_LEN) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        TCPFriendRequestReceivedEvent evt;
+                        evt.fromEmail = std::string(reinterpret_cast<const char*>(ptr), MAX_EMAIL_LEN);
+                        evt.fromEmail = evt.fromEmail.c_str();
+                        evt.fromDisplayName = std::string(reinterpret_cast<const char*>(ptr + MAX_EMAIL_LEN), PLAYER_NAME_LEN);
+                        evt.fromDisplayName = evt.fromDisplayName.c_str();
+                        logger->info("Friend request received from: {}", evt.fromDisplayName);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::AcceptFriendRequestAck)) {
+                    if (head.payload_size >= 1) {
+                        TCPAcceptFriendRequestAckEvent evt;
+                        evt.errorCode = _accumulator[Header::WIRE_SIZE];
+                        logger->debug("Accept friend request ack: error={}", evt.errorCode);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::FriendRequestAccepted)) {
+                    if (head.payload_size >= MAX_EMAIL_LEN + PLAYER_NAME_LEN + 1) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        TCPFriendRequestAcceptedEvent evt;
+                        evt.friendEmail = std::string(reinterpret_cast<const char*>(ptr), MAX_EMAIL_LEN);
+                        evt.friendEmail = evt.friendEmail.c_str();
+                        evt.displayName = std::string(reinterpret_cast<const char*>(ptr + MAX_EMAIL_LEN), PLAYER_NAME_LEN);
+                        evt.displayName = evt.displayName.c_str();
+                        evt.onlineStatus = ptr[MAX_EMAIL_LEN + PLAYER_NAME_LEN];
+                        logger->info("Friend request accepted: {} is now your friend!", evt.displayName);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::RejectFriendRequestAck)) {
+                    if (head.payload_size >= 1) {
+                        TCPRejectFriendRequestAckEvent evt;
+                        evt.errorCode = _accumulator[Header::WIRE_SIZE];
+                        logger->debug("Reject friend request ack: error={}", evt.errorCode);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::RemoveFriendAck)) {
+                    if (head.payload_size >= 1) {
+                        TCPRemoveFriendAckEvent evt;
+                        evt.errorCode = _accumulator[Header::WIRE_SIZE];
+                        logger->debug("Remove friend ack: error={}", evt.errorCode);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::FriendRemoved)) {
+                    if (head.payload_size >= MAX_EMAIL_LEN) {
+                        TCPFriendRemovedEvent evt;
+                        evt.friendEmail = std::string(reinterpret_cast<const char*>(_accumulator.data() + Header::WIRE_SIZE), MAX_EMAIL_LEN);
+                        evt.friendEmail = evt.friendEmail.c_str();
+                        logger->info("Friend removed: {}", evt.friendEmail);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::BlockUserAck)) {
+                    if (head.payload_size >= 1) {
+                        TCPBlockUserAckEvent evt;
+                        evt.errorCode = _accumulator[Header::WIRE_SIZE];
+                        logger->debug("Block user ack: error={}", evt.errorCode);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::UnblockUserAck)) {
+                    if (head.payload_size >= 1) {
+                        TCPUnblockUserAckEvent evt;
+                        evt.errorCode = _accumulator[Header::WIRE_SIZE];
+                        logger->debug("Unblock user ack: error={}", evt.errorCode);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::FriendsListData)) {
+                    if (head.payload_size >= 2) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        uint8_t count = ptr[0];
+                        uint8_t totalCount = ptr[1];
+                        ptr += 2;
+
+                        TCPFriendsListEvent evt;
+                        evt.totalCount = totalCount;
+                        for (uint8_t i = 0; i < count; ++i) {
+                            auto friendOpt = FriendInfoWire::from_bytes(ptr, FriendInfoWire::WIRE_SIZE);
+                            if (friendOpt) {
+                                FriendInfo info;
+                                info.email = std::string(friendOpt->email);
+                                info.displayName = std::string(friendOpt->displayName);
+                                info.onlineStatus = friendOpt->onlineStatus;
+                                info.currentRoomCode = std::string(friendOpt->roomCode);
+                                evt.friends.push_back(std::move(info));
+                            }
+                            ptr += FriendInfoWire::WIRE_SIZE;
+                        }
+                        logger->debug("Received {} friends (total: {})", evt.friends.size(), evt.totalCount);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::FriendRequestsData)) {
+                    if (head.payload_size >= 2) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        uint8_t incomingCount = ptr[0];
+                        uint8_t outgoingCount = ptr[1];
+                        ptr += 2;
+
+                        TCPFriendRequestsEvent evt;
+                        for (uint8_t i = 0; i < incomingCount; ++i) {
+                            auto reqOpt = FriendRequestInfoWire::from_bytes(ptr, FriendRequestInfoWire::WIRE_SIZE);
+                            if (reqOpt) {
+                                FriendRequestInfo info;
+                                info.email = std::string(reqOpt->email);
+                                info.displayName = std::string(reqOpt->displayName);
+                                info.timestamp = reqOpt->timestamp;
+                                evt.incoming.push_back(std::move(info));
+                            }
+                            ptr += FriendRequestInfoWire::WIRE_SIZE;
+                        }
+                        for (uint8_t i = 0; i < outgoingCount; ++i) {
+                            auto reqOpt = FriendRequestInfoWire::from_bytes(ptr, FriendRequestInfoWire::WIRE_SIZE);
+                            if (reqOpt) {
+                                FriendRequestInfo info;
+                                info.email = std::string(reqOpt->email);
+                                info.displayName = std::string(reqOpt->displayName);
+                                info.timestamp = reqOpt->timestamp;
+                                evt.outgoing.push_back(std::move(info));
+                            }
+                            ptr += FriendRequestInfoWire::WIRE_SIZE;
+                        }
+                        logger->debug("Received {} incoming, {} outgoing friend requests", evt.incoming.size(), evt.outgoing.size());
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::BlockedUsersData)) {
+                    if (head.payload_size >= 1) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        uint8_t count = ptr[0];
+                        ptr += 1;
+
+                        TCPBlockedUsersEvent evt;
+                        for (uint8_t i = 0; i < count; ++i) {
+                            auto friendOpt = FriendInfoWire::from_bytes(ptr, FriendInfoWire::WIRE_SIZE);
+                            if (friendOpt) {
+                                FriendInfo info;
+                                info.email = std::string(friendOpt->email);
+                                info.displayName = std::string(friendOpt->displayName);
+                                info.onlineStatus = friendOpt->onlineStatus;
+                                info.currentRoomCode = std::string(friendOpt->roomCode);
+                                evt.blockedUsers.push_back(std::move(info));
+                            }
+                            ptr += FriendInfoWire::WIRE_SIZE;
+                        }
+                        logger->debug("Received {} blocked users", evt.blockedUsers.size());
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::FriendStatusChanged)) {
+                    if (head.payload_size >= MAX_EMAIL_LEN + 1 + ROOM_CODE_LEN) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        TCPFriendStatusChangedEvent evt;
+                        evt.friendEmail = std::string(reinterpret_cast<const char*>(ptr), MAX_EMAIL_LEN);
+                        evt.friendEmail = evt.friendEmail.c_str();
+                        evt.newStatus = ptr[MAX_EMAIL_LEN];
+                        evt.roomCode = std::string(reinterpret_cast<const char*>(ptr + MAX_EMAIL_LEN + 1), ROOM_CODE_LEN);
+                        evt.roomCode = evt.roomCode.c_str();
+                        logger->debug("Friend {} status changed to {}", evt.friendEmail, evt.newStatus);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                // ═══════════════════════════════════════════════════════════════════
+                // Private Messaging (Phase 4)
+                // ═══════════════════════════════════════════════════════════════════
+                else if (head.type == static_cast<uint16_t>(MessageType::SendPrivateMessageAck)) {
+                    if (head.payload_size >= 1 + 8) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        TCPPrivateMessageAckEvent evt;
+                        evt.errorCode = ptr[0];
+                        uint64_t netId;
+                        std::memcpy(&netId, ptr + 1, 8);
+                        evt.messageId = swap64(netId);
+                        logger->debug("Private message ack: error={}, id={}", evt.errorCode, evt.messageId);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::PrivateMessageReceived)) {
+                    if (head.payload_size >= MAX_EMAIL_LEN + PLAYER_NAME_LEN + 8 + 2) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        TCPPrivateMessageReceivedEvent evt;
+                        evt.senderEmail = std::string(reinterpret_cast<const char*>(ptr), MAX_EMAIL_LEN);
+                        evt.senderEmail = evt.senderEmail.c_str();
+                        ptr += MAX_EMAIL_LEN;
+                        evt.senderDisplayName = std::string(reinterpret_cast<const char*>(ptr), PLAYER_NAME_LEN);
+                        evt.senderDisplayName = evt.senderDisplayName.c_str();
+                        ptr += PLAYER_NAME_LEN;
+
+                        uint64_t netTs;
+                        std::memcpy(&netTs, ptr, 8);
+                        evt.timestamp = swap64(netTs);
+                        ptr += 8;
+
+                        uint16_t netLen;
+                        std::memcpy(&netLen, ptr, 2);
+                        uint16_t msgLen = swap16(netLen);
+                        ptr += 2;
+
+                        evt.message = std::string(reinterpret_cast<const char*>(ptr), msgLen);
+                        logger->info("Private message from {}: {}", evt.senderDisplayName, evt.message.substr(0, 50));
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::ConversationData)) {
+                    if (head.payload_size >= 2) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        uint8_t count = ptr[0];
+                        bool hasMore = ptr[1] != 0;
+                        ptr += 2;
+
+                        TCPConversationEvent evt;
+                        evt.hasMore = hasMore;
+                        for (uint8_t i = 0; i < count; ++i) {
+                            auto msgOpt = PrivateMessageWire::from_bytes(ptr, PrivateMessageWire::WIRE_SIZE);
+                            if (msgOpt) {
+                                PrivateMessageInfo info;
+                                info.messageId = msgOpt->timestamp;  // Use timestamp as unique ID
+                                info.senderEmail = std::string(msgOpt->senderEmail);
+                                info.senderDisplayName = std::string(msgOpt->senderDisplayName);
+                                info.timestamp = msgOpt->timestamp;
+                                info.isRead = (msgOpt->isRead != 0);
+                                info.message = std::string(msgOpt->message);
+                                evt.messages.push_back(std::move(info));
+                                ptr += PrivateMessageWire::WIRE_SIZE;
+                            } else {
+                                break;
+                            }
+                        }
+                        logger->debug("Received {} messages, hasMore={}", evt.messages.size(), evt.hasMore);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::ConversationsListData)) {
+                    if (head.payload_size >= 1) {
+                        const uint8_t* ptr = _accumulator.data() + Header::WIRE_SIZE;
+                        uint8_t count = ptr[0];
+                        ptr += 1;
+
+                        TCPConversationsListEvent evt;
+                        for (uint8_t i = 0; i < count; ++i) {
+                            auto convOpt = ConversationSummaryWire::from_bytes(ptr, ConversationSummaryWire::WIRE_SIZE);
+                            if (convOpt) {
+                                ConversationSummary info;
+                                info.otherEmail = std::string(convOpt->otherEmail);
+                                info.otherDisplayName = std::string(convOpt->otherDisplayName);
+                                info.lastMessagePreview = std::string(convOpt->lastMessage);
+                                info.lastMessageTimestamp = convOpt->lastTimestamp;
+                                info.unreadCount = convOpt->unreadCount;
+                                evt.conversations.push_back(std::move(info));
+                                ptr += ConversationSummaryWire::WIRE_SIZE;
+                            } else {
+                                break;
+                            }
+                        }
+                        logger->debug("Received {} conversations", evt.conversations.size());
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::MarkMessagesReadAck)) {
+                    if (head.payload_size >= 1) {
+                        TCPMarkMessagesReadAckEvent evt;
+                        evt.errorCode = _accumulator[Header::WIRE_SIZE];
+                        logger->debug("Mark messages read ack: error={}", evt.errorCode);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
+                else if (head.type == static_cast<uint16_t>(MessageType::MessagesReadNotification)) {
+                    if (head.payload_size >= MAX_EMAIL_LEN) {
+                        TCPMessagesReadNotificationEvent evt;
+                        const char* ptr = reinterpret_cast<const char*>(_accumulator.data() + Header::WIRE_SIZE);
+                        evt.readerEmail = std::string(ptr, strnlen(ptr, MAX_EMAIL_LEN));
+                        logger->debug("Messages read notification: {} read our messages", evt.readerEmail);
+                        _eventQueue.push(std::move(evt));
+                    }
+                }
 
                 _accumulator.erase(_accumulator.begin(), _accumulator.begin() + totalSize);
             }
@@ -768,6 +1067,10 @@ namespace client::network
             std::scoped_lock lock(_mutex);
             _storedUsername = username;
             _storedPassword = password;
+            // If username contains '@', it's likely an email - store it for friend system
+            if (username.find('@') != std::string::npos) {
+                _pendingEmail = username;
+            }
         }
 
         LoginMessage login;
@@ -1110,6 +1413,99 @@ namespace client::network
 
     void TCPClient::sendGetGameHistory() {
         sendMessageNoPayload(MessageType::GetGameHistory, "GetGameHistory");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Friends System (Phase 4)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::sendFriendRequest(const std::string& targetEmail) {
+        SendFriendRequestPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.targetEmail, targetEmail.c_str(), MAX_EMAIL_LEN - 1);
+        sendMessageWithPayload(MessageType::SendFriendRequest, payload, "SendFriendRequest");
+    }
+
+    void TCPClient::acceptFriendRequest(const std::string& fromEmail) {
+        AcceptFriendRequestPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.fromEmail, fromEmail.c_str(), MAX_EMAIL_LEN - 1);
+        sendMessageWithPayload(MessageType::AcceptFriendRequest, payload, "AcceptFriendRequest");
+    }
+
+    void TCPClient::rejectFriendRequest(const std::string& fromEmail) {
+        RejectFriendRequestPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.fromEmail, fromEmail.c_str(), MAX_EMAIL_LEN - 1);
+        sendMessageWithPayload(MessageType::RejectFriendRequest, payload, "RejectFriendRequest");
+    }
+
+    void TCPClient::removeFriend(const std::string& friendEmail) {
+        RemoveFriendPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.friendEmail, friendEmail.c_str(), MAX_EMAIL_LEN - 1);
+        sendMessageWithPayload(MessageType::RemoveFriend, payload, "RemoveFriend");
+    }
+
+    void TCPClient::blockUser(const std::string& targetEmail) {
+        BlockUserPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.targetEmail, targetEmail.c_str(), MAX_EMAIL_LEN - 1);
+        sendMessageWithPayload(MessageType::BlockUser, payload, "BlockUser");
+    }
+
+    void TCPClient::unblockUser(const std::string& targetEmail) {
+        UnblockUserPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.targetEmail, targetEmail.c_str(), MAX_EMAIL_LEN - 1);
+        sendMessageWithPayload(MessageType::UnblockUser, payload, "UnblockUser");
+    }
+
+    void TCPClient::getFriendsList(uint8_t offset, uint8_t limit) {
+        GetFriendsListPayload payload;
+        payload.offset = offset;
+        payload.limit = limit;
+        sendMessageWithPayload(MessageType::GetFriendsList, payload, "GetFriendsList");
+    }
+
+    void TCPClient::getFriendRequests() {
+        sendMessageNoPayload(MessageType::GetFriendRequests, "GetFriendRequests");
+    }
+
+    void TCPClient::getBlockedUsers() {
+        sendMessageNoPayload(MessageType::GetBlockedUsers, "GetBlockedUsers");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Private Messaging (Phase 4)
+    // ═══════════════════════════════════════════════════════════════════
+
+    void TCPClient::sendPrivateMessage(const std::string& recipientEmail, const std::string& message) {
+        SendPrivateMessagePayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.recipientEmail, recipientEmail.c_str(), MAX_EMAIL_LEN - 1);
+        std::strncpy(payload.message, message.c_str(), MAX_MESSAGE_LEN - 1);
+        sendMessageWithPayload(MessageType::SendPrivateMessage, payload, "SendPrivateMessage");
+    }
+
+    void TCPClient::getConversation(const std::string& otherEmail, uint8_t offset, uint8_t limit) {
+        GetConversationPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.otherEmail, otherEmail.c_str(), MAX_EMAIL_LEN - 1);
+        payload.offset = offset;
+        payload.limit = limit;
+        sendMessageWithPayload(MessageType::GetConversation, payload, "GetConversation");
+    }
+
+    void TCPClient::getConversationsList() {
+        sendMessageNoPayload(MessageType::GetConversationsList, "GetConversationsList");
+    }
+
+    void TCPClient::markMessagesRead(const std::string& otherEmail) {
+        MarkMessagesReadPayload payload;
+        std::memset(&payload, 0, sizeof(payload));
+        std::strncpy(payload.otherEmail, otherEmail.c_str(), MAX_EMAIL_LEN - 1);
+        sendMessageWithPayload(MessageType::MarkMessagesRead, payload, "MarkMessagesRead");
     }
 
     // ═══════════════════════════════════════════════════════════════════

@@ -161,6 +161,128 @@ namespace client::network
         std::vector<GameHistoryEntryWire> entries;
     };
 
+    // Friends System events (Phase 4)
+    struct FriendInfo {
+        std::string email;
+        std::string displayName;
+        uint8_t onlineStatus;  // FriendOnlineStatus enum
+        std::string currentRoomCode;
+    };
+
+    struct FriendRequestInfo {
+        std::string email;
+        std::string displayName;
+        uint64_t timestamp;
+    };
+
+    struct TCPFriendRequestAckEvent {
+        uint8_t errorCode;  // FriendErrorCode enum
+        std::string targetEmail;
+    };
+
+    struct TCPFriendRequestReceivedEvent {
+        std::string fromEmail;
+        std::string fromDisplayName;
+    };
+
+    struct TCPAcceptFriendRequestAckEvent {
+        uint8_t errorCode;
+    };
+
+    struct TCPFriendRequestAcceptedEvent {
+        std::string friendEmail;
+        std::string displayName;
+        uint8_t onlineStatus;
+    };
+
+    struct TCPRejectFriendRequestAckEvent {
+        uint8_t errorCode;
+    };
+
+    struct TCPRemoveFriendAckEvent {
+        uint8_t errorCode;
+    };
+
+    struct TCPFriendRemovedEvent {
+        std::string friendEmail;
+    };
+
+    struct TCPBlockUserAckEvent {
+        uint8_t errorCode;
+    };
+
+    struct TCPUnblockUserAckEvent {
+        uint8_t errorCode;
+    };
+
+    struct TCPFriendsListEvent {
+        std::vector<FriendInfo> friends;
+        uint8_t totalCount;
+    };
+
+    struct TCPFriendRequestsEvent {
+        std::vector<FriendRequestInfo> incoming;
+        std::vector<FriendRequestInfo> outgoing;
+    };
+
+    struct TCPBlockedUsersEvent {
+        std::vector<FriendInfo> blockedUsers;
+    };
+
+    struct TCPFriendStatusChangedEvent {
+        std::string friendEmail;
+        uint8_t newStatus;
+        std::string roomCode;
+    };
+
+    // Private Messaging events (Phase 4)
+    struct PrivateMessageInfo {
+        uint64_t messageId;
+        std::string senderEmail;
+        std::string senderDisplayName;
+        uint64_t timestamp;
+        bool isRead;
+        std::string message;
+    };
+
+    struct ConversationSummary {
+        std::string otherEmail;
+        std::string otherDisplayName;
+        std::string lastMessagePreview;
+        uint64_t lastMessageTimestamp;
+        uint8_t unreadCount;
+    };
+
+    struct TCPPrivateMessageAckEvent {
+        uint8_t errorCode;  // FriendErrorCode enum (used for PM errors too)
+        uint64_t messageId;
+    };
+
+    struct TCPPrivateMessageReceivedEvent {
+        std::string senderEmail;
+        std::string senderDisplayName;
+        std::string message;
+        uint64_t timestamp;
+    };
+
+    struct TCPConversationEvent {
+        std::vector<PrivateMessageInfo> messages;
+        bool hasMore;
+    };
+
+    struct TCPConversationsListEvent {
+        std::vector<ConversationSummary> conversations;
+    };
+
+    struct TCPMarkMessagesReadAckEvent {
+        uint8_t errorCode;
+    };
+
+    // Notification that the recipient has read our messages (read receipts)
+    struct TCPMessagesReadNotificationEvent {
+        std::string readerEmail;  // Who read our messages
+    };
+
     // UDP-specific events
     struct UDPConnectedEvent { uint8_t playerId; };
     struct UDPDisconnectedEvent {};
@@ -208,7 +330,28 @@ namespace client::network
         LeaderboardDataEvent,
         PlayerStatsDataEvent,
         AchievementsDataEvent,
-        GameHistoryDataEvent
+        GameHistoryDataEvent,
+        // Friends System events (Phase 4)
+        TCPFriendRequestAckEvent,
+        TCPFriendRequestReceivedEvent,
+        TCPAcceptFriendRequestAckEvent,
+        TCPFriendRequestAcceptedEvent,
+        TCPRejectFriendRequestAckEvent,
+        TCPRemoveFriendAckEvent,
+        TCPFriendRemovedEvent,
+        TCPBlockUserAckEvent,
+        TCPUnblockUserAckEvent,
+        TCPFriendsListEvent,
+        TCPFriendRequestsEvent,
+        TCPBlockedUsersEvent,
+        TCPFriendStatusChangedEvent,
+        // Private Messaging events (Phase 4)
+        TCPPrivateMessageAckEvent,
+        TCPPrivateMessageReceivedEvent,
+        TCPConversationEvent,
+        TCPConversationsListEvent,
+        TCPMarkMessagesReadAckEvent,
+        TCPMessagesReadNotificationEvent
     >;
 
     using UDPEvent = std::variant<

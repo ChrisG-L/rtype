@@ -61,6 +61,12 @@ set(TEST_SOURCES
     # Tests Network - Voice Protocol
     network/VoiceProtocolTest.cpp
 
+    # Tests Network - Friends Protocol
+    network/FriendsProtocolTest.cpp
+
+    # Tests Infrastructure - Social (FriendManager)
+    infrastructure/social/FriendManagerTest.cpp
+
     # Tests Infrastructure - Session (CSPRNG crypto tests)
     infrastructure/session/SessionManagerCryptoTest.cpp
 
@@ -135,6 +141,9 @@ set(SERVER_SOURCES
     # Infrastructure - TUI (required by Logger)
     ${CMAKE_SOURCE_DIR}/src/server/infrastructure/tui/TUISink.cpp
     ${CMAKE_SOURCE_DIR}/src/server/infrastructure/tui/LogBuffer.cpp
+
+    # Infrastructure - Social (FriendManager)
+    ${CMAKE_SOURCE_DIR}/src/server/infrastructure/social/FriendManager.cpp
 
     # Application - Services (Leaderboard & Achievements)
     ${CMAKE_SOURCE_DIR}/src/server/application/services/AchievementChecker.cpp

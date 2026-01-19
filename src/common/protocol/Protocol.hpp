@@ -121,6 +121,40 @@ enum class MessageType: uint16_t {
     GetAchievements = 0x0520,   // C→S: Request achievements
     AchievementsData = 0x0521,  // S→C: Achievement list
     AchievementUnlocked = 0x0522, // S→C: New achievement notification
+    // Friends System (0x060x)
+    SendFriendRequest = 0x0600,
+    SendFriendRequestAck = 0x0601,
+    FriendRequestReceived = 0x0602,
+    AcceptFriendRequest = 0x0610,
+    AcceptFriendRequestAck = 0x0611,
+    FriendRequestAccepted = 0x0612,
+    RejectFriendRequest = 0x0620,
+    RejectFriendRequestAck = 0x0621,
+    RemoveFriend = 0x0630,
+    RemoveFriendAck = 0x0631,
+    FriendRemoved = 0x0632,
+    BlockUser = 0x0640,
+    BlockUserAck = 0x0641,
+    UnblockUser = 0x0650,
+    UnblockUserAck = 0x0651,
+    GetFriendsList = 0x0660,
+    FriendsListData = 0x0661,
+    GetFriendRequests = 0x0670,
+    FriendRequestsData = 0x0671,
+    GetBlockedUsers = 0x0672,
+    BlockedUsersData = 0x0673,
+    FriendStatusChanged = 0x0680,
+    // Private Messaging (0x069x)
+    SendPrivateMessage = 0x0690,
+    SendPrivateMessageAck = 0x0691,
+    PrivateMessageReceived = 0x0692,
+    GetConversation = 0x0693,
+    ConversationData = 0x0694,
+    GetConversationsList = 0x0695,
+    ConversationsListData = 0x0696,
+    MarkMessagesRead = 0x0697,
+    MarkMessagesReadAck = 0x0698,
+    MessagesReadNotification = 0x0699, // S→C: Notify sender that recipient read their messages
 };
 
 static constexpr uint8_t MAX_PLAYERS = 4;
@@ -571,8 +605,9 @@ struct AuthResponseWithToken {
     SessionToken token;           // Only valid if success == true
     VersionInfo serverVersion;    // Server version for client compatibility check
     VersionHistory versionHistory; // Recent git hashes for tracking commits behind
+    char userEmail[MAX_EMAIL_LEN]; // User's email for friend system identification
 
-    static constexpr size_t WIRE_SIZE = 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN + TOKEN_SIZE + VersionInfo::WIRE_SIZE + VersionHistory::WIRE_SIZE;
+    static constexpr size_t WIRE_SIZE = 1 + MAX_ERROR_CODE_LEN + MAX_ERROR_MSG_LEN + TOKEN_SIZE + VersionInfo::WIRE_SIZE + VersionHistory::WIRE_SIZE + MAX_EMAIL_LEN;
 
     void to_bytes(void* buf) const {
         auto* ptr = static_cast<uint8_t*>(buf);
@@ -587,6 +622,8 @@ struct AuthResponseWithToken {
         serverVersion.to_bytes(ptr + offset);
         offset += VersionInfo::WIRE_SIZE;
         versionHistory.to_bytes(ptr + offset);
+        offset += VersionHistory::WIRE_SIZE;
+        std::memcpy(ptr + offset, userEmail, MAX_EMAIL_LEN);
     }
 
     static std::optional<AuthResponseWithToken> from_bytes(const void* buf, size_t buf_len) {
@@ -617,6 +654,9 @@ struct AuthResponseWithToken {
         if (historyOpt) {
             resp.versionHistory = *historyOpt;
         }
+        offset += VersionHistory::WIRE_SIZE;
+        std::memcpy(resp.userEmail, ptr + offset, MAX_EMAIL_LEN);
+        resp.userEmail[MAX_EMAIL_LEN - 1] = '\0';
         return resp;
     }
 };
@@ -2968,6 +3008,514 @@ struct GameHistoryEntryWire {
         e.weaponUsed = ptr[off++];
         e.bossDefeated = ptr[off++];
         return e;
+    }
+};
+
+// =============================================================================
+// Friends & Private Messaging System (Phase 4)
+// =============================================================================
+
+// Constants for friends system
+static constexpr size_t MAX_FRIENDS = 100;
+static constexpr size_t MAX_FRIEND_REQUESTS = 50;
+static constexpr size_t MAX_BLOCKED_USERS = 50;
+static constexpr size_t MAX_MESSAGE_LEN = 512;
+static constexpr size_t MAX_CONVERSATIONS = 50;
+static constexpr size_t MAX_MESSAGES_PER_PAGE = 50;
+
+// Friend status enum
+enum class FriendOnlineStatus : uint8_t {
+    Offline = 0,
+    Online = 1,
+    InGame = 2,
+    InLobby = 3
+};
+
+// Friendship status enum
+enum class FriendshipStatus : uint8_t {
+    Pending = 0,
+    Accepted = 1,
+    Blocked = 2
+};
+
+// Friend request error codes
+enum class FriendErrorCode : uint8_t {
+    Success = 0,
+    UserNotFound = 1,
+    AlreadyFriends = 2,
+    RequestAlreadySent = 3,
+    RequestAlreadyReceived = 4,
+    IsBlocked = 5,
+    BlockedByUser = 6,
+    CannotAddSelf = 7,
+    MaxFriendsReached = 8,
+    MaxRequestsReached = 9,
+    NotFriends = 10,
+    RequestNotFound = 11,
+    InvalidRequest = 12,
+    Blocked = 13,
+    DatabaseError = 14,
+    AlreadyBlocked = 15,
+    NotBlocked = 16,
+    InternalError = 99
+};
+
+// Single friend info (wire format)
+struct FriendInfoWire {
+    char email[MAX_EMAIL_LEN];
+    char displayName[MAX_USERNAME_LEN];
+    uint8_t onlineStatus;       // FriendOnlineStatus
+    uint32_t lastSeen;          // Unix timestamp
+    char roomCode[ROOM_CODE_LEN]; // If in game/lobby
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_USERNAME_LEN + 1 + 4 + ROOM_CODE_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        size_t off = 0;
+        std::memcpy(buf + off, email, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        std::memcpy(buf + off, displayName, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        buf[off++] = onlineStatus;
+        uint32_t net_ts = swap32(lastSeen);
+        std::memcpy(buf + off, &net_ts, 4); off += 4;
+        std::memcpy(buf + off, roomCode, ROOM_CODE_LEN);
+    }
+
+    static std::optional<FriendInfoWire> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        FriendInfoWire f;
+        size_t off = 0;
+        std::memcpy(f.email, ptr + off, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        f.email[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(f.displayName, ptr + off, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        f.displayName[MAX_USERNAME_LEN - 1] = '\0';
+        f.onlineStatus = ptr[off++];
+        uint32_t net_ts;
+        std::memcpy(&net_ts, ptr + off, 4); off += 4;
+        f.lastSeen = swap32(net_ts);
+        std::memcpy(f.roomCode, ptr + off, ROOM_CODE_LEN);
+        f.roomCode[ROOM_CODE_LEN - 1] = '\0';
+        return f;
+    }
+};
+
+// Friend request info (wire format)
+struct FriendRequestInfoWire {
+    char email[MAX_EMAIL_LEN];
+    char displayName[MAX_USERNAME_LEN];
+    uint32_t timestamp;         // When request was sent
+    uint8_t isIncoming;         // 1 = received, 0 = sent
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_USERNAME_LEN + 4 + 1;
+
+    void to_bytes(uint8_t* buf) const {
+        size_t off = 0;
+        std::memcpy(buf + off, email, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        std::memcpy(buf + off, displayName, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        uint32_t net_ts = swap32(timestamp);
+        std::memcpy(buf + off, &net_ts, 4); off += 4;
+        buf[off] = isIncoming;
+    }
+
+    static std::optional<FriendRequestInfoWire> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        FriendRequestInfoWire r;
+        size_t off = 0;
+        std::memcpy(r.email, ptr + off, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        r.email[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(r.displayName, ptr + off, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        r.displayName[MAX_USERNAME_LEN - 1] = '\0';
+        uint32_t net_ts;
+        std::memcpy(&net_ts, ptr + off, 4); off += 4;
+        r.timestamp = swap32(net_ts);
+        r.isIncoming = ptr[off];
+        return r;
+    }
+};
+
+// Send friend request payload (C→S)
+struct SendFriendRequestPayload {
+    char targetEmail[MAX_EMAIL_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, targetEmail, MAX_EMAIL_LEN);
+    }
+
+    static std::optional<SendFriendRequestPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        SendFriendRequestPayload p;
+        std::memcpy(p.targetEmail, data, MAX_EMAIL_LEN);
+        p.targetEmail[MAX_EMAIL_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// Friend request ack (S→C)
+struct FriendRequestAckPayload {
+    uint8_t errorCode;          // FriendErrorCode
+    char targetEmail[MAX_EMAIL_LEN];
+
+    static constexpr size_t WIRE_SIZE = 1 + MAX_EMAIL_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = errorCode;
+        std::memcpy(buf + 1, targetEmail, MAX_EMAIL_LEN);
+    }
+
+    static std::optional<FriendRequestAckPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        FriendRequestAckPayload p;
+        p.errorCode = ptr[0];
+        std::memcpy(p.targetEmail, ptr + 1, MAX_EMAIL_LEN);
+        p.targetEmail[MAX_EMAIL_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// Friend request received notification (S→C)
+struct FriendRequestReceivedPayload {
+    char fromEmail[MAX_EMAIL_LEN];
+    char fromDisplayName[MAX_USERNAME_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_USERNAME_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, fromEmail, MAX_EMAIL_LEN);
+        std::memcpy(buf + MAX_EMAIL_LEN, fromDisplayName, MAX_USERNAME_LEN);
+    }
+
+    static std::optional<FriendRequestReceivedPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        FriendRequestReceivedPayload p;
+        std::memcpy(p.fromEmail, ptr, MAX_EMAIL_LEN);
+        p.fromEmail[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(p.fromDisplayName, ptr + MAX_EMAIL_LEN, MAX_USERNAME_LEN);
+        p.fromDisplayName[MAX_USERNAME_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// Accept/Reject friend request payload (C→S)
+struct RespondFriendRequestPayload {
+    char fromEmail[MAX_EMAIL_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, fromEmail, MAX_EMAIL_LEN);
+    }
+
+    static std::optional<RespondFriendRequestPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        RespondFriendRequestPayload p;
+        std::memcpy(p.fromEmail, data, MAX_EMAIL_LEN);
+        p.fromEmail[MAX_EMAIL_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// Type aliases for accept/reject (both use the same payload format)
+using AcceptFriendRequestPayload = RespondFriendRequestPayload;
+using RejectFriendRequestPayload = RespondFriendRequestPayload;
+
+// Friend request accepted notification (S→C to original requester)
+struct FriendRequestAcceptedPayload {
+    char friendEmail[MAX_EMAIL_LEN];
+    char friendDisplayName[MAX_USERNAME_LEN];
+    uint8_t onlineStatus;
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_USERNAME_LEN + 1;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, friendEmail, MAX_EMAIL_LEN);
+        std::memcpy(buf + MAX_EMAIL_LEN, friendDisplayName, MAX_USERNAME_LEN);
+        buf[MAX_EMAIL_LEN + MAX_USERNAME_LEN] = onlineStatus;
+    }
+
+    static std::optional<FriendRequestAcceptedPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        FriendRequestAcceptedPayload p;
+        std::memcpy(p.friendEmail, ptr, MAX_EMAIL_LEN);
+        p.friendEmail[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(p.friendDisplayName, ptr + MAX_EMAIL_LEN, MAX_USERNAME_LEN);
+        p.friendDisplayName[MAX_USERNAME_LEN - 1] = '\0';
+        p.onlineStatus = ptr[MAX_EMAIL_LEN + MAX_USERNAME_LEN];
+        return p;
+    }
+};
+
+// Remove friend payload (C→S)
+struct RemoveFriendPayload {
+    char friendEmail[MAX_EMAIL_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, friendEmail, MAX_EMAIL_LEN);
+    }
+
+    static std::optional<RemoveFriendPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        RemoveFriendPayload p;
+        std::memcpy(p.friendEmail, data, MAX_EMAIL_LEN);
+        p.friendEmail[MAX_EMAIL_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// Block/Unblock user payload (C→S)
+struct BlockUserPayload {
+    char targetEmail[MAX_EMAIL_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, targetEmail, MAX_EMAIL_LEN);
+    }
+
+    static std::optional<BlockUserPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        BlockUserPayload p;
+        std::memcpy(p.targetEmail, data, MAX_EMAIL_LEN);
+        p.targetEmail[MAX_EMAIL_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// UnblockUser uses the same payload format as BlockUser
+using UnblockUserPayload = BlockUserPayload;
+
+// Get friends list request (C→S)
+struct GetFriendsListPayload {
+    uint8_t offset;
+    uint8_t limit;
+
+    static constexpr size_t WIRE_SIZE = 2;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = offset;
+        buf[1] = limit;
+    }
+
+    static std::optional<GetFriendsListPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        GetFriendsListPayload p;
+        p.offset = ptr[0];
+        p.limit = ptr[1];
+        return p;
+    }
+};
+
+// Friend status changed notification (S→C)
+struct FriendStatusChangedPayload {
+    char friendEmail[MAX_EMAIL_LEN];
+    uint8_t newStatus;          // FriendOnlineStatus
+    char roomCode[ROOM_CODE_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + 1 + ROOM_CODE_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, friendEmail, MAX_EMAIL_LEN);
+        buf[MAX_EMAIL_LEN] = newStatus;
+        std::memcpy(buf + MAX_EMAIL_LEN + 1, roomCode, ROOM_CODE_LEN);
+    }
+
+    static std::optional<FriendStatusChangedPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        FriendStatusChangedPayload p;
+        std::memcpy(p.friendEmail, ptr, MAX_EMAIL_LEN);
+        p.friendEmail[MAX_EMAIL_LEN - 1] = '\0';
+        p.newStatus = ptr[MAX_EMAIL_LEN];
+        std::memcpy(p.roomCode, ptr + MAX_EMAIL_LEN + 1, ROOM_CODE_LEN);
+        p.roomCode[ROOM_CODE_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// =============================================================================
+// Private Messaging Structures
+// =============================================================================
+
+// Private message wire format
+struct PrivateMessageWire {
+    char senderEmail[MAX_EMAIL_LEN];
+    char senderDisplayName[MAX_USERNAME_LEN];
+    char message[MAX_MESSAGE_LEN];
+    uint64_t timestamp;
+    uint8_t isRead;
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_USERNAME_LEN + MAX_MESSAGE_LEN + 8 + 1;
+
+    void to_bytes(uint8_t* buf) const {
+        size_t off = 0;
+        std::memcpy(buf + off, senderEmail, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        std::memcpy(buf + off, senderDisplayName, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        std::memcpy(buf + off, message, MAX_MESSAGE_LEN); off += MAX_MESSAGE_LEN;
+        uint64_t net_ts = swap64(timestamp);
+        std::memcpy(buf + off, &net_ts, 8); off += 8;
+        buf[off] = isRead;
+    }
+
+    static std::optional<PrivateMessageWire> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        PrivateMessageWire m;
+        size_t off = 0;
+        std::memcpy(m.senderEmail, ptr + off, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        m.senderEmail[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(m.senderDisplayName, ptr + off, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        m.senderDisplayName[MAX_USERNAME_LEN - 1] = '\0';
+        std::memcpy(m.message, ptr + off, MAX_MESSAGE_LEN); off += MAX_MESSAGE_LEN;
+        m.message[MAX_MESSAGE_LEN - 1] = '\0';
+        uint64_t net_ts;
+        std::memcpy(&net_ts, ptr + off, 8); off += 8;
+        m.timestamp = swap64(net_ts);
+        m.isRead = ptr[off];
+        return m;
+    }
+};
+
+// Send private message payload (C→S)
+struct SendPrivateMessagePayload {
+    char recipientEmail[MAX_EMAIL_LEN];
+    char message[MAX_MESSAGE_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_MESSAGE_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, recipientEmail, MAX_EMAIL_LEN);
+        std::memcpy(buf + MAX_EMAIL_LEN, message, MAX_MESSAGE_LEN);
+    }
+
+    static std::optional<SendPrivateMessagePayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        SendPrivateMessagePayload p;
+        std::memcpy(p.recipientEmail, ptr, MAX_EMAIL_LEN);
+        p.recipientEmail[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(p.message, ptr + MAX_EMAIL_LEN, MAX_MESSAGE_LEN);
+        p.message[MAX_MESSAGE_LEN - 1] = '\0';
+        return p;
+    }
+};
+
+// Send private message ack (S→C)
+struct SendPrivateMessageAckPayload {
+    uint8_t errorCode;          // FriendErrorCode
+    uint64_t messageId;         // Unique message ID
+
+    static constexpr size_t WIRE_SIZE = 1 + 8;
+
+    void to_bytes(uint8_t* buf) const {
+        buf[0] = errorCode;
+        uint64_t net_id = swap64(messageId);
+        std::memcpy(buf + 1, &net_id, 8);
+    }
+
+    static std::optional<SendPrivateMessageAckPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        SendPrivateMessageAckPayload p;
+        p.errorCode = ptr[0];
+        uint64_t net_id;
+        std::memcpy(&net_id, ptr + 1, 8);
+        p.messageId = swap64(net_id);
+        return p;
+    }
+};
+
+// Get conversation request (C→S)
+struct GetConversationPayload {
+    char otherEmail[MAX_EMAIL_LEN];
+    uint8_t offset;
+    uint8_t limit;
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + 2;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, otherEmail, MAX_EMAIL_LEN);
+        buf[MAX_EMAIL_LEN] = offset;
+        buf[MAX_EMAIL_LEN + 1] = limit;
+    }
+
+    static std::optional<GetConversationPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        GetConversationPayload p;
+        std::memcpy(p.otherEmail, ptr, MAX_EMAIL_LEN);
+        p.otherEmail[MAX_EMAIL_LEN - 1] = '\0';
+        p.offset = ptr[MAX_EMAIL_LEN];
+        p.limit = ptr[MAX_EMAIL_LEN + 1];
+        return p;
+    }
+};
+
+// Conversation summary (for conversations list)
+struct ConversationSummaryWire {
+    char otherEmail[MAX_EMAIL_LEN];
+    char otherDisplayName[MAX_USERNAME_LEN];
+    char lastMessage[MAX_MESSAGE_LEN];
+    uint64_t lastTimestamp;
+    uint8_t unreadCount;
+    uint8_t onlineStatus;
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN + MAX_USERNAME_LEN + MAX_MESSAGE_LEN + 8 + 1 + 1;
+
+    void to_bytes(uint8_t* buf) const {
+        size_t off = 0;
+        std::memcpy(buf + off, otherEmail, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        std::memcpy(buf + off, otherDisplayName, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        std::memcpy(buf + off, lastMessage, MAX_MESSAGE_LEN); off += MAX_MESSAGE_LEN;
+        uint64_t net_ts = swap64(lastTimestamp);
+        std::memcpy(buf + off, &net_ts, 8); off += 8;
+        buf[off++] = unreadCount;
+        buf[off] = onlineStatus;
+    }
+
+    static std::optional<ConversationSummaryWire> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        auto* ptr = static_cast<const uint8_t*>(data);
+        ConversationSummaryWire c;
+        size_t off = 0;
+        std::memcpy(c.otherEmail, ptr + off, MAX_EMAIL_LEN); off += MAX_EMAIL_LEN;
+        c.otherEmail[MAX_EMAIL_LEN - 1] = '\0';
+        std::memcpy(c.otherDisplayName, ptr + off, MAX_USERNAME_LEN); off += MAX_USERNAME_LEN;
+        c.otherDisplayName[MAX_USERNAME_LEN - 1] = '\0';
+        std::memcpy(c.lastMessage, ptr + off, MAX_MESSAGE_LEN); off += MAX_MESSAGE_LEN;
+        c.lastMessage[MAX_MESSAGE_LEN - 1] = '\0';
+        uint64_t net_ts;
+        std::memcpy(&net_ts, ptr + off, 8); off += 8;
+        c.lastTimestamp = swap64(net_ts);
+        c.unreadCount = ptr[off++];
+        c.onlineStatus = ptr[off];
+        return c;
+    }
+};
+
+// Mark messages read payload (C→S)
+struct MarkMessagesReadPayload {
+    char otherEmail[MAX_EMAIL_LEN];
+
+    static constexpr size_t WIRE_SIZE = MAX_EMAIL_LEN;
+
+    void to_bytes(uint8_t* buf) const {
+        std::memcpy(buf, otherEmail, MAX_EMAIL_LEN);
+    }
+
+    static std::optional<MarkMessagesReadPayload> from_bytes(const void* data, size_t len) {
+        if (len < WIRE_SIZE) return std::nullopt;
+        MarkMessagesReadPayload p;
+        std::memcpy(p.otherEmail, data, MAX_EMAIL_LEN);
+        p.otherEmail[MAX_EMAIL_LEN - 1] = '\0';
+        return p;
     }
 };
 

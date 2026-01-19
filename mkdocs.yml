@@ -152,6 +152,7 @@ nav:
       - Multijoueur: guide/gameplay/multijoueur.md
       - Leaderboard: guide/gameplay/leaderboard.md
       - Voice Chat: guide/gameplay/voice-chat.md
+      - Amis & Messages: guide/gameplay/friends.md
   - Configuration:
     - configuration/index.md
     - Serveur: configuration/serveur.md
@@ -194,6 +195,9 @@ nav:
     - Persistance:
       - technique/persistance/index.md
       - MongoDB: technique/persistance/mongodb.md
+    - Social:
+      - technique/social/index.md
+      - Friends System: FRIENDS_SYSTEM_SPECIFICATION.md
     - ECS:
       - technique/ecs/index.md
   - API:
