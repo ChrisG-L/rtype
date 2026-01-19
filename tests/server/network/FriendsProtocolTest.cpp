@@ -46,7 +46,7 @@ TEST_F(FriendInfoWireTest, SerializationRoundTrip) {
 }
 
 TEST_F(FriendInfoWireTest, InvalidBufferSize) {
-    uint8_t buffer[10];
+    uint8_t buffer[10] = {0};
     auto parsed = FriendInfoWire::from_bytes(buffer, 10);
     EXPECT_FALSE(parsed.has_value());
 }
@@ -122,7 +122,7 @@ TEST_F(FriendRequestInfoWireTest, OutgoingRequest) {
 }
 
 TEST_F(FriendRequestInfoWireTest, InvalidBufferSize) {
-    uint8_t buffer[50];
+    uint8_t buffer[50] = {0};
     auto parsed = FriendRequestInfoWire::from_bytes(buffer, 50);
     EXPECT_FALSE(parsed.has_value());
 }
@@ -177,7 +177,7 @@ TEST_F(PrivateMessageWireTest, UnreadMessage) {
 }
 
 TEST_F(PrivateMessageWireTest, InvalidBufferSize) {
-    uint8_t buffer[50];
+    uint8_t buffer[50] = {0};
     auto parsed = PrivateMessageWire::from_bytes(buffer, 50);
     EXPECT_FALSE(parsed.has_value());
 }
@@ -221,7 +221,7 @@ TEST_F(ConversationSummaryWireTest, SerializationRoundTrip) {
 }
 
 TEST_F(ConversationSummaryWireTest, InvalidBufferSize) {
-    uint8_t buffer[50];
+    uint8_t buffer[50] = {0};
     auto parsed = ConversationSummaryWire::from_bytes(buffer, 50);
     EXPECT_FALSE(parsed.has_value());
 }

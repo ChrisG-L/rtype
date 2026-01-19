@@ -99,7 +99,7 @@ TEST_F(PauseStateSyncTest, SerializationRoundtrip_NotPaused) {
 }
 
 TEST_F(PauseStateSyncTest, InvalidBufferTooSmall) {
-    uint8_t buffer[2];  // Need 3 bytes
+    uint8_t buffer[2] = {0};  // Need 3 bytes
     auto parsed = PauseStateSync::from_bytes(buffer, 2);
     EXPECT_FALSE(parsed.has_value());
 }
