@@ -45,6 +45,11 @@ namespace infrastructure::ecs::systems {
         // 4. FORCE_PODS vs ENEMIES → Enemy takes contact damage
         checkPairs(ecs, forcePods, enemies,
                    ECS::EntityGroup::FORCE_PODS, ECS::EntityGroup::ENEMIES);
+
+        // 5. PLAYERS vs POWERUPS → Player collects power-up
+        auto powerups = ecs.getEntityGroup(ECS::EntityGroup::POWERUPS);
+        checkPairs(ecs, players, powerups,
+                   ECS::EntityGroup::PLAYERS, ECS::EntityGroup::POWERUPS);
     }
 
     void CollisionSystem::checkPairs(ECS::ECS& ecs,

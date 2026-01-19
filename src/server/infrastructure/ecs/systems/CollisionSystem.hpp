@@ -36,6 +36,7 @@ namespace infrastructure::ecs::systems {
      * - WAVE_CANNONS vs ENEMIES
      * - PLAYERS vs ENEMY_MISSILES
      * - FORCE_PODS vs ENEMIES
+     * - PLAYERS vs POWERUPS
      *
      * This reduces comparisons from n*(n-1)/2 to only meaningful pairs.
      * Entity groups are fetched once per frame, avoiding repeated lookups.

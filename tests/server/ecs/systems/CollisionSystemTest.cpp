@@ -46,8 +46,9 @@ TEST_F(CollisionSystemTest, TwoOverlappingEntitiesDetected) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
     CollisionSystem system(bridge);
 
-    auto e1 = _ecs.entityCreate();
-    auto e2 = _ecs.entityCreate();
+    // Use MISSILES vs ENEMIES (a valid collision pair)
+    auto e1 = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+    auto e2 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
 
     auto& pos1 = _ecs.entityAddComponent<PositionComp>(e1);
     pos1.x = 100.0f;
@@ -73,8 +74,9 @@ TEST_F(CollisionSystemTest, TwoDistantEntitiesNoCollision) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
     CollisionSystem system(bridge);
 
-    auto e1 = _ecs.entityCreate();
-    auto e2 = _ecs.entityCreate();
+    // Use MISSILES vs ENEMIES (a valid collision pair)
+    auto e1 = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+    auto e2 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
 
     auto& pos1 = _ecs.entityAddComponent<PositionComp>(e1);
     pos1.x = 100.0f;
@@ -100,8 +102,9 @@ TEST_F(CollisionSystemTest, HitboxOffsetConsideredForCollision) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
     CollisionSystem system(bridge);
 
-    auto e1 = _ecs.entityCreate();
-    auto e2 = _ecs.entityCreate();
+    // Use MISSILES vs ENEMIES (a valid collision pair)
+    auto e1 = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+    auto e2 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
 
     // Entity 1 at (100, 100)
     auto& pos1 = _ecs.entityAddComponent<PositionComp>(e1);
@@ -133,8 +136,9 @@ TEST_F(CollisionSystemTest, NoDuplicateCollisions) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
     CollisionSystem system(bridge);
 
-    auto e1 = _ecs.entityCreate();
-    auto e2 = _ecs.entityCreate();
+    // Use MISSILES vs ENEMIES (a valid collision pair)
+    auto e1 = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+    auto e2 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
 
     // Overlapping entities
     auto& pos1 = _ecs.entityAddComponent<PositionComp>(e1);
@@ -162,9 +166,10 @@ TEST_F(CollisionSystemTest, EntityWithoutHitboxIgnored) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
     CollisionSystem system(bridge);
 
-    auto e1 = _ecs.entityCreate();
-    auto e2 = _ecs.entityCreate();  // No hitbox
-    auto e3 = _ecs.entityCreate();
+    // Use MISSILES vs ENEMIES (valid collision pairs)
+    auto e1 = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+    auto e2 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);  // No hitbox
+    auto e3 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
 
     // e1 and e3 overlap
     auto& pos1 = _ecs.entityAddComponent<PositionComp>(e1);
@@ -202,8 +207,9 @@ TEST_F(CollisionSystemTest, CollisionsClearedOnUpdate) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
     CollisionSystem system(bridge);
 
-    auto e1 = _ecs.entityCreate();
-    auto e2 = _ecs.entityCreate();
+    // Use MISSILES vs ENEMIES (a valid collision pair)
+    auto e1 = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+    auto e2 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
 
     // Overlapping entities
     auto& pos1 = _ecs.entityAddComponent<PositionComp>(e1);
@@ -235,8 +241,9 @@ TEST_F(CollisionSystemTest, ClearCollisionsManually) {
     DomainBridge bridge(_gameRule, _collisionRule, _enemyBehavior);
     CollisionSystem system(bridge);
 
-    auto e1 = _ecs.entityCreate();
-    auto e2 = _ecs.entityCreate();
+    // Use MISSILES vs ENEMIES (a valid collision pair)
+    auto e1 = _ecs.entityCreate(ECS::EntityGroup::MISSILES);
+    auto e2 = _ecs.entityCreate(ECS::EntityGroup::ENEMIES);
 
     auto& pos1 = _ecs.entityAddComponent<PositionComp>(e1);
     pos1.x = 100.0f;
@@ -397,7 +404,7 @@ TEST_F(CollisionSystemTest, MultipleCollisionsInOneFrame) {
     system.Update(_ecs, 0, 0);
 
     // Should have collisions: missile-enemy1, missile-enemy2, missile-enemy3
-    // Plus enemy-enemy collisions: enemy1-enemy2, enemy1-enemy3, enemy2-enemy3
-    // Total: 6 collisions
-    EXPECT_EQ(system.getCollisions().size(), 6);
+    // Note: ENEMIES vs ENEMIES is NOT checked (optimized system only checks relevant pairs)
+    // Total: 3 collisions
+    EXPECT_EQ(system.getCollisions().size(), 3);
 }
