@@ -263,8 +263,8 @@ void SFMLWindow::display() {
 void SFMLWindow::initRenderTexture() {
     if (_renderTextureInitialized) return;
 
-    auto size = _window.getSize();
-    if (!_renderTexture.resize({size.x, size.y})) {
+    // Taille fixe 1920x1080 (résolution logique) - le letterboxing se fait à l'affichage final
+    if (!_renderTexture.resize({1920, 1080})) {
         return;
     }
     _renderTextureInitialized = true;
@@ -347,10 +347,7 @@ void SFMLWindow::setFullscreen(bool enabled) {
     auto size = _window.getSize();
     handleResize(size.x, size.y);
 
-    // Réinitialiser la RenderTexture si nécessaire (pour les shaders)
-    if (_renderTextureInitialized) {
-        _renderTexture.resize({size.x, size.y});
-    }
+    // Note: RenderTexture reste à 1920x1080 (taille logique fixe)
 
     _isFullscreen = enabled;
 }
@@ -382,8 +379,6 @@ void SFMLWindow::handleResize(unsigned int newWidth, unsigned int newHeight) {
 
     _window.setView(view);
 
-    // Mettre à jour la RenderTexture si nécessaire
-    if (_renderTextureInitialized) {
-        _renderTexture.resize({newWidth, newHeight});
-    }
+    // Note: RenderTexture reste à 1920x1080 (taille logique fixe)
+    // Le sprite 1920x1080 sera correctement mappé dans la view letterboxée de la fenêtre
 }
