@@ -331,10 +331,13 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         message(STATUS "Sanitizers désactivés (cross-compilation ou MinGW)")
         # MinGW + static linking + C++ = problèmes de définitions multiples
         if(MINGW)
+            target_compile_options(rtype_client PRIVATE
+                -Wa,-mbig-obj              # Permet les gros fichiers objets (COFF bigobj)
+            )
             target_link_options(rtype_client PRIVATE
                 -Wl,--allow-multiple-definition
             )
-            message(STATUS "Flag --allow-multiple-definition activé pour MinGW")
+            message(STATUS "Flags MinGW activés: -Wa,-mbig-obj et --allow-multiple-definition")
         endif()
     endif()
 endif()
@@ -345,6 +348,17 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
         ${COMMON_WARNINGS}
         -DNDEBUG                        # Désactive les assertions
     )
+
+    # MinGW: big-obj nécessaire pour les gros fichiers comme TCPClient.cpp
+    if(MINGW)
+        target_compile_options(rtype_client PRIVATE
+            -Wa,-mbig-obj              # Permet les gros fichiers objets (COFF bigobj)
+        )
+        target_link_options(rtype_client PRIVATE
+            -Wl,--allow-multiple-definition
+        )
+        message(STATUS "Flags MinGW Release: -Wa,-mbig-obj et --allow-multiple-definition")
+    endif()
 
     # Optimisations spécifiques Clang en release
     if(IS_CLANG)
