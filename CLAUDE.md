@@ -364,7 +364,7 @@ namespace collision {
     };
 
     namespace Hitboxes {
-        SHIP_WIDTH = 64.0f, SHIP_HEIGHT = 64.0f;
+        SHIP_WIDTH = 64.0f, SHIP_HEIGHT = 30.0f;
         MISSILE_WIDTH = 16.0f, MISSILE_HEIGHT = 8.0f;
         ENEMY_WIDTH = 40.0f, ENEMY_HEIGHT = 40.0f;
     }
@@ -531,7 +531,7 @@ Voice relay server (`src/server/infrastructure/adapters/in/network/VoiceUDPServe
 | Constant | Value | Location |
 |----------|-------|----------|
 | `MOVE_SPEED` | 200.0f | GameScene.hpp |
-| `SHIP_WIDTH/HEIGHT` | 64.0f / 64.0f | GameScene.hpp, Hitboxes |
+| `SHIP_WIDTH/HEIGHT` | 64.0f / 30.0f | GameScene.hpp, Hitboxes |
 | `MISSILE_WIDTH/HEIGHT` | 32.0f / 16.0f (render), 16/8 (hitbox) | GameScene.hpp, Hitboxes |
 | `MISSILE_SPEED` | 600.0f | GameWorld.hpp |
 | `SHOOT_COOLDOWN` | 0.3f seconds | GameScene.hpp |
