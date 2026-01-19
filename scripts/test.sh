@@ -80,58 +80,6 @@ print_step() {
     echo -e "${MAGENTA}${BOLD}▶${NC} ${WHITE}$1${NC}"
 }
 
-#===============================================================================
-# Filtrage de la sortie GTest pour une meilleure lisibilite
-#===============================================================================
-filter_gtest_output() {
-    local passed=0
-    local failed=0
-
-    while IFS= read -r line; do
-        # Tests qui passent
-        if echo "$line" | grep -qE "^\[       OK \]"; then
-            passed=$((passed + 1))
-            echo -e "${GREEN}$line${NC}"
-        # Tests qui echouent
-        elif echo "$line" | grep -qE "^\[  FAILED  \]"; then
-            failed=$((failed + 1))
-            echo -e "${RED}${BOLD}$line${NC}"
-        # En cours d'execution
-        elif echo "$line" | grep -qE "^\[ RUN      \]"; then
-            echo -e "${CYAN}$line${NC}"
-        # Separateurs
-        elif echo "$line" | grep -qE "^\[==========\]"; then
-            echo -e "${BLUE}${BOLD}$line${NC}"
-        elif echo "$line" | grep -qE "^\[----------\]"; then
-            echo -e "${DIM}$line${NC}"
-        # Resume passes
-        elif echo "$line" | grep -qE "^\[  PASSED  \]"; then
-            echo -e "${GREEN}${BOLD}$line${NC}"
-        # Erreurs d'assertion
-        elif echo "$line" | grep -qE "Failure$|FAILED"; then
-            echo -e "${RED}${BOLD}$line${NC}"
-        # Expected/Actual values
-        elif echo "$line" | grep -qE "^\s*(Expected|Actual|Value of|Which is):"; then
-            echo -e "${YELLOW}$line${NC}"
-        # Lignes de code source avec erreur
-        elif echo "$line" | grep -qE "^.*:\d+:"; then
-            echo -e "${RED}$line${NC}"
-        # Global test environment
-        elif echo "$line" | grep -qE "Global test environment"; then
-            echo -e "${DIM}$line${NC}"
-        # Autres lignes
-        else
-            echo "$line"
-        fi
-    done
-
-    # Retourner le statut
-    if [[ $failed -gt 0 ]]; then
-        return 1
-    fi
-    return 0
-}
-
 show_help() {
     cat << EOF
 ${BOLD}R-Type Test Runner${NC}
@@ -397,20 +345,13 @@ list_tests() {
 run_tests() {
     print_header "Exécution des Tests"
 
-    local gtest_args=()
+    local gtest_args=("--gtest_color=yes")
+    local exit_code=0
 
     if [[ -n "$GTEST_FILTER" ]]; then
         gtest_args+=("--gtest_filter=$GTEST_FILTER")
         print_info "Filtre appliqué: $GTEST_FILTER"
     fi
-
-    if [[ "$VERBOSE" == true ]]; then
-        gtest_args+=("--gtest_print_time=1")
-    fi
-
-    local total_passed=0
-    local total_failed=0
-    local total_tests=0
 
     # Tests Serveur
     if [[ "$RUN_SERVER_TESTS" == true ]]; then
@@ -418,21 +359,7 @@ run_tests() {
         echo ""
 
         if [[ -f "${TESTS_OUTPUT_DIR}/server_tests" ]]; then
-            if [[ "$VERBOSE" == true ]]; then
-                if "${TESTS_OUTPUT_DIR}/server_tests" "${gtest_args[@]}" --gtest_color=yes; then
-                    print_success "Tests serveur reussis"
-                else
-                    print_error "Certains tests serveur ont echoue"
-                    total_failed=$((total_failed + 1))
-                fi
-            else
-                if "${TESTS_OUTPUT_DIR}/server_tests" "${gtest_args[@]}" --gtest_color=no 2>&1 | filter_gtest_output; then
-                    print_success "Tests serveur reussis"
-                else
-                    print_error "Certains tests serveur ont echoue"
-                    total_failed=$((total_failed + 1))
-                fi
-            fi
+            "${TESTS_OUTPUT_DIR}/server_tests" "${gtest_args[@]}" || exit_code=$?
         else
             print_warning "server_tests non trouve - compilation requise"
         fi
@@ -444,21 +371,7 @@ run_tests() {
         echo ""
 
         if [[ -f "${TESTS_OUTPUT_DIR}/client_tests" ]]; then
-            if [[ "$VERBOSE" == true ]]; then
-                if "${TESTS_OUTPUT_DIR}/client_tests" "${gtest_args[@]}" --gtest_color=yes; then
-                    print_success "Tests client reussis"
-                else
-                    print_error "Certains tests client ont echoue"
-                    total_failed=$((total_failed + 1))
-                fi
-            else
-                if "${TESTS_OUTPUT_DIR}/client_tests" "${gtest_args[@]}" --gtest_color=no 2>&1 | filter_gtest_output; then
-                    print_success "Tests client reussis"
-                else
-                    print_error "Certains tests client ont echoue"
-                    total_failed=$((total_failed + 1))
-                fi
-            fi
+            "${TESTS_OUTPUT_DIR}/client_tests" "${gtest_args[@]}" || exit_code=$?
         else
             print_warning "client_tests non trouve - compilation requise"
         fi
@@ -467,13 +380,13 @@ run_tests() {
     # Résumé final
     print_header "Résumé"
 
-    if [[ $total_failed -eq 0 ]]; then
+    if [[ $exit_code -eq 0 ]]; then
         echo -e "${GREEN}${BOLD}✓ Tous les tests ont réussi !${NC}"
-        return 0
     else
-        echo -e "${RED}${BOLD}✗ Des tests ont échoué${NC}"
-        return 1
+        echo -e "${RED}${BOLD}✗ Des tests ont échoué (code: $exit_code)${NC}"
     fi
+
+    return $exit_code
 }
 
 #===============================================================================
