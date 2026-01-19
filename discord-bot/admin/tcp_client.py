@@ -26,7 +26,9 @@ class CommandResult:
 
 
 class TCPAdminClient:
-    """Async TCP client for R-Type Admin Server."""
+    """Async TCP client for R-Type Admin Server with keepalive."""
+
+    KEEPALIVE_INTERVAL = 60  # Send keepalive every 60 seconds
 
     def __init__(self, host: str, port: int, token: str):
         """
@@ -44,6 +46,7 @@ class TCPAdminClient:
         self._writer: Optional[asyncio.StreamWriter] = None
         self._lock = asyncio.Lock()
         self._connected = False
+        self._keepalive_task: Optional[asyncio.Task] = None
 
     async def connect(self) -> bool:
         """
@@ -59,6 +62,8 @@ class TCPAdminClient:
             )
             self._connected = True
             logger.info(f"Connected to R-Type Admin Server at {self.host}:{self.port}")
+            # Start keepalive task
+            self._start_keepalive()
             return True
         except asyncio.TimeoutError:
             logger.error(f"Connection timeout to {self.host}:{self.port}")
@@ -70,8 +75,54 @@ class TCPAdminClient:
             logger.error(f"Failed to connect to {self.host}:{self.port}: {e}")
             return False
 
+    def _start_keepalive(self) -> None:
+        """Start the keepalive background task."""
+        if self._keepalive_task is not None:
+            self._keepalive_task.cancel()
+        self._keepalive_task = asyncio.create_task(self._keepalive_loop())
+
+    async def _keepalive_loop(self) -> None:
+        """Send periodic keepalive pings to keep the connection alive."""
+        while self._connected:
+            try:
+                await asyncio.sleep(self.KEEPALIVE_INTERVAL)
+                if self._connected and self._writer:
+                    # Send a lightweight "help" command as keepalive
+                    async with self._lock:
+                        if not self._connected or not self._writer:
+                            break
+                        request = {"cmd": "help", "args": "", "token": self.token}
+                        request_json = json.dumps(request) + "\n"
+                        self._writer.write(request_json.encode("utf-8"))
+                        await self._writer.drain()
+                        # Read and discard response
+                        response = await asyncio.wait_for(
+                            self._reader.readline(),
+                            timeout=10.0
+                        )
+                        if not response:
+                            logger.warning("Keepalive: server closed connection")
+                            self._connected = False
+                            break
+                        logger.debug("Keepalive ping successful")
+            except asyncio.CancelledError:
+                raise  # Re-raise to properly cancel the task
+            except Exception as e:
+                logger.warning(f"Keepalive failed: {e}")
+                self._connected = False
+                break
+
     async def disconnect(self) -> None:
         """Disconnect from the server."""
+        # Stop keepalive task first
+        if self._keepalive_task is not None:
+            self._keepalive_task.cancel()
+            try:
+                await self._keepalive_task
+            except asyncio.CancelledError:
+                pass
+            self._keepalive_task = None
+
         if self._writer:
             try:
                 self._writer.close()
