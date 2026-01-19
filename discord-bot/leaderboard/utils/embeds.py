@@ -324,10 +324,6 @@ def create_history_embed(history: list[dict], player_name: str) -> discord.Embed
         kills = game.get("kills", 0)
         duration = format_game_duration(game.get("duration", 0))
 
-        # Mode indicator
-        game_mode = game.get("playerCount") or 0
-        mode_emoji = MODE_EMOJIS.get(game_mode, "") if game_mode > 0 else ""
-
         # Additional stats
         extras = []
         deaths = game.get("deaths") or 0
@@ -343,18 +339,13 @@ def create_history_embed(history: list[dict], player_name: str) -> discord.Embed
             combo_val = best_combo / 10
             extras.append(f"🔥{combo_val:.1f}x")
 
-        # Determine main weapon used (highest kills)
-        weapon_kills = {
-            "Standard": game.get("standardKills") or 0,
-            "Spread": game.get("spreadKills") or 0,
-            "Laser": game.get("laserKills") or 0,
-            "Missile": game.get("missileKills") or 0,
-            "Wave Cannon": game.get("waveCannonKills") or 0,
-        }
-        total_weapon_kills = sum(weapon_kills.values())
-        if total_weapon_kills > 0:
-            main_weapon = max(weapon_kills, key=weapon_kills.get)
-            weapon_emoji = WEAPON_EMOJIS.get(main_weapon, "🔫")
+        # Weapon used (stored as weaponUsed int in game_history)
+        # 0=Standard, 1=Spread, 2=Laser, 3=Missile, 4=WaveCannon
+        weapon_id = game.get("weaponUsed")
+        if weapon_id is not None:
+            weapon_map = {0: "Standard", 1: "Spread", 2: "Laser", 3: "Missile", 4: "Wave Cannon"}
+            weapon_name = weapon_map.get(weapon_id, "Standard")
+            weapon_emoji = WEAPON_EMOJIS.get(weapon_name, "🔵")
             extras.append(weapon_emoji)
 
         extra_str = " ".join(extras)
@@ -362,7 +353,7 @@ def create_history_embed(history: list[dict], player_name: str) -> discord.Embed
             extra_str = f" | {extra_str}"
 
         lines.append(
-            f"{i}. {mode_emoji} {when} | {score} pts | W{wave} | {kills}K | ⏱️{duration}{extra_str}"
+            f"{when} | {score} pts | W{wave} | {kills} kills | ⏱️{duration}{extra_str}"
         )
 
     embed.add_field(name="Dernieres parties", value="\n".join(lines), inline=False)

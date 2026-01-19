@@ -580,6 +580,14 @@ void MongoDBLeaderboardRepository::updatePlayerStats(
     auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
         now.time_since_epoch()).count();
 
+    // Calculate favorite weapon from kills per weapon
+    uint8_t favoriteWeapon = 0;  // Standard by default
+    uint32_t maxWeaponKills = gameStats.standardKills;
+    if (gameStats.spreadKills > maxWeaponKills) { favoriteWeapon = 1; maxWeaponKills = gameStats.spreadKills; }
+    if (gameStats.laserKills > maxWeaponKills) { favoriteWeapon = 2; maxWeaponKills = gameStats.laserKills; }
+    if (gameStats.missileKills > maxWeaponKills) { favoriteWeapon = 3; maxWeaponKills = gameStats.missileKills; }
+    if (gameStats.waveCannonKills > maxWeaponKills) { favoriteWeapon = 4; }
+
     auto historyDoc = make_document(
         kvp("email", email),
         kvp("playerName", playerName),
@@ -589,8 +597,10 @@ void MongoDBLeaderboardRepository::updatePlayerStats(
         kvp("deaths", static_cast<int32_t>(gameStats.deaths)),
         kvp("duration", static_cast<int64_t>(gameStats.duration)),
         kvp("timestamp", timestamp),
-        kvp("weaponUsed", static_cast<int32_t>(gameStats.weaponUsed)),
-        kvp("bossDefeated", gameStats.bossDefeated)
+        kvp("weaponUsed", static_cast<int32_t>(favoriteWeapon)),
+        kvp("bossDefeated", gameStats.bossDefeated),
+        kvp("bestCombo", static_cast<int32_t>(gameStats.bestCombo)),
+        kvp("playerCount", static_cast<int32_t>(gameStats.playerCount))
     );
 
     gameHistoryCollection.insert_one(historyDoc.view());
@@ -899,6 +909,14 @@ void MongoDBLeaderboardRepository::finalizeGameSession(
     auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
         now.time_since_epoch()).count();
 
+    // Calculate favorite weapon from kills per weapon
+    uint8_t favoriteWeapon = 0;  // Standard by default
+    uint32_t maxKills = session.standardKills;
+    if (session.spreadKills > maxKills) { favoriteWeapon = 1; maxKills = session.spreadKills; }
+    if (session.laserKills > maxKills) { favoriteWeapon = 2; maxKills = session.laserKills; }
+    if (session.missileKills > maxKills) { favoriteWeapon = 3; maxKills = session.missileKills; }
+    if (session.waveCannonKills > maxKills) { favoriteWeapon = 4; }
+
     auto historyDoc = make_document(
         kvp("email", email),
         kvp("playerName", playerName),
@@ -908,8 +926,10 @@ void MongoDBLeaderboardRepository::finalizeGameSession(
         kvp("deaths", static_cast<int32_t>(session.deaths)),
         kvp("duration", static_cast<int64_t>(session.duration)),
         kvp("timestamp", timestamp),
-        kvp("weaponUsed", static_cast<int32_t>(session.weaponUsed)),
-        kvp("bossDefeated", session.bossDefeated)
+        kvp("weaponUsed", static_cast<int32_t>(favoriteWeapon)),
+        kvp("bossDefeated", session.bossDefeated),
+        kvp("bestCombo", static_cast<int32_t>(session.bestCombo)),
+        kvp("playerCount", static_cast<int32_t>(session.playerCount))
     );
 
     gameHistoryCollection.insert_one(historyDoc.view());
