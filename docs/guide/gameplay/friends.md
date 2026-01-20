@@ -107,4 +107,4 @@ Les notifications temps reel incluent :
 
 ## Documentation Technique
 
-Pour les details d'implementation, voir [Friends System](../../../friends-system.md).
+Pour les details d'implementation, voir [Friends System](../../friends-system.md).

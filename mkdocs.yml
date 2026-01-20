@@ -232,6 +232,33 @@ nav:
     - Bot Admin Discord: developpement/discord-admin-bot.md
     - Bot Leaderboard Discord: developpement/discord-leaderboard-bot.md
     - Contribution: developpement/contribution.md
+  - Observables:
+    - observables/index.md
+    - Veille & Sécurité:
+      - Veille Technologique: observables/competence-01-veille-technologique.md
+      - Sécurité Protocoles: observables/competence-02-securite-protocoles.md
+    - Conception & Architecture:
+      - Solution Créative: observables/competence-03-solution-creative.md
+      - Architecture: observables/competence-04-architecture.md
+      - Composants Logiciels: observables/competence-05-composants-logiciels.md
+      - Segmentation: observables/competence-06-segmentation.md
+    - Développement:
+      - Algorithmes: observables/competence-07-algorithmes.md
+      - Persistance: observables/competence-08-persistance.md
+      - Structures de Données: observables/competence-09-structures-donnees.md
+      - Interfaces: observables/competence-10-interfaces.md
+    - Qualité & Intégration:
+      - Intégrité des Données: observables/competence-11-integrite-donnees.md
+      - Interopérabilité: observables/competence-12-interoperabilite.md
+      - Code Opérationnel: observables/competence-13-code-operationnel.md
+      - Intégration Tiers: observables/competence-14-integration-tiers.md
+    - Rapports:
+      - Sécurité: observables/rapports/rapport_securite.md
+      - Architecture: observables/rapports/rapport_architecture.md
+      - Réseau: observables/rapports/rapport_reseau.md
+      - UI: observables/rapports/rapport_ui.md
+      - Data: observables/rapports/rapport_data.md
+      - Intégration: observables/rapports/rapport_integration.md
   - Assets:
     - assets/index.md
     - Sprites: assets/sprites.md
