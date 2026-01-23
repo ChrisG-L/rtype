@@ -4,6 +4,31 @@
 
 ---
 
+## Synthèse des Études Comparatives
+
+La veille technologique du projet R-Type couvre **6 domaines techniques**. Les études comparatives sont détaillées dans les observables correspondants.
+
+| Domaine | Solution retenue | Alternatives évaluées | Observable |
+|---------|------------------|----------------------|------------|
+| **Graphiques** | SFML + SDL2 (dual-backend) | Raylib | [1.1](#observable-11--étude-comparative-des-technologies) |
+| **Persistance** | MongoDB | PostgreSQL, Redis | [8.2](competence-08-persistance.md#observable-82--comparatif-des-solutions-de-persistance) |
+| **Codec Audio** | Opus | Speex, G.711 | [12.2](competence-12-interoperabilite.md#observable-122--justification-des-composants-tiers) |
+| **Compression** | LZ4 | zlib, zstd | [12.2](competence-12-interoperabilite.md#observable-122--justification-des-composants-tiers) |
+| **Networking** | Boost.ASIO | libuv, Qt Network | [12.2](competence-12-interoperabilite.md#observable-122--justification-des-composants-tiers) |
+| **Accessibilité** | Shaders GLSL + Remapping | - | [1.2](#observable-12--technologies-daccessibilité-pour-les-psh) |
+
+### Justification des Choix Clés
+
+| Technologie | Critère principal | Avantage décisif |
+|-------------|-------------------|------------------|
+| **SFML/SDL2** | Modernité + Stabilité | Shaders GLSL (SFML) + fallback éprouvé (SDL2) |
+| **MongoDB** | Flexibilité schéma | Évolution rapide sans migrations |
+| **Opus** | Qualité/bitrate | Standard VoIP gaming, latence 2.5-60ms |
+| **LZ4** | Vitesse | 1.5 GB/s décompression, idéal temps réel 20Hz |
+| **Boost.ASIO** | C++ idiomatique | Proactor pattern, intégration TLS native |
+
+---
+
 ## Observable 1.1 : Étude Comparative des Technologies
 
 ### Contexte du Choix Technologique
