@@ -58,7 +58,7 @@ graph LR
 | **Networking** | Intégré (sf::TcpSocket, sf::UdpSocket) | Non inclus | Non inclus |
 | **Shaders** | GLSL natif | Via extensions | OpenGL abstrait |
 | **Support mobile** | Android/iOS (SFML 2.2+) | Android/iOS/WebAssembly | Limité |
-| **Jeux commerciaux** | Quelques indie | Portal, Left 4 Dead 2, Amnesia | Éducatif principalement |
+| **Jeux commerciaux** | Quelques indie | Nombreux projets | Éducatif principalement |
 | **Maturité** | ~15 ans | ~25 ans | ~9 ans |
 | **Licence** | zlib/png | zlib | zlib |
 
@@ -127,7 +127,6 @@ graph TB
 2. **SDL2 comme backend de fallback** :
    - Compatibilité maximale (25 ans de maturité)
    - Support WebAssembly pour portage futur
-   - Preuves industrielles (jeux AAA)
    - Alternative quand SFML non disponible
 
 **Implémentation** (`src/client/include/graphics/IWindow.hpp:20-62`) :
