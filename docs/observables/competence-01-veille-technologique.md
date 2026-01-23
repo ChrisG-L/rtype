@@ -205,7 +205,7 @@ Le projet R-Type implémente les fonctionnalités d'accessibilité suivantes :
 
 #### 1. Filtres Daltonisme (Shaders GLSL)
 
-**Types supportés** (`src/client/include/accessibility/AccessibilityConfig.hpp:22-27`) :
+**Types supportés** (`src/client/include/accessibility/AccessibilityConfig.hpp:22-28`) :
 ```cpp
 enum class ColorBlindMode {
     None,
@@ -230,7 +230,7 @@ private:
 
 #### 2. Remapping des Touches
 
-**Configuration complète** (`AccessibilityConfig.hpp:29-46`) :
+**Configuration complète** (`src/client/include/accessibility/AccessibilityConfig.hpp:33-49`) :
 ```cpp
 enum class GameAction {
     MoveUp, MoveDown, MoveLeft, MoveRight,  // Déplacement

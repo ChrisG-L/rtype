@@ -15,12 +15,12 @@ L'industrie du jeu vidéo et les protocoles réseau sous-jacents ont été touch
 ```mermaid
 timeline
     title Vulnérabilités TLS 2025-2026
-    Octobre 2025 : CVE-2025-9230 (OpenSSL CMS)
-                 : CVE-2025-9231 (ARM timing)
-                 : CVE-2025-9232 (OpenSSL)
+    Septembre 2025 : CVE-2025-9230 (OpenSSL CMS)
+                   : CVE-2025-9231 (ARM timing)
+                   : CVE-2025-9232 (OpenSSL HTTP)
+    Octobre 2025 : CVE-2025-61778 (Akka.NET mTLS bypass)
     Janvier 2026 : CVE-2025-59464 (Node.js TLS)
                  : CVE-2026-21637 (TLS PSK/ALPN)
-    Octobre 2025 : Akka.NET mTLS bypass
 ```
 
 #### CVE-2025-9230 : OpenSSL CMS Decryption
@@ -30,7 +30,8 @@ timeline
 | **Composant** | OpenSSL CMS (Password-Based Encryption) |
 | **Impact** | Out-of-bounds read/write, DoS, potentielle exécution de code |
 | **Sévérité** | HIGH |
-| **Versions affectées** | OpenSSL < 3.x patché |
+| **CVSS** | **7.5** |
+| **Versions affectées** | OpenSSL < 3.5.4, 3.4.3, 3.3.5, 3.2.6, 3.0.18 |
 | **Mitigation** | Mise à jour OpenSSL |
 
 #### CVE-2025-9231 : Timing Side-Channel ARM64
@@ -40,7 +41,18 @@ timeline
 | **Composant** | OpenSSL SM2 sur ARM 64-bit |
 | **Impact** | Récupération de clés privées via timing |
 | **Sévérité** | MODERATE |
+| **CVSS** | **~5.3** |
 | **Pertinence R-Type** | Faible (pas de SM2, architecture x86_64 principale) |
+
+#### CVE-2025-9232 : OpenSSL HTTP Client no_proxy
+
+| Attribut | Valeur |
+|----------|--------|
+| **Composant** | OpenSSL HTTP client API (no_proxy IPv6) |
+| **Impact** | Out-of-bounds read, DoS |
+| **Sévérité** | LOW |
+| **CVSS** | **5.9** |
+| **Pertinence R-Type** | Faible (n'utilise pas l'API HTTP OpenSSL) |
 
 #### CVE-2025-59464 : Node.js TLS Memory Leak
 
@@ -48,17 +60,31 @@ timeline
 |----------|--------|
 | **Composant** | Node.js OpenSSL integration |
 | **Impact** | DoS par épuisement mémoire |
+| **Sévérité** | MEDIUM |
+| **CVSS** | **~5.0** |
 | **Vecteur** | Connexions TLS répétées avec certificats clients |
 | **Pertinence R-Type** | Indirecte (C++ avec Boost.ASIO, pas Node.js) |
 
-#### Akka.NET mTLS Bypass (Octobre 2025)
+#### CVE-2026-21637 : Node.js TLS PSK/ALPN Callback
+
+| Attribut | Valeur |
+|----------|--------|
+| **Composant** | Node.js TLS PSK/ALPN callbacks |
+| **Impact** | DoS, file descriptor leak |
+| **Sévérité** | MEDIUM |
+| **CVSS** | **~5.0** |
+| **Pertinence R-Type** | Indirecte (C++ avec Boost.ASIO, pas Node.js) |
+
+#### CVE-2025-61778 : Akka.NET mTLS Bypass (Octobre 2025)
 
 | Attribut | Valeur |
 |----------|--------|
 | **Composant** | Akka.Remote v1.2.0-v1.5.51 |
-| **Impact** | Contournement de l'authentification TLS |
-| **Cause** | Client certificate non vérifié |
-| **Leçon** | Toujours activer mutual TLS (mTLS) |
+| **Impact** | Contournement complet de l'authentification TLS |
+| **Sévérité** | CRITICAL |
+| **CVSS** | **9.3** |
+| **Cause** | Client certificate non vérifié (mTLS non implémenté) |
+| **Leçon** | Toujours activer et vérifier mutual TLS (mTLS) |
 
 ### Menaces Spécifiques au Gaming (2025-2026)
 
@@ -92,8 +118,10 @@ graph TB
 |---------------|------------|--------|
 | CVE-2025-9230 | Non | R-Type n'utilise pas CMS encryption |
 | CVE-2025-9231 | Non | Pas de SM2, pas de ARM64 production |
+| CVE-2025-9232 | Non | N'utilise pas l'API HTTP OpenSSL |
 | CVE-2025-59464 | Non | C++ avec Boost.ASIO, pas Node.js |
-| Akka.NET mTLS | Leçon | Vérifier certificat client si mTLS |
+| CVE-2026-21637 | Non | C++ avec Boost.ASIO, pas Node.js |
+| CVE-2025-61778 (Akka.NET) | Leçon | Vérifier certificat client si mTLS |
 | DDoS UDP | Oui | UDP game server port 4124 |
 | Cheats IA | Oui | Server-authoritative mitigation |
 
@@ -208,7 +236,7 @@ SessionToken generateToken() {
 
 #### 3. Hachage des Mots de Passe
 
-**Fichier** : `src/server/domain/value_objects/user/PasswordUtils.cpp:11-21`
+**Fichier** : `src/server/domain/value_objects/user/utils/PasswordUtils.cpp:11-21`
 
 ```cpp
 std::string hashPassword(std::string password) {
@@ -257,7 +285,7 @@ static constexpr size_t MAX_EMAIL_LEN = 255;  // RFC 5321
 
 #### 5. Gestion des Erreurs SSL/TLS
 
-**Fichier** : `TCPAuthServer.cpp:926-930`
+**Fichier** : `src/server/infrastructure/adapters/in/network/TCPAuthServer.cpp:923-930`
 
 ```cpp
 sslSocket->async_handshake(
@@ -359,7 +387,9 @@ Le score de 85/100 positionne R-Type au niveau de sécurité attendu pour une ap
 ## Sources
 
 - [OpenSSL Vulnerabilities](https://openssl-library.org/news/vulnerabilities/)
+- [OpenSSL Security Advisory - September 2025](https://openssl-library.org/post/2025-09-30-release-announcement/)
 - [Node.js Security Releases - January 2026](https://nodejs.org/en/blog/vulnerability/december-2025-security-releases)
+- [Akka.NET CVE-2025-61778 Advisory](https://github.com/akkadotnet/akka.net/security/advisories/GHSA-jhpv-4q4f-43g5)
 - [OWASP TLS Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html)
 - [Top 10 Trends to Ensure Secure Gaming in 2026](https://www.cm-alliance.com/cybersecurity-blog/top-10-trends-to-ensure-secure-gaming-in-2026)
 - [IBM Cybersecurity Trends 2026](https://www.ibm.com/think/news/cybersecurity-trends-predictions-2026)
