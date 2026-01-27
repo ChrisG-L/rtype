@@ -231,7 +231,7 @@ find_package(SFML REQUIRED COMPONENTS graphics window system audio)
 | **Méthodes** | camelCase | `handleEvent()`, `getSnapshot()` |
 | **Membres privés** | _camelCase | `_players`, `_missiles` |
 | **Constantes** | SCREAMING_SNAKE_CASE | `MAX_PLAYERS`, `MOVE_SPEED` |
-| **Namespaces** | lowercase | `domain::entities`, `events` |
+| **Namespaces** | snake_case | `domain::entities`, `events` |
 | **Enums** | PascalCase | `enum class State { Waiting, InGame }` |
 | **Fichiers** | PascalCase.hpp/.cpp | `GameWorld.hpp`, `UDPServer.cpp` |
 

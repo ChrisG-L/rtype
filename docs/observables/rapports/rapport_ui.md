@@ -455,7 +455,7 @@ private:
 | **Methodes privees** | camelCase | `void loadAssets()`, `void initUI()` | `GameScene.hpp:74` |
 | **Variables membres** | _prefixWithUnderscore | `Vec2f _pos`, `rgba _normalColor` | `Button.hpp:59-70` |
 | **Constantes** | SCREAMING_SNAKE_CASE | `static constexpr float MOVE_SPEED = 200.0f` | `GameScene.hpp:121` |
-| **Namespaces** | lowercase | `namespace graphics`, `namespace ui`, `namespace events` | Multiple |
+| **Namespaces** | snake_case | `namespace graphics`, `namespace ui`, `namespace events` | Multiple |
 
 ### 6.2 Formatage et Style
 

@@ -567,7 +567,7 @@ void SceneManager::handleEvent(const events::Event& event) {
 | Méthodes | camelCase | `handleEvent()`, `getSnapshot()` |
 | Membres privés | _prefix | `_position`, `_health` |
 | Constantes | SCREAMING_SNAKE | `MAX_PLAYERS`, `MOVE_SPEED` |
-| Namespaces | lowercase | `domain::entities`, `events` |
+| Namespaces | snake_case | `domain::entities`, `events` |
 
 #### Exemple de Code Propre
 
